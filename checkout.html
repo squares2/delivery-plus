@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AL-Saha Shop</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/all.min.css" rel="stylesheet">
+  <link href="css/styles2.css" rel="stylesheet">
+  <link href="css/styles.css" rel="stylesheet">
+<script type="module">
+    import { distribute, startPage } from './javascript/database.js';
+
+    async function initializePage() {
+        try {
+            // 1. Fill products first and wait for completion
+            await distribute(); 
+            // 2. Now call other methods; products[] is guaranteed to be full
+            startPage(); 
+        } catch (error) {
+            console.error("Initialization failed:", error);
+        }
+    }
+
+    // Trigger initialization on load
+    window.addEventListener('DOMContentLoaded', initializePage);
+</script>
+</head>
+<body>
+  <div class="announcement-bar text-white">
+    <div class="container d-flex justify-content-between align-items-center">
+      <div class="d-flex gap-4">
+        <span><i class="fa-solid fa-truck-fast me-2"></i>Free delivery</span>
+        <span><i class="fa-solid fa-bolt me-2"></i>Fast delivery</span>
+      </div>
+    </div>
+  </div>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="index.html"><i class="fa-solid fa-basket-shopping me-2"></i>AL-SAHA</a>
+	  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ 		<a class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar"><i class="fa-solid fa-cart-shopping"></i>
+		<span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
+		</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+     <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+       <ul class="navbar-nav">
+          <li class="nav-item dropdown mega">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Categories</a>
+            <div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
+              <div class="row g-3">
+                <div class="col-6 col-lg-3">
+                  <h6 class="fw-semibold">Fruits & Vegetables</h6>
+                  <a class="dropdown-item" href="category.html?category=Fruits">Fresh Fruits</a>
+                  <a class="dropdown-item" href="category.html?category=Fruits">Dried Fruits</a>
+                  <a class="dropdown-item" href="category.html?category=Vegetables">Vegetables</a>
+                </div>
+                <div class="col-6 col-lg-3">
+                  <h6 class="fw-semibold">Dairy & Bakery</h6>
+                  <a class="dropdown-item" href="category.html?category=Dairy">Milk</a>
+                  <a class="dropdown-item" href="category.html?category=Bakery">Bread</a>
+                  <a class="dropdown-item" href="category.html?category=Cheese">Cheese</a>
+                  <a class="dropdown-item" href="category.html?category=Cheese">Labneh</a>
+                </div>
+                <div class="col-6 col-lg-3">
+                  <h6 class="fw-semibold">Snacks & Beverages</h6>
+                  <a class="dropdown-item" href="category.html?category=Chips">Chips</a>
+                  <a class="dropdown-item" href="category.html?category=Beverages">Candy</a>
+                  <a class="dropdown-item" href="category.html?category=Chocolates">Chocolates</a>
+                  <a class="dropdown-item" href="category.html?category=Beverages">Juices</a>
+                  <a class="dropdown-item" href="category.html?category=Tea">Tea & Coffee</a>
+                </div>
+                <div class="col-6 col-lg-3">
+                  <h6 class="fw-semibold">Staples</h6>
+                  <a class="dropdown-item" href="category.html?category=Staples">Food Stuffs</a>
+                  <a class="dropdown-item" href="category.html?category=Staples">Grains</a>
+                  <a class="dropdown-item" href="category.html?category=Staples">Spices</a>
+                  <a class="dropdown-item" href="category.html?category=Staples">Raw Materials</a>
+                </div>
+                <div class="col-6 col-lg-3">
+                  <h6 class="fw-semibold">Meat & Chicken</h6>
+                  <a class="dropdown-item" href="category.html?category=Snacks">Meat</a>
+                  <a class="dropdown-item" href="category.html?category=Beverages">Chicken</a>
+                </div>
+                <div class="col-6 col-lg-3">
+                  <h6 class="fw-semibold">Household Essentials</h6>
+                  <a class="dropdown-item" href="category.html?category=Snacks">Cleaners</a>
+                  <a class="dropdown-item" href="category.html?category=Beverages">Plastics</a>
+                </div>
+                <div class="col-6 col-lg-3">
+                  <h6 class="fw-semibold">Cigaretes & Tobbaco</h6>
+                  <a class="dropdown-item" href="category.html?category=Staples">Cigaretes</a>
+                  <a class="dropdown-item" href="category.html?category=Staples">Tobbaco</a>
+                </div>
+              </div>
+            </div>
+        </ul>
+      <div class="collapse navbar-collapse">
+
+        <form class="d-flex flex-grow-1 me-3 search-form">
+          <div class="input-group">
+            <span class="input-group-text bg-transparent border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input class="form-control border-start-0" type="search" placeholder="Search for products">
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </nav>
+
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">AL-SAHA</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="mb-3">
+        <div class="input-group">
+          <span class="input-group-text bg-transparent border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
+          <input class="form-control border-start-0" type="search" placeholder="Search">
+        </div>
+      </div>
+      <ul class="list-unstyled">
+        <li><a class="d-block py-2" href="index.html">Home</a></li>
+        <li><a class="d-block py-2" href="about.html">About Us</a></li>
+        <li><a class="d-block py-2" href="contact.html">Contact</a></li>
+        <li><a class="d-block py-2" href="category.html">Shop Categories</a></li>
+      </ul>
+    </div>
+  </div>
+
+<section class="py-5">
+	<div class="container">
+		<div class="row g-4">
+			<div class="col-12 col-lg-7">
+				<div class="p-4 border rounded">
+					<h5 class="mb-3">Shipping Address</h5>
+					<div class="row g-3">
+						<div class="col-12 col-md-6">
+							<input type="text" id="fullname"class="form-control" placeholder="Full name">
+						</div>
+						<div class="col-12 col-md-6">
+							<input type="text" id="phone"class="form-control" placeholder="Phone Number">
+						</div>
+						<div class="col-12 col-md-6">
+							<input type="text" id="city"class="form-control" placeholder="City">
+						</div>
+						<div class="col-12">
+							<input type="text" id="street"class="form-control" placeholder="Street address">
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-12 col-lg-5">
+				<div class="p-4 border rounded">
+					<h5 class="mb-3">Order Summary</h5>
+					<div class="d-flex justify-content-between">
+						<span>Items</span>
+						<span id="summaryItems">0</span>
+					</div>
+					<div class="d-flex justify-content-between">
+						<span>Shipping</span>
+						<span>Free</span>
+					</div>
+					<div class="d-flex justify-content-between">
+						<span>Total</span>
+						<span id="summaryTotal">$0.00</span>
+					</div>
+				</div>
+			</div>
+			<button id="place_order"class="btn btn-primary mt-3">Place Order</button>
+			<div style="display:none"id="message-label" class="btn btn-success mt-3">
+				Order Sent to AL-SAHA SUCCESSFULLY  !
+			</div>
+		</div>
+	</div>
+</section>  
+
+<footer class="footer bg-dark text-white pt-5">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-12 col-lg-3">
+          <h6 class="fw-semibold">About</h6>
+          <p class="text-muted">AL-SAHA brings fresh groceries to your door with great prices.</p>
+        </div>
+        <div class="col-6 col-lg-3">
+          <h6 class="fw-semibold">Categories</h6>
+          <ul class="list-unstyled text-muted">
+            <li><a class="text-muted" href="category.html?category=Fruits">Fruits & Vegetables</a></li>
+            <li><a class="text-muted" href="category.html?category=Dairy">Dairy & Bakery</a></li>
+            <li><a class="text-muted" href="category.html?category=Snacks">Snacks & Beverages</a></li>
+            <li><a class="text-muted" href="category.html?category=Staples">Staples</a></li>
+          </ul>
+        </div>
+        <div class="col-6 col-lg-3">
+          <h6 class="fw-semibold">Categories</h6>
+          <ul class="list-unstyled text-muted">
+            <li><a class="text-muted" href="category.html?category=Staples">Meat & Chicken</a></li>
+            <li><a class="text-muted" href="category.html?category=Staples">Household Essentials</a></li>
+            <li><a class="text-muted" href="category.html?category=Staples">Cigaretes & Tobbaco</a></li>
+          </ul>
+        </div>
+        <div class="col-6 col-lg-3">
+          <h6 class="fw-semibold">Customer Support</h6>
+          <ul class="list-unstyled text-muted">
+            <li><a class="text-muted" href="contact.html">Contact Us</a></li>
+            <li><a class="text-muted" href="#">Shipping Policy</a></li>
+            <li><a class="text-muted" href="#">Returns Policy</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-top mt-4 py-3 text-center text-muted">© 2026 AL-SAHA. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Your Cart</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="cartList" class="list-group mb-3"></div>
+      <div class="d-flex justify-content-between align-items-center border-top pt-3">
+        <div class="fw-semibold">Total</div>
+        <div id="cartTotal" class="fw-bold">$0.00</div>
+      </div>
+      <a href="checkout.html" class="btn btn-primary w-100 mt-3">Checkout</a>
+    </div>
+  </div>
+
+  <div class="modal fade" id="quickViewModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="quickViewTitle"></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <img id="quickViewImage" class="img-fluid rounded mb-3" alt="">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="fw-semibold" id="quickViewPrice"></div>
+            <button class="btn btn-primary" id="quickViewAdd">Add to Cart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+	<script src="javascript/bootstrap.bundle.min.js"></script>
+	<script type="module" src="javascript/database.js"></script> 
+	<script>
+	document.addEventListener('DOMContentLoaded',function()
+	{
+		var si=document.getElementById('summaryItems');
+		var st=document.getElementById('summaryTotal');
+		if(si)si.textContent=""+localStorage.getItem('count');;
+		if(st)st.textContent='$'+Number(localStorage.getItem('total')).toFixed(2);
+	});
+	</script>
+</body>
+</html>

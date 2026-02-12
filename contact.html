@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact Us | Grocer+</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="announcement-bar text-white">
+    <div class="container d-flex justify-content-between align-items-center">
+      <div class="d-flex gap-4"><span><i class="fa-solid fa-truck-fast me-2"></i>Free delivery</span><span><i class="fa-solid fa-gift me-2"></i>First-order discount</span><span><i class="fa-solid fa-bolt me-2"></i>Fast delivery</span></div>
+      <div class="small">Super Saver Week</div>
+    </div>
+  </div>
+
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="index.html"><i class="fa-solid fa-basket-shopping me-2"></i>Grocer+</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav me-3">
+          <li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="fa-solid fa-location-dot me-2"></i>Select location</a><ul class="dropdown-menu"><li><a class="dropdown-item" href="#">New York</a></li><li><a class="dropdown-item" href="#">Chicago</a></li><li><a class="dropdown-item" href="#">San Francisco</a></li></ul></li>
+        </ul>
+        <form class="d-flex flex-grow-1 me-3 search-form"><div class="input-group"><span class="input-group-text bg-transparent border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span><input class="form-control border-start-0" type="search" placeholder="Search for groceries, brands and more"></div></form>
+        <ul class="navbar-nav">
+          <li class="nav-item dropdown mega"><a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Categories</a>
+            <div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
+              <div class="row g-3">
+                <div class="col-6 col-lg-3"><h6 class="fw-semibold">Fruits & Vegetables</h6><a class="dropdown-item" href="category.html?category=Fruits">Fresh Fruits</a><a class="dropdown-item" href="category.html?category=Vegetables">Leafy Greens</a><a class="dropdown-item" href="category.html?category=Organic">Organic</a></div>
+                <div class="col-6 col-lg-3"><h6 class="fw-semibold">Dairy & Bakery</h6><a class="dropdown-item" href="category.html?category=Dairy">Milk</a><a class="dropdown-item" href="category.html?category=Bakery">Bread</a><a class="dropdown-item" href="category.html?category=Cheese">Cheese</a></div>
+                <div class="col-6 col-lg-3"><h6 class="fw-semibold">Snacks & Beverages</h6><a class="dropdown-item" href="category.html?category=Snacks">Chips</a><a class="dropdown-item" href="category.html?category=Beverages">Juices</a><a class="dropdown-item" href="category.html?category=Tea">Tea & Coffee</a></div>
+                <div class="col-6 col-lg-3"><h6 class="fw-semibold">Staples</h6><a class="dropdown-item" href="category.html?category=Staples">Rice</a><a class="dropdown-item" href="category.html?category=Staples">Flour</a><a class="dropdown-item" href="category.html?category=Staples">Pulses</a></div>
+              </div>
+            </div>
+          </li>
+          <li class="nav-item me-2"><a class="btn btn-gradient" href="account.html"><i class="fa-solid fa-user me-2"></i>Login / Signup</a></li>
+          <li class="nav-item"><a class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar"><i class="fa-solid fa-cart-shopping"></i><span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span></a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu"><div class="offcanvas-header"><h5 class="offcanvas-title">Grocer+</h5><button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div><div class="offcanvas-body"><ul class="list-unstyled"><li><a class="d-block py-2" href="index.html">Home</a></li><li><a class="d-block py-2" href="about.html">About Us</a></li><li><a class="d-block py-2" href="contact.html">Contact</a></li><li><a class="d-block py-2" href="category.html">Shop Categories</a></li><li><a class="d-block py-2" href="account.html">Account</a></li></ul></div></div>
+
+  <section class="py-5"><div class="container"><h2 class="fw-bold">Contact Us</h2><p class="text-muted">We would love to hear from you.</p><div class="row g-4 mt-1"><div class="col-12 col-lg-6"><form class="p-4 border rounded"><div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" placeholder="Your name"></div><div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" placeholder="you@example.com"></div><div class="mb-3"><label class="form-label">Message</label><textarea class="form-control" rows="5" placeholder="Write your message"></textarea></div><button type="button" class="btn btn-primary">Send Message</button></form></div><div class="col-12 col-lg-6"><div class="p-4 border rounded h-100"><div class="fw-semibold mb-2">Support</div><p class="text-muted">Email: support@grocer.plus</p><p class="text-muted">Phone: +1 800 123 456</p><div class="fw-semibold mb-2">Address</div><p class="text-muted">123 Market Street, New York, NY</p></div></div></div></div></section>
+
+  <footer class="footer bg-dark text-white pt-5">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-12 col-lg-3"><h6 class="fw-semibold">About</h6><p class="text-muted">Grocer+ brings fresh groceries to your door with great prices.</p></div>
+        <div class="col-6 col-lg-3"><h6 class="fw-semibold">Categories</h6><ul class="list-unstyled text-muted"><li><a class="text-muted" href="category.html?category=Fruits">Fruits & Vegetables</a></li><li><a class="text-muted" href="category.html?category=Dairy">Dairy & Bakery</a></li><li><a class="text-muted" href="category.html?category=Snacks">Snacks & Beverages</a></li><li><a class="text-muted" href="category.html?category=Staples">Staples</a></li></ul></div>
+        <div class="col-6 col-lg-3"><h6 class="fw-semibold">Customer Support</h6><ul class="list-unstyled text-muted"><li><a class="text-muted" href="contact.html">Contact Us</a></li><li><a class="text-muted" href="#">Shipping Policy</a></li><li><a class="text-muted" href="#">Returns Policy</a></li><li><a class="text-muted" href="#">FAQs</a></li></ul></div>
+        <div class="col-12 col-lg-3"><h6 class="fw-semibold">Follow Us</h6><div class="d-flex gap-3 mb-3"><a href="#" class="text-white"><i class="fa-brands fa-facebook"></i></a><a href="#" class="text-white"><i class="fa-brands fa-instagram"></i></a><a href="#" class="text-white"><i class="fa-brands fa-twitter"></i></a><a href="#" class="text-white"><i class="fa-brands fa-youtube"></i></a></div><div class="d-flex align-items-center gap-3 text-muted"><i class="fa-brands fa-cc-visa fa-2x"></i><i class="fa-brands fa-cc-mastercard fa-2x"></i><i class="fa-brands fa-cc-amex fa-2x"></i><i class="fa-brands fa-cc-paypal fa-2x"></i></div></div>
+      </div>
+      <div class="border-top mt-4 py-3 text-center text-muted">© 2025 Grocer+. All rights reserved.</div>
+    </div>
+  </footer>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar"><div class="offcanvas-header"><h5 class="offcanvas-title">Your Cart</h5><button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div><div class="offcanvas-body"><div id="cartList" class="list-group mb-3"></div><div class="d-flex justify-content-between align-items-center border-top pt-3"><div class="fw-semibold">Total</div><div id="cartTotal" class="fw-bold">$0.00</div></div><a href="checkout.html" class="btn btn-primary w-100 mt-3">Checkout</a></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
