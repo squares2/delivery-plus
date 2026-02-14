@@ -61,8 +61,8 @@ body{font-family:'Poppins',sans-serif;color:var(--text);}
 {
 	min-width:600px;
 	max-width:calc(100vw - 32px);
-	right:0;
-	left:auto;
+	right:auto;
+	left:0;
 	overflow-x:auto;
 	max-height: 80vh;
 	overflow-y: auto;
@@ -123,6 +123,15 @@ footer.footer{position:relative;z-index:1}
   .product-card .card-body .d-flex{flex-direction:column;gap:.5rem}
   .product-card .card-body .d-flex .btn{width:100%}
 }
+h6.card-title
+{
+	font-size:20px;
+}
+.fw-semibold.mb-2
+{
+	color:green;
+	font-size:22px;
+}	
 .announcement-bar{display:block}
 @media(max-width:576px){.announcement-bar{display:none!important}}
 .offcanvas-end#cartSidebar{--bs-offcanvas-width:360px}

@@ -9,24 +9,9 @@
   <link href="css/styles.css" rel="stylesheet">
   <link href="css/styles2.css" rel="stylesheet">
   <link href="css/styles3.css" rel="stylesheet">
-<script type="module">
-    import { distribute, startPage } from './javascript/database.js';
-
-    async function initializePage() {
-        try {
-            // 1. Fill products first and wait for completion
-            await distribute(); 
-            
-            // 2. Now call other methods; products[] is guaranteed to be full
-            startPage(); 
-        } catch (error) {
-            console.error("Initialization failed:", error);
-        }
-    }
-
-    // Trigger initialization on load
-    window.addEventListener('DOMContentLoaded', initializePage);
-</script>
+  <script type="module" src="javascript/database.js"></script> 
+  <script src="javascript/bootstrap.bundle.min.js"></script>
+<script type="module"src="javascript/startup.js"></script>
 </head>
 <body>
   <div class="announcement-bar text-white">
@@ -127,7 +112,6 @@
         <li><a class="d-block py-2" href="index.html">Home</a></li>
         <li><a class="d-block py-2" href="about.html">About Us</a></li>
         <li><a class="d-block py-2" href="contact.html">Contact</a></li>
-        <li><a class="d-block py-2" href="category.html">Shop Categories</a></li>
       </ul>
     </div>
   </div>
@@ -183,7 +167,7 @@
 
     <i class="fa-solid fa-store-slash main-icon"></i>
     <h1>Shop is Resting</h1>
-    <p>AL-SAHA is currently closed for maintenance. We are updating our inventory to serve you better!</p>
+    <p>Delivery+ is currently closed for maintenance. We are updating our inventory to serve you better!</p>
 
     <!-- The Schedule Box -->
     <div class="schedule-box">
@@ -206,53 +190,53 @@
     <div class="container">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="section-title">Featured Shops</h3>
-        <a href="category.html" class="text-primary">View all</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <a href="category.html?location=All Items" class="text-primary">View all</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
       </div>
       <div class="row g-3">
         <div class="col-6 col-lg-2">
-          <a href="category.html?category=Fresh Fruits&category=Dried Fruits&category=Vegetables" class="card category-card text-center">
+          <a href="category.html?location=Restaurants&category=Fresh Fruits&category=Dried Fruits&category=Vegetables" class="card category-card text-center">
             <img src="png/restaurants.jpg" class="card-img-top" alt="Fruits">
             <div class="card-body"><h6>Restaurants</h6></div>
           </a>
         </div>
         <div class="col-6 col-lg-2">
-          <a href="category.html?category=Milk&category=Bread&category=Cheese&category=Labneh" class="card category-card text-center">
+          <a href="category.html?location=Markets&category=Milk&category=Bread&category=Cheese&category=Labneh" class="card category-card text-center">
             <img src="png/markets.jpg" class="card-img-top" alt="Dairy">
             <div class="card-body"><h6>Markets</h6></div>
           </a>
         </div>
         <div class="col-6 col-lg-2">
-          <a href="category.html?category=Chips&category=Candy&category=Chocolates&category=Juices&category=Tea&category=Coffee" class="card category-card text-center">
+          <a href="category.html?category=Chips&location=Groceries&category=Candy&category=Chocolates&category=Juices&category=Tea&category=Coffee" class="card category-card text-center">
             <img src="png/groceries.jpg" class="card-img-top" alt="Snacks">
             <div class="card-body"><h6>Groceries</h6></div>
           </a>
         </div>
        <div class="col-6 col-lg-2">
-          <a href="category.html?category=Food Stuffs&category=Grains&category=Spices&category=Raw Materials" class="card category-card text-center">
+          <a href="category.html?location=Butchers&category=Food Stuffs&category=Grains&category=Spices&category=Raw Materials" class="card category-card text-center">
             <img src="png/butchers.jpg" class="card-img-top" alt="Staples">
             <div class="card-body"><h6>Butchers</h6></div>
           </a>
         </div>
        <div class="col-6 col-lg-2">
-          <a href="category.html?category=Food Stuffs&category=Grains&category=Spices&category=Raw Materials" class="card category-card text-center">
+          <a href="category.html?location=Toys shop&category=Food Stuffs&category=Grains&category=Spices&category=Raw Materials" class="card category-card text-center">
             <img src="png/toys.jpg" class="card-img-top" alt="Staples">
             <div class="card-body"><h6>Toys shop</h6></div>
           </a>
         </div>
         <div class="col-6 col-lg-2">
-          <a href="category.html?category=Meat&category=Chicken" class="card category-card text-center">
+          <a href="category.html?location=Bakery&category=Meat&category=Chicken" class="card category-card text-center">
             <img src="png/bakery.jpg" class="card-img-top" alt="Meat">
             <div class="card-body"><h6>Bakery</h6></div>
           </a>
        </div>
         <div class="col-6 col-lg-2">
-          <a href="category.html?category=Cleaners&category=Plastics" class="card category-card text-center">
+          <a href="category.html?location=Sweets&category=Cleaners&category=Plastics" class="card category-card text-center">
             <img src="png/sweets.jpg" class="card-img-top" alt="Household">
             <div class="card-body"><h6>Sweets</h6></div>
           </a>
         </div>
         <div class="col-6 col-lg-2">
-          <a href="category.html?category=Cigaretes&category=Tobbaco" class="card category-card text-center">
+          <a href="category.html?location=Tobbaco&category=Cigaretes&category=Tobbaco" class="card category-card text-center">
             <img src="png/tobacco.jpg" class="card-img-top" alt="Household">
             <div class="card-body"><h6>Tobbaco</h6></div>
           </a>
@@ -269,27 +253,26 @@
           <p class="text-muted">Delivery+ brings you any thing you need to your door with great prices.</p>
         </div>
         <div class="col-6 col-lg-3">
-          <h6 class="fw-semibold">Categories</h6>
+          <h6 class="fw-semibold">Restaurants</h6>
           <ul class="list-unstyled text-muted">
-            <li><a class="text-muted" href="category.html?category=Fresh Fruits&category=Dried Fruits&category=Vegetables">Fruits & Vegetables</a></li>
-            <li><a class="text-muted" href="category.html?category=Milk&category=Bread&category=Cheese&category=Labneh">Dairy & Bakery</a></li>
-            <li><a class="text-muted" href="category.html?category=Chips&category=Candy&category=Chocolates&category=Juices&category=Tea&category=Coffee">Snacks & Beverages</a></li>
-            <li><a class="text-muted" href="category.html?category=Food Stuffs&category=Grains&category=Spices&category=Raw Materials">Staples</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Beik">AL-Beik</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Fajr">AL-Fajr</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Hellani">AL-Hellani</a></li>
           </ul>
         </div>
         <div class="col-6 col-lg-3">
-          <h6 class="fw-semibold">Categories</h6>
+          <h6 class="fw-semibold">Markets</h6>
           <ul class="list-unstyled text-muted">
-            <li><a class="text-muted" href="category.html?category=Meat&category=Chicken">Meat & Chicken</a></li>
-            <li><a class="text-muted" href="category.html?category=Cleaners&category=Plastics">Household Essentials</a></li>
-            <li><a class="text-muted" href="category.html?category=Cigaretes&category=Tobbaco">Cigaretes & Tobbaco</a></li>
+            <li><a class="text-muted" href="category.html?category=Foodigo">Foodigo</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Amana">AL-Amana</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Tawfeer">AL-Tawfeer</a></li>
           </ul>
         </div>
         <div class="col-6 col-lg-3">
           <h6 class="fw-semibold">Customer Support</h6>
           <ul class="list-unstyled text-muted">
             <li><a class="text-muted" href="contact.html">Contact Us</a></li>
-            <li><a class="text-muted" href="#">Shipping Policy</a></li>
+            <li><a class="text-muted" href="#">Delivery Policy</a></li>
             <li><a class="text-muted" href="#">Returns Policy</a></li>
           </ul>
         </div>
@@ -330,8 +313,5 @@
       </div>
     </div>
   </div>
-
-	<script type="module" src="javascript/database.js"></script> 
-	<script src="javascript/bootstrap.bundle.min.js"></script>
 </body>
 </html>

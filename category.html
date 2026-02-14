@@ -9,6 +9,8 @@
   <link href="css/styles.css" rel="stylesheet">
   <link href="css/styles2.css" rel="stylesheet">
   <link href="css/styles3.css" rel="stylesheet">
+  <script src="javascript/bootstrap.bundle.min.js"></script>
+  <script type="module" src="javascript/database.js"></script> 
 <script type="module">
     import { distribute, startPage } from './javascript/database.js';
 
@@ -17,7 +19,12 @@
             // 1. Fill products first and wait for completion
             await distribute(); 
             // 2. Now call other methods; products[] is guaranteed to be full
-            startPage(); 
+            startPage();
+			const params = new URLSearchParams(window.location.search);
+			const categories = params.getAll('category'); 
+			const location = params.getAll('location'); 
+			if(categories.length==1)document.getElementById('company').innerHTML=categories[0];
+			else document.getElementById('company').innerHTML=location[0];
         } catch (error) {
             console.error("Initialization failed:", error);
         }
@@ -39,13 +46,9 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
     <div class="container">
       <a class="navbar-brand fw-bold" href="index.html"><i class="fa-solid fa-basket-shopping me-2"></i>Delivery+</a>
-	  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
  		<a class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar"><i class="fa-solid fa-cart-shopping"></i>
 		<span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-		</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-     <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
-        <span class="navbar-toggler-icon"></span>
-      </button>
+		</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 
        <ul class="navbar-nav">
           <li class="nav-item dropdown mega">
@@ -98,12 +101,15 @@
               </div>
             </div>
         </ul>
-      <div class="collapse navbar-collapse">
+		<button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+		<span class="navbar-toggler-icon"></span>
+		</button>
+     <div class="collapse navbar-collapse">
 
         <form class="d-flex flex-grow-1 me-3 search-form">
           <div class="input-group">
             <span class="input-group-text bg-transparent border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
-            <input class="form-control border-start-0" type="search" placeholder="Search for products">
+            <input class="form-control border-start-0" type="search" placeholder="Search for items">
           </div>
         </form>
 
@@ -141,7 +147,7 @@
 
     <i class="fa-solid fa-store-slash main-icon"></i>
     <h1>Shop is Resting</h1>
-    <p>AL-SAHA is currently closed for maintenance. We are updating our inventory to serve you better!</p>
+    <p>Delivery+ is currently closed for maintenance. We are updating our inventory to serve you better!</p>
 
     <!-- The Schedule Box -->
     <div class="schedule-box">
@@ -169,7 +175,7 @@
 		<div class="row g-3" id="categoryGrid">
 			<div class="col-6 col-lg-3">
 				<div class="card product-card h-100">
-					<img src="png/products/68.png" class="card-img-top" alt="Red Apples 1kg" loading="lazy" referrerpolicy="no-referrer">
+					<img src="items/68.png" class="card-img-top" alt="Red Apples 1kg" loading="lazy" referrerpolicy="no-referrer">
 					<img src="png/cart2.png" class="img-overlay" alt="Overlay">
 					<div class="card-body">
 						<h6 class="card-title">Red Apples 1kg</h6>
@@ -188,35 +194,34 @@
       <div class="row g-4">
         <div class="col-12 col-lg-3">
           <h6 class="fw-semibold">About</h6>
-          <p class="text-muted">AL-SAHA brings fresh groceries to your door with great prices.</p>
+          <p class="text-muted">Delivery+ brings you any thing you need to your door with great prices.</p>
         </div>
         <div class="col-6 col-lg-3">
-          <h6 class="fw-semibold">Categories</h6>
+          <h6 class="fw-semibold">Restaurants</h6>
           <ul class="list-unstyled text-muted">
-            <li><a class="text-muted" href="category.html?category=Fresh Fruits&category=Dried Fruits&category=Vegetables">Fruits & Vegetables</a></li>
-            <li><a class="text-muted" href="category.html?category=Milk&category=Bread&category=Cheese&category=Labneh">Dairy & Bakery</a></li>
-            <li><a class="text-muted" href="category.html?category=Chips&category=Candy&category=Chocolates&category=Juices&category=Tea&category=Coffee">Snacks & Beverages</a></li>
-            <li><a class="text-muted" href="category.html?category=Food Stuffs&category=Grains&category=Spices&category=Raw Materials">Staples</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Beik">AL-Beik</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Fajr">AL-Fajr</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Hellani">AL-Hellani</a></li>
           </ul>
         </div>
         <div class="col-6 col-lg-3">
-          <h6 class="fw-semibold">Categories</h6>
+          <h6 class="fw-semibold">Markets</h6>
           <ul class="list-unstyled text-muted">
-            <li><a class="text-muted" href="category.html?category=Meat&category=Chicken">Meat & Chicken</a></li>
-            <li><a class="text-muted" href="category.html?category=Cleaners&category=Plastics">Household Essentials</a></li>
-            <li><a class="text-muted" href="category.html?category=Cigaretes&category=Tobbaco">Cigaretes & Tobbaco</a></li>
+            <li><a class="text-muted" href="category.html?category=Foodigo">Foodigo</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Amana">AL-Amana</a></li>
+            <li><a class="text-muted" href="category.html?category=AL-Tawfeer">AL-Tawfeer</a></li>
           </ul>
         </div>
         <div class="col-6 col-lg-3">
           <h6 class="fw-semibold">Customer Support</h6>
           <ul class="list-unstyled text-muted">
             <li><a class="text-muted" href="contact.html">Contact Us</a></li>
-            <li><a class="text-muted" href="#">Shipping Policy</a></li>
+            <li><a class="text-muted" href="#">Delivery Policy</a></li>
             <li><a class="text-muted" href="#">Returns Policy</a></li>
           </ul>
         </div>
       </div>
-      <div class="border-top mt-4 py-3 text-center text-muted">© 2026 AL-SAHA. All rights reserved.</div>
+      <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivery+ All rights reserved.</div>
     </div>
   </footer>
 
@@ -252,8 +257,5 @@
       </div>
     </div>
   </div>
-
-	<script src="javascript/bootstrap.bundle.min.js"></script>
-	<script type="module" src="javascript/database.js"></script> 
 </body>
 </html>

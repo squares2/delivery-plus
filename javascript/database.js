@@ -6,13 +6,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebas
 
 	const firebaseConfig = 
 	{
-	    apiKey: "AIzaSyCyizOZNUcbczGjh1P0sxn85LoiLI9Q0yw",
-	    authDomain: "sahashop-97ae5.firebaseapp.com",
-	    databaseURL: "https://sahashop-97ae5-default-rtdb.firebaseio.com",
-	    projectId: "sahashop-97ae5",
-	    storageBucket: "sahashop-97ae5.firebasestorage.app",
-	    messagingSenderId: "620364206298",
-	    appId: "1:620364206298:web:bb9a99e5e60e4be3dad5e3"
+		apiKey: "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
+		authDomain: "deliveryonline-300f7.firebaseapp.com",
+		databaseURL: "https://deliveryonline-300f7-default-rtdb.firebaseio.com",
+		projectId: "deliveryonline-300f7",
+		storageBucket: "deliveryonline-300f7.firebasestorage.app",
+		messagingSenderId: "360058447266",
+		appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
 	};
 	const app = initializeApp(firebaseConfig);
 	import {getDatabase, set, get,update,remove,ref,runTransaction,child,onValue}
@@ -55,7 +55,7 @@ export async function distribute()
 				const key = keys[i];
 				const item = data[key];
 				
-				let row={id:key,title:item.name,price:item.price,image:'png/products/'+key+'.png',category:item.category2};
+				let row={id:key,title:item.name,price:item.price,image:'items/'+key+'.png',category:item.category2};
 				products.push(row);
 				i++;
 			}
@@ -560,7 +560,7 @@ function checkForm()
 
 function placeOrder()
 {
-	if(checkForm())
+	/*if(checkForm())
 	{
 		var fullname=document.getElementById("fullname");
 		var phone=document.getElementById("phone");
@@ -578,10 +578,11 @@ function placeOrder()
 			const product = cartItems[i];
 			cartList+=product.id+":"+product.qty+";";
 		}
-		incrementCounter();
 		const num = parseFloat(localStorage.getItem('total')); // Converts string to number
 		const tot = num.toFixed(2);
-		set(ref(db,'requests/'+globalThis.id),{fullname:removeSpecialChars(fullname.value),phone:removeSpecialChars(phone.value),address:removeSpecialChars(street.value),cart:cartList,total:Number(tot),date:getNow(),driver:"-",state:"0"});
+		*/
+		incrementCounter();
+		set(ref(db,'requests/'+globalThis.id),{fullname:"flan",cart:"1:2,2:3",deliveryplusid:localStorage.getItem('deliveryplusids')});/*
 		cartItems=[];
 		saveCart();
 		
@@ -596,7 +597,7 @@ function placeOrder()
 		}, 3000);
 		message.style.display="block";
 		message.classList.remove('hidden');
-	}	
+	}	*/
 }
 
 export async function startPage()
@@ -611,10 +612,23 @@ export async function startPage()
 	renderCartSidebar();
 	wireCartSidebar();
 }
+function function1() 
+{
+  let id = localStorage.getItem('deliveryplusids');
+  if (!id) 
+  {
+    id = crypto.randomUUID();
+    localStorage.setItem('deliveryplusids', id);
+  }
+  return id;
+}
 
 document.addEventListener('DOMContentLoaded',ensureHeroBackgroundFallback);
-
 document.addEventListener('DOMContentLoaded',ensureImageFallback)
+window.addEventListener('DOMContentLoaded', () => 
+{
+    if (window.location.pathname === "/" || window.location.pathname.endsWith("index.html"))function1();
+});
 
 var catGrid=document.getElementById('categoryGrid');
 if(catGrid)
