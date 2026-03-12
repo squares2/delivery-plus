@@ -266,7 +266,7 @@ function setCompany(comp)
 						if(comp==key&&parseInt(soon)>1)
 						{
 							inner+="<div class='col-6 col-lg-2'><a href='category.html?category="+compname+"' data-company-name='"+compname+"'"
-							inner+="class='card category-card text-center'><img src='png/"+comp+".jpg' "
+							inner+="class='card category-card text-center'><img src='png/"+comp.toLowerCase()+".jpg' "
 							inner+="class='card-img-top'><div class='card-body'><h6>"+compname+"</h6></div></a></div>";
 						}
 						j++
@@ -935,4 +935,5 @@ links.forEach(link =>
     
 	setCompany(companyname);
   });
+
 });
