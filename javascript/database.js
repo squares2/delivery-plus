@@ -673,13 +673,10 @@ function renderCartSidebar()
 		totalEl.textContent=money(total)
 		localStorage.setItem('count',getCartCount());
 		localStorage.setItem('total',total);
-		if (window.location.pathname === "/checkout.html"&&document.getElementById('summaryTotal').innerHTML!=totalEl.textContent) 
-		{
-			console.log("true2");
-			document.getElementById('summaryItems').innerHTML=getCartCount();
-			document.getElementById('summaryTotal').innerHTML=totalEl.textContent;
-		}
-		else console.log("false2");
+		var sumitems=document.getElementById('summaryItems');
+		var sumtotal=document.getElementById('summaryTotal');
+		if(sumitems!=null)sumitems.innerHTML=getCartCount();
+		if(sumtotal!=null)sumtotal.innerHTML=totalEl.textContent;
 	}	
 }
 function changeQty(id,delta)
@@ -937,8 +934,4 @@ links.forEach(link =>
     
 	setCompany(companyname);
   });
-
 });
-
-
-
