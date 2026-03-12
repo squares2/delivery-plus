@@ -1,5 +1,5 @@
 var cartCount=0;
-var cartItems=[]
+var cartItems=[];
 var saleEnd=Date.now()+12*60*60*1000;
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
@@ -437,6 +437,7 @@ function loadCart()
 }
 function getCartCount()
 {
+		console.log(cartItems.length);
 	var n=0;
 	for(var i=0;i<cartItems.length;i++)
 	{
@@ -937,3 +938,4 @@ links.forEach(link =>
   });
 
 });
+
