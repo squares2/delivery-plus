@@ -437,7 +437,6 @@ function loadCart()
 }
 function getCartCount()
 {
-		console.log(cartItems.length);
 	var n=0;
 	for(var i=0;i<cartItems.length;i++)
 	{
@@ -669,8 +668,6 @@ function renderCartSidebar()
   '</div>'
 	});
 	list.innerHTML=html;
-		if(totalEl)console.log("true");
-	else console.log("false");
 	if(totalEl)
 	{
 		totalEl.textContent=money(total)
@@ -678,9 +675,11 @@ function renderCartSidebar()
 		localStorage.setItem('total',total);
 		if (window.location.pathname === "/checkout.html"&&document.getElementById('summaryTotal').innerHTML!=totalEl.textContent) 
 		{
+			console.log("true2");
 			document.getElementById('summaryItems').innerHTML=getCartCount();
 			document.getElementById('summaryTotal').innerHTML=totalEl.textContent;
 		}
+		else console.log("false2");
 	}	
 }
 function changeQty(id,delta)
@@ -940,5 +939,6 @@ links.forEach(link =>
   });
 
 });
+
 
 
