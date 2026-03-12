@@ -669,6 +669,8 @@ function renderCartSidebar()
   '</div>'
 	});
 	list.innerHTML=html;
+		if(totalEl)console.log("true");
+	else console.log("false");
 	if(totalEl)
 	{
 		totalEl.textContent=money(total)
@@ -938,4 +940,5 @@ links.forEach(link =>
   });
 
 });
+
 
