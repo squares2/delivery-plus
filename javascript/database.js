@@ -39,11 +39,114 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebas
 			else document.body.classList.remove('site-closed');
 	    }
 	});
+	
+	const patternRef = ref(db, "pattern");
+
+	onValue(patternRef, (snapshot) => 
+	{
+	    if (snapshot.exists()) 
+		{
+	        getCompanies();
+	    }
+	});
+function getCompanies()
+{
+	const list = document.getElementById('companieslist');
+	const list2 = document.getElementById('companieslist2');
+	var inner="";
+	get(child(dbref,"pattern")).then((snapshot) => 
+	{
+		if (snapshot.exists()) 
+		{
+			const data = snapshot.val();
+			const keys = Object.keys(data);
+			let i = 0;
+			let j = 0;
+			let compname="";
+			let soon="";
+			while (i < keys.length) 
+			{
+				const key = keys[i];
+				const item = data[key];
+				j=0;
+				inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold'>"+key+"</h6>"
+				while (j < item.length)
+				{
+					compname=item[j].companyname;
+					if(item[j].soon=="1")soon="soon";
+					else soon="";
+					inner+="<a class='dropdown-item "+soon+"' href='category.html?category="+compname+"'>"+compname+"</a>"
+					j++
+				}	
+				i++;
+				inner+="</div>";
+			}
+			if(list!=null)
+			{
+				list.innerHTML=inner;
+			}	
+			if(list2!=null)
+			{
+				list2.innerHTML=inner;
+			}	
+		} 
+		else 
+		{
+			console.log("No data available");
+		}
+	}).catch((error) => 
+	{
+		console.error(error);
+	});
+}
+export async function getCategories(companyname)
+{
+	const list = document.getElementById('categorieslist');
+	var inner="";
+	var val;
+	await get(child(dbref,"categories")).then((snapshot) => 
+	{
+		if (snapshot.exists()) 
+		{
+			snapshot.forEach((childSnapshot) => 
+			{
+				const key = childSnapshot.key;    // This is your multi-key (e.g., "-N123...")
+				const item = childSnapshot.val(); // This is your multi-item data object
+				if(key==companyname)
+				{
+					for (const [subKey, value] of Object.entries(item)) 
+					{
+						inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold'>"+subKey+"</h6>"
+						val=value.slice(0, -1);
+						const values = val.split(",");
+						for(let i=0;i<values.length;i++)
+						{
+							inner+="<a class='dropdown-item' href='category.html?category="+key+"&category2="+values[i]+"'>"+values[i]+"</a>"
+						}
+						inner+="</div>";
+					}
+				}	
+			});
+			if(list!=null)
+			{
+				list.innerHTML=inner;
+				distribute2(companyname);
+			}	
+		} 
+		else 
+		{
+			console.log("No data available");
+		}
+	}).catch((error) => 
+	{
+		console.error(error);
+	});
+}
 	export let products = [];
-export async function distribute()
+export async function distribute(comp,cat)
 {
 			products = [];
-	await get(child(dbref,"products")).then((snapshot) => 
+	await get(child(dbref,"items/"+comp)).then((snapshot) => 
 	{
 		if (snapshot.exists()) 
 		{
@@ -55,11 +158,13 @@ export async function distribute()
 				const key = keys[i];
 				const item = data[key];
 				
-				let row={id:key,title:item.name,price:item.price,image:'items/'+key+'.png',category:item.category2};
-				products.push(row);
+				if(item.cat==cat)
+				{
+					let row={id:key,title:item.name,price:item.price,image:'items/'+key+'.png',category:item.cat};
+					products.push(row);
+				}
 				i++;
 			}
-//	console.log(products.length);
 //	console.log(JSON.parse(JSON.stringify(products[0])));
 
 		} 
@@ -72,6 +177,137 @@ export async function distribute()
 		console.error(error);
 	});
 };
+export async function distribute2(comp)
+{
+			products = [];
+	await get(child(dbref,"items/"+comp)).then((snapshot) => 
+	{
+		if (snapshot.exists()) 
+		{
+			const data = snapshot.val();
+			const keys = Object.keys(data);
+			let i = 0;
+			while (i < keys.length) 
+			{
+				const key = keys[i];
+				const item = data[key];
+				
+				let row={id:key,title:item.name,price:item.price,image:'items/'+key+'.png',category:item.cat};
+				products.push(row);
+				i++;
+			}
+		} 
+		else 
+		{
+			console.log("No data available");
+		}
+	}).catch((error) => 
+	{
+		console.error(error);
+	});
+	renderCategoryPage();
+};
+function setCompany(comp)
+{
+	const back = document.getElementById('back');
+	const featured = document.getElementById('featuredcompanies');
+	var inner="";
+	
+	if(comp=="-1")
+	{
+		inner="<div class='col-6 col-lg-2'><a href='' data-company-name='Restaurants'"
+		inner+="class='card category-card text-center'><img src='png/restaurants.jpg' "
+		inner+="class='card-img-top'><div class='card-body'><h6>Restaurants</h6></div></a></div>"
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Markets'";
+		inner+="class='card category-card text-center'><img src='png/markets.jpg' ";
+		inner+="class='card-img-top' alt='Dairy'><div class='card-body'><h6>Markets</h6></div></a></div>";
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Groceries'";
+		inner+="class='card category-card text-center'><img src='png/groceries.jpg' ";
+		inner+="class='card-img-top' alt='Snacks'><div class='card-body'><h6>Groceries</h6></div>  ";
+		inner+="</a></div><div class='col-6 col-lg-2'><a href='' data-company-name='Butchers'";
+		inner+="class='card category-card text-center'><img src='png/butchershops.jpg' ";
+		inner+="class='card-img-top' alt='Staples'><div class='card-body'><h6>Butchers</h6></div></a></div>";
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Toys shop'";
+		inner+="class='card category-card text-center'><img src='png/toys.jpg' class='card-img-top'";
+		inner+="alt='Staples'><div class='card-body'><h6>Toys shop</h6></div></a></div>";
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Bakery'";
+		inner+="class='card category-card text-center'><img src='png/bakery.jpg' ";
+		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Bakery</h6></div></a></div>";
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Sweets'";
+		inner+="class='card category-card text-center'><img src='png/sweets.jpg' ";
+		inner+="class='card-img-top' alt='Household'><div class='card-body'><h6>Sweets</h6></div></a></div>";
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Tobbaco'";
+		inner+="class='card category-card text-center'><img src='png/tobacco.jpg' ";
+		inner+="class='card-img-top' alt='Household'><div class='card-body'><h6>Tobbaco</h6></div></a></div>";
+		featured.innerHTML=inner;
+	}	
+	else
+	{
+		get(child(dbref,"pattern")).then((snapshot) => 
+		{
+			if (snapshot.exists()) 
+			{
+				const data = snapshot.val();
+				const keys = Object.keys(data);
+				let i = 0;
+				let j = 0;
+				let compname="";
+				let soon="";
+				inner="";
+				while (i < keys.length) 
+				{
+					const key = keys[i];
+					const item = data[key];
+					j=0;
+					while (j < item.length)
+					{
+						compname=item[j].companyname;
+						soon=item[j].soon;
+						if(comp==key&&parseInt(soon)>1)
+						{
+							inner+="<div class='col-6 col-lg-2'><a href='category.html?category="+compname+"' data-company-name='"+compname+"'"
+							inner+="class='card category-card text-center'><img src='png/"+comp+".jpg' "
+							inner+="class='card-img-top'><div class='card-body'><h6>"+compname+"</h6></div></a></div>";
+						}
+						j++
+					}	
+					i++;
+				}	
+				featured.innerHTML=inner;
+			} 
+			else 
+			{
+				console.log("No data available");
+			}
+		}).catch((error) => 
+		{
+			console.error(error);
+		});
+	}
+	if(comp=="-1")back.style.display="none";
+	else back.style.display="block";
+	if(back)
+	{
+		back.addEventListener('click', function(event) 
+		{
+			event.preventDefault(); 
+			setCompany("-1");
+		});
+	}
+	const links = document.querySelectorAll('#featuredcompanies a');
+
+	links.forEach(link => 
+	{
+	  link.addEventListener('click', function(event) 
+	  {
+		event.preventDefault(); 
+
+		const companyname = link.dataset.companyName;
+		
+		setCompany(companyname);
+	  });
+	});
+}
 function getNow()
 {
 	const today = new Date();
@@ -149,11 +385,12 @@ function renderCategoryPage()
 {
 	var grid=document.getElementById('categoryGrid');
 	if(!grid)return;
-	var cat=getParam('category');
+	var cat=getParam('category2');
 	const params = new URLSearchParams(window.location.search);
-	const selectedCategories = params.getAll('category');
+	const selectedCategories = params.getAll('category2');
 	var list=products.filter(function(p)
 	{
+	console.log(p);
 		return !cat||selectedCategories.includes(p.category)
 	});
 	var html='';
@@ -212,6 +449,13 @@ function updateCartBadge()
 	cartCount=getCartCount();
 	var el=document.getElementById('cartCount');
 	if(el)el.textContent=String(cartCount);
+	el=document.getElementById('cartCount2');
+	if(el)el.textContent=String(cartCount);
+	/*const elements = document.querySelectorAll('#cartCount');
+	elements.forEach(el => 
+	{
+		el.textContent=String(cartCount);
+	});*/
 }
 function addToCart(id)
 {
@@ -607,6 +851,7 @@ export async function startPage()
 	updateCartBadge();
 	updateTimer();
 	setInterval(updateTimer,1000);
+	getCompanies();
 	renderCategoryPage();
 	renderProductDetail();
 	renderCartSidebar();
@@ -624,7 +869,7 @@ function function1()
 }
 
 document.addEventListener('DOMContentLoaded',ensureHeroBackgroundFallback);
-document.addEventListener('DOMContentLoaded',ensureImageFallback)
+document.addEventListener('DOMContentLoaded',ensureImageFallback);
 window.addEventListener('DOMContentLoaded', () => 
 {
     if (window.location.pathname === "/" || window.location.pathname.endsWith("index.html"))function1();
@@ -668,3 +913,26 @@ if(place_order)
 		placeOrder();
 	});
 }
+var back=document.getElementById('back');
+if(back)
+{
+	back.addEventListener('click', function(event) 
+	{
+		event.preventDefault(); 
+		setCompany("-1");
+	});
+}
+
+const links = document.querySelectorAll('#featuredcompanies a');
+
+links.forEach(link => 
+{
+  link.addEventListener('click', function(event) 
+  {
+    event.preventDefault(); 
+
+    const companyname = link.dataset.companyName;
+    
+	setCompany(companyname);
+  });
+});
