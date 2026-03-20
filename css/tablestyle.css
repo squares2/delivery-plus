@@ -1,0 +1,211 @@
+/* Base Table Styles */
+.mobile-table 
+{
+  width: 100%;
+  border-collapse: collapse;
+  font-family: sans-serif;
+  margin: 25px 0;
+  font-size: 0.9em;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  text-align: center; /* Centers text in all cells by default */
+}
+
+.mobile-table thead tr 
+{
+  background-color: #009879;
+  color: #ffffff;
+}
+
+.mobile-table th, .mobile-table td 
+{
+  padding: 15px;
+  vertical-align: middle; /* Centers content vertically */
+}
+
+.mobile-table tbody tr 
+{
+  border-bottom: 1px solid #dddddd;
+}
+
+/* Zebra Stripes */
+.mobile-table tbody tr:nth-of-type(even) 
+{
+  background-color: #f3f3f3;
+}
+
+/* Mobile Responsive Layout (Card Style) */
+@media screen and (max-width: 750px) 
+{
+  .mobile-table thead 
+  {
+    display: none; /* Hide standard headers */
+  }
+
+  .mobile-table, .mobile-table tbody, .mobile-table tr, .mobile-table td 
+  {
+    display: block;
+    width: 100%;
+  }
+
+  .mobile-table tr 
+  {
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .mobile-table td 
+  {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+    border-bottom: 1px solid #eee;
+  }
+
+  /* Label Styling */
+  .mobile-table td::before 
+  {
+    content: attr(data-label);
+    position: absolute;
+    left: 15px;
+    width: 45%;
+    font-weight: bold;
+    text-align: left;
+    color: #009879;
+  }
+
+  .mobile-table td:last-child 
+  {
+    border-bottom: 0;
+  }
+}
+
+/* Status Badges */
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+.pending { background: #ffeeba; color: #856404; }
+.completed { background: #c3e6cb; color: #155724; }
+/* Container for the 5 options */
+/* --- Optimized Status Selector for All Screens --- */
+/* Container for the 5 options */
+.status-selector 
+{
+  display: inline-flex;
+  flex-wrap: wrap;       /* Allows buttons to stack on very small screens */
+  justify-content: center; 
+  gap: 6px;              /* More space between buttons */
+  background: #f8f8f8;
+  padding: 6px;
+  border-radius: 10px;
+  width: 100%;           /* Ensures it uses available width */
+  max-width: 500px;      /* Prevents it from getting too wide on desktop */
+  margin: 0 auto;        /* Keeps it centered */
+}
+
+/* Base button style - ENHANCED FONT */
+.status-btn 
+{
+  flex: 1 1 auto;        
+  min-width: 85px;       /* Increased width for readability */
+  border: 1px solid #ddd;
+  background: #ffffff;
+  padding: 10px 8px;     /* Bigger touch target */
+  
+  /* Font Updates */
+  font-size: 10px;       /* Larger font size */
+  font-weight: 700;      /* Bold font weight */
+  text-transform: uppercase; /* Makes it look like a professional UI */
+  letter-spacing: 0.5px;
+  
+  cursor: pointer;
+  color: #444;
+  transition: all 0.3s ease;
+  border-radius: 6px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.status-btn2
+{
+  flex: 1 1 auto;        
+  min-width: 85px;       /* Increased width for readability */
+  border: 1px solid #ddd;
+  background: #ffffff;
+  padding: 10px 8px;     /* Bigger touch target */
+  
+  /* Font Updates */
+  font-size: 10px;       /* Larger font size */
+  font-weight: 700;      /* Bold font weight */
+  text-transform: uppercase; /* Makes it look like a professional UI */
+  letter-spacing: 0.5px;
+  
+  cursor: pointer;
+  color: #fff;
+  background: #328a68;
+  border-color: #bbb;
+  transition: all 0.3s ease;
+  border-radius: 6px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hover effect */
+.status-btn:hover 
+{
+  background: #f0f0f0;
+  border-color: #bbb;
+}
+
+/* Active state - HIGH CONTRAST */
+/* 1. Pending - Yellow/Orange */
+.status-btn.btn-ndelivered.active 
+{
+  background-color: #57514a;
+  color: white;
+  border-color: #57514a;
+}
+.status-btn.btn-delivered.active 
+{
+  background-color: #27ae60; 
+  color: white;
+  border-color: #27ae60;
+}
+.status-btn.btn-canceled.active 
+{
+  background-color: #c91c10;
+  color: white;
+  border-color: #c91c10;
+}
+.status-btn.btn-pcanceled.active 
+{
+  background-color: #ab6b0c;
+  color: white;
+  border-color: #ab6b0c;
+}
+
+/* 5. Cancel - Red */
+.status-btn.btn-delayed.active 
+{
+  background-color: #0d5ba8;
+  color: white;
+  border-color: #0d5ba8;
+}
+/* Mobile Specific Tweaks */
+@media screen and (max-width: 750px) 
+{
+  .status-btn 
+  {
+    font-size: 13px;     /* Slightly adjusted for mobile screens */
+    padding: 12px 5px;   /* Taller buttons for easier thumb tapping */
+    min-width: 100px;    /* Forces a cleaner 2-per-row or 1-per-row stack */
+  }
+  
+  .status-selector 
+  {
+    gap: 8px;
+    background: transparent; /* Cleaner look inside the mobile card */
+  }
+}
