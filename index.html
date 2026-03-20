@@ -12,6 +12,13 @@
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/bootstrap.bundle.min.js"></script>
 <script type="module"src="javascript/startup.js"></script>
+<script type="module">
+    import { function1 } from './javascript/database.js';
+
+
+    // Trigger initialization on load
+    window.addEventListener('DOMContentLoaded', function1);
+</script>
 </head>
 <body>
   <div class="announcement-bar text-white">
@@ -175,9 +182,8 @@
     </div>
   </div>
 </div>
-
   <section class="py-5">
-    <div class="container">
+    <div style="margin-top:-100px;"class="container">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="section-title">Featured Shops</h3>
         <a href="" data-company-name="-1"style="display:block"id="back"class="text-primary">Back</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;

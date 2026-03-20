@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delivery+</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/all.min.css" rel="stylesheet">
+  <link href="css/styles.css" rel="stylesheet">
+  <link href="css/styles2.css" rel="stylesheet">
+  <link href="css/styles3.css" rel="stylesheet">
+  <link href="css/tablestyle.css" rel="stylesheet">
+  <script type="module" src="javascript/database.js"></script> 
+  <script src="javascript/bootstrap.bundle.min.js"></script>
+<script type="module"src="javascript/startup.js"></script>
+<script type="module">
+    import { function1 } from './javascript/database.js';
+
+
+    // Trigger initialization on load
+    window.addEventListener('DOMContentLoaded', function1);
+</script>
+</head>
+<body>
+  <div class="announcement-bar text-white">
+    <div class="container d-flex justify-content-between align-items-center">
+      <div class="d-flex gap-4">
+        <span><i class="fa-solid fa-truck-fast me-2"></i>Free delivery</span>
+        <span><i class="fa-solid fa-bolt me-2"></i>Fast delivery</span>
+      </div>
+    </div>
+  </div>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
+    <div class="container">
+		
+	<ul class="navbar-nav d-flex flex-row align-items-center">
+	  <!-- NEW: Login / User Label -->
+	  <li class="nav-item ms-3 dropdown" id="userMenuContainer">
+    <!-- State 1: Login Label (Visible when logged out) -->
+    <a class="nav-link fw-bold text-primary" href="#" id="loginLink" data-bs-toggle="modal" data-bs-target="#loginModal">
+      <i class="fa-solid fa-user me-1"></i><span>Login</span>
+    </a>
+
+    <!-- State 2: Username Dropdown (Hidden by default, shown via JS) -->
+    <a class="nav-link dropdown-toggle fw-bold text-success d-none" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+      <i class="fa-solid fa-circle-user me-1"></i><span id="userLabel">User</span>
+    </a>
+    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+      <li><a class="dropdown-item" href="#"><i class="fa-solid fa-gear me-2"></i>Settings</a></li>
+      <li><hr class="dropdown-divider"></li>
+      <li><a class="dropdown-item text-danger" href="#" id="logoutBtn"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a></li>
+    </ul>
+  </li>
+	</ul>     
+	  <div class="collapse navbar-collapse">
+
+      </div>
+    </div>
+  </nav>
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Delivery+</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="mb-3">
+        <div class="input-group">
+          <span class="input-group-text bg-transparent border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
+          <input class="form-control border-start-0" type="search" placeholder="Search">
+        </div>
+      </div>
+      <ul class="list-unstyled">
+        <li><a class="d-block py-2" href="index.html">Home</a></li>
+        <li><a class="d-block py-2" href="about.html">About Us</a></li>
+        <li><a class="d-block py-2" href="contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+	<br><br><br>
+	<table id="drivershiptable"class="mobile-table">
+		<thead>
+			<tr>
+				<th>Ship Number</th>
+				<th>Owner</th>
+				<th>Owner Phone</th>
+				<th>Owner Address</th>
+				<th>Amount</th>
+				<th>Due Date</th>
+				<th>Status</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td data-label="Ship Number">9</td>
+				<td data-label="Owner">folan lfolany</td>
+				<td data-label="Owner Phone">76884643</td>
+				<td data-label="Owner Address">Baalbeck/nahle street/outa building</td>
+				<td data-label="Amount">$2,500</td>
+				<td data-label="Due Date">03/25/2026</td>
+				<td data-label="Status">
+					<div class="status-selector"data-shipnumber="9">
+						<button class="status-btn btn-ndelivered active">Not Delivered</button>
+						<button class="status-btn btn-delivered">Delivered</button>
+						<button class="status-btn btn-delayed">Delayed</button>
+						<button class="status-btn btn-canceled">Canceled</button>
+						<button class="status-btn btn-pcanceled">Canceled Payed</button>
+						<button id="cartdriverdetail" data-shipnumber="9" class="status-btn2 btn-items">Items</button>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td data-label="Ship Number">10</td>
+				<td data-label="Owner">folan lfolany</td>
+				<td data-label="Owner Phone">76884643</td>
+				<td data-label="Owner Address">Baalbeck/nahle street/outa building</td>
+				<td data-label="Amount">$2,500</td>
+				<td data-label="Due Date">03/25/2026</td>
+				<td data-label="Status">
+					<div class="status-selector"data-shipnumber="10">
+						<button class="status-btn btn-ndelivered active">Not Delivered</button>
+						<button class="status-btn btn-delivered">Delivered</button>
+						<button class="status-btn btn-delayed">Delayed</button>
+						<button class="status-btn btn-canceled">Canceled</button>
+						<button class="status-btn btn-pcanceled">Canceled Payed</button>
+						<button id="cartdriverdetail" data-shipnumber="10" class="status-btn2 btn-items">Items</button>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td data-label="Ship Number">11</td>
+				<td data-label="Owner">folan lfolany</td>
+				<td data-label="Owner Phone">76884643</td>
+				<td data-label="Owner Address">Baalbeck/nahle street/outa building</td>
+				<td data-label="Amount">$2,500</td>
+				<td data-label="Due Date">03/25/2026</td>
+				<td data-label="Status">
+					<div class="status-selector"data-shipnumber="11">
+						<button class="status-btn btn-ndelivered active">Not Delivered</button>
+						<button class="status-btn btn-delivered">Delivered</button>
+						<button class="status-btn btn-delayed">Delayed</button>
+						<button class="status-btn btn-canceled">Canceled</button>
+						<button class="status-btn btn-pcanceled">Canceled Payed</button>
+						<button id="cartdriverdetail" data-shipnumber="11" class="status-btn2 btn-items">Items</button>
+					</div>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Your Cart</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="cartList" class="list-group mb-3"></div>
+      <div class="d-flex justify-content-between align-items-center border-top pt-3">
+        <div class="fw-semibold">Total</div>
+        <div id="cartTotal" class="fw-bold">$0.00</div>
+      </div>
+      <a href="checkout.html" class="btn btn-primary w-100 mt-3">Checkout</a>
+    </div>
+  </div>
+
+  <div class="modal fade" id="quickViewModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="quickViewTitle"></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <img id="quickViewImage" class="img-fluid rounded mb-3" alt="">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="fw-semibold" id="quickViewPrice"></div>
+            <button class="btn btn-primary" id="quickViewAdd">Add to Cart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+<!-- Login Modal -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Driver Login</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+  <form id="loginForm">
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      <input type="text" id="loginUsername" class="form-control" placeholder="Enter username" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input type="password" id="loginPassword" class="form-control" placeholder="Enter password" required>
+      <!-- Error Message Container -->
+      <div id="loginError" class="text-danger small mt-2 d-none">Invalid username or password.</div>
+    </div>
+    <button type="submit" id="loginBtn" class="btn btn-primary w-100">Login</button>
+  </form>
+</div>
+    </div>
+  </div>
+</div>
+  <footer class="footer bg-dark text-white pt-5">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-12 col-lg-3">
+          <h6 class="fw-semibold">About</h6>
+          <p class="text-muted">Delivery+ brings you any thing you need to your door with great prices.</p>
+        </div>
+      </div>
+      <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivery+ All rights reserved.</div>
+    </div>
+  </footer>
+</body>
+</html>
