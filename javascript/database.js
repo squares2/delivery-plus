@@ -1,5 +1,6 @@
 var cartCount=0;
 var cartItems=[];
+//[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
@@ -15,21 +16,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebas
 		appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
 	};
 	const app = initializeApp(firebaseConfig);
-	import {getDatabase, set, get,update,remove,ref,runTransaction,child,onValue}
+	import {getDatabase, set, get,update,remove,ref,increment,runTransaction,child,onValue}
 	from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 
 	const db=getDatabase();
 	const dbref=ref(db);
-	const counterRef = ref(db, 'globalCounter');
-	
-	onValue(counterRef, (snapshot) => 
-	{
-	    const likeCount = snapshot.val();
-		globalThis.id=likeCount;
-	});
 	
 	const maintenanceRef = ref(db, "maintenance/1");
-
 	onValue(maintenanceRef, (snapshot) => 
 	{
 	    if (snapshot.exists()) 
@@ -37,6 +30,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebas
 	        const data = snapshot.val();
 	        if (!data.state)document.body.classList.add('site-closed');
 			else document.body.classList.remove('site-closed');
+	    }
+	});
+	
+	const requestRef = ref(db, "requests");
+	onValue(requestRef, (snapshot) => 
+	{
+	    if (snapshot.exists()) 
+		{
+	        distributeDriver();
 	    }
 	});
 	
@@ -49,10 +51,37 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebas
 	        getCompanies();
 	    }
 	});
+async function generateRequestId() 
+{
+    // This adds 1 directly on the server without reading it first
+    return update(ref(db, 'globalCounter'), 
+	{
+        last_request_id: increment(1)
+    });
+}
+async function updateRequestState(requestid,newState) 
+{
+	const targetPath = "requests/"+requestid;
+	const updates = 
+	{
+		state: newState
+	};
+
+	try 
+	{
+		await update(ref(db, targetPath), updates);
+	} 
+	catch (error) 
+	{
+		console.error("Error updating state: ", error);
+	}
+}
+
 function getCompanies()
 {
 	const list = document.getElementById('companieslist');
 	const list2 = document.getElementById('companieslist2');
+	const list3 = document.getElementById('companieslist3');
 	var inner="";
 	get(child(dbref,"pattern")).then((snapshot) => 
 	{
@@ -89,6 +118,10 @@ function getCompanies()
 			{
 				list2.innerHTML=inner;
 			}	
+			if(list3!=null)
+			{
+				list3.innerHTML=inner;
+			}	
 		} 
 		else 
 		{
@@ -98,6 +131,91 @@ function getCompanies()
 	{
 		console.error(error);
 	});
+}
+function distributeDriver()
+{
+	var owner=localStorage.getItem('owner');
+	const drivershiptable = document.getElementById('drivershiptable');
+	if(owner&&owner.length==0)
+	{
+		drivershiptable.innerHTML="";
+	}
+	else
+	{
+		var inner1="<thead><tr><th>Ship Number</th><th>Owner</th><th>Owner Phone</th><th>Owner Address</th>";
+		inner1+="<th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>";
+		var inner2="";
+		var delivered="";
+		var ndelivered="";
+		var delayed="";
+		var canceled="";
+		var pcanceled="";
+		get(child(dbref,"requests")).then((snapshot) => 
+		{
+			if (snapshot.exists()) 
+			{
+				const data = snapshot.val();
+				const keys = Object.keys(data);
+				let i = 0;
+				while (i < keys.length) 
+				{
+					const key = keys[i];
+					const item = data[key];
+					if(item.driver===localStorage.getItem('owner'))
+					{
+						if(item.state=="0")ndelivered="active";
+						else ndelivered="";
+						if(item.state=="1")delivered="active";
+						else delivered="";
+						if(item.state=="2")canceled="active";
+						else canceled="";
+						if(item.state=="3")delayed="active";
+						else delayed="";
+						if(item.state=="5")pcanceled="active";
+						else pcanceled="";
+
+						inner2+="<tr><td data-label='Ship Number'>"+key+"</td>";
+						inner2+="<td data-label='Owner'>"+item.fullname+"</td>";
+						inner2+="<td data-label='Owner Phone'>"+item.phone+"</td>";
+						inner2+="<td data-label='Owner Address'>"+item.city+"/"+item.street+"</td>";
+						inner2+="<td data-label='Amount'>"+item.total+"</td>";
+						inner2+="<td data-label='Due Date'>"+item.date+"</td>";
+						inner2+="<td data-label='Status'><div class='status-selector'data-shipnumber='"+key+"'>";
+						inner2+="<button class='status-btn btn-ndelivered "+ndelivered+"'>Not Delivered</button>";
+						inner2+="<button class='status-btn btn-delivered "+delivered+"'>Delivered</button>";
+						inner2+="<button class='status-btn btn-delayed "+delayed+"'>Delayed</button>";
+						inner2+="<button class='status-btn btn-canceled "+canceled+"'>Canceled</button>";
+						inner2+="<button class='status-btn btn-pcanceled "+pcanceled+"'>Canceled Payed</button>";
+						inner2+="<button id='cartdriverdetail' data-shipnumber='"+key+"' class='status-btn2 btn-items'>Items</button>";
+						inner2+="</div></td></tr>";
+					}
+					i++;
+				}
+				inner2+="</tbody>";
+				if(drivershiptable)drivershiptable.innerHTML=inner1+inner2;
+			} 
+			else 
+			{
+				console.log("No data available");
+			}
+		}).catch((error) => 
+		{
+			console.error(error);
+		});
+	}
+}
+function loadPersonals()
+{
+	var fullname=document.getElementById("fullname");
+	var phone=document.getElementById("phone");
+	var city=document.getElementById("city");
+	var street=document.getElementById("street");
+	
+	if(fullname!=null)fullname.value=localStorage.getItem('fullname');
+	if(phone!=null)phone.value=localStorage.getItem('phone');
+	if(city!=null)city.value=localStorage.getItem('city');
+	if(street!=null)street.value=localStorage.getItem('street');
+	checkForm(); 
 }
 export async function getCategories(companyname)
 {
@@ -165,8 +283,6 @@ export async function distribute(comp,cat)
 				}
 				i++;
 			}
-//	console.log(JSON.parse(JSON.stringify(products[0])));
-
 		} 
 		else 
 		{
@@ -320,25 +436,6 @@ function getNow()
 	//console.log(year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second);
 	return year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second;
 }
-function incrementCounter() 
-{
-	runTransaction(counterRef, (currentCounter) => 
-	{
-		if (currentCounter === null) 
-		{
-			return 1;
-		}
-		return currentCounter + 1;
-	})
-	.then(() => 
-	{
-		//console.log("Counter incremented successfully!");
-	})
-	.catch((error) => 
-	{
-		console.error("Error incrementing counter:", error);
-	});
-}
 //document.addEventListener('DOMContentLoaded',distribute);
 
 /*document.addEventListener('DOMContentLoaded', () => 
@@ -390,7 +487,6 @@ function renderCategoryPage()
 	const selectedCategories = params.getAll('category2');
 	var list=products.filter(function(p)
 	{
-	console.log(p);
 		return !cat||selectedCategories.includes(p.category)
 	});
 	var html='';
@@ -440,7 +536,7 @@ function getCartCount()
 	var n=0;
 	for(var i=0;i<cartItems.length;i++)
 	{
-		n+=cartItems[i].qty
+		n+=parseInt(cartItems[i].qty);
 	}
 	return n
 }
@@ -451,6 +547,9 @@ function updateCartBadge()
 	if(el)el.textContent=String(cartCount);
 	el=document.getElementById('cartCount2');
 	if(el)el.textContent=String(cartCount);
+	el=document.getElementById('cartCount3');
+	if(el)el.textContent=String(cartCount);
+	checkForm();
 	/*const elements = document.querySelectorAll('#cartCount');
 	elements.forEach(el => 
 	{
@@ -505,13 +604,14 @@ function removeProductOverlay(productId)
 			btn.classList.replace('btn-success', 'btn-primary');
 		}	
     }
+	checkForm();
 }
 function cardTemplate(p)
 {
 	let found=false;
 	let result='<div class="col-6 col-lg-3">'+
     '<div class="card product-card h-100">'+
-      '<img src="'+p.image+'" class="card-img-top" alt="'+p.title+'">';
+      '<img src="' + p.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="card-img-top" alt="'+p.title+'">';
 	  
 	for(var i=0;i<cartItems.length;i++)
 	{
@@ -657,7 +757,7 @@ function renderCartSidebar()
 		html+=
   '<div class="list-group-item d-flex align-items-center justify-content-between">'+
     '<div class="d-flex align-items-center gap-2">'+
-      '<img src="'+ci.image+'" alt="'+ci.title+'" width="48" height="48" style="object-fit:cover;border-radius:6px">'+
+      '<img src="'+ci.image+'" onerror="this.onerror=null;this.src=\'items/0.png\';" alt="'+ci.title+'" width="48" height="48" style="object-fit:cover;border-radius:6px">'+
       '<div><div class="small fw-semibold">'+ci.title+'</div><div class="small text-muted">'+money(ci.price)+' × '+ci.qty+'</div></div>'+
     '</div>'+
     '<div class="d-flex align-items-center gap-2">'+
@@ -789,26 +889,37 @@ function checkForm()
 	var phone=document.getElementById("phone");
 	var city=document.getElementById("city");
 	var street=document.getElementById("street");
-	if(name.value.length>0&&phone.value.length>0&&street.value.length>0)
+	var cartcount=document.getElementById("cartCount3");
+	var order=document.getElementById("place_order");
+	if(name!=null&&name.value.length>0&&phone.value.length>0&&city.value.length>0&&street.value.length>0&&cartcount.innerHTML!="0")
 	{
-		
+		if(order!=null)
+		{
+			order.classList.add('active');
+			order.classList.remove('nonactive');
+		}	
 		return true;
 	}
 	else
 	{
-		
+		if(order!=null)
+		{
+			order.classList.remove('active');
+			order.classList.add('nonactive');
+		}	
 		return false;
 	}	
 }
 
-function placeOrder()
+async function placeOrder()
 {
-	/*if(checkForm())
+	if(checkForm())
 	{
 		var fullname=document.getElementById("fullname");
 		var phone=document.getElementById("phone");
 		var city=document.getElementById("city");
 		var street=document.getElementById("street");
+		var order=document.getElementById("place_order");
 		
 		localStorage.setItem('fullname',fullname.value);
 		localStorage.setItem('phone',phone.value);
@@ -816,31 +927,65 @@ function placeOrder()
 		localStorage.setItem('street',street.value);
 		
 		var cartList="";
+		console.log(cartItems);
 		for (let i = 0; i < cartItems.length;i++) 
 		{
 			const product = cartItems[i];
-			cartList+=product.id+":"+product.qty+";";
+			cartList+=product.id+":"+product.title+":"+product.price+":"+product.qty+";";
 		}
 		const num = parseFloat(localStorage.getItem('total')); // Converts string to number
 		const tot = num.toFixed(2);
-		*/
-		incrementCounter();
-		set(ref(db,'requests/'+globalThis.id),{fullname:"flan",cart:"1:2,2:3",deliveryplusid:localStorage.getItem('deliveryplusids')});/*
-		cartItems=[];
-		saveCart();
 		
-		var message=document.getElementById("message-label");
-		message.style.display="block";
-		window.setTimeout(function() 
+		const counterRef = ref(db, 'globalCounter/last_request_id');
+
+		// 1. Increment and get the new ID using a Transaction (needed to read the result)
+		const result = await runTransaction(counterRef, (current) => 
 		{
-			if (message) 
+			return (current || 1) + 1;
+		});
+
+		if (result.committed) 
+		{
+			const newId = result.snapshot.val(); // This is your 1, 2, 3...
+
+			// 2. Use that ID as the key
+			await set(ref(db, 'requests/' + newId), 
 			{
-				message.classList.add('hidden');
-			}
-		}, 3000);
-		message.style.display="block";
-		message.classList.remove('hidden');
-	}	*/
+				fullname: fullname.value,
+				phone: phone.value,
+				city: city.value,
+				street: street.value,
+				driver: "0",
+				date: getNow(),
+				total: tot,
+				state: "0",
+				read: "0",
+				cart: cartList,
+				deliveryplusid: localStorage.getItem('deliveryplusids')
+			});
+			
+			cartItems=[];
+			saveCart();
+			var el=document.getElementById('cartCount3');
+			if(el)el.textContent=String(0);
+			var message=document.getElementById("message-label");
+			message.style.display="block";
+			window.setTimeout(function() 
+			{
+				if (message) 
+				{
+					message.classList.add('hidden');
+				}
+			}, 3000);
+			message.style.display="block";
+			message.classList.remove('hidden');
+			order.classList.remove('active');
+			order.classList.add('nonactive');
+			console.log("Success! ID is: " + newId);
+		}
+		//set(ref(db,'requests/'+generateRequestId()),{fullname:fullname.value,phone:phone.value,city:city.value,street:street.value,driver:"0",date:getNow(),total:tot,state:"0",read:"0",cart:cartList,deliveryplusid:localStorage.getItem('deliveryplusids')});
+
+	}	
 }
 
 export async function startPage()
@@ -855,8 +1000,9 @@ export async function startPage()
 	renderProductDetail();
 	renderCartSidebar();
 	wireCartSidebar();
+	loadPersonals();
 }
-function function1() 
+export function function1() 
 {
   let id = localStorage.getItem('deliveryplusids');
   if (!id) 
@@ -869,10 +1015,6 @@ function function1()
 
 document.addEventListener('DOMContentLoaded',ensureHeroBackgroundFallback);
 document.addEventListener('DOMContentLoaded',ensureImageFallback);
-window.addEventListener('DOMContentLoaded', () => 
-{
-    if (window.location.pathname === "/" || window.location.pathname.endsWith("index.html"))function1();
-});
 
 var catGrid=document.getElementById('categoryGrid');
 if(catGrid)
@@ -935,3 +1077,286 @@ links.forEach(link =>
 	setCompany(companyname);
   });
 });
+var fullname=document.getElementById('fullname');
+var phone=document.getElementById("phone");
+var city=document.getElementById("city");
+var street=document.getElementById("street");
+
+if(fullname)
+{
+	fullname.addEventListener('keyup', function(event) 
+	{
+		checkForm();
+	});
+	fullname.addEventListener('keydown', function(event) 
+	{
+		if (event.key === ',')event.preventDefault();
+	});
+}
+if(phone)
+{
+	phone.addEventListener('keyup', function(event) 
+	{
+		checkForm();
+	});
+	phone.addEventListener('keydown', function(event) 
+	{
+		if (event.key === ',')event.preventDefault();
+	});
+}
+if(city)
+{
+	city.addEventListener('keyup', function(event) 
+	{
+		checkForm();
+	});
+	city.addEventListener('keydown', function(event) 
+	{
+		if (event.key === ',')event.preventDefault();
+	});
+}
+if(street)
+{
+	street.addEventListener('keyup', function(event) 
+	{
+		checkForm();
+	});
+	street.addEventListener('keydown', function(event) 
+	{
+		if (event.key === ',')event.preventDefault();
+	});
+}
+const loginForm = document.getElementById('loginForm');
+const userInput = document.getElementById('loginUsername');
+const passInput = document.getElementById('loginPassword');
+const errorMsg = document.getElementById('loginError');
+
+if(loginForm)
+{
+	[userInput, passInput].forEach(input => 
+	{
+		input.addEventListener('input', () => 
+		{
+			input.classList.remove('is-invalid');
+			errorMsg.classList.add('d-none');
+		});
+	});
+}
+document.addEventListener('DOMContentLoaded', function() 
+{
+    const loginForm = document.getElementById('loginForm');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    // 1. Handle Login Submission
+    if(loginForm) 
+	{
+        loginForm.addEventListener('submit', function(e) 
+		{
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const pass = document.getElementById('loginPassword').value;
+			
+			get(child(dbref,"drivers")).then((snapshot) => 
+			{
+				if (snapshot.exists()) 
+				{
+					let isAuthenticated = false;
+					let driverData = null;
+
+					// 2. Loop through results (usually just one if usernames are unique)
+					snapshot.forEach((childSnapshot) => 
+					{
+						const data = childSnapshot.val();
+						if (data.username===username&&data.password === pass) 
+						{
+							isAuthenticated = true;
+							driverData = data;
+						}
+					});
+
+					if (isAuthenticated) 
+					{
+						// Success: Save to local storage
+						localStorage.setItem('isLoggedIn', 'true');
+						localStorage.setItem('userName', driverData.username);
+						localStorage.setItem('owner', driverData.owner);
+						
+						//alert("Login successful!");
+						updateUI(); // Your existing function to toggle the navbar
+						
+						const modal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+						modal.hide();
+					} 
+					else
+					{
+						userInput.classList.add('is-invalid');
+						passInput.classList.add('is-invalid');
+						errorMsg.classList.remove('d-none');
+					}
+				}
+			}).catch((error) => 
+			{
+				console.error(error);
+			});
+		});
+	}
+    // 2. Handle Logout
+    if(logoutBtn) 
+	{
+        logoutBtn.addEventListener('click', function(e) 
+		{
+            e.preventDefault();
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('owner');
+            location.reload(); // Refresh to reset all states
+        });
+    }
+
+    // 3. UI Toggle Logic
+    function updateUI() 
+	{
+        const loginLink = document.getElementById('loginLink');
+        const userDropdown = document.getElementById('userDropdown');
+        const userLabel = document.getElementById('userLabel');
+        
+        const loggedIn = localStorage.getItem('isLoggedIn');
+        const name = localStorage.getItem('owner');
+
+        if (loggedIn === 'true') 
+		{
+			if(loginLink)
+			{
+				loginLink.classList.add('d-none');      // Hide "Login"
+				userDropdown.classList.remove('d-none'); // Show "Username"
+				userLabel.innerText = name;             // Set name
+				distributeDriver();
+			}
+        } 
+		else
+		{
+			if(loginLink)
+			{
+				distributeDriver();
+				loginLink.classList.remove('d-none');
+				userDropdown.classList.add('d-none');
+			}
+        }
+    }
+    updateUI();
+});
+function updateSideCart(shipnumber) 
+{
+    // Reference your Offcanvas instance
+    const offcanvasElement = document.getElementById('cartSidebar');
+    const existingInstance = bootstrap.Offcanvas.getInstance(offcanvasElement) 
+                             || new bootstrap.Offcanvas(offcanvasElement);
+
+    get(child(dbref, "requests")).then((snapshot) => 
+	{
+        if (snapshot.exists()) {
+            let foundMatch = false;
+            
+            snapshot.forEach((childSnapshot) => 
+			{
+                const key = childSnapshot.key;
+                const item = childSnapshot.val();
+
+               if (key == shipnumber) 
+			   {
+
+                    foundMatch = true;
+                    let cartItems = [];
+                    const rawData = item.cart;
+                    const items = rawData.split(';').filter(i => i.length > 0);
+
+                    items.forEach(itemStr => {
+                        const parts = itemStr.split(':');
+                        let row = {
+                            id: parts[0],
+                            title: parts[1],
+                            price: parts[2],
+                            image: 'items/' + parts[0] + '.png',
+                            qty: parseInt(parts[3])
+                        };
+                        cartItems.push(row);
+                    });
+
+                  // 2. Save to localStorage AFTER processing
+                    localStorage.setItem('grocer_cart', JSON.stringify(cartItems));
+                }
+            });
+
+            if (foundMatch) 
+			{
+				var s=localStorage.getItem('grocer_cart');
+				cartItems=s?JSON.parse(s):[]
+
+                // 3. ONLY SHOW THE SIDEBAR NOW (Data is ready)
+                renderCartSidebar(); 
+                existingInstance.show();
+            }
+        } 
+		else 
+		{
+            console.log("No data available");
+        }
+    }).catch((error) => 
+	{
+        console.error(error);
+    });
+}
+const drivershiptable = document.querySelectorAll('#drivershiptable');
+drivershiptable.forEach(container => 
+{
+    container.addEventListener('click', function (event) 
+	{
+        // Check if the clicked element is the "Items" button
+        const cartdriverdetail = event.target.closest('#cartdriverdetail');
+		if(cartdriverdetail)
+		{
+			const shipNum = cartdriverdetail.getAttribute('data-shipnumber');
+			updateSideCart(shipNum); 
+		}
+    });
+});
+const table = document.querySelector('#drivershiptable');
+if(table)
+{
+	table.addEventListener('click', function (event) 
+	{
+		const clickedBtn = event.target.closest('.status-btn');
+		if (!clickedBtn) return; // Exit if background was clicked
+
+		const rowContainer = clickedBtn.closest('.status-selector');
+		const shipNum = rowContainer.getAttribute('data-shipnumber');
+		const allButtonsInThisRow = rowContainer.querySelectorAll('.status-btn');
+		
+		allButtonsInThisRow.forEach(btn => 
+		{
+			btn.classList.remove('active');
+		});
+
+		clickedBtn.classList.add('active');
+
+		if (clickedBtn.classList.contains('btn-delivered')) 
+		{
+			updateRequestState(shipNum, "1");
+		} 
+		else if (clickedBtn.classList.contains('btn-ndelivered')) 
+		{
+			updateRequestState(shipNum, "0");
+		}
+		else if (clickedBtn.classList.contains('btn-delayed')) 
+		{
+			updateRequestState(shipNum, "3");
+		}
+		else if (clickedBtn.classList.contains('btn-pcanceled')) 
+		{
+			updateRequestState(shipNum, "5");
+		}
+		else if (clickedBtn.classList.contains('btn-canceled')) 
+		{
+			updateRequestState(shipNum, "2");
+		}
+	});
+}
