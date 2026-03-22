@@ -83,6 +83,7 @@ function getCompanies()
 	const list2 = document.getElementById('companieslist2');
 	const list3 = document.getElementById('companieslist3');
 	var inner="";
+	
 	get(child(dbref,"pattern")).then((snapshot) => 
 	{
 		if (snapshot.exists()) 
@@ -222,6 +223,8 @@ export async function getCategories(companyname)
 	const list = document.getElementById('categorieslist');
 	var inner="";
 	var val;
+	deliveryMenu=[];
+	let subs=[];
 	await get(child(dbref,"categories")).then((snapshot) => 
 	{
 		if (snapshot.exists()) 
@@ -236,12 +239,17 @@ export async function getCategories(companyname)
 					{
 						inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold'>"+subKey+"</h6>"
 						val=value.slice(0, -1);
+						subs=[];
 						const values = val.split(",");
 						for(let i=0;i<values.length;i++)
 						{
 							inner+="<a class='dropdown-item' href='category.html?category="+key+"&category2="+values[i]+"'>"+values[i]+"</a>"
+							subs.push(values[i]);
 						}
 						inner+="</div>";
+						let row={main:subKey,sectionId:subKey,subs:subs};
+						deliveryMenu.push(row);
+						updateCategoryUI();
 					}
 				}	
 			});
@@ -489,11 +497,43 @@ function renderCategoryPage()
 	{
 		return !cat||selectedCategories.includes(p.category)
 	});
+	// 2. SORT THE LIST BY CATEGORY (The Fix)
+    list.sort((a, b) => a.category.localeCompare(b.category));
 	var html='';
+	var prehtml='';
+	var posthtml='';
+	var prev='';
 	list.forEach(function(p)
 	{
-		html+=cardTemplate(p)
+		//console.log(prev+":"+p.category);
+		prehtml='';
+		posthtml='';
+		if(prev.length==0)
+		{
+			prev=p.category;
+			prehtml="<section id='"+p.category+"'class='py-5'><div class='container'>";
+			prehtml+="<div class='d-flex justify-content-between align-items-center mb-4'>";
+			prehtml+="<h2 class='fw-bold'>"+p.category+"</h2><a class='text-primary' href='index.html'>";
+			prehtml+="Home</a></div><div class='row g-3'>";
+			html+=prehtml+cardTemplate(p);
+		}
+		else if(prev==p.category)
+		{
+			html+=cardTemplate(p);
+		}
+		else
+		{
+			prev=p.category;
+			prehtml="<section id='"+p.category+"'class='py-5'><div class='container'>";
+			prehtml+="<div class='d-flex justify-content-between align-items-center mb-4'>";
+			prehtml+="<h2 class='fw-bold'>"+p.category+"</h2><a class='text-primary' href='index.html'>";
+			prehtml+="Home</a></div><div class='row g-3'>";
+			posthtml="</div></div></section>";
+			html+=posthtml+prehtml+cardTemplate(p);
+		}
+		
 	});
+	html+=posthtml;
 	grid.innerHTML=html;
 	wireButtons(grid)
 };
