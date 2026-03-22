@@ -1,0 +1,172 @@
+.category-sidebar {
+    /* Force transparency */
+    background: rgba(255, 255, 255, 0.1) !important; 
+    
+    /* Keep the blur */
+    backdrop-filter: blur(10px); 
+    -webkit-backdrop-filter: blur(10px); /* For Safari/iOS support */
+}
+.main-cat-flipper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  margin-bottom: 10px;
+}
+
+.current-main-cat {
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: #222;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.flip-arrow {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  color: #dc3545; /* Red Theme */
+  transition: transform 0.2s;
+}
+
+.flip-arrow:active { transform: scale(0.9); }
+
+.sub-chip-container {
+  display: flex;
+  overflow-x: auto;
+  padding: 0 15px;
+  gap: 10px;
+  scrollbar-width: none; /* Hide scrollbar */
+}
+
+.sub-chip-container::-webkit-scrollbar { display: none; }
+
+.sub-chip {
+  background: #f8f9fa;
+  color: #555;
+  padding: 6px 16px;
+  border-radius: 25px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  text-decoration: none;
+  border: 1px solid #ddd;
+  transition: 0.3s;
+}
+
+.sub-chip:hover { background: #dc3545; color: white; border-color: #dc3545; }
+
+/* 1. HIGHEST PRIORITY: Your Top Navbar and Offcanvas Sidebar */
+.navbar, 
+.offcanvas, 
+.announcement-bar {
+  z-index: 2000 !important; 
+}
+
+/* 2. MEDIUM PRIORITY: The Category Flipper Panel */
+.category-sidebar {
+  position: sticky;
+  top: 56px; /* Sits exactly below the navbar */
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 1050 !important; /* Lower than Top Menu (2000) */
+  border-bottom: 1px solid #eee;
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 3. FLIPPER STYLING */
+.main-cat-flipper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 15px;
+}
+
+.current-main-cat {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.flip-arrow {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #dc3545; /* Theme Red */
+}
+
+/* 4. SUB-CATEGORY CHIPS */
+.sub-chip-container {
+  display: flex;
+  overflow-x: auto;
+  padding: 8px 15px;
+  gap: 8px;
+  -webkit-overflow-scrolling: touch; /* Smooth swipe on Android */
+}
+
+.sub-chip-container::-webkit-scrollbar { display: none; }
+
+.sub-chip {
+  background: #f1f1f1;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  text-decoration: none;
+  color: #444;
+  border: 1px solid #ddd;
+}
+/* Container for the chips and buttons */
+.sub-nav-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+/* The actual scrollable chips area */
+.sub-chip-container {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-behavior: smooth; /* Makes the button-click scroll look nice */
+  gap: 10px;
+  padding: 5px 0;
+  width: 100%;
+}
+
+/* Hide scrollbar */
+.sub-chip-container::-webkit-scrollbar { display: none; }
+
+/* The small navigation arrows for sub-categories */
+.nav-btn {
+  display: none; 
+  background: rgba(255, 255, 255, 0.6);
+  border: none;
+  font-size: 1.2rem;
+  color: #888;
+  padding: 5px 10px;
+  z-index: 5;
+}
+
+/* Class to show them when needed */
+.nav-btn.visible {
+  display: block;
+}
+
+.sub-nav-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  overflow: hidden; /* Keeps the layout clean */
+}
+.nav-btn:active { color: #dc3545; }
+
+.py-5[id] {
+    /* If you have a sticky navbar (e.g. 56px), 
+       set this to 66px (56px navbar + 10px gap) */
+    scroll-margin-top: 66px; 
+}

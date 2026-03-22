@@ -174,3 +174,22 @@ h6.card-title
     text-decoration: none; /* Removes the underline */
     opacity: 0.6;
 }
+/* Force a solid white background so the gray backdrop doesn't show through */
+.offcanvas#cartSidebar 
+{
+    background-color: white !important;
+    z-index: 2100 !important; /* Extremely high to beat any other element */
+}
+/* Ensure the backdrop stays below the cart but above the rest of the page */
+.offcanvas-backdrop 
+{
+    z-index: 1050 !important;
+}
+section.py-5 {
+    margin-bottom: -100px !important;
+}
+
+/* To remove the gap from the very last section */
+section.py-5:last-of-type {
+    margin-bottom: 0 !important;
+}
