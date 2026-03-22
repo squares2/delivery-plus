@@ -9,7 +9,9 @@
   <link href="css/styles.css" rel="stylesheet">
   <link href="css/styles2.css" rel="stylesheet">
   <link href="css/styles3.css" rel="stylesheet">
+  <link href="css/category-sidebar.css" rel="stylesheet">
   <script src="javascript/bootstrap.bundle.min.js"></script>
+  <script src="javascript/sidebar.js"></script>
   <script type="module" src="javascript/database.js"></script> 
 <script type="module">
     import { distribute, startPage,getCategories } from './javascript/database.js';
@@ -204,11 +206,92 @@
     </div>
   </div>
 </div>
+<div class="category-sidebar">
+  <!-- Main Category Flipper (Previous code remains here) -->
+  <div class="main-cat-flipper">
+    <button class="flip-arrow" onclick="prevCategory()"><i class="fa-solid fa-chevron-left"></i></button>
+    <span id="currentMainTitle" class="current-main-cat">Fruits</span>
+    <button class="flip-arrow" onclick="nextCategory()"><i class="fa-solid fa-chevron-right"></i></button>
+  </div>
 
-<section class="py-5">
+  <!-- NEW: Sub-Category Navigation Wrapper -->
+  <div class="sub-nav-wrapper">
+    <button class="nav-btn left" onclick="scrollSub(-200)"><i class="fa-solid fa-angle-left"></i></button>
+    
+    <div id="subCategoryRow" class="sub-chip-container">
+      <!-- Chips like "Fresh Fruits", "Dried Fruits" go here -->
+    </div>
+    
+    <button class="nav-btn right" onclick="scrollSub(200)"><i class="fa-solid fa-angle-right"></i></button>
+  </div>
+</div>
+<div id="categoryGrid">
+<section id="fruits"class="py-5">
 	<div class="container">
 		<div class="d-flex justify-content-between align-items-center mb-4">
-			<h2 class="fw-bold">Shop</h2>
+			<h2 class="fw-bold">fruits</h2>
+			<a class="text-primary" href="index.html">Home</a>
+		</div>
+		<div class="row g-3">
+			<div class="col-6 col-lg-3">
+				<div class="card product-card h-100">
+					<img src="items/19.png" onerror="this.onerror=null;this.src='items/0.png';" class="card-img-top" alt="Red Apples 1kg" loading="lazy" referrerpolicy="no-referrer">
+					<img src="png/cart2.png" class="img-overlay" alt="Overlay">
+					<div class="card-body">
+						<h6 class="card-title">Red Apples 1kg</h6>
+						<div class="fw-semibold mb-2">$3.49</div>
+						<div class="d-flex gap-2">
+							<button class="btn btn-sm btn-primary" data-product-id="3">Add to Cart</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-6 col-lg-3">
+				<div class="card product-card h-100">
+					<img src="items/19.png" onerror="this.onerror=null;this.src='items/0.png';" class="card-img-top" alt="Red Apples 1kg" loading="lazy" referrerpolicy="no-referrer">
+					<img src="png/cart2.png" class="img-overlay" alt="Overlay">
+					<div class="card-body">
+						<h6 class="card-title">Red Apples 1kg</h6>
+						<div class="fw-semibold mb-2">$3.49</div>
+						<div class="d-flex gap-2">
+							<button class="btn btn-sm btn-primary" data-product-id="3">Add to Cart</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-6 col-lg-3">
+				<div class="card product-card h-100">
+					<img src="items/19.png" onerror="this.onerror=null;this.src='items/0.png';" class="card-img-top" alt="Red Apples 1kg" loading="lazy" referrerpolicy="no-referrer">
+					<img src="png/cart2.png" class="img-overlay" alt="Overlay">
+					<div class="card-body">
+						<h6 class="card-title">Red Apples 1kg</h6>
+						<div class="fw-semibold mb-2">$3.49</div>
+						<div class="d-flex gap-2">
+							<button class="btn btn-sm btn-primary" data-product-id="3">Add to Cart</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-6 col-lg-3">
+				<div class="card product-card h-100">
+					<img src="items/19.png" onerror="this.onerror=null;this.src='items/0.png';" class="card-img-top" alt="Red Apples 1kg" loading="lazy" referrerpolicy="no-referrer">
+					<img src="png/cart2.png" class="img-overlay" alt="Overlay">
+					<div class="card-body">
+						<h6 class="card-title">Red Apples 1kg</h6>
+						<div class="fw-semibold mb-2">$3.49</div>
+						<div class="d-flex gap-2">
+							<button class="btn btn-sm btn-primary" data-product-id="3">Add to Cart</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+<section id="dairy"class="py-5">
+	<div class="container">
+		<div class="d-flex justify-content-between align-items-center mb-4">
+			<h2 class="fw-bold">dairy</h2>
 			<a class="text-primary" href="index.html">Home</a>
 		</div>
 		<div class="row g-3" id="categoryGrid">
@@ -228,6 +311,7 @@
 		</div>
 	</div>
 </section>
+</div>
   <footer class="footer bg-dark text-white pt-5">
     <div class="container">
       <div class="row g-4">
@@ -239,21 +323,6 @@
       <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivery+ All rights reserved.</div>
     </div>
   </footer>
-
-  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
-    <div class="offcanvas-header">
-      <h5 class="offcanvas-title">Your Cart</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-    </div>
-    <div class="offcanvas-body">
-      <div id="cartList" class="list-group mb-3"></div>
-      <div class="d-flex justify-content-between align-items-center border-top pt-3">
-        <div class="fw-semibold">Total</div>
-        <div id="cartTotal" class="fw-bold">$0.00</div>
-      </div>
-      <a href="checkout.html" class="btn btn-primary w-100 mt-3">Checkout</a>
-    </div>
-  </div>
 
   <div class="modal fade" id="quickViewModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -299,5 +368,19 @@
 
   </div>
 </nav>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Your Cart</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="cartList" class="list-group mb-3"></div>
+      <div class="d-flex justify-content-between align-items-center border-top pt-3">
+        <div class="fw-semibold">Total</div>
+        <div id="cartTotal" class="fw-bold">$0.00</div>
+      </div>
+      <a href="checkout.html" class="btn btn-primary w-100 mt-3">Checkout</a>
+    </div>
+  </div>
 </body>
 </html>
