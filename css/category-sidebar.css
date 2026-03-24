@@ -7,7 +7,7 @@
   position: sticky;
   top: 56px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.1) !important; /* Forces transparency */
+  background: rgba(255, 255, 255, 0.1) !important; 
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 1050 !important;
@@ -106,8 +106,22 @@
     align-items: center;
   }
 
+  /* Shrink Search Bar & Inputs */
+  .search-form {
+    max-width: 180px !important; /* Limits width so it doesn't crowd icons */
+    margin: 0 5px !important;
+  }
+
+  .search-form .input-group,
+  .search-form .form-control,
+  .search-form .input-group-text {
+    height: 28px !important; /* Slimmer height */
+    font-size: 0.75rem !important; /* Smaller text */
+    padding: 0 5px !important;
+  }
+
   .navbar-brand, .nav-link {
-    font-size: 0.9rem !important;
+    font-size: 0.85rem !important;
     padding: 0 5px !important;
   }
 
@@ -121,20 +135,20 @@
     padding: 0 10px !important;
   }
 
-  .current-main-cat { font-size: 0.9rem !important; }
+  .current-main-cat { font-size: 0.85rem !important; }
   .flip-arrow { font-size: 1.1rem !important; }
 
   .sub-chip-container {
-    padding: 4px 10px !important;
+    padding: 2px 10px !important;
     gap: 5px !important;
   }
 
   .sub-chip {
-    padding: 3px 10px !important;
-    font-size: 0.75rem !important;
+    padding: 2px 12px !important;
+    font-size: 0.7rem !important;
   }
 
   .py-5[id] {
-    scroll-margin-top: 85px !important;
+    scroll-margin-top: 80px !important;
   }
 }
