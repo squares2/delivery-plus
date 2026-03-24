@@ -202,52 +202,55 @@ body {
     position: relative;
     margin: 0;
     min-height: 100vh;
-    background-color: #f8f9fa; /* Default fallback */
+    background-color: #f8f9fa;
     transition: background 0.5s ease;
+    /* Prevents horizontal scroll from the transform: scale */
+    overflow-x: hidden; 
 }
 
 /* 2. The Blurred Wallpaper Layer */
-body::before 
-{
+body::before {
     content: "";
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
-    z-index: -1; /* Stays behind everything */
+    /* Use 100% or 100vh; some mobile browsers struggle with fixed + 100% */
+    height: 100%; 
+    z-index: -1;
     background-position: center center;
     background-repeat: no-repeat;
+    /* Added -webkit- prefix for older mobile browser support */
+    -webkit-background-size: cover;
     background-size: cover;
-    filter: blur(3px); /* This blurs the image */
-    transform: scale(1.1); /* Prevents white edges */
+    filter: blur(3px);
+    /* Scale prevents white edges during blur */
+    transform: scale(1.1);
     transition: background 0.5s ease;
+    /* Critical: Ensures pseudo-element doesn't collapse on mobile */
+    display: block; 
 }
 
-/* 3. Market Theme */
-body.theme-market::before 
-{
+/* 3. Theme Sections - Ensure consistent pathing */
+body.theme-market::before {
     background-color: #e8f5e9;
-    background-image: url('../png/background2.jpg'); /* UPDATE with your actual market image path */
+    background-image: url('../png/background2.jpg');
 }
 
-/* 4. Restaurant Theme */
-body.theme-restaurant::before 
-{
+body.theme-restaurant::before {
     background-color: #fff5f5;
-    background-image: url('../png/restaurants.jpg'); /* UPDATE with your actual restaurant image path */
+    background-image: url('../png/restaurants.jpg');
 }
 
-/* 5. Pharmacy Theme */
-body.theme-pharmacy::before 
-{
+body.theme-pharmacy::before {
     background-color: #e3f2fd;
-    background-image: url('png/pharmacy-bg.jpg'); /* UPDATE with your actual pharmacy image path */
+    /* FIX: Standardized path to match others if they are in the same folder */
+    background-image: url('../png/pharmacy-bg.jpg'); 
 }
 
-/* 6. Clean up: Ensuring text readability on blurred backgrounds */
-.product-card, .category-card, .navbar-styled 
-{
+/* 4. Glassmorphism for cards */
+.product-card, .category-card, .navbar-styled {
     background: rgba(255, 255, 255, 0.85) !important;
+    -webkit-backdrop-filter: blur(5px); /* Safari support */
     backdrop-filter: blur(5px);
 }
