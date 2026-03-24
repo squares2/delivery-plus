@@ -105,7 +105,7 @@ function getCompanies()
 					compname=item[j].companyname;
 					if(item[j].soon=="1")soon="soon";
 					else soon="";
-					inner+="<a class='dropdown-item "+soon+"' href='category.html?category="+compname+"'>"+compname+"</a>"
+					inner+="<a class='dropdown-item "+soon+"' href='category.html?category="+compname+"&pattern="+key+"'>"+compname+"</a>"
 					j++
 				}	
 				i++;
@@ -518,8 +518,7 @@ function renderCategoryPage()
 			prev=p.category;
 			prehtml="<section id='"+p.category+"'class='py-5'><div class='container'>";
 			prehtml+="<div class='d-flex justify-content-between align-items-center mb-4'>";
-			prehtml+="<h2 class='fw-bold'>"+p.category+"</h2><a class='text-primary' href='index.html'>";
-			prehtml+="Home</a></div><div class='row g-3'>";
+			prehtml+="<h2 style='background: linear-gradient(to right, #42adad 30%, #0c2626 70%);color:#fff;border-radius: 10px;padding: 10px 5px;'class='fw-bold'>"+p.category+"</h2></div><div class='row g-3'>";
 			html+=prehtml+cardTemplate(p);
 		}
 		else if(prev==p.category)
@@ -531,8 +530,7 @@ function renderCategoryPage()
 			prev=p.category;
 			prehtml="<section id='"+p.category+"'class='py-5'><div class='container'>";
 			prehtml+="<div class='d-flex justify-content-between align-items-center mb-4'>";
-			prehtml+="<h2 class='fw-bold'>"+p.category+"</h2><a class='text-primary' href='index.html'>";
-			prehtml+="Home</a></div><div class='row g-3'>";
+			prehtml+="<h2 style='background: linear-gradient(to right, #42adad 30%, #0c2626 70%);color:#fff;border-radius: 10px;padding: 10px 5px;'class='fw-bold'>"+p.category+"</h2></div><div class='row g-3'>";
 			posthtml="</div></div></section>";
 			html+=posthtml+prehtml+cardTemplate(p);
 		}
@@ -1409,7 +1407,6 @@ if(table)
 function updateOnWidth() 
 {
 	const width = window.innerWidth; // Get current width
-	console.log("Current width: " + width);
 
 	const topcart = document.getElementById('topcart');
 	const topcompany = document.getElementById('topcompany');
@@ -1431,3 +1428,23 @@ window.addEventListener('resize', updateOnWidth);
 
 // Trigger once on load to initialize values
 updateOnWidth();
+
+export function applyShopTheme(shopType) 
+{
+    // 1. Remove any existing themes
+    document.body.classList.remove('theme-market', 'theme-restaurant', 'theme-pharmacy');
+    
+    // 2. Add the new theme based on shopType
+    // You can use a simple if/else or switch based on the shop's category
+    if (shopType === 'Markets') 
+	{
+        document.body.classList.add('theme-market');
+    } 
+	else if (shopType === 'Restaurants') 
+	{
+        document.body.classList.add('theme-restaurant');
+    } 
+	else if (shopType === 'Pharmacy') {
+        document.body.classList.add('theme-pharmacy');
+    }
+}
