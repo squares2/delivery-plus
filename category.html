@@ -14,7 +14,7 @@
   <script src="javascript/sidebar.js"></script>
   <script type="module" src="javascript/database.js"></script> 
 <script type="module">
-    import { distribute, startPage,getCategories } from './javascript/database.js';
+    import { distribute, startPage,getCategories,applyShopTheme } from './javascript/database.js';
 
     async function initializePage() 
 	{
@@ -24,6 +24,7 @@
 			const params = new URLSearchParams(window.location.search);
 			const categories = params.getAll('category'); 
 			const categories2 = params.getAll('category2'); 
+			const pattern = params.getAll('pattern'); 
 			const location = params.getAll('location'); 
 			if(categories.length==1)
 			{
@@ -43,6 +44,10 @@
 			{
 				await distribute(categories,categories2);
 				getCategories(document.getElementById('company').innerHTML);
+			}
+			if(pattern.length==1)
+			{
+				applyShopTheme(pattern[0]);
 			}
             startPage();
         } catch (error) {
