@@ -221,6 +221,7 @@ function loadPersonals()
 export async function getCategories(companyname)
 {
 	const list = document.getElementById('categorieslist');
+	const list2 = document.getElementById('categorieslist2');
 	var inner="";
 	var val;
 	deliveryMenu=[];
@@ -257,6 +258,10 @@ export async function getCategories(companyname)
 			{
 				list.innerHTML=inner;
 				distribute2(companyname);
+			}	
+			if(list2!=null)
+			{
+				list2.innerHTML=inner;
 			}	
 		} 
 		else 
@@ -1400,3 +1405,29 @@ if(table)
 		}
 	});
 }
+
+function updateOnWidth() 
+{
+	const width = window.innerWidth; // Get current width
+	console.log("Current width: " + width);
+
+	const topcart = document.getElementById('topcart');
+	const topcompany = document.getElementById('topcompany');
+
+	if (width < 992) 
+	{
+		if(topcart)topcart.style.display="none";
+		if(topcompany)topcompany.style.display="none";
+	}
+	else
+	{
+		if(topcart)topcart.style.display="block";
+		if(topcompany)topcompany.style.display="block";
+	}
+}
+
+// Listen for window resize
+window.addEventListener('resize', updateOnWidth);
+
+// Trigger once on load to initialize values
+updateOnWidth();
