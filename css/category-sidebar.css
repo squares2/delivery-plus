@@ -27,29 +27,59 @@
 
 /* 2. FLIPPER (Title & Arrows) */
 .main-cat-flipper {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  /* Columns: [Left Arrow 50px] [Gap 15px] [Word 220px] [Gap 15px] [Right Arrow 50px] */
+  grid-template-columns: 50px 220px 50px; 
+  justify-content: center; /* Centers the entire grid on screen */
   align-items: center;
+  gap: 20px;               /* Fixed extra distance between arrows and box */
   padding: 0 15px;
   margin-bottom: 10px;
 }
 
 .current-main-cat {
+  /* FIXED WIDTH - The box will NEVER change size */
+  width: 100%;             
+  text-align: center;      
+  
   font-weight: 800;
   font-size: 1.1rem;
-  color: #333;
+  background: linear-gradient(to right, #42adad 30%, #0c2626 70%);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 5px;
   text-transform: uppercase;
   letter-spacing: 1px;
+  white-space: nowrap;     
+  overflow: hidden;        /* Prevents text from pushing the box wider */
+  text-overflow: ellipsis; /* Adds "..." if a word is impossibly long */
+  display: block;
 }
 
 .flip-arrow {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.8rem;
+  font-weight: 900;
   color: #dc3545;
-  transition: transform 0.2s;
+  transition: transform 0.2;
+  
+  /* THICKER & WIDER */
+  -webkit-text-stroke: 1.5px #dc3545; 
+  transform: scaleX(1.7);   /* Ultra-wide arrows */
+  
+  /* ARROW STABILIZER */
+  width: 100%;             /* Fills the 50px grid column perfectly */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
 }
-.flip-arrow:active { transform: scale(0.9); }
+
+/* Maintain position during click */
+.flip-arrow:active { 
+  transform: scaleX(1.7) scale(0.9); 
+}
 
 /* 3. SUB-CATEGORY CHIPS */
 .sub-chip-container {

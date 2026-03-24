@@ -1,6 +1,9 @@
 :root{--primary:#198754;--text:#1f2937}
 *{box-sizing:border-box}
-body{font-family:'Poppins',sans-serif;color:var(--text);}
+body
+{
+	font-family:'Poppins',sans-serif;color:var(--text);
+}
 .announcement-bar
 {
 	background:linear-gradient(90deg,#0ea5e9,#22c55e);
@@ -192,4 +195,59 @@ section.py-5 {
 /* To remove the gap from the very last section */
 section.py-5:last-of-type {
     margin-bottom: 0 !important;
+}
+/* Default Background */
+/* 1. Base Body Setup */
+body {
+    position: relative;
+    margin: 0;
+    min-height: 100vh;
+    background-color: #f8f9fa; /* Default fallback */
+    transition: background 0.5s ease;
+}
+
+/* 2. The Blurred Wallpaper Layer */
+body::before 
+{
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* Stays behind everything */
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    filter: blur(3px); /* This blurs the image */
+    transform: scale(1.1); /* Prevents white edges */
+    transition: background 0.5s ease;
+}
+
+/* 3. Market Theme */
+body.theme-market::before 
+{
+    background-color: #e8f5e9;
+    background-image: url('../png/background2.jpg'); /* UPDATE with your actual market image path */
+}
+
+/* 4. Restaurant Theme */
+body.theme-restaurant::before 
+{
+    background-color: #fff5f5;
+    background-image: url('../png/restaurants.jpg'); /* UPDATE with your actual restaurant image path */
+}
+
+/* 5. Pharmacy Theme */
+body.theme-pharmacy::before 
+{
+    background-color: #e3f2fd;
+    background-image: url('png/pharmacy-bg.jpg'); /* UPDATE with your actual pharmacy image path */
+}
+
+/* 6. Clean up: Ensuring text readability on blurred backgrounds */
+.product-card, .category-card, .navbar-styled 
+{
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(5px);
 }
