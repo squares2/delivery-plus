@@ -244,7 +244,7 @@ export async function getCategories(companyname)
 						const values = val.split(",");
 						for(let i=0;i<values.length;i++)
 						{
-							inner+="<a class='dropdown-item' href='category.html?category="+key+"&category2="+values[i]+"'>"+values[i]+"</a>"
+							inner+="<a class='dropdown-item' href='#"+values[i]+"'>"+values[i]+"</a>"
 							subs.push(values[i]);
 						}
 						inner+="</div>";
@@ -652,7 +652,7 @@ function removeProductOverlay(productId)
 function cardTemplate(p)
 {
 	let found=false;
-	let result='<div class="col-6 col-lg-3">'+
+	let result='<div class="col-3 col-lg-3">'+
     '<div class="card product-card h-100">'+
       '<img src="' + p.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="card-img-top" alt="'+p.title+'">';
 	  
@@ -1432,7 +1432,7 @@ updateOnWidth();
 export function applyShopTheme(shopType) 
 {
     // 1. Remove any existing themes
-    document.body.classList.remove('theme-market', 'theme-restaurant', 'theme-pharmacy');
+    document.body.classList.remove('theme-market', 'theme-restaurant','theme-butcher', 'theme-grocery', 'theme-toys', 'theme-bakery', 'theme-sweet','theme-tobbaco');
     
     // 2. Add the new theme based on shopType
     // You can use a simple if/else or switch based on the shop's category
@@ -1444,7 +1444,28 @@ export function applyShopTheme(shopType)
 	{
         document.body.classList.add('theme-restaurant');
     } 
-	else if (shopType === 'Pharmacy') {
-        document.body.classList.add('theme-pharmacy');
-    }
+	else if (shopType === 'Groceries') 
+	{
+        document.body.classList.add('theme-grocery');
+    } 
+	else if (shopType === 'ButcherShops') 
+	{
+        document.body.classList.add('theme-butcher');
+    } 
+	else if (shopType === 'ToysShops') 
+	{
+        document.body.classList.add('theme-toys');
+    } 
+	else if (shopType === 'BakeryShops') 
+	{
+        document.body.classList.add('theme-bakery');
+    } 
+	else if (shopType === 'SweetsShops') 
+	{
+        document.body.classList.add('theme-sweet');
+    } 
+	else if (shopType === 'TobbacoShops') 
+	{
+        document.body.classList.add('theme-tobbaco');
+    } 
 }
