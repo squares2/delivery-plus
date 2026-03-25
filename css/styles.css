@@ -81,10 +81,6 @@ body
 .category-card:hover{transform:translateY(-4px);box-shadow:0 10px 20px rgba(0,0,0,.08)}
 .category-card .card-img-top{height:140px;width:100%;object-fit:cover}
 
-.product-card{position:relative;border:1px solid #e5e7eb;transition:transform .2s,box-shadow .2s}
-.product-card:hover{transform:translateY(-4px);box-shadow:0 10px 20px rgba(0,0,0,.08)}
-.product-card .card-img-top{height:70%;width:70%;object-fit:cover;margin: 0 auto;}
-
 .mobile-actions{display:none!important}
 img{max-width:100%;display:block}
 .btn-gradient{background:linear-gradient(90deg,#22c55e,#0ea5e9);color:#fff;border:none;border-radius:999px}
@@ -109,26 +105,11 @@ footer.footer{position:relative;z-index:1}
 .footer a.text-muted{color:rgba(255,255,255,.85)!important}
 .footer a.text-muted:hover{color:#ffffff!important}
 @media(max-width:992px){.mega .dropdown-menu{min-width:unset;width:100%}}
-@media(max-width:768px){
-  .hero .hero-slide{height:380px}
-  .product-card .card-img-top{height:160px}
-  .category-card .card-img-top{height:120px}
-  .brand-logo{height:48px}
-}
 @media(max-width:576px){
   .hero .hero-slide{height:300px}
   .hero h1{font-size:1.5rem}
   .hero .lead{font-size:.95rem}
   .search-form .input-group{border-radius:14px}
-}
-.product-card .card-body .d-flex{flex-wrap:wrap}
-@media(max-width:576px){
-  .product-card .card-body .d-flex{flex-direction:column;gap:.5rem}
-  .product-card .card-body .d-flex .btn{width:100%}
-}
-h6.card-title
-{
-	font-size:20px;
 }
 .fw-semibold.mb-2
 {
@@ -209,7 +190,8 @@ body {
 }
 
 /* 2. The Blurred Wallpaper Layer */
-body::before {
+body::before 
+{
     content: "";
     position: fixed;
     top: 0;
@@ -232,24 +214,51 @@ body::before {
 }
 
 /* 3. Theme Sections - Ensure consistent pathing */
-body.theme-market::before {
+body.theme-market::before 
+{
     background-color: #e8f5e9;
     background-image: url('../png/background2.jpg');
 }
-
-body.theme-restaurant::before {
+body.theme-restaurant::before 
+{
     background-color: #fff5f5;
     background-image: url('../png/restaurants.jpg');
 }
 
-body.theme-pharmacy::before {
+body.theme-butcher::before 
+{
     background-color: #e3f2fd;
-    /* FIX: Standardized path to match others if they are in the same folder */
-    background-image: url('../png/pharmacy-bg.jpg'); 
+    background-image: url('../png/butchershops.jpg'); 
+}
+body.theme-grocery::before 
+{
+    background-color: #e3f2fd;
+    background-image: url('../png/groceries.jpg'); 
+}
+body.theme-toys::before 
+{
+    background-color: #e3f2fd;
+    background-image: url('../png/toys.jpg'); 
+}
+body.theme-bakery::before 
+{
+    background-color: #e3f2fd;
+    background-image: url('../png/bakery.jpg'); 
+}
+body.theme-sweet::before 
+{
+    background-color: #e3f2fd;
+    background-image: url('../png/sweets.jpg'); 
+}
+body.theme-tobbaco::before 
+{
+    background-color: #e3f2fd;
+    background-image: url('../png/tobacco.jpg'); 
 }
 
 /* 4. Glassmorphism for cards */
-.product-card, .category-card, .navbar-styled {
+.product-card, .category-card, .navbar-styled 
+{
     background: rgba(255, 255, 255, 0.85) !important;
     -webkit-backdrop-filter: blur(5px); /* Safari support */
     backdrop-filter: blur(5px);
