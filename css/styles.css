@@ -165,10 +165,6 @@ footer.footer{position:relative;z-index:1}
     z-index: 2100 !important; /* Extremely high to beat any other element */
 }
 /* Ensure the backdrop stays below the cart but above the rest of the page */
-.offcanvas-backdrop 
-{
-    z-index: 1050 !important;
-}
 section.py-5 {
     margin-bottom: -100px !important;
 }
@@ -179,7 +175,8 @@ section.py-5:last-of-type {
 }
 /* Default Background */
 /* 1. Base Body Setup */
-body {
+body 
+{
     position: relative;
     margin: 0;
     min-height: 100vh;
@@ -262,4 +259,13 @@ body.theme-tobbaco::before
     background: rgba(255, 255, 255, 0.85) !important;
     -webkit-backdrop-filter: blur(5px); /* Safari support */
     backdrop-filter: blur(5px);
+}
+/* Ensure the sidebar is ALWAYS above the backdrop */
+.offcanvas {
+    z-index: 1060 !important;
+}
+
+/* The backdrop should be lower than the sidebar */
+.offcanvas-backdrop {
+    z-index: 1050 !important;
 }

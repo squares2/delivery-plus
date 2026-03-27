@@ -1,5 +1,6 @@
 /* 1. MAIN CARD CONTAINER */
-.product-card {
+.product-card 
+{
   position: relative;
   border: 1px solid #e5e7eb;
   transition: transform .2s, box-shadow .2s;
@@ -10,13 +11,15 @@
   overflow: hidden;
 }
 
-.product-card:hover {
+.product-card:hover 
+{
   transform: translateY(-4px);
   box-shadow: 0 10px 20px rgba(0,0,0,.08);
 }
 
 /* 2. IMAGE SECTION (Smaller to allow bigger body) */
-.product-card .card-img-top {
+.product-card .card-img-top 
+{
   width: 85%;            /* Slightly narrowed to give body more vertical "weight" */
   margin: 10px auto 0;   /* Centers image and adds top spacing */
   aspect-ratio: 1 / 1;   /* Keeps the square shape for consistency */
@@ -25,29 +28,33 @@
 }
 
 /* 3. OVERLAY ICON */
-.product-card .img-overlay {
+.product-card .img-overlay 
+{
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 22px;
+  top: 0vh;
+  right: 8vw;
+  width: 6vw;
   height: auto;
   z-index: 2;
   opacity: 0.8;
 }
 
 /* 4. CARD BODY (Made bigger and more spacious) */
-.product-card .card-body {
+.product-card .card-body 
+{
   padding: 0.75rem;      /* Increased padding for a "bigger" feel */
   flex-grow: 1;          /* Forces body to fill all remaining vertical space */
   display: flex;
   flex-direction: column;
   justify-content: space-between; /* Pushes button to bottom, title to top */
   text-align: center;
+  padding: 0.5rem 0.3rem; /* Maximize internal space */
 }
 
 /* 5. TYPOGRAPHY */
-h6.card-title {
-  font-size: 0.85rem;    /* Slightly larger font */
+h6.card-title 
+{
+  font-size: clamp(0.6rem, 2.5vw, 4rem);
   font-weight: 600;
   margin-bottom: 4px;
   line-height: 1.2;
@@ -59,14 +66,16 @@ h6.card-title {
   height: 2.4em;         /* Reserves space for 2 lines exactly */
 }
 
-.product-card .fw-semibold {
-  font-size: 0.95rem;    /* Larger Price */
+.product-card .fw-semibold 
+{
+  font-size: clamp(1rem, 2.5vw, 4rem);
   color: #2b2b2b;
   margin-bottom: 8px;
 }
 
 /* 6. BUTTON STYLE */
-.product-card .btn-sm {
+.product-card .btn-sm 
+{
   font-size: 0.7rem;
   padding: 5px 2px;      /* Taller button to fill body space */
   width: 100%;
@@ -75,28 +84,18 @@ h6.card-title {
 }
 
 /* 7. MOBILE OPTIMIZATION (4-ACROSS FORCING) */
-@media (max-width: 768px) {
+@media (max-width: 768px) 
+{
   /* Tightens the grid gaps so 4 cards can actually fit */
-  .row {
+  .row 
+  {
     margin-left: -5px;
     margin-right: -5px;
   }
-  .row > [class*='col-'] {
+  .row > [class*='col-'] 
+  {
     padding-left: 5px;
     padding-right: 5px;
     margin-bottom: 10px;
-  }
-
-  /* Adjustments for the tiny 4-column width */
-  .product-card .card-body {
-    padding: 0.5rem 0.3rem; /* Maximize internal space */
-  }
-  
-  h6.card-title {
-    font-size: 0.75rem;
-  }
-  
-  .product-card .fw-semibold {
-    font-size: 0.85rem;
-  }
+  }  
 }
