@@ -394,7 +394,7 @@ function setCompany(comp)
 						soon=item[j].soon;
 						if(comp==key&&parseInt(soon)>1)
 						{
-							inner+="<div class='col-6 col-lg-2'><a href='category.html?category="+compname+"' data-company-name='"+compname+"'"
+							inner+="<div class='col-6 col-lg-2'><a href='category.html?category="+compname+"&pattern="+key+"' data-company-name='"+compname+"'"
 							inner+="class='card category-card text-center'><img src='png/"+comp.toLowerCase()+".jpg' "
 							inner+="class='card-img-top'><div class='card-body'><h6>"+compname+"</h6></div></a></div>";
 						}
@@ -661,8 +661,8 @@ function cardTemplate(p)
 		if(p.id==cartItems[i].id)found=true;
 	}
 
-	if(found)result+='<img src="png/cart2.png" style="display:block"class="img-overlay" alt="Overlay">';
-	else result+='<img src="png/cart2.png" style="display:none"class="img-overlay" alt="Overlay">';
+	if(found)result+='<img src="png/cart3.png" style="display:block"class="img-overlay" alt="Overlay">';
+	else result+='<img src="png/cart3.png" style="display:none"class="img-overlay" alt="Overlay">';
 	  result+=
       '<div class="card-body">'+
         '<h6 class="card-title">'+p.title+'</h6>'+
@@ -974,7 +974,7 @@ async function placeOrder()
 		for (let i = 0; i < cartItems.length;i++) 
 		{
 			const product = cartItems[i];
-			cartList+=product.id+":"+product.title+":"+product.price+":"+product.qty+";";
+			cartList+=product.id+":"+product.price+":"+product.qty+";";
 		}
 		const num = parseFloat(localStorage.getItem('total')); // Converts string to number
 		const tot = num.toFixed(2);
@@ -1004,7 +1004,8 @@ async function placeOrder()
 				state: "0",
 				read: "0",
 				cart: cartList,
-				deliveryplusid: localStorage.getItem('deliveryplusids')
+				deliveryplusid: localStorage.getItem('deliveryplusids'),
+				vault:"0"
 			});
 			
 			cartItems=[];
