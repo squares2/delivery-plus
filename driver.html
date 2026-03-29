@@ -9,17 +9,15 @@
   <link href="css/styles.css" rel="stylesheet">
   <link href="css/styles2.css" rel="stylesheet">
   <link href="css/styles3.css" rel="stylesheet">
+  <link href="css/rowbadge.css" rel="stylesheet">
   <link href="css/tablestyle.css" rel="stylesheet">
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/bootstrap.bundle.min.js"></script>
-<script type="module"src="javascript/startup.js"></script>
-<script type="module">
+  <script type="module" src="javascript/startup.js"></script>
+  <script type="module">
     import { function1 } from './javascript/database.js';
-
-
-    // Trigger initialization on load
     window.addEventListener('DOMContentLoaded', function1);
-</script>
+  </script>
 </head>
 <body>
   <div class="announcement-bar text-white">
@@ -30,9 +28,11 @@
       </div>
     </div>
   </div>
-  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
-    <div class="container">
-		
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
+  <div class="container-fluid d-flex justify-content-between align-items-center">
+    
+    <!-- Left: User Menu -->
 	<ul class="navbar-nav d-flex flex-row align-items-center">
 	  <!-- NEW: Login / User Label -->
 	  <li class="nav-item ms-3 dropdown" id="userMenuContainer">
@@ -46,106 +46,86 @@
       <i class="fa-solid fa-circle-user me-1"></i><span id="userLabel">User</span>
     </a>
     <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-      <li><a class="dropdown-item" href="#"><i class="fa-solid fa-gear me-2"></i>Settings</a></li>
+      <li><a id="history"class="dropdown-item" href="?history=1"><i class="fa-solid fa-clock-rotate-left me-2"></i>history</a></li>
       <li><hr class="dropdown-divider"></li>
       <li><a class="dropdown-item text-danger" href="#" id="logoutBtn"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a></li>
     </ul>
   </li>
 	</ul>     
-	  <div class="collapse navbar-collapse">
 
-      </div>
-    </div>
-  </nav>
-  <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
-    <div class="offcanvas-header">
-      <h5 class="offcanvas-title">Delivery+</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-    </div>
-    <div class="offcanvas-body">
-      <div class="mb-3">
-        <div class="input-group">
-          <span class="input-group-text bg-transparent border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
-          <input class="form-control border-start-0" type="search" placeholder="Search">
+    <!-- Right: Wide Stats & History -->
+    <div class="d-flex align-items-center">
+      <div class="stats-bar-wide">
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-ndelivered">Not Delivered</span>
+          <span id="count-ndelivered" class="stat-value-bold text-ndelivered">0</span>
+        </div>
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-delivered">Delivered</span>
+          <span id="count-delivered" class="stat-value-bold text-delivered">0</span>
+        </div>
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-delayed">Delayed</span>
+          <span id="count-delayed" class="stat-value-bold text-delayed">0</span>
+        </div>
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-canceled">Canceled</span>
+          <span id="count-canceled" class="stat-value-bold text-canceled">0</span>
+        </div>
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-pcanceled">Canceled/Paid</span>
+          <span id="count-pcanceled" class="stat-value-bold text-pcanceled">0</span>
         </div>
       </div>
-      <ul class="list-unstyled">
-        <li><a class="d-block py-2" href="index.html">Home</a></li>
-        <li><a class="d-block py-2" href="about.html">About Us</a></li>
-        <li><a class="d-block py-2" href="contact.html">Contact</a></li>
-      </ul>
+		<!--
+      <a href="history.html" class="history-glass-btn" title="View History">
+        <div class="icon-sphere-realistic">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+        </div>
+      </a>
+	  -->
     </div>
+
   </div>
-	<br><br><br>
+</nav>
+  <!-- TABLE SECTION -->
+  <div class="container mt-5">
 	<table id="drivershiptable"class="mobile-table">
-		<thead>
-			<tr>
-				<th>Ship Number</th>
-				<th>Owner</th>
-				<th>Owner Phone</th>
-				<th>Owner Address</th>
-				<th>Amount</th>
-				<th>Due Date</th>
-				<th>Status</th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr>
-				<td data-label="Ship Number">9</td>
-				<td data-label="Owner">folan lfolany</td>
-				<td data-label="Owner Phone">76884643</td>
-				<td data-label="Owner Address">Baalbeck/nahle street/outa building</td>
-				<td data-label="Amount">$2,500</td>
-				<td data-label="Due Date">03/25/2026</td>
-				<td data-label="Status">
-					<div class="status-selector"data-shipnumber="9">
-						<button class="status-btn btn-ndelivered active">Not Delivered</button>
-						<button class="status-btn btn-delivered">Delivered</button>
-						<button class="status-btn btn-delayed">Delayed</button>
-						<button class="status-btn btn-canceled">Canceled</button>
-						<button class="status-btn btn-pcanceled">Canceled Payed</button>
-						<button id="cartdriverdetail" data-shipnumber="9" class="status-btn2 btn-items">Items</button>
-					</div>
-				</td>
-			</tr>
-			<tr>
-				<td data-label="Ship Number">10</td>
-				<td data-label="Owner">folan lfolany</td>
-				<td data-label="Owner Phone">76884643</td>
-				<td data-label="Owner Address">Baalbeck/nahle street/outa building</td>
-				<td data-label="Amount">$2,500</td>
-				<td data-label="Due Date">03/25/2026</td>
-				<td data-label="Status">
-					<div class="status-selector"data-shipnumber="10">
-						<button class="status-btn btn-ndelivered active">Not Delivered</button>
-						<button class="status-btn btn-delivered">Delivered</button>
-						<button class="status-btn btn-delayed">Delayed</button>
-						<button class="status-btn btn-canceled">Canceled</button>
-						<button class="status-btn btn-pcanceled">Canceled Payed</button>
-						<button id="cartdriverdetail" data-shipnumber="10" class="status-btn2 btn-items">Items</button>
-					</div>
-				</td>
-			</tr>
-			<tr>
-				<td data-label="Ship Number">11</td>
-				<td data-label="Owner">folan lfolany</td>
-				<td data-label="Owner Phone">76884643</td>
-				<td data-label="Owner Address">Baalbeck/nahle street/outa building</td>
-				<td data-label="Amount">$2,500</td>
-				<td data-label="Due Date">03/25/2026</td>
-				<td data-label="Status">
-					<div class="status-selector"data-shipnumber="11">
-						<button class="status-btn btn-ndelivered active">Not Delivered</button>
-						<button class="status-btn btn-delivered">Delivered</button>
-						<button class="status-btn btn-delayed">Delayed</button>
-						<button class="status-btn btn-canceled">Canceled</button>
-						<button class="status-btn btn-pcanceled">Canceled Payed</button>
-						<button id="cartdriverdetail" data-shipnumber="11" class="status-btn2 btn-items">Items</button>
-					</div>
-				</td>
-			</tr>
-		</tbody>
-	</table>
+      <thead>
+        <tr>
+          <th>Ship Number</th>
+          <th>Owner</th>
+          <th>Owner Phone</th>
+          <th>Owner Address</th>
+          <th>Amount</th>
+          <th>Due Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Table rows as you had them -->
+        <tr>
+          <td data-label="Ship Number">9</td>
+          <td data-label="Owner">folan lfolany</td>
+          <td data-label="Owner Phone">76884643</td>
+          <td data-label="Owner Address">Baalbeck/nahle street/outa building</td>
+          <td data-label="Amount">$2,500</td>
+          <td data-label="Due Date">03/25/2026</td>
+          <td data-label="Status">
+            <div class="status-selector" data-shipnumber="9">
+              <button class="status-btn btn-ndelivered active">Not Delivered</button>
+              <button class="status-btn btn-delivered">Delivered</button>
+              <button class="status-btn btn-delayed">Delayed</button>
+              <button class="status-btn btn-canceled">Canceled</button>
+              <button class="status-btn btn-pcanceled">Canceled Payed</button>
+              <button id="cartdriverdetail" data-shipnumber="9" class="status-btn2 btn-items">Items</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
   <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
     <div class="offcanvas-header">
       <h5 class="offcanvas-title">Your Cart</h5>
@@ -214,6 +194,5 @@
       </div>
       <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivery+ All rights reserved.</div>
     </div>
-  </footer>
-</body>
+  </footer></body>
 </html>
