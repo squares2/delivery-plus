@@ -135,6 +135,28 @@ function getCompanies()
 }
 function distributeDriver()
 {
+	const params = new URLSearchParams(window.location.search);
+	const historyValue = params.get('history');
+		
+	if(historyValue&&historyValue==1)
+	{
+		const link1 = document.getElementById('history');
+		if(link1)
+		{
+			link1.href="?history=0";
+			link1.innerHTML="<i class='fa-solid fa-house me-2'></i>Main</a>";
+		}	
+	}
+	else
+	{
+		const link1 = document.getElementById('history');
+		if(link1)
+		{
+			link1.href="?history=1";
+			link1.innerHTML="<i class='fa-solid fa-clock-rotate-left me-2'></i>History</a>";
+		}	
+	}
+	
 	var owner=localStorage.getItem('owner');
 	const drivershiptable = document.getElementById('drivershiptable');
 	if(owner&&owner.length==0)
@@ -151,6 +173,15 @@ function distributeDriver()
 		var delayed="";
 		var canceled="";
 		var pcanceled="";
+		
+		var countndelivered=document.getElementById('count-ndelivered');
+		var countdelivered=document.getElementById('count-delivered');
+		var countdelayed=document.getElementById('count-delayed');
+		var countcanceled=document.getElementById('count-canceled');
+		var countpcanceled=document.getElementById('count-pcanceled');
+		
+		var totdel=0,totndel=0,totdelayed=0,totcancel=0,totpcancel=0;
+
 		get(child(dbref,"requests")).then((snapshot) => 
 		{
 			if (snapshot.exists()) 
@@ -162,17 +193,37 @@ function distributeDriver()
 				{
 					const key = keys[i];
 					const item = data[key];
-					if(item.driver===localStorage.getItem('owner'))
+					if(item.driver===localStorage.getItem('owner')&&((item.vault=="1"&&historyValue&&historyValue==1)||(item.vault=="0"&&(!historyValue||historyValue==0))))
 					{
-						if(item.state=="0")ndelivered="active";
+						if(item.state=="0")
+						{
+							ndelivered="active";
+							totndel++;
+						}	
 						else ndelivered="";
-						if(item.state=="1")delivered="active";
+						if(item.state=="1")
+						{
+							delivered="active";
+							totdel++;
+						}	
 						else delivered="";
-						if(item.state=="2")canceled="active";
+						if(item.state=="2")
+						{
+							canceled="active";
+							totcancel++;
+						}	
 						else canceled="";
-						if(item.state=="3")delayed="active";
+						if(item.state=="3")
+						{
+							delayed="active";
+							totdelayed++;
+						}	
 						else delayed="";
-						if(item.state=="5")pcanceled="active";
+						if(item.state=="5")
+						{
+							pcanceled="active";
+							totpcancel++;
+						}	
 						else pcanceled="";
 
 						inner2+="<tr><td data-label='Ship Number'>"+key+"</td>";
@@ -182,22 +233,31 @@ function distributeDriver()
 						inner2+="<td data-label='Amount'>"+item.total+"</td>";
 						inner2+="<td data-label='Due Date'>"+item.date+"</td>";
 						inner2+="<td data-label='Status'><div class='status-selector'data-shipnumber='"+key+"'>";
-						inner2+="<button class='status-btn btn-ndelivered "+ndelivered+"'>Not Delivered</button>";
-						inner2+="<button class='status-btn btn-delivered "+delivered+"'>Delivered</button>";
-						inner2+="<button class='status-btn btn-delayed "+delayed+"'>Delayed</button>";
-						inner2+="<button class='status-btn btn-canceled "+canceled+"'>Canceled</button>";
-						inner2+="<button class='status-btn btn-pcanceled "+pcanceled+"'>Canceled Payed</button>";
-						inner2+="<button id='cartdriverdetail' data-shipnumber='"+key+"' class='status-btn2 btn-items'>Items</button>";
+						if((item.state=="0"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-ndelivered "+ndelivered+"'>Not Delivered</button>";
+						if((item.state=="1"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-delivered "+delivered+"'>Delivered</button>";
+						if((item.state=="3"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-delayed "+delayed+"'>Delayed</button>";
+						if((item.state=="2"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-canceled "+canceled+"'>Canceled</button>";
+						if((item.state=="5"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-pcanceled "+pcanceled+"'>Canceled Payed</button>";
+						if(historyValue==0)inner2+="<button id='cartdriverdetail' data-shipnumber='"+key+"' class='status-btn2 btn-items'>Items</button>";
 						inner2+="</div></td></tr>";
 					}
 					i++;
 				}
 				inner2+="</tbody>";
 				if(drivershiptable)drivershiptable.innerHTML=inner1+inner2;
+				
+				if(countndelivered)countndelivered.innerHTML=""+totndel;
+				if(countdelivered)countdelivered.innerHTML=""+totdel;
+				if(countdelayed)countdelayed.innerHTML=""+totdelayed;
+				if(countcanceled)countcanceled.innerHTML=""+totcancel;
+				if(countpcanceled)countpcanceled.innerHTML=""+totpcancel;
+				
 			} 
 			else 
 			{
-				console.log("No data available");
+				inner2+="</tbody>";
+				if(drivershiptable)drivershiptable.innerHTML=inner1+inner2;
+				//console.log("No data available");
 			}
 		}).catch((error) => 
 		{
@@ -547,9 +607,8 @@ function money(v)
 	{
 		style: 'decimal', // Use for standard number formatting
 	});
-	const numericValue = Number(v) || 0;
-	if(numericValue<=2000)return'$'+numericValue.toFixed(2);
-	else return numericValue.toLocaleString()+" L.L."; 
+	var numericValue = Number(v) || 0;
+	return numericValue.toFixed(2)+' $'; 
 }
 function saveCart()
 {
@@ -815,11 +874,13 @@ function renderCartSidebar()
 	{
 		totalEl.textContent=money(total)
 		localStorage.setItem('count',getCartCount());
-		localStorage.setItem('total',total);
+		localStorage.setItem('total',total+2);
 		var sumitems=document.getElementById('summaryItems');
-		var sumtotal=document.getElementById('summaryTotal');
+		var subTotal=document.getElementById('subTotal');
+		var checkTotal=document.getElementById('checktotal');
 		if(sumitems!=null)sumitems.innerHTML=getCartCount();
-		if(sumtotal!=null)sumtotal.innerHTML=totalEl.textContent;
+		if(subTotal!=null)subTotal.innerHTML=totalEl.textContent;
+		if(checkTotal!=null)checkTotal.innerHTML=total+2;
 	}	
 }
 function changeQty(id,delta)
@@ -962,19 +1023,18 @@ async function placeOrder()
 		var phone=document.getElementById("phone");
 		var city=document.getElementById("city");
 		var street=document.getElementById("street");
+		var note=document.getElementById("note");
 		var order=document.getElementById("place_order");
-		
 		localStorage.setItem('fullname',fullname.value);
 		localStorage.setItem('phone',phone.value);
 		localStorage.setItem('city',city.value);
 		localStorage.setItem('street',street.value);
 		
 		var cartList="";
-		console.log(cartItems);
 		for (let i = 0; i < cartItems.length;i++) 
 		{
 			const product = cartItems[i];
-			cartList+=product.id+":"+product.price+":"+product.qty+";";
+			cartList+=product.id+":"+product.title+":"+product.price+":"+product.qty+";";
 		}
 		const num = parseFloat(localStorage.getItem('total')); // Converts string to number
 		const tot = num.toFixed(2);
@@ -1005,7 +1065,8 @@ async function placeOrder()
 				read: "0",
 				cart: cartList,
 				deliveryplusid: localStorage.getItem('deliveryplusids'),
-				vault:"0"
+				vault:"0",
+				xnote:note.value
 			});
 			
 			cartItems=[];
