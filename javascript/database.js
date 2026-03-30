@@ -1472,7 +1472,7 @@ function updateOnWidth()
 
 	const topcart = document.getElementById('topcart');
 	const topcart2 = document.getElementById('topcart2');
-	const topcompany = document.getElementById('topcompany');
+	const topcompany = document.getElementById('topcompany2');
 
 	if (width < 992) 
 	{
