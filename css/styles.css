@@ -269,3 +269,25 @@ body.theme-tobbaco::before
 .offcanvas-backdrop {
     z-index: 1050 !important;
 }
+.dropdown-toggle {
+  /* 1. Centering */
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+
+  /* 2. Dynamic Font Size (Min: 14px, Scalable: 1.2vw, Max: 22px) */
+  font-size: clamp(12px, 1.2vw, 22px);
+
+  /* 3. Rational Width (Width is 10x the font size) */
+  /* This ensures the box is always wide enough for the text */
+  min-width: 4em; 
+  
+  /* Optional: prevents text from wrapping to two lines */
+  white-space: nowrap; 
+}
+.delivo-logo
+{
+	height:7vh;
+	width:auto;
+}
