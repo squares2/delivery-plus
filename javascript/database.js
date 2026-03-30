@@ -136,7 +136,7 @@ function getCompanies()
 function distributeDriver()
 {
 	const params = new URLSearchParams(window.location.search);
-	const historyValue = params.get('history');
+	var historyValue = params.get('history');
 		
 	if(historyValue&&historyValue==1)
 	{
@@ -156,7 +156,7 @@ function distributeDriver()
 			link1.innerHTML="<i class='fa-solid fa-clock-rotate-left me-2'></i>History</a>";
 		}	
 	}
-	
+	if(!historyValue)var historyValue=0;
 	var owner=localStorage.getItem('owner');
 	const drivershiptable = document.getElementById('drivershiptable');
 	if(owner&&owner.length==0)
