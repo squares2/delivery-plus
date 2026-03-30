@@ -1471,16 +1471,19 @@ function updateOnWidth()
 	const width = window.innerWidth; // Get current width
 
 	const topcart = document.getElementById('topcart');
+	const topcart2 = document.getElementById('topcart2');
 	const topcompany = document.getElementById('topcompany');
 
 	if (width < 992) 
 	{
 		if(topcart)topcart.style.display="none";
+		if(topcart2)topcart2.style.display="none";
 		if(topcompany)topcompany.style.display="none";
 	}
 	else
 	{
 		if(topcart)topcart.style.display="block";
+		if(topcart2)topcart2.style.display="block";
 		if(topcompany)topcompany.style.display="block";
 	}
 }
