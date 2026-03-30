@@ -1,15 +1,4 @@
 /* 1. MAIN CARD CONTAINER */
-.product-card 
-{
-  position: relative;
-  border: 1px solid #e5e7eb;
-  transition: transform .2s, box-shadow .2s;
-  display: flex;
-  flex-direction: column;
-  height: 100%; /* Ensures all cards in a row have equal height */
-  background: #fff;
-  overflow: hidden;
-}
 
 .product-card:hover 
 {
@@ -18,7 +7,7 @@
 }
 
 /* 2. IMAGE SECTION (Smaller to allow bigger body) */
-.product-card .card-img-top 
+.card-img-top 
 {
   width: 85%;            /* Slightly narrowed to give body more vertical "weight" */
   margin: 10px auto 0;   /* Centers image and adds top spacing */
@@ -28,7 +17,7 @@
 }
 
 /* 3. OVERLAY ICON */
-.product-card .img-overlay 
+ .img-overlay 
 {
   position: absolute;
   top: 0vh;
@@ -40,7 +29,7 @@
 }
 
 /* 4. CARD BODY (Made bigger and more spacious) */
-.product-card .card-body 
+.card-body 
 {
   padding: 0.75rem;      /* Increased padding for a "bigger" feel */
   flex-grow: 1;          /* Forces body to fill all remaining vertical space */
@@ -66,18 +55,18 @@ h6.card-title
   height: 2.4em;         /* Reserves space for 2 lines exactly */
 }
 
-.product-card .fw-semibold 
+.fw-semibold 
 {
-  font-size: clamp(1rem, 2.5vw, 4rem);
+  font-size: clamp(0.9rem, 2vw, 1.2rem);
   color: #2b2b2b;
   margin-bottom: 8px;
 }
 
 /* 6. BUTTON STYLE */
-.product-card .btn-sm 
+.btn-sm 
 {
-  font-size: 0.7rem;
-  padding: 5px 2px;      /* Taller button to fill body space */
+  font-size: 1rem;
+  padding: px 10px;      /* Taller button to fill body space */
   width: 100%;
   text-transform: uppercase;
   font-weight: bold;

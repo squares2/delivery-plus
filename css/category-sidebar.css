@@ -37,13 +37,14 @@
   margin-bottom: 0px;
 }
 
-.current-main-cat {
+.current-main-cat 
+{
   /* FIXED WIDTH - The box will NEVER change size */
   width: 100%;             
   text-align: center;      
   
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   background: linear-gradient(to right, #42adad 30%, #0c2626 70%);
   color: #fff;
   border-radius: 10px;
