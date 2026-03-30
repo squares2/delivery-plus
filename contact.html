@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Delivery+</title>
+  <title>Delivo</title>
   <link href="css/bootstrap.min.css" rel="stylesheet">
   <link href="css/all.min.css" rel="stylesheet">
   <link href="css/styles.css" rel="stylesheet">
@@ -23,9 +23,9 @@
     </div>
   </div>
   <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
-    <div class="container">
-      <a class="navbar-brand fw-bold" href="index.html"><i class="fa-solid fa-basket-shopping me-2"></i>Delivery+</a>
- 		<a id="topcart"class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar"><i class="fa-solid fa-cart-shopping"></i>
+    <div class="container"><!--<img style="height:7vh;width:auto;"src="png/castle.png"></img>-->
+      <a class="navbar-brand fw-bold" href="index.html"><i class="fa-solid fa-building-columns fa-2xl me-2"></i>Delivo</a>
+ 		<a id="topcart"class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar"><i  class="fa-solid fa-cart-shopping"></i>
 		<span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
 		</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 
@@ -161,6 +161,27 @@
       <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivery+ All rights reserved.</div>
     </div>
   </footer>
+<!-- Bottom Navigation Bar (Visible only on mobile/tablet) -->
+<nav class="navbar navbar-light bg-white border-top fixed-bottom d-lg-none py-2">
+  <div class="container-fluid d-flex justify-content-around text-center">
+    
+    <a href="index.html" class="nav-link text-dark">
+      <i class="fa-solid fa-house d-block mb-1"></i>
+      <small>Home</small>
+    </a>
+	<a class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
+		<i class="fa-solid fa-cart-shopping"></i>
+		<span id="cartCount2" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
+		<small></small>
+    </a>
+    
+    <a href="#" class="nav-link text-dark" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+      <i class="fa-solid fa-bars d-block mb-1"></i>
+      <small>Menu</small>
+    </a>
+
+  </div>
+</nav>
 
   <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
     <div class="offcanvas-header">
