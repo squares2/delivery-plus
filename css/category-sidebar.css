@@ -5,7 +5,7 @@
 
 .category-sidebar {
   position: sticky;
-  top: 70px;
+  top: 75px;
   width: 100%;
   background: rgba(255, 255, 255, 0.1) !important; 
   backdrop-filter: blur(10px);
@@ -34,7 +34,8 @@
   align-items: center;
   gap: 20px;               /* Fixed extra distance between arrows and box */
   padding: 0 15px;
-  margin-bottom: 0px;
+  margin-bottom: -6px;
+  margin-top: 10px;
 }
 
 .current-main-cat 

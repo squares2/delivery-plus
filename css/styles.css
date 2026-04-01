@@ -295,3 +295,28 @@ body.theme-tobbaco::before
 	height:7vh;
 	width:auto;
 }
+.navbar-nav .dropdown-menu.mega-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    margin-top: 0;
+    /* Optional: ensures it doesn't go off-screen on small devices */
+    width: 100vw; 
+    max-width: 1000px; 
+}
+
+/* Ensures the parent stays as the reference point */
+.nav-item.dropdown.mega {
+    position: static; 
+}
+
+/* Optional: If you want the menu centered or full width relative to the container */
+@media (min-width: 992px) {
+    .mega-menu {
+        left: 50% !important;
+        transform: translateX(-50%);
+        width: 80vw;
+    }
+}
