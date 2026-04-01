@@ -4,6 +4,9 @@ var cartItems=[];
 var saleEnd=Date.now()+12*60*60*1000;
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber,onAuthStateChanged ,createUserWithEmailAndPassword, signInWithEmailAndPassword,sendEmailVerification   } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import {getDatabase, set, get,update,remove,ref,increment,runTransaction,child,onValue}
+from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 
 	const firebaseConfig = 
 	{
@@ -15,13 +18,77 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebas
 		messagingSenderId: "360058447266",
 		appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
 	};
-	const app = initializeApp(firebaseConfig);
-	import {getDatabase, set, get,update,remove,ref,increment,runTransaction,child,onValue}
-	from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app); 
+
+let confirmationResult;
+
+// 1. Single Initialization Function
+window.preparePhoneAuth = () => {
+    // Only initialize if it doesn't exist AND the container is in the DOM
+    if (!window.recaptchaVerifier) {
+        const container = document.getElementById('recaptcha-container');
+        if (!container) return;
+
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible', // Invisible is smoother for users
+            'callback': (response) => {
+                // reCAPTCHA solved
+            },
+            'expired-callback': () => {
+                // Reset reCAPTCHA if it expires
+                window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
+            }
+        });
+    }
+};
+
+// 2. Send SMS Logic
+window.handleSendCode = async () => {
+    const number = document.getElementById('phoneNumber').value;
+    
+    // Ensure verifier is ready
+    window.preparePhoneAuth();
+    const appVerifier = window.recaptchaVerifier;
+
+    try {
+        // This triggers the reCAPTCHA automatically if size is 'invisible'
+        confirmationResult = await signInWithPhoneNumber(auth, number, appVerifier);
+        
+        document.getElementById('phone-input-container').style.display = 'none';
+        document.getElementById('otp-input-container').style.display = 'block';
+    } catch (error) {
+        console.error("SMS Error:", error);
+        alert("Error: " + error.message);
+        // Reset reCAPTCHA so user can try again
+        if (window.recaptchaVerifier) {
+            window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
+        }
+    }
+};
+
+// 3. Verify Code Logic
+window.handleVerifyCode = async () => {
+    const code = document.getElementById('verificationCode').value;
+    try {
+        const result = await confirmationResult.confirm(code);
+        const user = result.user;
+        
+        // Hide Bootstrap Modal
+        const modalEl = document.getElementById('registerModal');
+        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.hide();
+        
+    } catch (error) {
+        alert("Invalid code. Please try again.");
+    }
+};
+
+
 
 	const db=getDatabase();
 	const dbref=ref(db);
-	
+
 	const maintenanceRef = ref(db, "maintenance/1");
 	onValue(maintenanceRef, (snapshot) => 
 	{
@@ -51,6 +118,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebas
 	        getCompanies();
 	    }
 	});
+	// 4. Usage example
+	/*export async function signUp(email, password) 
+	{
+		try {
+			const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+			console.log("User created:", userCredential.user.uid);
+			return userCredential.user;
+		} catch (error) {
+			console.error("Error:", error.code, error.message);
+		}
+	}	*/
+
 async function generateRequestId() 
 {
     // This adds 1 directly on the server without reading it first
@@ -880,7 +959,7 @@ function renderCartSidebar()
 		var checkTotal=document.getElementById('checktotal');
 		if(sumitems!=null)sumitems.innerHTML=getCartCount();
 		if(subTotal!=null)subTotal.innerHTML=totalEl.textContent;
-		if(checkTotal!=null)checkTotal.innerHTML=total+2;
+		if(checkTotal!=null)checkTotal.innerHTML=parseFloat(totalEl.textContent)+2;
 	}	
 }
 function changeQty(id,delta)
@@ -1534,3 +1613,59 @@ export function applyShopTheme(shopType)
         document.body.classList.add('theme-tobbaco');
     } 
 }
+
+// 1. Update UI to link "Register" button to the modal
+function updateAccountUI(user) 
+{
+    const menuList = document.getElementById('userDropdownMenu');
+    if (!menuList) return;
+
+    if (!user || !user.isLoggedIn) {
+        menuList.innerHTML = `
+            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a></li>
+            <!-- Updated Register Link -->
+            <li><a class="dropdown-item" href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#registerModal" onclick="preparePhoneAuth()">Register</a></li>
+        `;
+    }
+    // ... rest of your existing UI logic
+}
+
+// 2. The Login Function (Add your logic inside)
+function performLogin() 
+{
+    const userVal = document.getElementById('loginUser').value;
+    const passVal = document.getElementById('loginPass').value;
+
+    console.log("Login clicked for:", userVal);
+
+    if (userVal && passVal) 
+	{
+        // TODO: Add your authentication logic here
+        // Example: if(authSuccess) { updateAccountUI({isLoggedIn: true, username: userVal}); }
+        alert("Login logic goes here!");
+    }
+}
+
+// 3. Initialize everything when the page loads
+document.addEventListener('DOMContentLoaded', () => 
+{
+    // Initial call to set the menu to "Public"
+    updateAccountUI(null);
+
+    // Set up Login Button Click
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) loginBtn.addEventListener('click', performLogin);
+
+    // Set up "Enter" key for inputs
+    const inputs = [document.getElementById('loginUser'), document.getElementById('loginPass')];
+    inputs.forEach(input => 
+	{
+        if (input) 
+		{
+            input.addEventListener('keyup', (e) => 
+			{
+                if (e.key === 'Enter') performLogin();
+            });
+        }
+    });
+});
