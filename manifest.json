@@ -1,8 +1,7 @@
 {
   "name": "Delivo",
   "short_name": "Delivo",
-  "start_url": "/delivery-plus/index.html", 
-  "scope": "/delivery-plus/",
+  "start_url": "/index.html", 
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
