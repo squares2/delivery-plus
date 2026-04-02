@@ -3,7 +3,6 @@ var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
 
-self.FIREBASE_APPCHECK_DEBUG_TOKEN = 'edf20c89-d5c8-4b0d-a394-7aa24a6bda58'; 
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber,linkWithCredential,onAuthStateChanged ,EmailAuthProvider,createUserWithEmailAndPassword, signInWithEmailAndPassword,sendEmailVerification,   } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
@@ -21,6 +20,7 @@ import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gst
 		messagingSenderId: "360058447266",
 		appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
 	};
+self.FIREBASE_APPCHECK_DEBUG_TOKEN = 'edf20c89-d5c8-4b0d-a394-7aa24a6bda58'; 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app); 
 const appCheck = initializeAppCheck(app, {
@@ -42,25 +42,31 @@ window.preparePhoneAuth = () => {
             'size': 'invisible',
             'expired-callback': () => {
                 window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
+				container.disabled = true; // Stop multiple clicks!
             }
         });
     }
 };
 
-// 2. Send SMS Logic
+// 2. Send SMS Logic (REVISED)
 window.handleSendCode = async () => {
+    const sendBtn = document.getElementById('sendCodeBtn'); // Make sure your button has this ID
     const number = document.getElementById('phoneNumber').value;
-    userPassword = document.getElementById('registerPassword').value; // Capture password
+    userPassword = document.getElementById('registerPassword').value;
 
     if (!number || userPassword.length < 6) {
-        alert("Please enter a valid phone number and a password (min 6 chars).");
+        alert("Enter a valid phone number and password (min 6 chars).");
         return;
     }
+
+    // STEP 1: Disable button to prevent 'DUPE' error
+    if (sendBtn) sendBtn.disabled = true;
     
     window.preparePhoneAuth();
     const appVerifier = window.recaptchaVerifier;
 
     try {
+        // STEP 2: Attempt SMS
         confirmationResult = await signInWithPhoneNumber(auth, number, appVerifier);
         
         document.getElementById('phone-input-container').style.display = 'none';
@@ -68,12 +74,17 @@ window.handleSendCode = async () => {
     } catch (error) {
         console.error("SMS Error:", error);
         alert("Error: " + error.message);
+
+        // STEP 3: RESET reCAPTCHA on failure so the user can try again
         if (window.recaptchaVerifier) {
-            window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
+            window.recaptchaVerifier.clear(); // Clear the old one
+            window.recaptchaVerifier = null;  // Force recreation on next try
         }
+        
+        // Re-enable button so they can try fixing the number
+        if (sendBtn) sendBtn.disabled = false;
     }
 };
-
 // 3. Verify Code & Link Password Logic
 window.handleVerifyCode = async () => {
     const code = document.getElementById('verificationCode').value;
