@@ -388,12 +388,15 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <!-- Step 1: Input Phone Number -->
-        <div id="phone-input-container">
-          <input type="tel" id="phoneNumber" class="form-control" placeholder="+1234567890">
-          <div id="recaptcha-container" class="mt-2"></div> <!-- Essential for Firebase -->
-          <button class="btn btn-primary w-100 mt-3" onclick="handleSendCode()">Send Verification Code</button>
-        </div>
+        <!-- Step 1: Input Phone & Password -->
+		<div id="phone-input-container">
+		  <input type="tel" id="phoneNumber" class="form-control mb-2" placeholder="+1234567890">
+		  <!-- New Password Field -->
+		  <input type="password" id="registerPassword" class="form-control mb-2" placeholder="Create Password">
+		  
+		  <div id="recaptcha-container" class="mt-2"></div>
+		  <button class="btn btn-primary w-100 mt-3" onclick="handleSendCode()">Send Verification Code</button>
+		</div>
 
         <!-- Step 2: Input OTP (Hidden by default) -->
         <div id="otp-input-container" style="display:none;">
