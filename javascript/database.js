@@ -3,10 +3,13 @@ var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
 
+self.FIREBASE_APPCHECK_DEBUG_TOKEN = 'edf20c89-d5c8-4b0d-a394-7aa24a6bda58'; 
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber,linkWithCredential,onAuthStateChanged ,EmailAuthProvider,createUserWithEmailAndPassword, signInWithEmailAndPassword,sendEmailVerification   } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber,linkWithCredential,onAuthStateChanged ,EmailAuthProvider,createUserWithEmailAndPassword, signInWithEmailAndPassword,sendEmailVerification,   } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 import {getDatabase, set, get,update,remove,ref,increment,runTransaction,child,onValue}
 from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app-check.js";
 
 	const firebaseConfig = 
 	{
@@ -20,7 +23,12 @@ from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 	};
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app); 
+const appCheck = initializeAppCheck(app, {
+  provider: new ReCaptchaEnterpriseProvider('1D7E19FF-5EBB-4CCB-939E-E4F075D21727'),
+  isTokenAutoRefreshEnabled: true
+});
 
+// 5. Initialize App Check
 let confirmationResult;
 let userPassword = ""; // Temporary storage for the password step
 
