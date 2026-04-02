@@ -1550,7 +1550,7 @@ export function applyShopTheme(shopType)
 
 
 import { RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-
+console.log('public3');
 
 let confirmationResult;
 
