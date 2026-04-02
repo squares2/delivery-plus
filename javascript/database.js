@@ -5,116 +5,21 @@ var saleEnd=Date.now()+12*60*60*1000;
 
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber,linkWithCredential,onAuthStateChanged ,EmailAuthProvider,createUserWithEmailAndPassword, signInWithEmailAndPassword,sendEmailVerification,   } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 import {getDatabase, set, get,update,remove,ref,increment,runTransaction,child,onValue}
 from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app-check.js";
-
-	const firebaseConfig = 
-	{
-		apiKey: "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
-		authDomain: "deliveryonline-300f7.firebaseapp.com",
-		databaseURL: "https://deliveryonline-300f7-default-rtdb.firebaseio.com",
-		projectId: "deliveryonline-300f7",
-		storageBucket: "deliveryonline-300f7.firebasestorage.app",
-		messagingSenderId: "360058447266",
-		appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
-	};
-self.FIREBASE_APPCHECK_DEBUG_TOKEN = 'edf20c89-d5c8-4b0d-a394-7aa24a6bda58'; 
+const firebaseConfig = 
+{
+	apiKey: "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
+	authDomain: "deliveryonline-300f7.firebaseapp.com",
+	databaseURL: "https://deliveryonline-300f7-default-rtdb.firebaseio.com",
+	projectId: "deliveryonline-300f7",
+	storageBucket: "deliveryonline-300f7.firebasestorage.app",
+	messagingSenderId: "360058447266",
+	appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
+};
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app); 
-const appCheck = initializeAppCheck(app, {
-  provider: new ReCaptchaEnterpriseProvider('1D7E19FF-5EBB-4CCB-939E-E4F075D21727'),
-  isTokenAutoRefreshEnabled: true
-});
-
-// 5. Initialize App Check
-let confirmationResult;
-let userPassword = ""; // Temporary storage for the password step
-
-// 1. Single Initialization Function
-window.preparePhoneAuth = () => {
-    if (!window.recaptchaVerifier) {
-        const container = document.getElementById('recaptcha-container');
-        if (!container) return;
-
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible',
-            'expired-callback': () => {
-                window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
-				container.disabled = true; // Stop multiple clicks!
-            }
-        });
-    }
-};
-
-// 2. Send SMS Logic (REVISED)
-window.handleSendCode = async () => {
-    const sendBtn = document.getElementById('sendCodeBtn'); // Make sure your button has this ID
-    const number = document.getElementById('phoneNumber').value;
-    userPassword = document.getElementById('registerPassword').value;
-
-    if (!number || userPassword.length < 6) {
-        alert("Enter a valid phone number and password (min 6 chars).");
-        return;
-    }
-
-    // STEP 1: Disable button to prevent 'DUPE' error
-    if (sendBtn) sendBtn.disabled = true;
-    
-    window.preparePhoneAuth();
-    const appVerifier = window.recaptchaVerifier;
-
-    try {
-        // STEP 2: Attempt SMS
-        confirmationResult = await signInWithPhoneNumber(auth, number, appVerifier);
-        
-        document.getElementById('phone-input-container').style.display = 'none';
-        document.getElementById('otp-input-container').style.display = 'block';
-    } catch (error) {
-        console.error("SMS Error:", error);
-        alert("Error: " + error.message);
-
-        // STEP 3: RESET reCAPTCHA on failure so the user can try again
-        if (window.recaptchaVerifier) {
-            window.recaptchaVerifier.clear(); // Clear the old one
-            window.recaptchaVerifier = null;  // Force recreation on next try
-        }
-        
-        // Re-enable button so they can try fixing the number
-        if (sendBtn) sendBtn.disabled = false;
-    }
-};
-// 3. Verify Code & Link Password Logic
-window.handleVerifyCode = async () => {
-    const code = document.getElementById('verificationCode').value;
-	console.log("code:"+code);
-    try {
-        const result = await confirmationResult.confirm(code);
-        const user = result.user;
-
-        // Create a 'dummy email' using the phone number to act as a username
-        const dummyEmail = `${user.phoneNumber.replace('+', '')}@yourapp.com`;
-        const credential = EmailAuthProvider.credential(dummyEmail, userPassword);
-
-        // Link the password credential to the phone-authenticated user
-        await linkWithCredential(user, credential);
-        
-        console.log("User registered with phone and password:", user.uid);
-        alert("Registration Complete!");
-
-        // Hide Bootstrap Modal
-        const modalEl = document.getElementById('registerModal');
-        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-        modal.hide();
-        
-    } catch (error) {
-        console.error("Verification/Linking Error:", error);
-        alert("Verification failed or password already linked.");
-    }
-};
-
-
 	const db=getDatabase();
 	const dbref=ref(db);
 
@@ -1643,58 +1548,58 @@ export function applyShopTheme(shopType)
     } 
 }
 
-// 1. Update UI to link "Register" button to the modal
-function updateAccountUI(user) 
-{
-    const menuList = document.getElementById('userDropdownMenu');
-    if (!menuList) return;
 
-    if (!user || !user.isLoggedIn) {
-        menuList.innerHTML = `
-            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a></li>
-            <!-- Updated Register Link -->
-            <li><a class="dropdown-item" href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#registerModal" onclick="preparePhoneAuth()">Register</a></li>
-        `;
+import { RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+
+
+let confirmationResult;
+
+// 1. Initialize reCAPTCHA
+window.onload = function () {
+  window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+    'size': 'normal',
+    'callback': (response) => {
+      // reCAPTCHA solved
     }
-    // ... rest of your existing UI logic
-}
+  });
+};
 
-// 2. The Login Function (Add your logic inside)
-function performLogin() 
-{
-    const userVal = document.getElementById('loginUser').value;
-    const passVal = document.getElementById('loginPass').value;
+// 2. Send OTP to Phone
+window.sendOTP = async function () {
+  const phoneNumber = document.getElementById('phoneNumber').value;
+  const appVerifier = window.recaptchaVerifier;
 
-    console.log("Login clicked for:", userVal);
+  try {
+    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+    
+    // Switch UI to OTP input
+    document.getElementById('phone-input-container').style.display = 'none';
+    document.getElementById('otp-input-container').style.display = 'block';
+    
+    alert("OTP Sent!");
+  } catch (error) {
+    console.error("SMS Error:", error);
+    alert("Error sending SMS: " + error.message);
+  }
+};
 
-    if (userVal && passVal) 
-	{
-        // TODO: Add your authentication logic here
-        // Example: if(authSuccess) { updateAccountUI({isLoggedIn: true, username: userVal}); }
-        alert("Login logic goes here!");
-    }
-}
+// 3. Verify OTP and Sign In
+window.verifyOTP = async function () {
+  const code = document.getElementById('verificationCode').value;
+  const password = document.getElementById('registerPassword').value;
 
-// 3. Initialize everything when the page loads
-document.addEventListener('DOMContentLoaded', () => 
-{
-    // Initial call to set the menu to "Public"
-    updateAccountUI(null);
+  try {
+    const result = await confirmationResult.confirm(code);
+    const user = result.user;
 
-    // Set up Login Button Click
-    const loginBtn = document.getElementById('loginBtn');
-    if (loginBtn) loginBtn.addEventListener('click', performLogin);
-
-    // Set up "Enter" key for inputs
-    const inputs = [document.getElementById('loginUser'), document.getElementById('loginPass')];
-    inputs.forEach(input => 
-	{
-        if (input) 
-		{
-            input.addEventListener('keyup', (e) => 
-			{
-                if (e.key === 'Enter') performLogin();
-            });
-        }
-    });
-});
+    // Optional: Since Firebase Phone Auth doesn't use passwords by default, 
+    // you can now link this password to their profile in Firestore or 
+    // simply log them in.
+    
+    alert("Registration Successful!");
+    location.reload(); // Refresh or redirect
+  } catch (error) {
+    console.error("Verification Error:", error);
+    alert("Invalid OTP code.");
+  }
+};
