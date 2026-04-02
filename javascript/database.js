@@ -19,7 +19,6 @@ const firebaseConfig =
 	appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
 };
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app); 
 	const db=getDatabase();
 	const dbref=ref(db);
 
@@ -1548,56 +1547,70 @@ export function applyShopTheme(shopType)
     } 
 }
 
-
-import { RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-console.log('public3');
-
+import { RecaptchaVerifier,initializeRecaptchaConfig,signInWithPhoneNumber} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+const auth = getAuth(app); 
 let confirmationResult;
 
-// 1. Initialize reCAPTCHA
-window.onload = function () {
-  window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-    'size': 'normal',
-    'callback': (response) => {
-      // reCAPTCHA solved
-    }
-  });
-};
+// Wrap initialization in an async function to ensure order
+async function initApp() {
+  try {
+    // 1. Prepare for Enforcement mode
+    await initializeRecaptchaConfig(auth); 
 
-// 2. Send OTP to Phone
+    // 2. Initialize the Verifier
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      'size': 'normal', 
+      'callback': (response) => {
+         console.log("reCAPTCHA solved successfully");
+      },
+      'expired-callback': () => {
+         alert("reCAPTCHA expired. Please solve it again.");
+      }
+    });
+
+    // Render it immediately to be safe
+    await window.recaptchaVerifier.render();
+
+  } catch (error) {
+    console.error("Init Error:", error);
+  }
+}
+
+// Run the init when the page loads
+window.onload = initApp;
+
+// 2. Send OTP to Phone (Keep your existing function)
 window.sendOTP = async function () {
   const phoneNumber = document.getElementById('phoneNumber').value;
   const appVerifier = window.recaptchaVerifier;
 
   try {
+    // Re-verify the verifier exists
+    if (!appVerifier) {
+        alert("reCAPTCHA not ready. Please refresh.");
+        return;
+    }
+
     confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
     
-    // Switch UI to OTP input
     document.getElementById('phone-input-container').style.display = 'none';
     document.getElementById('otp-input-container').style.display = 'block';
     
     alert("OTP Sent!");
   } catch (error) {
     console.error("SMS Error:", error);
-    alert("Error sending SMS: " + error.message);
+    // If you get "invalid-recaptcha-token" here, it's a domain/key issue
+    alert("Error: " + error.message);
   }
 };
 
-// 3. Verify OTP and Sign In
+// 3. Verify OTP (Keep your existing function)
 window.verifyOTP = async function () {
   const code = document.getElementById('verificationCode').value;
-  const password = document.getElementById('registerPassword').value;
-
   try {
     const result = await confirmationResult.confirm(code);
-    const user = result.user;
-
-    // Optional: Since Firebase Phone Auth doesn't use passwords by default, 
-    // you can now link this password to their profile in Firestore or 
-    // simply log them in.
-    
     alert("Registration Successful!");
-    location.reload(); // Refresh or redirect
+    location.reload(); 
   } catch (error) {
     console.error("Verification Error:", error);
     alert("Invalid OTP code.");
