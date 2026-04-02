@@ -4,7 +4,7 @@ var cartItems=[];
 var saleEnd=Date.now()+12*60*60*1000;
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber,onAuthStateChanged ,createUserWithEmailAndPassword, signInWithEmailAndPassword,sendEmailVerification   } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber,linkWithCredential,onAuthStateChanged ,EmailAuthProvider,createUserWithEmailAndPassword, signInWithEmailAndPassword,sendEmailVerification   } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 import {getDatabase, set, get,update,remove,ref,increment,runTransaction,child,onValue}
 from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 
@@ -22,21 +22,17 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app); 
 
 let confirmationResult;
+let userPassword = ""; // Temporary storage for the password step
 
 // 1. Single Initialization Function
 window.preparePhoneAuth = () => {
-    // Only initialize if it doesn't exist AND the container is in the DOM
     if (!window.recaptchaVerifier) {
         const container = document.getElementById('recaptcha-container');
         if (!container) return;
 
         window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible', // Invisible is smoother for users
-            'callback': (response) => {
-                // reCAPTCHA solved
-            },
+            'size': 'invisible',
             'expired-callback': () => {
-                // Reset reCAPTCHA if it expires
                 window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
             }
         });
@@ -46,13 +42,17 @@ window.preparePhoneAuth = () => {
 // 2. Send SMS Logic
 window.handleSendCode = async () => {
     const number = document.getElementById('phoneNumber').value;
+    userPassword = document.getElementById('registerPassword').value; // Capture password
+
+    if (!number || userPassword.length < 6) {
+        alert("Please enter a valid phone number and a password (min 6 chars).");
+        return;
+    }
     
-    // Ensure verifier is ready
     window.preparePhoneAuth();
     const appVerifier = window.recaptchaVerifier;
 
     try {
-        // This triggers the reCAPTCHA automatically if size is 'invisible'
         confirmationResult = await signInWithPhoneNumber(auth, number, appVerifier);
         
         document.getElementById('phone-input-container').style.display = 'none';
@@ -60,30 +60,40 @@ window.handleSendCode = async () => {
     } catch (error) {
         console.error("SMS Error:", error);
         alert("Error: " + error.message);
-        // Reset reCAPTCHA so user can try again
         if (window.recaptchaVerifier) {
             window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
         }
     }
 };
 
-// 3. Verify Code Logic
+// 3. Verify Code & Link Password Logic
 window.handleVerifyCode = async () => {
     const code = document.getElementById('verificationCode').value;
+	console.log("code:"+code);
     try {
         const result = await confirmationResult.confirm(code);
         const user = result.user;
+
+        // Create a 'dummy email' using the phone number to act as a username
+        const dummyEmail = `${user.phoneNumber.replace('+', '')}@yourapp.com`;
+        const credential = EmailAuthProvider.credential(dummyEmail, userPassword);
+
+        // Link the password credential to the phone-authenticated user
+        await linkWithCredential(user, credential);
         
+        console.log("User registered with phone and password:", user.uid);
+        alert("Registration Complete!");
+
         // Hide Bootstrap Modal
         const modalEl = document.getElementById('registerModal');
         const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
         modal.hide();
         
     } catch (error) {
-        alert("Invalid code. Please try again.");
+        console.error("Verification/Linking Error:", error);
+        alert("Verification failed or password already linked.");
     }
 };
-
 
 
 	const db=getDatabase();
