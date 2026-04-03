@@ -5,20 +5,101 @@ var saleEnd=Date.now()+12*60*60*1000;
 console.log('public2');
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-import {getDatabase, set, get,update,remove,ref,increment,runTransaction,child,onValue}
-from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
-const firebaseConfig = 
-{
-	apiKey: "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
-	authDomain: "deliveryonline-300f7.firebaseapp.com",
-	databaseURL: "https://deliveryonline-300f7-default-rtdb.firebaseio.com",
-	projectId: "deliveryonline-300f7",
-	storageBucket: "deliveryonline-300f7.firebasestorage.app",
-	messagingSenderId: "360058447266",
-	appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import { getDatabase, set, get, update, remove, ref, increment, runTransaction, child, onValue } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
+    authDomain: "deliveryonline-300f7.firebaseapp.com",
+    databaseURL: "https://deliveryonline-300f7-default-rtdb.firebaseio.com",
+    projectId: "deliveryonline-300f7",
+    storageBucket: "deliveryonline-300f7.firebasestorage.app",
+    messagingSenderId: "360058447266",
+    appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
 };
+
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app); 
+let confirmationResult = null;
+
+async function initApp() {
+  // If it exists, clear it before re-creating to prevent "already rendered" errors on mobile
+  if (window.recaptchaVerifier) {
+    try {
+      window.recaptchaVerifier.clear();
+    } catch (e) {
+      console.log("Cleanup error:", e);
+    }
+    window.recaptchaVerifier = null;
+  }
+
+  try {
+    // Error -39 Fix: Use 'normal' size for mobile and pass 'auth' correctly
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      'size': 'normal',
+      'callback': (response) => {
+         console.log("reCAPTCHA solved");
+      },
+      'expired-callback': () => {
+         console.log("reCAPTCHA expired. Resetting...");
+         initApp(); // Re-initialize the widget
+      }
+    });
+
+    await window.recaptchaVerifier.render();
+  } catch (error) {
+    console.error("Init Error:", error);
+    setTimeout(initApp, 2000);
+  }
+}
+
+// Ensure the page is ready
+if (document.readyState === 'complete') {
+    initApp();
+} else {
+    window.addEventListener('load', initApp);
+}
+
+window.sendOTP = async function () {
+  const phoneNumber = document.getElementById('phoneNumber').value;
+  
+  try {
+    if (!window.recaptchaVerifier) {
+        await initApp();
+    }
+
+    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+    
+    document.getElementById('phone-input-container').style.display = 'none';
+    document.getElementById('otp-input-container').style.display = 'block';
+    alert("OTP Sent!");
+  } catch (error) {
+    console.error("SMS Error:", error);
+    // Error -39 Fix: If it fails, clear and re-render the verifier immediately
+    if (window.recaptchaVerifier) {
+        initApp(); 
+    }
+    alert("Error: " + error.message);
+  }
+};
+
+window.verifyOTP = async function () {
+  const code = document.getElementById('verificationCode').value;
+  if(!confirmationResult) {
+      alert("Please request an OTP first.");
+      return;
+  }
+  try {
+    const result = await confirmationResult.confirm(code);
+    alert("Registration Successful!");
+    location.reload(); 
+  } catch (error) {
+    console.error("Verification Error:", error);
+    alert("Invalid OTP code.");
+  }
+};
+
+
 	const db=getDatabase();
 	const dbref=ref(db);
 
@@ -51,17 +132,6 @@ const app = initializeApp(firebaseConfig);
 	        getCompanies();
 	    }
 	});
-	// 4. Usage example
-	/*export async function signUp(email, password) 
-	{
-		try {
-			const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-			console.log("User created:", userCredential.user.uid);
-			return userCredential.user;
-		} catch (error) {
-			console.error("Error:", error.code, error.message);
-		}
-	}	*/
 
 async function generateRequestId() 
 {
@@ -1546,78 +1616,3 @@ export function applyShopTheme(shopType)
         document.body.classList.add('theme-tobbaco');
     } 
 }
-
-import { RecaptchaVerifier,initializeRecaptchaConfig,signInWithPhoneNumber} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-const auth = getAuth(app); 
-let confirmationResult;
-
-async function initApp() {
-  // Avoid re-initializing if it already exists
-  if (window.recaptchaVerifier) return;
-
-  try {
-    // 1. Initialize the Verifier (Note: Enterprise config removed)
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'normal',
-      'callback': (response) => {
-         console.log("reCAPTCHA solved");
-      },
-      'expired-callback': () => {
-         // Reset verifier on expiry to prevent "already rendered" errors
-         window.recaptchaVerifier.render().then(widgetId => {
-            grecaptcha.reset(widgetId);
-         });
-      }
-    });
-
-    // 2. Render explicitly
-    await window.recaptchaVerifier.render();
-  } catch (error) {
-    console.error("Init Error:", error);
-    // If it fails on first load, wait 2 seconds and try one more time automatically
-    setTimeout(initApp, 2000);
-  }
-}
-
-// Safer load event
-if (document.readyState === 'complete') {
-    initApp();
-} else {
-    window.addEventListener('load', initApp);
-}
-
-window.sendOTP = async function () {
-  const phoneNumber = document.getElementById('phoneNumber').value;
-  
-  try {
-    // Check if verifier is actually ready
-    if (!window.recaptchaVerifier) {
-        await initApp();
-    }
-
-    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
-    
-    document.getElementById('phone-input-container').style.display = 'none';
-    document.getElementById('otp-input-container').style.display = 'block';
-    alert("OTP Sent!");
-  } catch (error) {
-    console.error("SMS Error:", error);
-    // If reCAPTCHA token is invalid, reset it
-    if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
-    }
-    alert("Error: " + error.message);
-  }
-};
-// 3. Verify OTP (Keep your existing function)
-window.verifyOTP = async function () {
-  const code = document.getElementById('verificationCode').value;
-  try {
-    const result = await confirmationResult.confirm(code);
-    alert("Registration Successful!");
-    location.reload(); 
-  } catch (error) {
-    console.error("Verification Error:", error);
-    alert("Invalid OTP code.");
-  }
-};
