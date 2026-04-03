@@ -3,7 +3,7 @@ var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
 
-alert('update1');
+alert('update2');
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
@@ -23,55 +23,48 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app); 
 let confirmationResult = null;
 
-// Function to safely initialize or reset the verifier
-async function initApp() {
-  // If verifier exists, don't just clear it (which destroys the div), just reset the widget if possible
-  if (window.recaptchaVerifier) return;
+// SINGLE verifier instance
+let recaptchaInstance = null;
 
-  try {
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'normal',
-      'callback': (response) => {
-         console.log("reCAPTCHA solved. Token is valid.");
-      },
-      'expired-callback': () => {
-         console.log("Token expired. Please solve again.");
-         // Resetting is better than clearing on mobile
-         window.recaptchaVerifier.render().then(widgetId => {
-             // If grecaptcha is available globally, use it, otherwise re-init
-             if (typeof grecaptcha !== 'undefined') grecaptcha.reset(widgetId);
-         });
-      }
-    });
+async function setupRecaptcha() {
+  if (recaptchaInstance) return recaptchaInstance;
 
-    await window.recaptchaVerifier.render();
-  } catch (error) {
-    console.error("reCAPTCHA Render Error:", error);
-  }
+  recaptchaInstance = new RecaptchaVerifier(auth, 'recaptcha-container', {
+    'size': 'normal',
+    'callback': (response) => { console.log("reCAPTCHA solved"); },
+    'expired-callback': () => {
+       alert("Verification expired. Please check the box again.");
+       // Reset the same instance instead of clearing it
+       recaptchaInstance.render().then(id => {
+          if (window.grecaptcha) window.grecaptcha.reset(id);
+       });
+    }
+  });
+  
+  await recaptchaInstance.render();
+  return recaptchaInstance;
 }
 
-window.addEventListener('load', initApp);
+// Only init once on page load
+window.addEventListener('load', setupRecaptcha);
 
 window.sendOTP = async function () {
   const phoneNumber = document.getElementById('phoneNumber').value;
-  
   try {
-    // Only init if it was destroyed or never created
-    if (!window.recaptchaVerifier) await initApp();
-
-    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+    const verifier = await setupRecaptcha();
+    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
     
     document.getElementById('phone-input-container').style.display = 'none';
     document.getElementById('otp-input-container').style.display = 'block';
     alert("OTP Sent!");
   } catch (error) {
     console.error("SMS Error:", error);
-    
-    // IMPORTANT: If the token is invalid, the user MUST solve it again.
-    // We re-render to give them a fresh chance without breaking the UI.
+    // If token is invalid, we MUST reset the widget for a new attempt
     if (error.code === 'auth/invalid-recaptcha-token' || error.code === 'auth/captcha-check-failed') {
-        alert("Verification expired or invalid. Please check the 'I am not a robot' box again.");
-        // Re-rendering or resetting is required here
+        alert("Verification failed. Please solve the reCAPTCHA again.");
+        recaptchaInstance.render().then(id => {
+            if (window.grecaptcha) window.grecaptcha.reset(id);
+        });
     } else {
         alert("Error: " + error.message);
     }
@@ -81,7 +74,7 @@ window.sendOTP = async function () {
 window.verifyOTP = async function () {
   const code = document.getElementById('verificationCode').value;
   try {
-    const result = await confirmationResult.confirm(code);
+    await confirmationResult.confirm(code);
     alert("Success!");
     location.reload(); 
   } catch (error) {
