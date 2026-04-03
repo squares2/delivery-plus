@@ -2,8 +2,7 @@ var cartCount=0;
 var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
-
-alert('update2');
+console.log('public2');
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
@@ -23,62 +22,80 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app); 
 let confirmationResult = null;
 
-// SINGLE verifier instance
-let recaptchaInstance = null;
-
-async function setupRecaptcha() {
-  if (recaptchaInstance) return recaptchaInstance;
-
-  recaptchaInstance = new RecaptchaVerifier(auth, 'recaptcha-container', {
-    'size': 'normal',
-    'callback': (response) => { console.log("reCAPTCHA solved"); },
-    'expired-callback': () => {
-       alert("Verification expired. Please check the box again.");
-       // Reset the same instance instead of clearing it
-       recaptchaInstance.render().then(id => {
-          if (window.grecaptcha) window.grecaptcha.reset(id);
-       });
+async function initApp() {
+  // If it exists, clear it before re-creating to prevent "already rendered" errors on mobile
+  if (window.recaptchaVerifier) {
+    try {
+      window.recaptchaVerifier.clear();
+    } catch (e) {
+      console.log("Cleanup error:", e);
     }
-  });
-  
-  await recaptchaInstance.render();
-  return recaptchaInstance;
+    window.recaptchaVerifier = null;
+  }
+
+  try {
+    // Error -39 Fix: Use 'normal' size for mobile and pass 'auth' correctly
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      'size': 'normal',
+      'callback': (response) => {
+         console.log("reCAPTCHA solved");
+      },
+      'expired-callback': () => {
+         console.log("reCAPTCHA expired. Resetting...");
+         initApp(); // Re-initialize the widget
+      }
+    });
+
+    await window.recaptchaVerifier.render();
+  } catch (error) {
+    console.error("Init Error:", error);
+    setTimeout(initApp, 2000);
+  }
 }
 
-// Only init once on page load
-window.addEventListener('load', setupRecaptcha);
+// Ensure the page is ready
+if (document.readyState === 'complete') {
+    initApp();
+} else {
+    window.addEventListener('load', initApp);
+}
 
 window.sendOTP = async function () {
   const phoneNumber = document.getElementById('phoneNumber').value;
+  
   try {
-    const verifier = await setupRecaptcha();
-    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+    if (!window.recaptchaVerifier) {
+        await initApp();
+    }
+
+    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
     
     document.getElementById('phone-input-container').style.display = 'none';
     document.getElementById('otp-input-container').style.display = 'block';
     alert("OTP Sent!");
   } catch (error) {
     console.error("SMS Error:", error);
-    // If token is invalid, we MUST reset the widget for a new attempt
-    if (error.code === 'auth/invalid-recaptcha-token' || error.code === 'auth/captcha-check-failed') {
-        alert("Verification failed. Please solve the reCAPTCHA again.");
-        recaptchaInstance.render().then(id => {
-            if (window.grecaptcha) window.grecaptcha.reset(id);
-        });
-    } else {
-        alert("Error: " + error.message);
+    // Error -39 Fix: If it fails, clear and re-render the verifier immediately
+    if (window.recaptchaVerifier) {
+        initApp(); 
     }
+    alert("Error: " + error.message);
   }
 };
 
 window.verifyOTP = async function () {
   const code = document.getElementById('verificationCode').value;
+  if(!confirmationResult) {
+      alert("Please request an OTP first.");
+      return;
+  }
   try {
-    await confirmationResult.confirm(code);
-    alert("Success!");
+    const result = await confirmationResult.confirm(code);
+    alert("Registration Successful!");
     location.reload(); 
   } catch (error) {
-    alert("Invalid OTP.");
+    console.error("Verification Error:", error);
+    alert("Invalid OTP code.");
   }
 };
 
