@@ -2,7 +2,7 @@ var cartCount=0;
 var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
-console.log('public1');
+console.log('public2');
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
@@ -1551,59 +1551,64 @@ import { RecaptchaVerifier,initializeRecaptchaConfig,signInWithPhoneNumber} from
 const auth = getAuth(app); 
 let confirmationResult;
 
-// Wrap initialization in an async function to ensure order
 async function initApp() {
-  try {
-    // 1. Prepare for Enforcement mode
-    await initializeRecaptchaConfig(auth); 
+  // Avoid re-initializing if it already exists
+  if (window.recaptchaVerifier) return;
 
-    // 2. Initialize the Verifier
+  try {
+    // 1. Initialize the Verifier (Note: Enterprise config removed)
     window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'normal', 
+      'size': 'normal',
       'callback': (response) => {
-         console.log("reCAPTCHA solved successfully");
+         console.log("reCAPTCHA solved");
       },
       'expired-callback': () => {
-         alert("reCAPTCHA expired. Please solve it again.");
+         // Reset verifier on expiry to prevent "already rendered" errors
+         window.recaptchaVerifier.render().then(widgetId => {
+            grecaptcha.reset(widgetId);
+         });
       }
     });
 
-    // Render it immediately to be safe
+    // 2. Render explicitly
     await window.recaptchaVerifier.render();
-
   } catch (error) {
     console.error("Init Error:", error);
+    // If it fails on first load, wait 2 seconds and try one more time automatically
+    setTimeout(initApp, 2000);
   }
 }
 
-// Run the init when the page loads
-window.onload = initApp;
+// Safer load event
+if (document.readyState === 'complete') {
+    initApp();
+} else {
+    window.addEventListener('load', initApp);
+}
 
-// 2. Send OTP to Phone (Keep your existing function)
 window.sendOTP = async function () {
   const phoneNumber = document.getElementById('phoneNumber').value;
-  const appVerifier = window.recaptchaVerifier;
-
+  
   try {
-    // Re-verify the verifier exists
-    if (!appVerifier) {
-        alert("reCAPTCHA not ready. Please refresh.");
-        return;
+    // Check if verifier is actually ready
+    if (!window.recaptchaVerifier) {
+        await initApp();
     }
 
-    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
     
     document.getElementById('phone-input-container').style.display = 'none';
     document.getElementById('otp-input-container').style.display = 'block';
-    
     alert("OTP Sent!");
   } catch (error) {
     console.error("SMS Error:", error);
-    // If you get "invalid-recaptcha-token" here, it's a domain/key issue
+    // If reCAPTCHA token is invalid, reset it
+    if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
+    }
     alert("Error: " + error.message);
   }
 };
-
 // 3. Verify OTP (Keep your existing function)
 window.verifyOTP = async function () {
   const code = document.getElementById('verificationCode').value;
