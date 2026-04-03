@@ -3,6 +3,8 @@ var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
 
+alert('update1');
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 import { getDatabase, set, get, update, remove, ref, increment, runTransaction, child, onValue } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
@@ -21,80 +23,69 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app); 
 let confirmationResult = null;
 
+// Function to safely initialize or reset the verifier
 async function initApp() {
-  // If it exists, clear it before re-creating to prevent "already rendered" errors on mobile
-  if (window.recaptchaVerifier) {
-    try {
-      window.recaptchaVerifier.clear();
-    } catch (e) {
-      console.log("Cleanup error:", e);
-    }
-    window.recaptchaVerifier = null;
-  }
+  // If verifier exists, don't just clear it (which destroys the div), just reset the widget if possible
+  if (window.recaptchaVerifier) return;
 
   try {
-    // Error -39 Fix: Use 'normal' size for mobile and pass 'auth' correctly
     window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
       'size': 'normal',
       'callback': (response) => {
-         console.log("reCAPTCHA solved");
+         console.log("reCAPTCHA solved. Token is valid.");
       },
       'expired-callback': () => {
-         console.log("reCAPTCHA expired. Resetting...");
-         initApp(); // Re-initialize the widget
+         console.log("Token expired. Please solve again.");
+         // Resetting is better than clearing on mobile
+         window.recaptchaVerifier.render().then(widgetId => {
+             // If grecaptcha is available globally, use it, otherwise re-init
+             if (typeof grecaptcha !== 'undefined') grecaptcha.reset(widgetId);
+         });
       }
     });
 
     await window.recaptchaVerifier.render();
   } catch (error) {
-    console.error("Init Error:", error);
-    setTimeout(initApp, 2000);
+    console.error("reCAPTCHA Render Error:", error);
   }
 }
 
-// Ensure the page is ready
-if (document.readyState === 'complete') {
-    initApp();
-} else {
-    window.addEventListener('load', initApp);
-}
+window.addEventListener('load', initApp);
 
 window.sendOTP = async function () {
   const phoneNumber = document.getElementById('phoneNumber').value;
   
   try {
-    if (!window.recaptchaVerifier) {
-        await initApp();
-    }
+    // Only init if it was destroyed or never created
+    if (!window.recaptchaVerifier) await initApp();
 
     confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
     
     document.getElementById('phone-input-container').style.display = 'none';
     document.getElementById('otp-input-container').style.display = 'block';
-    alert("OTP Sent2!");
+    alert("OTP Sent!");
   } catch (error) {
     console.error("SMS Error:", error);
-    // Error -39 Fix: If it fails, clear and re-render the verifier immediately
-    if (window.recaptchaVerifier) {
-        initApp(); 
+    
+    // IMPORTANT: If the token is invalid, the user MUST solve it again.
+    // We re-render to give them a fresh chance without breaking the UI.
+    if (error.code === 'auth/invalid-recaptcha-token' || error.code === 'auth/captcha-check-failed') {
+        alert("Verification expired or invalid. Please check the 'I am not a robot' box again.");
+        // Re-rendering or resetting is required here
+    } else {
+        alert("Error: " + error.message);
     }
-    alert("Error: " + error.message);
   }
 };
 
 window.verifyOTP = async function () {
   const code = document.getElementById('verificationCode').value;
-  if(!confirmationResult) {
-      alert("Please request an OTP first.");
-      return;
-  }
   try {
     const result = await confirmationResult.confirm(code);
-    alert("Registration Successful!");
+    alert("Success!");
     location.reload(); 
   } catch (error) {
-    console.error("Verification Error:", error);
-    alert("Invalid OTP code.");
+    alert("Invalid OTP.");
   }
 };
 
