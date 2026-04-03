@@ -2,7 +2,6 @@ var cartCount=0;
 var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
-console.log('public2');
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
@@ -72,7 +71,7 @@ window.sendOTP = async function () {
     
     document.getElementById('phone-input-container').style.display = 'none';
     document.getElementById('otp-input-container').style.display = 'block';
-    alert("OTP Sent!");
+    alert("OTP Sent2!");
   } catch (error) {
     console.error("SMS Error:", error);
     // Error -39 Fix: If it fails, clear and re-render the verifier immediately
