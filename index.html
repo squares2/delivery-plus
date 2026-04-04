@@ -10,7 +10,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
   <link href="css/bootstrap.min.css" rel="stylesheet">
   <link href="css/all.min.css" rel="stylesheet">
   <link href="css/styles.css" rel="stylesheet">
@@ -81,6 +80,7 @@
         </div>
       </li>
     </ul>
+	
     <!-- Top Right Icons Group -->
     <div class="d-flex align-items-center ms-auto">
       <!-- Cart Icon -->
@@ -89,27 +89,23 @@
         <span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
       </a>
 
-<div class="dropdown ms-2">
-	<a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
-		<i class="fa-solid fa-circle-user fa-lg me-2"></i>
-		<span id="navUserName" class="fw-semibold">Public2</span>
-	</a>
-	<!-- The ID here is critical for the JS to inject the items -->
-	<ul id="userDropdownMenu" class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu">
-		<li>
-			<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a>
-		</li>
-		<!-- Updated Register Link -->
-		<li>
-			<a class="dropdown-item" href="javascript('ok');" data-bs-toggle="modal" data-bs-target="#registerModal" >Register</a>
-		</li>
-	</ul>
-</div>
-<!-- Register Modal -->
-    <div class="collapse navbar-collapse">
-      <!-- Empty for now, but ready for desktop links -->
-    </div>
-  </div>
+		<div class="dropdown ms-2">
+			<a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
+				<i class="fa-solid fa-circle-user fa-lg me-2"></i>
+				<span id="navUserName" class="fw-semibold">Public</span>
+			</a>
+			<!-- The ID here is critical for the JS to inject the items -->
+			<ul id="userDropdownMenu" class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu">
+				<li>
+					<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a>
+				</li>
+				<!-- Updated Register Link -->
+				<li>
+					<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#registerModal" >Register</a>
+				</li>
+			</ul>
+		</div>
+	</div>
 </nav>
   <section class="hero">
     <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel">
@@ -385,36 +381,47 @@
     </div>
   </div>
 </div>
-
-<div class="modal fade" id="registerModal" tabindex="-1">
+<!-- Registration Modal -->
+<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Register via Phone</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title" id="registerModalLabel">Create New Account</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <!-- Step 1: Input Phone & Password -->
-		<div id="phone-input-container">
-		<input type="tel" id="phoneNumber" class="form-control mb-2" placeholder="+1234567890">
-		<input type="password" id="registerPassword" class="form-control mb-2" placeholder="Create Password">
-
-		<div id="recaptcha-container" class="mt-2"></div>
-		<!-- ADDED ONCLICK -->
-		<button class="btn btn-primary w-100 mt-3" onclick="sendOTP()">Send Verification Code</button>
-		</div>
-
-		<!-- Step 2: Input OTP -->
-		<div id="otp-input-container" style="display:none;">
-		<p class="text-muted">Enter the 6-digit code sent to your phone.</p>
-		<input type="text" id="verificationCode" class="form-control" placeholder="123456">
-		<!-- ADDED ONCLICK -->
-		<button class="btn btn-success w-100 mt-3" onclick="verifyOTP()">Verify & Register</button>
-		</div>
+        <form id="registrationForm">
+          <div class="mb-3 position-relative">
+  <label class="form-label">Username</label>
+  <div class="d-flex align-items-center">
+    <input type="text" class="form-control" id="username" placeholder="username" required autocomplete="off">
+    <div id="username-status" class="ms-2" style="min-width: 100px; font-size: 0.85rem;"></div>
+  </div>
+</div>
+          <div class="mb-3">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-control" id="phone" placeholder="e.g. 76123456" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" class="form-control" id="confirmPassword" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Register</button>
+        </form>
       </div>
     </div>
   </div>
 </div>
-
+<!-- Custom Alert Popup -->
+<div id="customAlert" class="hidden alert-overlay">
+    <div class="alert-content">
+        <p id="alertMessage"></p>
+        <button class="alert-btn" onclick="closeAlert()">OK</button>
+    </div>
+</div>
 </body>
 </html>
