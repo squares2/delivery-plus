@@ -2,11 +2,11 @@ var cartCount=0;
 var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
-alert('update 5');
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-import { getDatabase, set, get, update, remove, ref, increment, runTransaction, child, onValue } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import { getDatabase,query, push ,set, get, update, remove, ref, increment, runTransaction, child, onValue,orderByChild,equalTo } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+import { getFirestore, doc, getDocs,setLogLevel,collection, where, limit  } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
@@ -17,92 +17,12 @@ const firebaseConfig = {
     messagingSenderId: "360058447266",
     appId: "1:360058447266:web:5ac25e3ad30f636bdd3efb"
 };
-
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app); 
-let confirmationResult = null;
-
-async function initApp() {
-  // If it exists, clear it before re-creating to prevent "already rendered" errors on mobile
-  if (window.recaptchaVerifier) {
-    try {
-      window.recaptchaVerifier.clear();
-    } catch (e) {
-      console.log("Cleanup error:", e);
-    }
-    window.recaptchaVerifier = null;
-  }
-
-  try {
-    // Error -39 Fix: Use 'normal' size for mobile and pass 'auth' correctly
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'invisible',
-      'callback': (response) => {
-         console.log("reCAPTCHA solved");
-      },
-      'expired-callback': () => {
-         console.log("reCAPTCHA expired. Resetting...");
-         initApp(); // Re-initialize the widget
-      }
-    });
-
-    await window.recaptchaVerifier.render();
-  } catch (error) {
-    console.error("Init Error:", error);
-    setTimeout(initApp, 2000);
-  }
-}
-
-// Ensure the page is ready
-if (document.readyState === 'complete') {
-    initApp();
-} else {
-    window.addEventListener('load', initApp);
-}
-
-window.sendOTP = async function () {
-  const phoneNumber = document.getElementById('phoneNumber').value;
-  
-  try {
-    if (!window.recaptchaVerifier) {
-        await initApp();
-    }
-
-    confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
-    
-    document.getElementById('phone-input-container').style.display = 'none';
-    document.getElementById('otp-input-container').style.display = 'block';
-    alert("OTP Sent!");
-  } catch (error) {
-    console.error("SMS Error:", error);
-    // Error -39 Fix: If it fails, clear and re-render the verifier immediately
-    if (window.recaptchaVerifier) {
-        initApp(); 
-    }
-    alert("Error: " + error.message);
-  }
-};
-
-window.verifyOTP = async function () {
-  const code = document.getElementById('verificationCode').value;
-  if(!confirmationResult) {
-      alert("Please request an OTP first.");
-      return;
-  }
-  try {
-    const result = await confirmationResult.confirm(code);
-    alert("Registration Successful!");
-    location.reload(); 
-  } catch (error) {
-    console.error("Verification Error:", error);
-    alert("Invalid OTP code.");
-  }
-};
-
-
-	const db=getDatabase();
-	const dbref=ref(db);
-
+const auth = getAuth(app);
+const dbf = getFirestore(app); // Firestore instance
+const db = getDatabase(app);   // Realtime Database instance
+const dbref=ref(db);
+//setLogLevel('debug'); 
 	const maintenanceRef = ref(db, "maintenance/1");
 	onValue(maintenanceRef, (snapshot) => 
 	{
@@ -132,7 +52,17 @@ window.verifyOTP = async function () {
 	        getCompanies();
 	    }
 	});
-
+window.onload = function() 
+{
+    const storedData = localStorage.getItem('delivoUser');
+    
+    if (storedData) 
+	{
+        const user = JSON.parse(storedData);
+        // Use the function we made earlier to swap the menu
+        updateNavToLoggedIn(user.username);
+    }
+};
 async function generateRequestId() 
 {
     // This adds 1 directly on the server without reading it first
@@ -1616,3 +1546,245 @@ export function applyShopTheme(shopType)
         document.body.classList.add('theme-tobbaco');
     } 
 }
+
+function showPopup(message, type = 'info') 
+{
+    const alertBox = document.getElementById('customAlert');
+    const msgPara = document.getElementById('alertMessage');
+    msgPara.innerText = message;
+    alertBox.classList.remove('hidden');
+}
+
+// Function to close it
+window.closeAlert = function() 
+{
+    document.getElementById('customAlert').classList.add('hidden');
+}
+
+// Update your Register Submit Logic:
+const registrationForm=document.getElementById('registrationForm')
+if(registrationForm)registrationForm.addEventListener('submit', (e) => 
+{
+    e.preventDefault();
+
+    const username = document.getElementById('username').value;
+    const phone = document.getElementById('phone').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (password !== confirmPassword) {
+        showPopup("Passwords do not match!");
+        return;
+    }
+
+const requestRef = ref(db, 'users');
+
+// 1. Capture the 'newPushRef' to get the auto-generated ID (key)
+const newPushRef = push(requestRef); 
+const newUserId = newPushRef.key; // <--- This is your ID!
+
+// 2. Use 'set' on that specific reference to save the data
+set(newPushRef, {
+    username: username,
+    phone: phone,
+    password: password,
+    status: "active",
+    timestamp: Date.now(),
+    points: 0
+}).then(() => {
+    showPopup("Registration Succeed");
+    
+    // Hide the modal
+    const modalElement = document.getElementById('registerModal');
+    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+    if (modalInstance) modalInstance.hide();
+    
+    // 3. Store the captured ID in localStorage
+    localStorage.setItem('delivoUser', JSON.stringify({
+        id: newUserId, // Successfully used here
+        username: username
+    }));
+
+    updateNavToLoggedIn(username);
+    document.getElementById('registrationForm').reset();
+    
+}).catch((error) => {
+    showPopup("Error: " + error.message);
+});});
+
+if(registrationForm)registrationForm.addEventListener('submit', (e) => 
+{    e.preventDefault();
+    
+    let isValid = true;
+    const inputs = e.target.querySelectorAll('input[required]');
+
+    // Apply Red Blur to empty fields
+    inputs.forEach(input => {
+        if (!input.value.trim()) {
+            input.classList.add('input-error');
+            isValid = false;
+        } else {
+            input.classList.remove('input-error');
+        }
+    });
+
+    if (!isValid) 
+	{
+        showPopup("Please fill all fields!");
+        return;
+    }
+
+    // ... your Firebase push code ...
+    // Inside .then() call: showPopup("Request Sent Successfully!");
+});
+
+let timeout = null;
+const usernameInput = document.getElementById('username');
+const statusDiv = document.getElementById('username-status');
+
+if (usernameInput) 
+{
+  usernameInput.addEventListener('input', (e) => 
+  {
+    const username = e.target.value.trim();
+
+    // 1. Immediate UI Reset
+    clearTimeout(timeout);
+    statusDiv.innerHTML = '';
+
+    // 2. Client-side validation
+    if (username.length === 0) return;
+    if (username.length < 3) 
+	{
+      statusDiv.innerHTML = '<span class="text-muted">Too short</span>';
+      return;
+    }
+
+    // 3. Show Spinner
+    statusDiv.innerHTML = '<div class="spinner-tiny"></div>';
+
+    // 4. Debounced Database Check
+    timeout = setTimeout(async () => 
+	{
+  try 
+  {
+    const usersRef = ref(db, 'users'); 
+    
+    // Create the query
+    const userQuery = query(
+      usersRef, 
+      orderByChild('username'), 
+      equalTo(username.toLowerCase())
+    );
+
+    // Fetch the data
+    const snapshot = await get(userQuery);
+    // In Realtime DB, if no match is found, snapshot.val() is null
+    if (snapshot.exists() && snapshot.val() !== null) 
+	{
+      statusDiv.innerHTML = '<span class="text-invalid">✖ Username Taken</span>';
+    } 
+	else 
+	{
+      statusDiv.innerHTML = '<span class="text-valid">✔ Username Available</span>';
+    }
+  } 
+  catch (error) 
+  {
+    console.error("Database Error:", error);
+  }
+}, 500);
+  });
+}
+function updateNavToLoggedIn(username) 
+{
+    // 1. Update the display name
+    document.getElementById('navUserName').textContent = username;
+
+    // 2. Define the new menu items
+    const loggedInItems = `
+        <li><a class="dropdown-item" href="javascript:alert('Profile')">Profile</a></li>
+        <li><a class="dropdown-item" href="javascript:alert('My Orders')">My Orders</a></li>
+        <li><a class="dropdown-item" href="javascript:alert('My Balance')">My Balance</a></li>
+		<li><a class="dropdown-item" href="#"onclick="switchUser()">Switch User</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item text-danger" href="#" onclick="logout()">Logout</a></li>
+    `;
+
+    // 3. Inject into the dropdown
+    document.getElementById('userDropdownMenu').innerHTML = loggedInItems;
+}
+const loginBtn = document.getElementById('loginBtn');
+
+if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async function() 
+{
+    const typedUser = document.getElementById('loginUser').value;
+    const typedPass = document.getElementById('loginPass').value;
+
+    try 
+	{
+        // 1. Point to your 'users' node
+        const usersRef = ref(db, 'users');
+
+        // 2. Query for the record where the 'username' column matches
+        const userQuery = query(usersRef, orderByChild('username'), equalTo(typedUser));
+        const snapshot = await get(userQuery);
+
+        if (snapshot.exists()) 
+		{
+            // Firebase returns an object of results; get the first one
+            const userDataObj = snapshot.val();
+            const userKey = Object.keys(userDataObj)[0];
+            const userData = userDataObj[userKey];
+
+            // 3. Verify Password
+            if (userData.password === typedPass) 
+			{
+                // SUCCESS
+                updateNavToLoggedIn(userData.username);
+                localStorage.setItem('delivoUser', JSON.stringify({
+                    id: userKey,
+                    username: userData.username
+                }));
+
+                // Close Modal
+                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+				document.getElementById('loginUser').value = "";
+				document.getElementById('loginPass').value = "";
+            } else {
+                showPopup("Incorrect password.");
+            }
+        } else {
+            showPopup("Username not found.");
+        }
+    } catch (error) {
+        console.error("Database error:", error);
+        alert("An error occurred. Check console for details.");
+    }
+});
+// 1. The Logout Logic
+window.logout = function() 
+{
+    // Remove the specific key from storage
+    localStorage.removeItem('delivoUser');
+    
+    // Refresh the page to reset the UI to "Public" state
+    window.location.reload();
+};
+
+// 2. The Global Initialization (Runs on every page load)
+window.addEventListener('DOMContentLoaded', () => 
+{
+    const storedData = localStorage.getItem('delivoUser');
+    
+    if (storedData) {
+        const user = JSON.parse(storedData);
+        // This function must also be in your shared JS file
+        updateNavToLoggedIn(user.username);
+    }
+});
+window.switchUser = function() 
+{
+    const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+    loginModal.show();
+};
