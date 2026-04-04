@@ -2,7 +2,7 @@ var cartCount=0;
 var cartItems=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
-console.log('update 4');
+alert('update 5');
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
