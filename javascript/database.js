@@ -1561,69 +1561,24 @@ window.closeAlert = function()
     document.getElementById('customAlert').classList.add('hidden');
 }
 
-// Update your Register Submit Logic:
+// Registration Submit:
 const registrationForm=document.getElementById('registrationForm')
 if(registrationForm)registrationForm.addEventListener('submit', (e) => 
 {
     e.preventDefault();
-
-    const username = document.getElementById('username').value;
-    const phone = document.getElementById('phone').value;
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-
-    if (password !== confirmPassword) {
-        showPopup("Passwords do not match!");
-        return;
-    }
-
-const requestRef = ref(db, 'users');
-
-// 1. Capture the 'newPushRef' to get the auto-generated ID (key)
-const newPushRef = push(requestRef); 
-const newUserId = newPushRef.key; // <--- This is your ID!
-
-// 2. Use 'set' on that specific reference to save the data
-set(newPushRef, {
-    username: username,
-    phone: phone,
-    password: password,
-    status: "active",
-    timestamp: Date.now(),
-    points: 0
-}).then(() => {
-    showPopup("Registration Succeed");
-    
-    // Hide the modal
-    const modalElement = document.getElementById('registerModal');
-    const modalInstance = bootstrap.Modal.getInstance(modalElement);
-    if (modalInstance) modalInstance.hide();
-    
-    // 3. Store the captured ID in localStorage
-    localStorage.setItem('delivoUser', JSON.stringify({
-        id: newUserId, // Successfully used here
-        username: username
-    }));
-
-    updateNavToLoggedIn(username);
-    document.getElementById('registrationForm').reset();
-    
-}).catch((error) => {
-    showPopup("Error: " + error.message);
-});});
-
-if(registrationForm)registrationForm.addEventListener('submit', (e) => 
-{    e.preventDefault();
-    
     let isValid = true;
     const inputs = e.target.querySelectorAll('input[required]');
 
     // Apply Red Blur to empty fields
-    inputs.forEach(input => {
-        if (!input.value.trim()) {
+    inputs.forEach(input => 
+	{
+        if (!input.value.trim()) 
+		{
             input.classList.add('input-error');
             isValid = false;
-        } else {
+        } 
+		else 
+		{
             input.classList.remove('input-error');
         }
     });
@@ -1634,8 +1589,58 @@ if(registrationForm)registrationForm.addEventListener('submit', (e) =>
         return;
     }
 
-    // ... your Firebase push code ...
-    // Inside .then() call: showPopup("Request Sent Successfully!");
+    const username = document.getElementById('username').value;
+    const phone = document.getElementById('phone').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (password !== confirmPassword) 
+	{
+        showPopup("Passwords do not match!");
+        return;
+    }
+	if(document.getElementById('username-status').innerHTML == '<span class="text-invalid">✖ Username Taken</span>')
+	{
+        showPopup("Username Exists!");
+        return;
+	}
+	const requestRef = ref(db, 'users');
+
+	// 1. Capture the 'newPushRef' to get the auto-generated ID (key)
+	const newPushRef = push(requestRef); 
+	const newUserId = newPushRef.key; // <--- This is your ID!
+
+	// 2. Use 'set' on that specific reference to save the data
+	set(newPushRef, 
+	{
+		username: username.toLowerCase().trim(),
+		phone: phone,
+		password: password,
+		status: "active",
+		timestamp: Date.now(),
+		points: 0
+	})
+	.then(() => 
+	{
+		showPopup("Registration Succeed");
+		
+		// Hide the modal
+		const modalElement = document.getElementById('registerModal');
+		const modalInstance = bootstrap.Modal.getInstance(modalElement);
+		if (modalInstance) modalInstance.hide();
+		
+		// 3. Store the captured ID in localStorage
+		localStorage.setItem('delivoUser', JSON.stringify({
+			id: newUserId, // Successfully used here
+			username: username.toLowerCase().trim()
+		}));
+
+		updateNavToLoggedIn(username.toLowerCase().trim());
+		document.getElementById('registrationForm').reset();
+    
+	}).catch((error) => {
+		showPopup("Error: " + error.message);
+	});
 });
 
 let timeout = null;
@@ -1727,7 +1732,7 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
         const usersRef = ref(db, 'users');
 
         // 2. Query for the record where the 'username' column matches
-        const userQuery = query(usersRef, orderByChild('username'), equalTo(typedUser));
+        const userQuery = query(usersRef, orderByChild('username'), equalTo(typedUser.toLowerCase().trim()));
         const snapshot = await get(userQuery);
 
         if (snapshot.exists()) 
