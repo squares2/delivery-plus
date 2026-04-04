@@ -36,7 +36,7 @@ async function initApp() {
   try {
     // Error -39 Fix: Use 'normal' size for mobile and pass 'auth' correctly
     window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'normal',
+      'size': 'invisible',
       'callback': (response) => {
          console.log("reCAPTCHA solved");
       },
