@@ -509,6 +509,32 @@ function setCompany(comp)
 	  });
 	});
 }
+async function getUserPoints(userId) 
+{
+    try 
+	{
+        // 1. Create a reference directly to the specific field 'points'
+        const pointsRef = ref(db, `users/${userId}/points`);
+        
+        // 2. Await the fetch
+        const snapshot = await get(pointsRef);
+
+        // 3. Check if the value exists
+        if (snapshot.exists()) 
+		{
+            const points = snapshot.val(); // This is just the number/string, not an object
+            return points;
+        } 
+		else 
+		{
+            return 0; 
+        }
+    } 
+	catch (error) 
+	{
+        console.error("Error fetching single value:", error);
+    }
+}
 function getNow()
 {
 	const today = new Date();
@@ -892,7 +918,7 @@ function renderCartSidebar()
 		var checkTotal=document.getElementById('checktotal');
 		if(sumitems!=null)sumitems.innerHTML=getCartCount();
 		if(subTotal!=null)subTotal.innerHTML=totalEl.textContent;
-		if(checkTotal!=null)checkTotal.innerHTML=parseFloat(totalEl.textContent)+2;
+		if(checkTotal!=null)checkTotal.innerHTML=(parseFloat(totalEl.textContent)+2).toFixed(2);
 	}	
 }
 function changeQty(id,delta)
@@ -1061,7 +1087,14 @@ async function placeOrder()
 
 		if (result.committed) 
 		{
-			const newId = result.snapshot.val(); // This is your 1, 2, 3...
+			const newId = "id_"+result.snapshot.val(); // This is your 1, 2, 3...
+			const storedData = localStorage.getItem('delivoUser');
+			var username='';
+			if (storedData) 
+			{
+				const user = JSON.parse(storedData);
+				username = user.username;
+			}
 
 			// 2. Use that ID as the key
 			await set(ref(db, 'requests/' + newId), 
@@ -1078,7 +1111,8 @@ async function placeOrder()
 				cart: cartList,
 				deliveryplusid: localStorage.getItem('deliveryplusids'),
 				vault:"0",
-				xnote:note.value
+				xnote:note.value,
+				username:username
 			});
 			
 			cartItems=[];
@@ -1710,7 +1744,7 @@ function updateNavToLoggedIn(username)
     const loggedInItems = `
         <li><a class="dropdown-item" href="javascript:alert('Profile')">Profile</a></li>
         <li><a class="dropdown-item" href="javascript:alert('My Orders')">My Orders</a></li>
-        <li><a class="dropdown-item" href="javascript:alert('My Balance')">My Balance</a></li>
+        <li><a id='mybalance' class="dropdown-item">My Balance (points)</a></li>
 		<li><a class="dropdown-item" href="#"onclick="switchUser()">Switch User</a></li>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item text-danger" href="#" onclick="logout()">Logout</a></li>
@@ -1718,6 +1752,23 @@ function updateNavToLoggedIn(username)
 
     // 3. Inject into the dropdown
     document.getElementById('userDropdownMenu').innerHTML = loggedInItems;
+	
+	// 4.triggering button my balance
+	const mybalance = document.getElementById('mybalance');
+    mybalance.addEventListener('click',async function(event) 
+	{
+        event.preventDefault();
+		const storedData = localStorage.getItem('delivoUser');
+		
+		if (storedData) 
+		{
+			const user = JSON.parse(storedData);
+			const result=await getUserPoints(user.id);
+			var stringpoint="point";
+			if(result>1)stringpoint="points";
+			showPopup("Your Balance : "+result+" "+stringpoint);
+		}
+    });
 }
 const loginBtn = document.getElementById('loginBtn');
 
