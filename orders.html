@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delivo History Orders</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/all.min.css" rel="stylesheet">
+  <link href="css/styles.css" rel="stylesheet">
+  <link href="css/styles2.css" rel="stylesheet">
+  <link href="css/styles3.css" rel="stylesheet">
+  <link href="css/rowbadge.css" rel="stylesheet">
+  <link href="css/tablestyle.css" rel="stylesheet">
+  <script type="module" src="javascript/database.js"></script> 
+  <script src="javascript/bootstrap.bundle.min.js"></script>
+  <script type="module" src="javascript/startup.js"></script>
+<script type="module">
+    import { distributeHistory } from './javascript/database.js';
+	const storedData = localStorage.getItem('delivoUser');
+	if(storedData)
+	{
+		const username=JSON.parse(storedData).username;
+		distributeHistory(username);
+	}
+
+</script>
+</head>
+<body>
+  <div class="announcement-bar text-white">
+    <div class="container d-flex justify-content-between align-items-center">
+      <div class="d-flex gap-4">
+        <span><i class="fa-solid fa-truck-fast me-2"></i>Free delivery</span>
+        <span><i class="fa-solid fa-bolt me-2"></i>Fast delivery</span>
+      </div>
+    </div>
+  </div>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
+  <div class="container-fluid d-flex justify-content-between align-items-center">
+    <!-- Right: Wide Stats & History -->
+    <div class="d-flex align-items-center">
+      <div class="stats-bar-wide">
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-ndelivered">Not Delivered</span>
+          <span id="count-ndelivered" class="stat-value-bold text-ndelivered">0</span>
+        </div>
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-delivered">Delivered</span>
+          <span id="count-delivered" class="stat-value-bold text-delivered">0</span>
+        </div>
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-delayed">Delayed</span>
+          <span id="count-delayed" class="stat-value-bold text-delayed">0</span>
+        </div>
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-canceled">Canceled</span>
+          <span id="count-canceled" class="stat-value-bold text-canceled">0</span>
+        </div>
+        <div class="stat-segment">
+          <span class="stat-label-tiny text-pcanceled">Canceled/Paid</span>
+          <span id="count-pcanceled" class="stat-value-bold text-pcanceled">0</span>
+        </div>
+      </div>
+    </div>
+		<div class="dropdown ms-2">
+			<a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
+				<i class="fa-solid fa-circle-user fa-lg me-2"></i>
+				<span id="navUserName" class="fw-semibold">Public</span>
+			</a>
+			<!-- The ID here is critical for the JS to inject the items -->
+			<ul id="userDropdownMenu" class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu">
+				<li>
+					<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a>
+				</li>
+				<!-- Updated Register Link -->
+				<li>
+					<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#registerModal" >Register</a>
+				</li>
+			</ul>
+		</div>
+  </div>
+</nav>
+  <!-- TABLE SECTION -->
+  <div class="container mt-5">
+	<table id="historyshiptable"class="mobile-table">
+      <thead>
+        <tr>
+          <th>Ship Number</th>
+          <th>Full Name</th>
+          <th>Phone</th>
+          <th>Address</th>
+          <th>Amount</th>
+          <th>Due Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+	  <tr>
+        <!-- Table rows as you had them -->
+        <td colspan="7" class="text-center fw-bold bg-light">
+			No Orders Exists
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Your Cart</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="cartList" class="list-group mb-3"></div>
+      <div class="d-flex justify-content-between align-items-center border-top pt-3">
+        <div class="fw-semibold">Total</div>
+        <div id="cartTotal" class="fw-bold">$0.00</div>
+      </div>
+      <a href="checkout.html" class="btn btn-primary w-100 mt-3">Checkout</a>
+    </div>
+  </div>
+
+  <div class="modal fade" id="quickViewModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="quickViewTitle"></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <img id="quickViewImage" class="img-fluid rounded mb-3" alt="">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="fw-semibold" id="quickViewPrice"></div>
+            <button class="btn btn-primary" id="quickViewAdd">Add to Cart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer class="footer bg-dark text-white pt-5">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-12 col-lg-3">
+          <h6 class="fw-semibold">About</h6>
+          <p class="text-muted">Delivo brings you any thing you need to your door with great prices.</p>
+        </div>
+      </div>
+      <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivo All rights reserved.</div>
+    </div>
+  </footer>
+<!-- Login Modal (Place this before </body>) -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Sign In</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Username</label>
+          <input type="text" id="loginUser" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Password</label>
+          <input type="password" id="loginPass" class="form-control">
+        </div>
+        <button type="button" id="loginBtn" class="btn btn-primary w-100 fw-bold">Login</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Registration Modal -->
+<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="registerModalLabel">Create New Account</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="registrationForm">
+          <div class="mb-3 position-relative">
+  <label class="form-label">Username</label>
+  <div class="d-flex align-items-center">
+    <input type="text" class="form-control" id="username" placeholder="username" required autocomplete="off">
+    <div id="username-status" class="ms-2" style="min-width: 100px; font-size: 0.85rem;"></div>
+  </div>
+</div>
+          <div class="mb-3">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-control" id="phone" placeholder="e.g. 76123456" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" class="form-control" id="confirmPassword" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Register</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Custom Alert Popup -->
+<div id="customAlert" class="hidden alert-overlay">
+    <div class="alert-content">
+        <p id="alertMessage"></p>
+        <button class="alert-btn" onclick="closeAlert()">OK</button>
+    </div>
+</div>
+<!-- Bottom Navigation Bar (Visible only on mobile/tablet) -->
+<nav class="navbar navbar-light bg-white border-top fixed-bottom d-lg-none py-2">
+  <div class="container-fluid d-flex justify-content-around text-center">
+    
+    <a href="index.html" class="nav-link text-dark">
+      <i class="fa-solid fa-house d-block mb-1"></i>
+      <small>Home</small>
+    </a>
+
+    <!-- FIX 1: Added 'dropup' and 'position-static' -->
+    <ul class="navbar-nav position-static">
+      <li class="nav-item dropup mega position-static">
+        <a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown">
+          <span id="company2">SHOP</span>
+        </a>
+        <!-- FIX 2: Added 'w-100 start-0' to prevent cutting off -->
+        <div class="dropdown-menu w-100 start-0 p-4 mega-menu">
+          <div id="companieslist4" class="row g-3">
+            <div class="col-6 col-lg-3">
+              <h6 class="fw-semibold">Loading...</h6>
+            </div>
+          </div>
+        </div>
+      </li>
+    </ul>
+    <a href="#" class="nav-link text-dark" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+      <i class="fa-solid fa-bars d-block mb-1"></i>
+      <small>Menu</small>
+    </a>
+
+  </div>
+</nav>
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Delivo</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <ul class="list-unstyled">
+        <li><a class="d-block py-2" href="index.html">Home</a></li>
+        <li><a class="d-block py-2" href="about.html">About Us</a></li>
+        <li><a class="d-block py-2" href="contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

@@ -87,6 +87,7 @@
                 </div>
               </div>
             </div>
+			</li>
         </ul>
 
        <ul id="topcompany2"class="navbar-nav">
@@ -99,6 +100,7 @@
                 </div>
               </div>
             </div>
+			</li>
         </ul>
     <!-- Top Right Icons Group -->
     <div class="d-flex align-items-center ms-auto">
@@ -198,29 +200,6 @@
       <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivo All rights reserved.</div>
     </div>
   </footer>
-<!--<section class="py-5">
-	<div class="container">
-		<div class="d-flex justify-content-between align-items-center mb-4">
-			<h2 class="fw-bold">Shop</h2>
-			<a class="text-primary" href="index.html">Home</a>
-		</div>
-		<div class="row g-3" id="categoryGrid">
-			<div class="col-6 col-lg-3">
-				<div class="card product-card h-100">
-					<img src="items/68.png" class="card-img-top" alt="Red Apples 1kg" loading="lazy" referrerpolicy="no-referrer">
-					<img src="png/cart2.png" class="img-overlay" alt="Overlay">
-					<div class="card-body">
-						<h6 class="card-title">Red Apples 1kg</h6>
-						<div class="fw-semibold mb-2">$3.49</div>
-						<div class="d-flex gap-2">
-							<button class="btn btn-sm btn-primary" data-product-id="3">Add to Cart</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</section>-->
 
   <div class="modal fade" id="quickViewModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -247,18 +226,22 @@
       <i class="fa-solid fa-house d-block mb-1"></i>
       <small>Home</small>
     </a>
-       <ul class="navbar-nav">
-          <li class="nav-item dropdown mega">
-            <a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown"><span id="company2">SHOP</span></a>
-            <div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
-              <div id="categorieslist2"class="row g-3">
-                <div class="col-6 col-lg-3">
-                  <h6 class="fw-semibold">Loading...</h6>
-                </div>
-              </div>
-            </div>
-        </ul>
-    
+<ul class="navbar-nav">
+  <!-- 1. Add 'position-static' to the li -->
+  <li class="nav-item dropup mega position-static">
+    <a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown">
+      <span id="company2">SHOP</span>
+    </a>
+    <!-- 2. Add 'w-100' and 'start-0' to the menu -->
+    <div class="dropdown-menu w-100 start-0 p-4 mega-menu">
+      <div id="categorieslist2" class="row g-3">
+        <div class="col-6 col-lg-3">
+          <h6 class="fw-semibold">Loading...</h6>
+        </div>
+      </div>
+    </div>
+  </li>
+</ul>    
 	<a class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
 		<i class="fa-solid fa-cart-shopping"></i>
 		<span id="cartCount2" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
@@ -286,7 +269,6 @@
       <a href="checkout.html" class="btn btn-primary w-100 mt-3">Checkout</a>
     </div>
   </div>
-<!-- Login Modal (Place this before </body>) -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">

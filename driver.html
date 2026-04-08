@@ -14,10 +14,6 @@
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script type="module" src="javascript/startup.js"></script>
-  <script type="module">
-    import { function1 } from './javascript/database.js';
-    window.addEventListener('DOMContentLoaded', function1);
-  </script>
 </head>
 <body>
   <div class="announcement-bar text-white">
@@ -178,7 +174,7 @@
       <!-- Error Message Container -->
       <div id="loginError" class="text-danger small mt-2 d-none">Invalid username or password.</div>
     </div>
-    <button type="submit" id="loginBtn" class="btn btn-primary w-100">Login</button>
+    <button type="submit" class="btn btn-primary w-100">Login</button>
   </form>
 </div>
     </div>
