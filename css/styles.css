@@ -406,3 +406,9 @@ body.theme-tobbaco::before
 .announcement-bar {
     z-index: 1010 !important;
 }
+/* Target the menu inside the dropup container */
+.dropup .dropdown-menu {
+    top: auto !important;     /* Disable standard top positioning */
+    bottom: 100% !important;  /* Force it to start at the top of the bar */
+    margin-bottom: 0.5rem;    /* Small gap between bar and menu */
+}
