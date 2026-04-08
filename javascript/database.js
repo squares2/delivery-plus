@@ -1,5 +1,6 @@
 var cartCount=0;
 var cartItems=[];
+var cartItemsDriver=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
 
@@ -43,6 +44,21 @@ const dbref=ref(db);
 	    }
 	});
 	
+	const requestcustomerRef = ref(db, "historyRequests");
+	onValue(requestcustomerRef, (snapshot) => 
+	{
+	    if (snapshot.exists()) 
+		{
+			const storedData = localStorage.getItem('delivoUser');
+			
+			if (storedData) 
+			{
+				const user = JSON.parse(storedData);
+				distributeHistory(user.username);
+			}	        
+	    }
+	});
+	
 	const patternRef = ref(db, "pattern");
 
 	onValue(patternRef, (snapshot) => 
@@ -63,6 +79,30 @@ window.onload = function()
         updateNavToLoggedIn(user.username);
     }
 };
+function updateRequestAndHistory(requestId, username, newState) 
+{
+  const db = getDatabase();
+  const rootRef = ref(db);
+
+  // Define the multiple paths you want to update
+  const updates = {};
+  
+  // Path 1: Update the primary request
+  updates[`/requests/${requestId}/state`] = newState;
+  
+  // Path 2: Update the nested history entry using dot-notation paths
+  // This updates only the 'state' field without overwriting the rest of the object
+  updates[`/historyRequests/${username}/${requestId}/state`] = newState;
+
+  try {
+    // Perform the update atomically
+    update(rootRef, updates);
+    console.log("Both locations updated successfully!");
+  } catch (error) {
+    console.error("Error updating database:", error);
+  }
+}
+
 async function generateRequestId() 
 {
     // This adds 1 directly on the server without reading it first
@@ -94,6 +134,7 @@ function getCompanies()
 	const list = document.getElementById('companieslist');
 	const list2 = document.getElementById('companieslist2');
 	const list3 = document.getElementById('companieslist3');
+	const list4 = document.getElementById('companieslist4');
 	var inner="";
 	
 	get(child(dbref,"pattern")).then((snapshot) => 
@@ -134,6 +175,10 @@ function getCompanies()
 			if(list3!=null)
 			{
 				list3.innerHTML=inner;
+			}	
+			if(list4!=null)
+			{
+				list4.innerHTML=inner;
 			}	
 		} 
 		else 
@@ -244,7 +289,7 @@ function distributeDriver()
 						inner2+="<td data-label='Owner Address'>"+item.city+"/"+item.street+"</td>";
 						inner2+="<td data-label='Amount'>"+item.total+"</td>";
 						inner2+="<td data-label='Due Date'>"+item.date+"</td>";
-						inner2+="<td data-label='Status'><div class='status-selector'data-shipnumber='"+key+"'>";
+						inner2+="<td data-label='Status'><div class='status-selector'data-username='"+item.username+"'data-shipnumber='"+key+"'>";
 						if((item.state=="0"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-ndelivered "+ndelivered+"'>Not Delivered</button>";
 						if((item.state=="1"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-delivered "+delivered+"'>Delivered</button>";
 						if((item.state=="3"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-delayed "+delayed+"'>Delayed</button>";
@@ -276,6 +321,107 @@ function distributeDriver()
 			console.error(error);
 		});
 	}
+}
+export function distributeHistory(username)
+{
+	const historyshiptable = document.getElementById('historyshiptable');
+	if(historyshiptable)historyshiptable.innerHTML="";
+	var inner1="<thead><tr><th>Ship Number</th><th>Full Name</th><th>Phone</th><th>Address</th>";
+	inner1+="<th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>";
+	var inner2="";
+	var delivered="";
+	var ndelivered="";
+	var delayed="";
+	var canceled="";
+	var pcanceled="";
+	
+	var countndelivered=document.getElementById('count-ndelivered');
+	var countdelivered=document.getElementById('count-delivered');
+	var countdelayed=document.getElementById('count-delayed');
+	var countcanceled=document.getElementById('count-canceled');
+	var countpcanceled=document.getElementById('count-pcanceled');
+	
+	var totdel=0,totndel=0,totdelayed=0,totcancel=0,totpcancel=0;
+
+	get(child(dbref,"historyRequests/"+username)).then((snapshot) => 
+	{
+		if (snapshot.exists()) 
+		{
+			const data = snapshot.val();
+			const keys = Object.keys(data);
+			let i = 0;
+			while (i < keys.length) 
+			{
+				const key = keys[i];
+				const item = data[key];
+				
+				if(item.state=="0")
+				{
+					ndelivered="active";
+					totndel++;
+				}	
+				else ndelivered="";
+				if(item.state=="1")
+				{
+					delivered="active";
+					totdel++;
+				}	
+				else delivered="";
+				if(item.state=="2")
+				{
+					canceled="active";
+					totcancel++;
+				}	
+				else canceled="";
+				if(item.state=="3")
+				{
+					delayed="active";
+					totdelayed++;
+				}	
+				else delayed="";
+				if(item.state=="5")
+				{
+					pcanceled="active";
+					totpcancel++;
+				}	
+				else pcanceled="";
+
+				inner2+="<tr><td data-label='Ship Number'>"+key+"</td>";
+				inner2+="<td data-label='Owner'>"+item.fullname+"</td>";
+				inner2+="<td data-label='Owner Phone'>"+item.phone+"</td>";
+				inner2+="<td data-label='Owner Address'>"+item.city+"/"+item.street+"</td>";
+				inner2+="<td data-label='Amount'>"+item.total+"</td>";
+				inner2+="<td data-label='Due Date'>"+item.date+"</td>";
+				inner2+="<td data-label='Status'><div class='status-selector'data-username='"+item.username+"'data-shipnumber='"+key+"'>";
+				if(item.state=="0")inner2+="<button class='status-btn btn-ndelivered "+ndelivered+"'>Not Delivered</button>";
+				else if(item.state=="1")inner2+="<button class='status-btn btn-delivered "+delivered+"'>Delivered</button>";
+				else if(item.state=="3")inner2+="<button class='status-btn btn-delayed "+delayed+"'>Delayed</button>";
+				else if(item.state=="2")inner2+="<button class='status-btn btn-canceled "+canceled+"'>Canceled</button>";
+				else if(item.state=="5")inner2+="<button class='status-btn btn-pcanceled "+pcanceled+"'>Canceled Payed</button>";
+				inner2+="<button id='carthistorydetail' data-shipnumber='"+key+"' class='status-btn2 btn-items'>Items</button>";
+				inner2+="</div></td></tr>";
+				i++;
+			}
+			inner2+="</tbody>";
+			if(historyshiptable)historyshiptable.innerHTML=inner1+inner2;
+			
+			if(countndelivered)countndelivered.innerHTML=""+totndel;
+			if(countdelivered)countdelivered.innerHTML=""+totdel;
+			if(countdelayed)countdelayed.innerHTML=""+totdelayed;
+			if(countcanceled)countcanceled.innerHTML=""+totcancel;
+			if(countpcanceled)countpcanceled.innerHTML=""+totpcancel;
+			
+		} 
+		else 
+		{
+			inner2+="</tbody>";
+			if(historyshiptable)historyshiptable.innerHTML=inner1+inner2;
+			//console.log("No data available");
+		}
+	}).catch((error) => 
+	{
+		console.error(error);
+	});
 }
 function loadPersonals()
 {
@@ -719,7 +865,7 @@ function addToCart(id)
 	}
 	saveCart();
 	updateCartBadge();
-	renderCartSidebar()
+	renderCartSidebar(cartItems)
 }
 function removeProductOverlay(productId) 
 {
@@ -884,14 +1030,14 @@ function renderProductDetail()
   ;
 	wireButtons(root)
 }
-function renderCartSidebar()
+function renderCartSidebar(cartItem1)
 {
 	var list=document.getElementById('cartList');
 	var totalEl=document.getElementById('cartTotal');
 	if(!list||!totalEl)return;
 	var html='';
 	var total=0;
-	cartItems.forEach(function(ci)
+	cartItem1.forEach(function(ci)
 	{
 		total+=ci.price*ci.qty;
 		html+=
@@ -940,7 +1086,7 @@ function changeQty(id,delta)
 	}
 	saveCart();
 	updateCartBadge();
-	renderCartSidebar()
+	renderCartSidebar(cartItems)
 }
 function wireCartSidebar()
 {
@@ -1114,7 +1260,22 @@ async function placeOrder()
 				xnote:note.value,
 				username:username
 			});
-			
+			if(username.length>0)
+			{
+				await set(ref(db, 'historyRequests/' + username+'/'+newId), 
+				{
+					fullname: fullname.value,
+					phone: phone.value,
+					city: city.value,
+					street: street.value,
+					date: getNow(),
+					total: tot,
+					state: "0",
+					cart: cartList,
+					deliveryplusid: localStorage.getItem('deliveryplusids'),
+					xnote:note.value
+				});
+			}
 			cartItems=[];
 			saveCart();
 			var el=document.getElementById('cartCount3');
@@ -1149,7 +1310,7 @@ export async function startPage()
 	getCompanies();
 	renderCategoryPage();
 	renderProductDetail();
-	renderCartSidebar();
+	renderCartSidebar(cartItems);
 	wireCartSidebar();
 	loadPersonals();
 }
@@ -1414,9 +1575,8 @@ function updateSideCart(shipnumber)
 
                if (key == shipnumber) 
 			   {
-
                     foundMatch = true;
-                    let cartItems = [];
+                    cartItemsDriver = [];
                     const rawData = item.cart;
                     const items = rawData.split(';').filter(i => i.length > 0);
 
@@ -1429,21 +1589,15 @@ function updateSideCart(shipnumber)
                             image: 'items/' + parts[0] + '.png',
                             qty: parseInt(parts[3])
                         };
-                        cartItems.push(row);
+                        cartItemsDriver.push(row);
                     });
-
-                  // 2. Save to localStorage AFTER processing
-                    localStorage.setItem('grocer_cart', JSON.stringify(cartItems));
                 }
             });
 
             if (foundMatch) 
 			{
-				var s=localStorage.getItem('grocer_cart');
-				cartItems=s?JSON.parse(s):[]
-
                 // 3. ONLY SHOW THE SIDEBAR NOW (Data is ready)
-                renderCartSidebar(); 
+                renderCartSidebar(cartItemsDriver); 
                 existingInstance.show();
             }
         } 
@@ -1456,6 +1610,22 @@ function updateSideCart(shipnumber)
         console.error(error);
     });
 }
+//	historyshiptable
+const historyshiptable = document.querySelectorAll('#historyshiptable');
+historyshiptable.forEach(container => 
+{
+    container.addEventListener('click', function (event) 
+	{
+        // Check if the clicked element is the "Items" button
+        const carthistorydetail = event.target.closest('#carthistorydetail');
+		if(carthistorydetail)
+		{
+			const shipNum = carthistorydetail.getAttribute('data-shipnumber');
+			updateSideCart(shipNum); 
+		}
+    });
+});
+
 const drivershiptable = document.querySelectorAll('#drivershiptable');
 drivershiptable.forEach(container => 
 {
@@ -1480,8 +1650,8 @@ if(table)
 
 		const rowContainer = clickedBtn.closest('.status-selector');
 		const shipNum = rowContainer.getAttribute('data-shipnumber');
+		const usernam = rowContainer.getAttribute('data-username');
 		const allButtonsInThisRow = rowContainer.querySelectorAll('.status-btn');
-		
 		allButtonsInThisRow.forEach(btn => 
 		{
 			btn.classList.remove('active');
@@ -1491,23 +1661,23 @@ if(table)
 
 		if (clickedBtn.classList.contains('btn-delivered')) 
 		{
-			updateRequestState(shipNum, "1");
+			updateRequestAndHistory(shipNum, usernam, "1");
 		} 
 		else if (clickedBtn.classList.contains('btn-ndelivered')) 
 		{
-			updateRequestState(shipNum, "0");
+			updateRequestAndHistory(shipNum, usernam, "0");
 		}
 		else if (clickedBtn.classList.contains('btn-delayed')) 
 		{
-			updateRequestState(shipNum, "3");
+			updateRequestAndHistory(shipNum, usernam, "3");
 		}
 		else if (clickedBtn.classList.contains('btn-pcanceled')) 
 		{
-			updateRequestState(shipNum, "5");
+			updateRequestAndHistory(shipNum, usernam, "5");
 		}
 		else if (clickedBtn.classList.contains('btn-canceled')) 
 		{
-			updateRequestState(shipNum, "2");
+			updateRequestAndHistory(shipNum, usernam, "2");
 		}
 	});
 }
@@ -1670,6 +1840,7 @@ if(registrationForm)registrationForm.addEventListener('submit', (e) =>
 		}));
 
 		updateNavToLoggedIn(username.toLowerCase().trim());
+		distributeHistory(username.toLowerCase().trim());
 		document.getElementById('registrationForm').reset();
     
 	}).catch((error) => {
@@ -1738,37 +1909,52 @@ if (usernameInput)
 function updateNavToLoggedIn(username) 
 {
     // 1. Update the display name
-    document.getElementById('navUserName').textContent = username;
-
-    // 2. Define the new menu items
-    const loggedInItems = `
-        <li><a class="dropdown-item" href="javascript:alert('Profile')">Profile</a></li>
-        <li><a class="dropdown-item" href="javascript:alert('My Orders')">My Orders</a></li>
-        <li><a id='mybalance' class="dropdown-item">My Balance (points)</a></li>
-		<li><a class="dropdown-item" href="#"onclick="switchUser()">Switch User</a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item text-danger" href="#" onclick="logout()">Logout</a></li>
-    `;
-
-    // 3. Inject into the dropdown
-    document.getElementById('userDropdownMenu').innerHTML = loggedInItems;
-	
-	// 4.triggering button my balance
-	const mybalance = document.getElementById('mybalance');
-    mybalance.addEventListener('click',async function(event) 
+	const navuser=document.getElementById('navUserName')
+    if(navuser)
 	{
-        event.preventDefault();
-		const storedData = localStorage.getItem('delivoUser');
+		navuser.textContent = username;
+		// 2. Define the new menu items
+		const loggedInItems = `
+			<li><a class="dropdown-item" href="javascript:alert('Profile')">Profile</a></li>
+			<li><a id='myorders'class="dropdown-item" href="#">My Orders</a></li>
+			<li><a id='mybalance' class="dropdown-item"href="#">My Balance (points)</a></li>
+			<li><a class="dropdown-item" href="#"onclick="switchUser()">Switch User</a></li>
+			<li><hr class="dropdown-divider"></li>
+			<li><a class="dropdown-item text-danger" href="#" onclick="logout()">Logout</a></li>
+		`;
+
+		// 3. Inject into the dropdown
+		document.getElementById('userDropdownMenu').innerHTML = loggedInItems;
 		
-		if (storedData) 
+		// 4.triggering button my balance
+		const mybalance = document.getElementById('mybalance');
+		mybalance.addEventListener('click',async function(event) 
 		{
-			const user = JSON.parse(storedData);
-			const result=await getUserPoints(user.id);
-			var stringpoint="point";
-			if(result>1)stringpoint="points";
-			showPopup("Your Balance : "+result+" "+stringpoint);
-		}
-    });
+			event.preventDefault();
+			const storedData = localStorage.getItem('delivoUser');
+			
+			if (storedData) 
+			{
+				const user = JSON.parse(storedData);
+				const result=await getUserPoints(user.id);
+				var stringpoint="point";
+				if(result>1)stringpoint="points";
+				showPopup("Your Balance : "+result+" "+stringpoint);
+			}
+		});
+		// 5.triggering button my orders
+		const myorders = document.getElementById('myorders');
+		myorders.addEventListener('click',async function(event) 
+		{
+			event.preventDefault();
+			const storedData = localStorage.getItem('delivoUser');
+			
+			if (storedData) 
+			{
+				window.location="orders.html";
+			}
+		});
+	}
 }
 const loginBtn = document.getElementById('loginBtn');
 
@@ -1798,6 +1984,7 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
 			{
                 // SUCCESS
                 updateNavToLoggedIn(userData.username);
+                distributeHistory(userData.username);
                 localStorage.setItem('delivoUser', JSON.stringify({
                     id: userKey,
                     username: userData.username
@@ -1822,6 +2009,7 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
 window.logout = function() 
 {
     // Remove the specific key from storage
+    localStorage.removeItem('delivoUser');
     localStorage.removeItem('delivoUser');
     
     // Refresh the page to reset the UI to "Public" state
