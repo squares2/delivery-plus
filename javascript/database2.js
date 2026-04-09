@@ -4,7 +4,7 @@ if(whatsbutton)whatsbutton.addEventListener('click', function()
 {
 	
 	// Use international format without '+' or spaces
-	const phoneNumber = "00961884643"; 
+	const phoneNumber = "+96176884643"; 
 	const message = "Hello! I'm reaching out from your website.";
 	event.preventDefault();
 
