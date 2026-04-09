@@ -238,13 +238,13 @@ function distributeDriver()
 		var countpcanceled=document.getElementById('count-pcanceled');
 		
 		var totdel=0,totndel=0,totdelayed=0,totcancel=0,totpcancel=0;
-
+		
 		get(child(dbref,"requests")).then((snapshot) => 
 		{
 			if (snapshot.exists()) 
 			{
 				const data = snapshot.val();
-				const keys = Object.keys(data);
+				const keys = Object.keys(data).sort().reverse();
 				let i = 0;
 				while (i < keys.length) 
 				{
@@ -348,7 +348,7 @@ export function distributeHistory(username)
 		if (snapshot.exists()) 
 		{
 			const data = snapshot.val();
-			const keys = Object.keys(data);
+			const keys = Object.keys(data).sort().reverse();
 			let i = 0;
 			while (i < keys.length) 
 			{
@@ -1242,7 +1242,7 @@ async function placeOrder()
 				username = user.username;
 			}
 
-			// 2. Use that ID as the key
+			// 2. import data to requests
 			await set(ref(db, 'requests/' + newId), 
 			{
 				fullname: fullname.value,
@@ -1260,6 +1260,7 @@ async function placeOrder()
 				xnote:note.value,
 				username:username
 			});
+			// 3. import data to historyRequests
 			if(username.length>0)
 			{
 				await set(ref(db, 'historyRequests/' + username+'/'+newId), 
