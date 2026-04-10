@@ -23,7 +23,7 @@ const auth = getAuth(app);
 const dbf = getFirestore(app); // Firestore instance
 const db = getDatabase(app);   // Realtime Database instance
 const dbref=ref(db);
-//setLogLevel('debug'); 
+	
 	const maintenanceRef = ref(db, "maintenance/1");
 	onValue(maintenanceRef, (snapshot) => 
 	{
@@ -68,17 +68,33 @@ const dbref=ref(db);
 	        getCompanies();
 	    }
 	});
-window.onload = function() 
-{
+	
+window.onload = function() {
     const storedData = localStorage.getItem('delivoUser');
     
     if (storedData) 
 	{
         const user = JSON.parse(storedData);
-        // Use the function we made earlier to swap the menu
         updateNavToLoggedIn(user.username);
+		updateProfileImage(user.username);
     }
 };
+function updateProfileImage(username)
+{
+	const pfp = document.getElementById('sidebar-pfp');
+	if (pfp) 
+	{
+		// 1. Set the error handler as a FUNCTION first
+		pfp.onerror = function() 
+		{
+			console.log("Custom image not found, loading default...");
+			this.onerror = null; // Prevent infinite loops
+			this.src = 'users/0.png';
+		};
+		// 2. Set the source second
+		pfp.src = "users/" + username + ".png";
+	}
+}
 function updateRequestAndHistory(requestId, username, newState) 
 {
   const db = getDatabase();
@@ -1916,7 +1932,7 @@ function updateNavToLoggedIn(username)
 		navuser.textContent = username;
 		// 2. Define the new menu items
 		const loggedInItems = `
-			<li><a class="dropdown-item" href="javascript:alert('Profile')">Profile</a></li>
+			<li><a id='myprofile'class="dropdown-item" href="#">Profile</a></li>
 			<li><a id='myorders'class="dropdown-item" href="#">My Orders</a></li>
 			<li><a id='mybalance' class="dropdown-item"href="#">My Balance (points)</a></li>
 			<li><a class="dropdown-item" href="#"onclick="switchUser()">Switch User</a></li>
@@ -1955,6 +1971,14 @@ function updateNavToLoggedIn(username)
 				window.location="orders.html";
 			}
 		});
+		// 6.triggering profile sidebar
+		const myprofile=document.getElementById('myprofile');
+		if(myprofile)myprofile.addEventListener('click', function()
+		{
+			event.preventDefault();
+			openUserSidebar();
+		});
+
 	}
 }
 const loginBtn = document.getElementById('loginBtn');
@@ -1984,6 +2008,7 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
             if (userData.password === typedPass) 
 			{
                 // SUCCESS
+				updateProfileImage(userData.username);
                 updateNavToLoggedIn(userData.username);
                 distributeHistory(userData.username);
                 localStorage.setItem('delivoUser', JSON.stringify({

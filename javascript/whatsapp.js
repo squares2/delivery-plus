@@ -1,0 +1,15 @@
+const whatsbutton=document.getElementById('whatsapp-btn');
+
+if(whatsbutton)whatsbutton.addEventListener('click', function() 
+{
+	
+	// Use international format without '+' or spaces
+	const phoneNumber = "+96176884643"; 
+	const message = "Hello Delivo! ";
+	event.preventDefault();
+
+	// Standard API link for mobile and web
+	const url = "https://wa.me/"+phoneNumber+"?text="+message;
+
+	window.open(url, '_blank');
+});
