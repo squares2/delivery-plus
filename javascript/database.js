@@ -76,10 +76,10 @@ window.onload = function() {
 	{
         const user = JSON.parse(storedData);
         updateNavToLoggedIn(user.username);
-		updateProfileImage(user.username);
+		updateProfileImage(user.username,user.id);
     }
 };
-function updateProfileImage(username)
+function updateProfileImage(username,userId)
 {
 	const pfp = document.getElementById('sidebar-pfp');
 	if (pfp) 
@@ -93,6 +93,9 @@ function updateProfileImage(username)
 		};
 		// 2. Set the source second
 		pfp.src = "users/" + username + ".png";
+		const profilename = document.getElementById('profilename');
+		const profilepoints = document.getElementById('profilepoints');
+		//console.log(getUserPoints(userId));
 	}
 }
 function updateRequestAndHistory(requestId, username, newState) 

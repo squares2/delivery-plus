@@ -18,7 +18,8 @@ function triggerFileInput()
 	document.getElementById('profileInput').click();
 }
 
-async function previewImage(event) {
+async function previewImage(event) 
+{
   const file = event.target.files[0];
   if (!file) return;
 
@@ -30,12 +31,14 @@ async function previewImage(event) {
   // 2. Prepare data for our backend
   const readerBase64 = new FileReader();
   readerBase64.readAsDataURL(file);
-  readerBase64.onload = async () => {
+  readerBase64.onload = async () => 
+  {
     const base64Content = readerBase64.result.split(',')[1];
     const username = JSON.parse(localStorage.getItem('delivoUser')).username;
-
+	console.log(username);
     // Call your new secure API link
-    const response = await fetch('/api/upload', {
+    const response = await fetch('/.netlify/functions/upload', 
+	{
       method: "POST",
       body: JSON.stringify({
         fileName: `users/${username}.png`,
@@ -43,7 +46,8 @@ async function previewImage(event) {
       })
     });
 
-    if (response.ok) {
+    if (response.ok) 
+	{
       console.log("Uploaded safely via backend!");
     }
   };
