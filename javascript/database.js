@@ -69,16 +69,67 @@ const dbref=ref(db);
 	    }
 	});
 	
-window.onload = function() {
+window.onload = function() 
+{
     const storedData = localStorage.getItem('delivoUser');
     
     if (storedData) 
 	{
         const user = JSON.parse(storedData);
+		const savedImage = localStorage.getItem('userProfileImage');
+		if (savedImage) 
+		{
+			const pfpElement = document.getElementById('sidebar-pfp');
+			if (pfpElement)pfpElement.src = savedImage;
+		}
+		
         updateNavToLoggedIn(user.username);
-		updateProfileImage(user.username,user.id);
+		updateProfileInfos(user.id);
     }
 };
+async function updateProfileInfos(autoNumberId) 
+{
+    // Create a reference directly to users/ID_HERE
+    const userRef = ref(db, `users/${autoNumberId}`);
+	
+    try 
+	{
+        const snapshot = await get(userRef);
+
+        if (snapshot.exists()) 
+		{
+            const userData = snapshot.val();
+			const profilename=document.getElementById('profilename');
+			const profilepoints=document.getElementById('profilepoints');
+			if(profilename)
+			{
+				profilename.innerHTML=userData.username;
+				const points=userData.points;
+				var p="point";
+				if(points>1)p="points";
+				profilepoints.innerHTML="Balance : "+points+" "+p;
+			}		
+        } 
+		else 
+		{
+            
+        }
+    } 
+	catch (error) 
+	{
+        console.error("Error fetching user:", error);
+        throw error;
+    }
+}
+function updateProfileData(userId)
+{
+    // This adds 1 directly on the server without reading it first
+    return update(ref(db, 'globalCounter'), 
+	{
+        last_request_id: increment(1)
+    });
+}
+
 function updateProfileImage(username,userId)
 {
 	const pfp = document.getElementById('sidebar-pfp');
@@ -93,9 +144,6 @@ function updateProfileImage(username,userId)
 		};
 		// 2. Set the source second
 		pfp.src = "users/" + username + ".png";
-		const profilename = document.getElementById('profilename');
-		const profilepoints = document.getElementById('profilepoints');
-		//console.log(getUserPoints(userId));
 	}
 }
 function updateRequestAndHistory(requestId, username, newState) 
