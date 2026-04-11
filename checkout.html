@@ -10,6 +10,7 @@
   <link href="css/styles.css" rel="stylesheet">
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script type="module" src="javascript/database.js"></script> 
+  <script src="javascript/profileSidebar.js"></script>
   <script type="module"src="javascript/startup.js"></script>
 </head>
 <body>
@@ -259,5 +260,28 @@
         <button class="alert-btn" onclick="closeAlert()">OK</button>
     </div>
 </div>
+<!-- profile sidebar	-->
+<div id="userSidebar">
+  <button class="close-sidebar-btn" onclick="closeUserSidebar()">&times;</button>
+  
+  <div class="profile-box">
+    <div class="profile-img-wrap" onclick="triggerFileInput()">
+      <img id="sidebar-pfp">
+      <div class="img-overlay2">📷</div>
+    </div>
+    <input type="file" id="profileInput" accept="image/*" style="display:none" onchange="previewImage(event)">
+
+    <h3 id="profilename">Full Name</h3>
+    <p id="profilepoints">POINTS BALANCE</p>
+  </div>
+
+  <nav class="sidebar-links">
+    <a href="#">My Dashboard</a>
+    <a href="#">Settings</a>
+    <a href="#" style="color: #ff4d4d;">Logout</a>
+  </nav>
+</div>
+<div id="sidebarOverlay" onclick="closeUserSidebar()"></div>
+<!-- close profile sidebar	-->
 </body>
 </html>
