@@ -85,8 +85,59 @@ window.onload = function()
 		
         updateNavToLoggedIn(user.username);
 		updateProfileInfos(user.id);
+		//updateProfileImage(user.username,user.id);
     }
 };
+export async function updateCoordinates(xcoord,ycoord) 
+{
+    const storedData = localStorage.getItem('delivoUser');
+    
+    if (storedData) 
+	{
+        const user = JSON.parse(storedData);
+		const userRef = ref(db, `users/${user.id}`);
+		
+		// update() only changes the fields you specify; 
+		// it keeps existing fields (like your coordinates) untouched.
+		await update(userRef, 
+		{
+			x: xcoord,
+			y: ycoord
+		});
+	}
+}
+export async function getCoordinates()
+{
+    const storedData = localStorage.getItem('delivoUser');
+    
+    if (storedData) 
+	{
+        const user = JSON.parse(storedData);
+		const userRef = ref(db, `users/${user.id}`);
+		
+		try 
+		{
+			const snapshot = await get(userRef);
+
+			if (snapshot.exists()) 
+			{
+				const userData = snapshot.val();
+				return userData;
+			} 
+			else 
+			{
+				return null;
+			}
+		} 
+		catch (error) 
+		{
+			console.error("Error fetching user:", error);
+			throw error;
+		}
+	}
+	else return null;
+	
+}
 async function updateProfileInfos(autoNumberId) 
 {
     // Create a reference directly to users/ID_HERE
@@ -130,21 +181,22 @@ function updateProfileData(userId)
     });
 }
 
-function updateProfileImage(username,userId)
-{
-	const pfp = document.getElementById('sidebar-pfp');
-	if (pfp) 
-	{
-		// 1. Set the error handler as a FUNCTION first
-		pfp.onerror = function() 
-		{
-			console.log("Custom image not found, loading default...");
-			this.onerror = null; // Prevent infinite loops
-			this.src = 'users/0.png';
-		};
-		// 2. Set the source second
-		pfp.src = "users/" + username + ".png";
-	}
+function updateProfileImage(username, userId) {
+    // Finds ALL elements with the id "sidebar-pfp"
+    // Use '.sidebar-pfp' if you switch to using a class
+    const pfps = document.querySelectorAll('#sidebar-pfp');
+
+    pfps.forEach(pfp => {
+        // 1. Set the error handler first
+        pfp.onerror = function() {
+            console.log("Custom image not found for an element, loading default...");
+            this.onerror = null; // Prevent infinite loops
+            this.src = 'users/0.png';
+        };
+
+        // 2. Set the source second
+        pfp.src = "users/" + username + ".png";
+    });
 }
 function updateRequestAndHistory(requestId, username, newState) 
 {
@@ -1819,7 +1871,7 @@ export function applyShopTheme(shopType)
     } 
 }
 
-function showPopup(message, type = 'info') 
+export function showPopup(message, type = 'info') 
 {
     const alertBox = document.getElementById('customAlert');
     const msgPara = document.getElementById('alertMessage');
@@ -1886,11 +1938,14 @@ if(registrationForm)registrationForm.addEventListener('submit', (e) =>
 	set(newPushRef, 
 	{
 		username: username.toLowerCase().trim(),
+		fullname: "",
 		phone: phone,
 		password: password,
 		status: "active",
 		timestamp: Date.now(),
-		points: 0
+		points: 0,
+		x: 0,
+		y: 0
 	})
 	.then(() => 
 	{
