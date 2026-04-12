@@ -54,14 +54,18 @@
 /* 5. BUTTONS & UI ELEMENTS */
 .close-x {
     float: right;
-    font-size: 24px;
-    color: #666;
+    font-size: 35px; /* Increased from 24px */
+    color: #888;    /* Slightly lighter for better visibility on dark background */
     cursor: pointer;
-    line-height: 1;
+    line-height: 0.8; /* Adjusted to keep it aligned with the top */
+    padding: 10px;   /* Makes the "hit target" larger for fingers */
+    margin-top: -10px; /* Pulls it back up to stay in the corner */
+    margin-right: -10px;
+    transition: color 0.2s;
 }
 
 .close-x:hover {
-    color: #fff;
+    color: #ff4d4d; /* Changes to red on hover for a clearer "close" feel */
 }
 
 .modal-content h3 {
