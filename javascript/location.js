@@ -28,11 +28,12 @@ window.initMap = async function() {
 
     // Initialize Map
     map = new google.maps.Map(mapElement, {
-        zoom: 15,
-        center: finalPos,
-        mapTypeControl: false,
-        streetViewControl: false
-    });
+    zoom: 15,
+    center: finalPos,
+    mapTypeId: 'hybrid', // This adds the road/label overlay to the satellite view
+    mapTypeControl: false,
+    streetViewControl: false
+});
 	map.addListener("click", (mapsMouseEvent) => {
     // 2. Get the coordinates of where the user clicked
     const clickedPos = mapsMouseEvent.latLng;
