@@ -33,7 +33,24 @@ window.initMap = async function() {
         mapTypeControl: false,
         streetViewControl: false
     });
+	map.addListener("click", (mapsMouseEvent) => {
+    // 2. Get the coordinates of where the user clicked
+    const clickedPos = mapsMouseEvent.latLng;
+    
+    // 3. Move the marker to that exact spot
+    marker.setPosition(clickedPos);
+    
+    // 4. Center the map on that spot (optional, but smoother)
+    // map.panTo(clickedPos); 
 
+    // 5. Save the coordinates to your global variable
+    selectedCoords = { 
+        lat: clickedPos.lat(), 
+        lng: clickedPos.lng() 
+    };
+
+    console.log("Map clicked at:", selectedCoords);
+});
     // Initialize Marker with DRAGGABLE enabled immediately
     marker = new google.maps.Marker({
         position: finalPos,
@@ -82,32 +99,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ONE-CLICK LOCATE LOGIC
     if (locateBtn) {
-        locateBtn.onclick = () => {
-            if (navigator.geolocation) {
-                // Open modal so user sees the "magic" happen
-                modal.style.display = "block";
+    locateBtn.onclick = () => {
+        // One-click requires HTTPS to work online
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by this browser.");
+            return;
+        }
 
-                navigator.geolocation.getCurrentPosition((position) => {
-                    const pos = { 
-                        lat: position.coords.latitude, 
-                        lng: position.coords.longitude 
-                    };
-                    
-                    if (map && marker) {
-                        map.setCenter(pos);
-                        map.setZoom(17);
-                        marker.setPosition(pos);
-                        selectedCoords = pos; 
-                        console.log("One-click location set:", selectedCoords);
-                    }
-                }, (error) => {
-                    alert("Location access denied. Please drag the pin manually.");
-                }, { enableHighAccuracy: true });
+        navigator.geolocation.getCurrentPosition((position) => {
+            const pos = { 
+                lat: position.coords.latitude, 
+                lng: position.coords.longitude 
+            };
+
+            // Force the modal open so the user sees the map update
+            modal.style.display = "block";
+
+            // If map is already initialized, update it
+            if (map && marker) {
+                map.setCenter(pos);
+                map.setZoom(17);
+                marker.setPosition(pos);
+                selectedCoords = pos;
             } else {
-                alert("Browser does not support geolocation.");
+                // If map isn't ready yet, wait for initMap then set position
+                window.initMap().then(() => {
+                    map.setCenter(pos);
+                    marker.setPosition(pos);
+                });
             }
-        };
-    }
+        }, (error) => {
+            alert("Location access denied. Check your browser permissions.");
+        }, { enableHighAccuracy: true });
+    };
+}
 
     // SAVE TO DATABASE
     if (saveBtn) 
