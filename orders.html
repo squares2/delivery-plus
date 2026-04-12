@@ -11,6 +11,8 @@
   <link href="css/styles3.css" rel="stylesheet">
   <link href="css/rowbadge.css" rel="stylesheet">
   <link href="css/tablestyle.css" rel="stylesheet">
+  <link href="css/location.css" rel="stylesheet">
+
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script src="javascript/profileSidebar.js"></script>
@@ -272,6 +274,9 @@
     <p id="profilepoints">POINTS BALANCE</p>
   </div>
 
+<button id="open-map-trigger" class="loc-btn btn-locate">Update My Location</button>
+<!-- Load Google Maps at the end of body -->
+
   <nav class="sidebar-links">
     <a href="#">My Dashboard</a>
     <a href="#">Settings</a>
@@ -280,5 +285,24 @@
 </div>
 <div id="sidebarOverlay" onclick="closeUserSidebar()"></div>
 <!-- close profile sidebar	-->
+
+
+<!-- START OF LOCATION MODAL -->
+<div id="mapModal" class="map-modal-overlay">
+    <div class="map-modal-content profile-location-container">
+        <span id="close-modal" class="close-x">&times;</span>
+        <h3>Select Your Location</h3>
+        
+        <div id="map-box"></div>
+        
+        <button id="one-click-locate" class="loc-btn btn-locate">📍 Press To Set Your Live Location</button>
+		<p class="map-hint">You can also drag the red pin manually to your location</p>
+        <button id="confirm-save-btn" class="loc-btn btn-save">Confirm & Save</button>
+    </div>
+</div>
+<!-- END OF LOCATION MODAL -->
+  <script type="module"src="javascript/location.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
+
 </body>
 </html>
