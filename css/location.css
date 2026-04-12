@@ -1,0 +1,104 @@
+/* 1. MODAL OVERLAY (The dark background) */
+.map-modal-overlay {
+    display: none; 
+    position: fixed;
+    z-index: 100000; 
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+}
+
+/* Unique name for the Map Content */
+.map-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.7); 
+    width: 90%;
+    max-width: 450px;
+    background: #1a1a1a;
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid #333;
+    animation: mapPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Rename keyframes to avoid conflicts */
+@keyframes mapPopIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.7);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* 4. MAP BOX STYLING */
+#map-box {
+    height: 300px;
+    width: 100%;
+    background-color: #222;
+    border-radius: 12px;
+    margin: 15px 0;
+    border: 1px solid #444;
+}
+
+/* 5. BUTTONS & UI ELEMENTS */
+.close-x {
+    float: right;
+    font-size: 24px;
+    color: #666;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-x:hover {
+    color: #fff;
+}
+
+.modal-content h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.2rem;
+    font-family: sans-serif;
+}
+
+.loc-btn {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border: none;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.2s;
+}
+
+.loc-btn:active {
+    transform: scale(0.98);
+}
+
+.btn-locate {
+    background: #3498db;
+    color: white;
+}
+
+.btn-locate:hover {
+    background: #2980b9;
+}
+
+.btn-save {
+    background: #27ae60;
+    color: white;
+    margin-bottom: 0; /* Remove margin for the last button */
+}
+
+.btn-save:hover {
+    background: #219150;
+}
