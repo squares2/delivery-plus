@@ -15,6 +15,7 @@
   <link href="css/styles.css" rel="stylesheet">
   <link href="css/styles2.css" rel="stylesheet">
   <link href="css/styles3.css" rel="stylesheet">
+  <link href="css/location.css" rel="stylesheet">
   <script src="javascript/profileSidebar.js"></script>
   <script type="module" src="javascript/database.js"></script> 
   <script type="module"src="javascript/whatsapp.js"></script>
@@ -416,7 +417,7 @@
             <label class="form-label">Confirm Password</label>
             <input type="password" class="form-control" id="confirmPassword" required>
           </div>
-          <button type="submit" class="btn btn-primary w-100">Register</button>
+          <button type="submit"  class="btn btn-primary w-100">Register</button>
         </form>
       </div>
     </div>
@@ -437,13 +438,16 @@
   <div class="profile-box">
     <div class="profile-img-wrap" onclick="triggerFileInput()">
       <img id="sidebar-pfp">
-      <div class="img-overlay2">📷</div>
+      <div class="img-overlay">📷</div>
     </div>
     <input type="file" id="profileInput" accept="image/*" style="display:none" onchange="previewImage(event)">
 
     <h3 id="profilename">Full Name</h3>
     <p id="profilepoints">POINTS BALANCE</p>
-  </div>
+  </div>	
+  
+<button id="open-map-trigger" class="loc-btn btn-locate">Update My Location</button>
+<!-- Load Google Maps at the end of body -->
 
   <nav class="sidebar-links">
     <a href="#">My Dashboard</a>
@@ -453,5 +457,23 @@
 </div>
 <div id="sidebarOverlay" onclick="closeUserSidebar()"></div>
 <!-- close profile sidebar	-->
+
+
+<!-- START OF LOCATION MODAL -->
+<div id="mapModal" class="map-modal-overlay">
+    <div class="map-modal-content profile-location-container">
+        <span id="close-modal" class="close-x">&times;</span>
+        <h3>Select Your Location</h3>
+        
+        <div id="map-box"></div>
+        
+        <button id="one-click-locate" class="loc-btn btn-locate">📍 Press To Set Your Live Location</button>
+        <button id="confirm-save-btn" class="loc-btn btn-save">Confirm & Save</button>
+    </div>
+</div>
+<!-- END OF LOCATION MODAL -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c" async defer></script>
+  <script type="module"src="javascript/location.js"></script>
+
 </body>
 </html>
