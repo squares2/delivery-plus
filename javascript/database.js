@@ -4,9 +4,20 @@ var cartItemsDriver=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
 
+var username;
+var userid;
+const storedData = localStorage.getItem('delivoUser');
+
+if (storedData) 
+{
+	const user = JSON.parse(storedData);
+	username=user.username;
+	userid=user.id;
+}
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-import { getDatabase,query, push ,set, get, update, remove, ref, increment, runTransaction, child, onValue,orderByChild,equalTo } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+import { getDatabase,onDisconnect,query, push ,set, get, update, remove, ref, increment, runTransaction, child, onValue,orderByChild,equalTo } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 import { getFirestore, doc, getDocs,setLogLevel,collection, where, limit  } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -49,12 +60,9 @@ const dbref=ref(db);
 	{
 	    if (snapshot.exists()) 
 		{
-			const storedData = localStorage.getItem('delivoUser');
-			
-			if (storedData) 
+			if (username) 
 			{
-				const user = JSON.parse(storedData);
-				distributeHistory(user.username);
+				distributeHistory(username);
 			}	        
 	    }
 	});
@@ -69,13 +77,27 @@ const dbref=ref(db);
 	    }
 	});
 	
+	if(userid!==null)
+	{
+		const userStatusRef  = ref(db, "users/"+userid+"/status");
+
+		onValue(userStatusRef, (snapshot) => 
+		{
+			const presence = onDisconnect(userStatusRef);
+    
+			// Now call .set() on the result of that function
+			presence.set("offline");
+
+			// Finally, set the user to online
+			set(userStatusRef, "online");
+		});
+	}
+	
 window.onload = function() 
 {
-    const storedData = localStorage.getItem('delivoUser');
     
-    if (storedData) 
+    if (username) 
 	{
-        const user = JSON.parse(storedData);
 		const savedImage = localStorage.getItem('userProfileImage');
 		if (savedImage) 
 		{
@@ -83,19 +105,32 @@ window.onload = function()
 			if (pfpElement)pfpElement.src = savedImage;
 		}
 		
-        updateNavToLoggedIn(user.username);
-		updateProfileInfos(user.id);
+        updateNavToLoggedIn(username);
+		updateProfileInfos(userid);
 		//updateProfileImage(user.username,user.id);
     }
 };
+function updateColumn(entity, key, column, value) 
+{
+  
+  // Create an updates object with the dynamic column name
+  var updates = {};
+  updates[`/${entity}/${key}/${column}`] = value;
+
+  // Perform the update
+  return update(ref(db), updates)
+    .then(() => {
+      console.log(`Successfully updated ${key} status to ${value}`);
+    })
+    .catch((error) => {
+      console.error("Error updating field: ", error);
+    });
+}
 export async function updateCoordinates(xcoord,ycoord) 
 {
-    const storedData = localStorage.getItem('delivoUser');
-    
-    if (storedData) 
+    if (username) 
 	{
-        const user = JSON.parse(storedData);
-		const userRef = ref(db, `users/${user.id}`);
+		const userRef = ref(db, `users/${userid}`);
 		
 		// update() only changes the fields you specify; 
 		// it keeps existing fields (like your coordinates) untouched.
@@ -108,12 +143,9 @@ export async function updateCoordinates(xcoord,ycoord)
 }
 export async function getCoordinates()
 {
-    const storedData = localStorage.getItem('delivoUser');
-    
-    if (storedData) 
+    if (username) 
 	{
-        const user = JSON.parse(storedData);
-		const userRef = ref(db, `users/${user.id}`);
+		const userRef = ref(db, `users/${userid}`);
 		
 		try 
 		{
@@ -1353,13 +1385,6 @@ async function placeOrder()
 		if (result.committed) 
 		{
 			const newId = "id_"+result.snapshot.val(); // This is your 1, 2, 3...
-			const storedData = localStorage.getItem('delivoUser');
-			var username='';
-			if (storedData) 
-			{
-				const user = JSON.parse(storedData);
-				username = user.username;
-			}
 
 			// 2. import data to requests
 			await set(ref(db, 'requests/' + newId), 
@@ -1380,7 +1405,7 @@ async function placeOrder()
 				username:username
 			});
 			// 3. import data to historyRequests
-			if(username.length>0)
+			if(username&&username.length>0)
 			{
 				await set(ref(db, 'historyRequests/' + username+'/'+newId), 
 				{
@@ -2054,12 +2079,9 @@ function updateNavToLoggedIn(username)
 		mybalance.addEventListener('click',async function(event) 
 		{
 			event.preventDefault();
-			const storedData = localStorage.getItem('delivoUser');
-			
-			if (storedData) 
+			if (username) 
 			{
-				const user = JSON.parse(storedData);
-				const result=await getUserPoints(user.id);
+				const result=await getUserPoints(userid);
 				var stringpoint="point";
 				if(result>1)stringpoint="points";
 				showPopup("Your Balance : "+result+" "+stringpoint);
@@ -2070,9 +2092,7 @@ function updateNavToLoggedIn(username)
 		myorders.addEventListener('click',async function(event) 
 		{
 			event.preventDefault();
-			const storedData = localStorage.getItem('delivoUser');
-			
-			if (storedData) 
+			if (username) 
 			{
 				window.location="orders.html";
 			}
@@ -2114,6 +2134,12 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
             if (userData.password === typedPass) 
 			{
                 // SUCCESS
+				/*if(username)
+				{
+					console.log(username);
+					updateColumn("users",userid,"status","offline");
+				}*/	
+				updateColumn("users",userKey,"status","online");
 				updateProfileImage(userData.username);
                 updateNavToLoggedIn(userData.username);
                 distributeHistory(userData.username);
@@ -2151,12 +2177,9 @@ window.logout = function()
 // 2. The Global Initialization (Runs on every page load)
 window.addEventListener('DOMContentLoaded', () => 
 {
-    const storedData = localStorage.getItem('delivoUser');
-    
-    if (storedData) {
-        const user = JSON.parse(storedData);
-        // This function must also be in your shared JS file
-        updateNavToLoggedIn(user.username);
+    if (username) 
+	{
+        updateNavToLoggedIn(username);
     }
 });
 window.switchUser = function() 
