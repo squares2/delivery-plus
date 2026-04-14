@@ -391,7 +391,7 @@ body.theme-tobbaco::before
 
 /* Ensure Modals are at the very top */
 .modal {
-    z-index: 3000 !important; 
+    z-index: 11000 !important; 
 }
 .modal-backdrop {
     z-index: 2999 !important;

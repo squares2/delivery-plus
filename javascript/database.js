@@ -4,12 +4,12 @@ var cartItemsDriver=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var saleEnd=Date.now()+12*60*60*1000;
 
-var username;
-var userid;
 const storedData = localStorage.getItem('delivoUser');
 
 if (storedData) 
 {
+	var username;
+	var userid;
 	const user = JSON.parse(storedData);
 	username=user.username;
 	userid=user.id;
@@ -34,7 +34,24 @@ const auth = getAuth(app);
 const dbf = getFirestore(app); // Firestore instance
 const db = getDatabase(app);   // Realtime Database instance
 const dbref=ref(db);
-	
+
+  
+	if(username)
+	{
+		const userStatusRef  = ref(db, "users/"+userid+"/status");
+
+		onValue(userStatusRef, (snapshot) => 
+		{
+			const presence = onDisconnect(userStatusRef);
+    
+			// Now call .set() on the result of that function
+			presence.set("offline");
+
+			// Finally, set the user to online
+			set(userStatusRef, "online");
+		});
+	}
+
 	const maintenanceRef = ref(db, "maintenance/1");
 	onValue(maintenanceRef, (snapshot) => 
 	{
@@ -77,21 +94,6 @@ const dbref=ref(db);
 	    }
 	});
 	
-	if(userid!==null)
-	{
-		const userStatusRef  = ref(db, "users/"+userid+"/status");
-
-		onValue(userStatusRef, (snapshot) => 
-		{
-			const presence = onDisconnect(userStatusRef);
-    
-			// Now call .set() on the result of that function
-			presence.set("offline");
-
-			// Finally, set the user to online
-			set(userStatusRef, "online");
-		});
-	}
 	
 window.onload = function() 
 {
@@ -1663,6 +1665,8 @@ document.addEventListener('DOMContentLoaded', function()
         logoutBtn.addEventListener('click', function(e) 
 		{
             e.preventDefault();
+			updateColumn("users",userid,"status","offline");
+			localStorage.removeItem('delivoUser');
             localStorage.removeItem('isLoggedIn');
             localStorage.removeItem('owner');
             location.reload(); // Refresh to reset all states
@@ -1911,29 +1915,23 @@ window.closeAlert = function()
 }
 
 // Registration Submit:
-const registrationForm=document.getElementById('registrationForm')
-if(registrationForm)registrationForm.addEventListener('submit', (e) => 
-{
+const registrationForm = document.getElementById('registrationForm');
+if (registrationForm) registrationForm.addEventListener('submit', async (e) => { // Added async
     e.preventDefault();
     let isValid = true;
     const inputs = e.target.querySelectorAll('input[required]');
 
     // Apply Red Blur to empty fields
-    inputs.forEach(input => 
-	{
-        if (!input.value.trim()) 
-		{
+    inputs.forEach(input => {
+        if (!input.value.trim()) {
             input.classList.add('input-error');
             isValid = false;
-        } 
-		else 
-		{
+        } else {
             input.classList.remove('input-error');
         }
     });
 
-    if (!isValid) 
-	{
+    if (!isValid) {
         showPopup("Please fill all fields!");
         return;
     }
@@ -1942,60 +1940,75 @@ if(registrationForm)registrationForm.addEventListener('submit', (e) =>
     const phone = document.getElementById('phone').value;
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
+    const shareLocation = document.getElementById('shareLocation').checked; // Get toggle state
 
-    if (password !== confirmPassword) 
-	{
+    if (password !== confirmPassword) {
         showPopup("Passwords do not match!");
         return;
     }
-	if(document.getElementById('username-status').innerHTML == '<span class="text-invalid">✖ Username Taken</span>')
-	{
+
+    if (document.getElementById('username-status').innerHTML.includes('Username Taken')) {
         showPopup("Username Exists!");
         return;
-	}
-	const requestRef = ref(db, 'users');
+    }
 
-	// 1. Capture the 'newPushRef' to get the auto-generated ID (key)
-	const newPushRef = push(requestRef); 
-	const newUserId = newPushRef.key; // <--- This is your ID!
+    // Default coordinates
+    let lat = 0;
+    let lng = 0;
 
-	// 2. Use 'set' on that specific reference to save the data
-	set(newPushRef, 
-	{
-		username: username.toLowerCase().trim(),
-		fullname: "",
-		phone: phone,
-		password: password,
-		status: "active",
-		timestamp: Date.now(),
-		points: 0,
-		x: 0,
-		y: 0
-	})
-	.then(() => 
-	{
-		showPopup("Registration Succeed");
-		
-		// Hide the modal
-		const modalElement = document.getElementById('registerModal');
-		const modalInstance = bootstrap.Modal.getInstance(modalElement);
-		if (modalInstance) modalInstance.hide();
-		
-		// 3. Store the captured ID in localStorage
-		localStorage.setItem('delivoUser', JSON.stringify({
-			id: newUserId, // Successfully used here
-			username: username.toLowerCase().trim()
-		}));
+    // If user wants to share location, try to fetch it
+    if (shareLocation) {
+        try {
+            const position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 5000
+                });
+            });
+            lat = position.coords.latitude;
+            lng = position.coords.longitude;
+        } catch (error) {
+            console.warn("Location access denied or timed out. Defaulting to 0,0.");
+            // Optional: showPopup("Could not get location, defaulting to 0,0");
+        }
+    }
 
-		updateNavToLoggedIn(username.toLowerCase().trim());
-		distributeHistory(username.toLowerCase().trim());
-		document.getElementById('registrationForm').reset();
+    const requestRef = ref(db, 'users');
+    const newPushRef = push(requestRef); 
+    const newUserId = newPushRef.key;
+
+    set(newPushRef, {
+        username: username.toLowerCase().trim(),
+        fullname: "",
+        phone: phone,
+        password: password,
+        status: "online",
+        timestamp: new Date().toLocaleDateString('en-CA'),
+        points: 0,
+        lat: lat, // Updated with real lat
+        lng: lng  // Updated with real lng
+    })
+    .then(() => {
+        showPopup("Registration Succeed");
+        
+        const modalElement = document.getElementById('registerModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) modalInstance.hide();
+        
+        localStorage.setItem('delivoUser', JSON.stringify({
+            id: newUserId,
+            username: username.toLowerCase().trim()
+        }));
+
+        updateNavToLoggedIn(username.toLowerCase().trim());
+        distributeHistory(username.toLowerCase().trim());
+        document.getElementById('registrationForm').reset();
+        window.location.reload(); 
     
-	}).catch((error) => {
-		showPopup("Error: " + error.message);
-	});
+    }).catch((error) => {
+        showPopup("Error: " + error.message);
+    });
 });
-
 let timeout = null;
 const usernameInput = document.getElementById('username');
 const statusDiv = document.getElementById('username-status');
@@ -2054,58 +2067,46 @@ if (usernameInput)
 }, 500);
   });
 }
-function updateNavToLoggedIn(username) 
-{
-    // 1. Update the display name
-	const navuser=document.getElementById('navUserName')
-    if(navuser)
-	{
-		navuser.textContent = username;
-		// 2. Define the new menu items
-		const loggedInItems = `
-			<li><a id='myprofile'class="dropdown-item" href="#">Profile</a></li>
-			<li><a id='myorders'class="dropdown-item" href="#">My Orders</a></li>
-			<li><a id='mybalance' class="dropdown-item"href="#">My Balance (points)</a></li>
-			<li><a class="dropdown-item" href="#"onclick="switchUser()">Switch User</a></li>
-			<li><hr class="dropdown-divider"></li>
-			<li><a class="dropdown-item text-danger" href="#" onclick="logout()">Logout</a></li>
-		`;
+function updateNavToLoggedIn(username) {
+    const userMenu = document.getElementById('userMenu');
+    const navUserName = document.getElementById('navUserName');
+    
+    if (userMenu) {
+        // 1. Kill the Bootstrap Dropdown instance
+        const existingDropdown = bootstrap.Dropdown.getInstance(userMenu);
+        if (existingDropdown) existingDropdown.dispose();
 
-		// 3. Inject into the dropdown
-		document.getElementById('userDropdownMenu').innerHTML = loggedInItems;
-		
-		// 4.triggering button my balance
-		const mybalance = document.getElementById('mybalance');
-		mybalance.addEventListener('click',async function(event) 
-		{
-			event.preventDefault();
-			if (username) 
-			{
-				const result=await getUserPoints(userid);
-				var stringpoint="point";
-				if(result>1)stringpoint="points";
-				showPopup("Your Balance : "+result+" "+stringpoint);
-			}
-		});
-		// 5.triggering button my orders
-		const myorders = document.getElementById('myorders');
-		myorders.addEventListener('click',async function(event) 
-		{
-			event.preventDefault();
-			if (username) 
-			{
-				window.location="orders.html";
-			}
-		});
-		// 6.triggering profile sidebar
-		const myprofile=document.getElementById('myprofile');
-		if(myprofile)myprofile.addEventListener('click', function()
-		{
-			event.preventDefault();
-			openUserSidebar();
-		});
+        // 2. Clear Bootstrap auto-triggers
+        userMenu.removeAttribute('data-bs-toggle');
+        userMenu.removeAttribute('data-bs-target');
 
-	}
+        // 3. Update the UI
+        navUserName.innerHTML = username + ' <i class="fas fa-caret-down ms-1"></i>';
+        userMenu.classList.remove('dropdown-toggle'); // Clean look
+
+        // 4. Attach your custom sidebar trigger
+        userMenu.onclick = function(e) {
+            e.preventDefault();
+            openUserSidebar(); // This should be your existing function to show the sidebar
+        };
+    }
+}
+function updateNavToLoggedOut() {
+    const userMenu = document.getElementById('userMenu');
+    const navUserName = document.getElementById('navUserName');
+
+    if (userMenu) {
+        // Reset Text
+        navUserName.innerText = "Public";
+        
+        // Re-enable Bootstrap Dropdown
+        userMenu.onclick = null; // Remove the sidebar click override
+        userMenu.setAttribute('data-bs-toggle', 'dropdown');
+        userMenu.classList.add('dropdown-toggle');
+        
+        // Re-initialize Bootstrap dropdown logic
+        new bootstrap.Dropdown(userMenu);
+    }
 }
 const loginBtn = document.getElementById('loginBtn');
 
@@ -2133,12 +2134,8 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
             // 3. Verify Password
             if (userData.password === typedPass) 
 			{
+				localStorage.removeItem('delivoUser');
                 // SUCCESS
-				/*if(username)
-				{
-					console.log(username);
-					updateColumn("users",userid,"status","offline");
-				}*/	
 				updateColumn("users",userKey,"status","online");
 				updateProfileImage(userData.username);
                 updateNavToLoggedIn(userData.username);
@@ -2152,6 +2149,7 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
                 bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
 				document.getElementById('loginUser').value = "";
 				document.getElementById('loginPass').value = "";
+				window.location.reload(); 
             } else {
                 showPopup("Incorrect password.");
             }
@@ -2163,16 +2161,6 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
         alert("An error occurred. Check console for details.");
     }
 });
-// 1. The Logout Logic
-window.logout = function() 
-{
-    // Remove the specific key from storage
-    localStorage.removeItem('delivoUser');
-    localStorage.removeItem('delivoUser');
-    
-    // Refresh the page to reset the UI to "Public" state
-    window.location.reload();
-};
 
 // 2. The Global Initialization (Runs on every page load)
 window.addEventListener('DOMContentLoaded', () => 

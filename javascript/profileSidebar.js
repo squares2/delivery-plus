@@ -1,16 +1,24 @@
   // Open and Close Sidebar
-function openUserSidebar() 
-{
-	document.getElementById("userSidebar").classList.add("open");
-	document.getElementById("sidebarOverlay").classList.add("show");
-	document.body.style.overflow = "hidden"; // Locks background scroll
+function openUserSidebar() {
+    const sidebar = document.getElementById('userSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (sidebar && overlay) {
+        sidebar.style.left = '0'; // Slides the sidebar in
+        overlay.style.display = 'block'; // Shows the dark background
+        overlay.style.opacity = '1'; // Ensures it's visible
+    }
 }
-  
-function closeUserSidebar() 
-{
-	document.getElementById("userSidebar").classList.remove("open");
-	document.getElementById("sidebarOverlay").classList.remove("show");
-	document.body.style.overflow = "auto"; // Unlocks scroll
+
+function closeUserSidebar() {
+    const sidebar = document.getElementById('userSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    if (sidebar && overlay) {
+        sidebar.style.left = '-300px'; // Slides the sidebar out (adjust to your CSS width)
+        overlay.style.display = 'none'; // Hides the background
+        overlay.style.opacity = '0';
+    }
 }
 
 function triggerFileInput() 

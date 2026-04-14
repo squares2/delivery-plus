@@ -13,8 +13,8 @@ window.initMap = async function() {
     try {
         const userData = await getCoordinates(); 
         if (userData) {
-            const lat = parseFloat(userData.lat || userData.y);
-            const lng = parseFloat(userData.lng || userData.x);
+            const lat = parseFloat(userData.lat || userData.lat);
+            const lng = parseFloat(userData.lng || userData.lng);
             if (!isNaN(lat) && !isNaN(lng)) {
                 finalPos = { lat, lng };
             }

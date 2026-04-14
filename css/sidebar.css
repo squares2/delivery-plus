@@ -6,7 +6,7 @@
     height: 100%;
     background-color: #111;
     transition: left 0.3s ease;
-    z-index: 100000;
+    z-index: 20000;
 }
 
   /* When Sidebar is Open */
