@@ -11,6 +11,7 @@
   <link href="css/styles3.css" rel="stylesheet">
   <link href="css/rowbadge.css" rel="stylesheet">
   <link href="css/tablestyle.css" rel="stylesheet">
+  <script src="https://unpkg.com"></script>
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script type="module" src="javascript/startup.js"></script>
@@ -192,3 +193,22 @@
     </div>
   </footer></body>
 </html>
+<script>
+window.toggleCard = function(btnElement) {
+    const currentRow = btnElement.closest('tr');
+    const isExpanded = currentRow.classList.contains('expanded');
+
+    // Collapse others
+    document.querySelectorAll('.mobile-table tr.expanded').forEach(row => {
+        row.classList.remove('expanded');
+        const icon = row.querySelector('.toggle-icon');
+        if (icon) icon.textContent = '+';
+    });
+
+    // Expand current
+    if (!isExpanded) {
+        currentRow.classList.add('expanded');
+        btnElement.textContent = '−';
+    }
+};
+</script>

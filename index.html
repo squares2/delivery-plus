@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <link href="css/bootstrap.min.css" rel="stylesheet">
   <link href="css/all.min.css" rel="stylesheet">
   <link href="css/styles.css" rel="stylesheet">
@@ -17,10 +18,11 @@
   <link href="css/styles3.css" rel="stylesheet">
   <link href="css/sidebar.css" rel="stylesheet">
   <link href="css/location.css" rel="stylesheet">
-  <script src="javascript/profileSidebar.js"></script>
+  <link href="css/passmodal.css" rel="stylesheet">
   <script type="module" src="javascript/database.js"></script> 
   <script type="module"src="javascript/whatsapp.js"></script>
   <script src="javascript/bootstrap.bundle.min.js"></script>
+  <script src="javascript/profileSidebar.js"></script>
 <script type="module"src="javascript/startup.js"></script>
 <script type="module">
     import { function1 } from './javascript/database.js';
@@ -459,7 +461,11 @@
 <!-- Load Google Maps at the end of body -->
 
   <nav class="sidebar-links">
-    <a id='myorders'href="#">My Orders</a>
+    <a href="index.html">Home</a>
+    <a href="contact.html">Contact</a>
+    <a href="about.html">About Us</a>
+    <a href="orders.html">My Orders</a>
+    <a href="#" style="color: #ff4d4d;"onclick="showPassModal()">Change Password</a>
     <a href="#" style="color: #ff4d4d;"onclick="switchUser()">Switch User</a>
     <a id="logoutBtn"href="#" style="color: #ff4d4d;">Logout</a>
   </nav>
@@ -485,6 +491,20 @@
 <!-- END OF LOCATION MODAL -->
   <script type="module"src="javascript/location.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
-
+  
+  
+<!-- UNIQUE Password Modal -->
+<div id="CP-Modal-Wrapper">
+    <div id="CP-Modal-Content">
+        <span id="CP-Close-Btn" onclick="hidePassModal()">&times;</span>
+        <h2 style="margin-top:0; color:#3498db;">Change Password</h2>
+        <form id="changePasswordForm">
+            <input type="password" id="oldPassword" placeholder="Old Password" required>
+            <input type="password" id="newPassword" placeholder="New Password" required>
+            <input type="password" id="confirmPassword" placeholder="Confirm New Password" required>
+            <button type="submit" id="CP-Submit-Btn">Update Password</button>
+        </form>
+    </div>
+</div>
 </body>
 </html>

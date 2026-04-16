@@ -1,89 +1,143 @@
+/* 1. Main Sidebar Container */
 #userSidebar {
     position: fixed;
     top: 0;
-    left: -100%; /* Hidden by default */
+    left: -105%; /* FIX: Moved further out to ensure it's 100% hidden when closed */
     width: 300px;
-    height: 100%;
+    height: 100dvh; 
     background-color: #111;
     transition: left 0.3s ease;
-    z-index: 20000;
+    z-index: 19000;
+    color: white;
+
+    /* FIX: Vertical layout that fits exactly 100% of the screen */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* FIX: Removes the scrollbar entirely */
 }
 
-  /* When Sidebar is Open */
-  #userSidebar.open { left: 0 !important; }
+/* When Sidebar is Open */
+#userSidebar.open { 
+    left: 0 !important; 
+}
 
-  /* 2. FULL WIDTH FOR MOBILE, IPAD, AND TABLETS */
-  @media screen and (max-width: 1024px) {
+/* 2. Responsive Width for Mobile/Tablets */
+@media screen and (max-width: 1024px) {
     #userSidebar {
-      width: 100% !important; /* Forces full width */
-      left: -100%; /* Hide completely when closed */
+        width: 80% !important;
+        max-width: 300px;
+        left: -105%; /* Match the hidden state */
     }
-  }
+}
 
-  /* 3. Centered Profile Content */
-  .profile-box { 
+/* 3. Centered Profile Content (Using vh for auto-sizing) */
+.profile-box { 
     display: flex; 
     flex-direction: column; 
     align-items: center; 
-    padding: 80px 20px 40px; 
+    padding: 5vh 20px 2vh; /* Padding based on screen height */
     border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
-  }
+    flex-shrink: 0; 
+}
 
-  .profile-img-wrap {
+.profile-img-wrap {
     position: relative; 
-    width: 130px; height: 130px; 
+    /* Image scales based on screen height to prevent overflow */
+    width: 15vh; 
+    height: 15vh;
+    max-width: 110px; 
+    max-height: 110px;
+    min-width: 60px;
+    min-height: 60px;
     cursor: pointer;
     border-radius: 50%; 
     border: 3px solid #3498db; 
     overflow: hidden; 
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     background: #222;
-  }
-  .profile-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
-  
-  .img-overlay2 {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
-    opacity: 0; transition: 0.3s; color: white; font-size: 24px;
-  }
-  .profile-img-wrap:hover .img-overlay2 { opacity: 1; }
+}
 
-  .profile-box h3 { margin: 10px 0 5px; font-size: 1.5rem; }
-  .profile-box p { color: #bbb; font-size: 1rem; margin: 2px 0; }
+.profile-img-wrap img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+}
 
-  /* 4. Links */
-  .sidebar-links a { 
-    padding: 18px 30px; 
+.profile-box h3 { 
+    margin: 5px 0; 
+    font-size: clamp(1rem, 2.5vh, 1.3rem); /* Auto-scaling font size */
+}
+
+.profile-box p { 
+    color: #bbb; 
+    font-size: clamp(0.7rem, 1.8vh, 0.9rem); 
+    margin: 0; 
+}
+
+/* 4. Update Location Button */
+.loc-btn {
+    display: block;
+    width: 85%;
+    margin: 2vh auto; /* Scaling margin */
+    padding: 1.2vh;  /* Scaling padding */
+    border-radius: 8px;
+    border: none;
+    background: #3498db;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    flex-shrink: 0; 
+    font-size: clamp(0.8rem, 2vh, 1rem);
+}
+
+/* 5. Navigation Links (The magic part) */
+.sidebar-links {
+    flex-grow: 1; /* Fills all remaining screen space */
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-links a { 
+    flex: 1; /* Forces all links to share the remaining height equally */
+    display: flex;
+    align-items: center;
+    padding: 0 30px; 
     color: #eee; 
     text-decoration: none; 
-    display: block; 
-    font-size: 1.1rem;
+    font-size: clamp(0.8rem, 2vh, 1.1rem); /* Font shrinks on short screens */
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  }
-  .sidebar-links a:hover { background: rgba(255,255,255,0.1); color: #3498db; }
+}
 
-  /* 5. UI Elements */
-  #sidebarOverlay { 
-    display: none; position: fixed; top: 0; left: 0; 
-    width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; 
-  }
-  #sidebarOverlay.show { display: block; }
+.sidebar-links a:hover { 
+    background: rgba(255,255,255,0.1); 
+    color: #3498db; 
+}
 
-  .close-sidebar-btn { 
-    position: absolute; top: 20px; right: 25px; 
-    font-size: 45px; background: none; border: none; 
-    color: white; cursor: pointer; z-index: 10002; 
-  }
-  
-@media screen and (max-width: 1024px) {
-    #userSidebar {
-        width: 75% !important; /* Force 75% width on narrow screens */
-        max-width: 85vw;       /* Safety cap for very small screens */
-        left: -85vw;           /* Ensure it hides correctly off-screen */
-    }
+/* 6. Close Button */
+.close-sidebar-btn { 
+    position: absolute; 
+    top: 10px; 
+    right: 20px; 
+    font-size: 35px; 
+    background: none; 
+    border: none; 
+    color: white; 
+    cursor: pointer; 
+    z-index: 10002; 
+}
 
-    /* When the sidebar is active/open */
-    #userSidebar.active {
-        left: 0 !important;
-    }
+/* 7. Overlay Background */
+#sidebarOverlay { 
+    display: none; 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    background: rgba(0,0,0,0.6); 
+    z-index: 10000; 
+}
+
+#sidebarOverlay.show { 
+    display: block; 
 }

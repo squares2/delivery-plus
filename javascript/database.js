@@ -234,6 +234,7 @@ function updateProfileImage(username, userId) {
 }
 function updateRequestAndHistory(requestId, username, newState) 
 {
+	console.log(requestId+":"+username+":"+ newState);
   const db = getDatabase();
   const rootRef = ref(db);
 
@@ -245,7 +246,7 @@ function updateRequestAndHistory(requestId, username, newState)
   
   // Path 2: Update the nested history entry using dot-notation paths
   // This updates only the 'state' field without overwriting the rest of the object
-  updates[`/historyRequests/${username}/${requestId}/state`] = newState;
+  if(username.length>0)updates[`/historyRequests/${username}/${requestId}/state`] = newState;
 
   try {
     // Perform the update atomically
@@ -343,239 +344,279 @@ function getCompanies()
 		console.error(error);
 	});
 }
-function distributeDriver()
-{
-	const params = new URLSearchParams(window.location.search);
-	var historyValue = params.get('history');
-		
-	if(historyValue&&historyValue==1)
-	{
-		const link1 = document.getElementById('history');
-		if(link1)
-		{
-			link1.href="?history=0";
-			link1.innerHTML="<i class='fa-solid fa-house me-2'></i>Main</a>";
-		}	
-	}
-	else
-	{
-		const link1 = document.getElementById('history');
-		if(link1)
-		{
-			link1.href="?history=1";
-			link1.innerHTML="<i class='fa-solid fa-clock-rotate-left me-2'></i>History</a>";
-		}	
-	}
-	if(!historyValue)var historyValue=0;
-	var owner=localStorage.getItem('owner');
-	const drivershiptable = document.getElementById('drivershiptable');
-	if(owner&&owner.length==0)
-	{
-		drivershiptable.innerHTML="";
-	}
-	else
-	{
-		var inner1="<thead><tr><th>Ship Number</th><th>Owner</th><th>Owner Phone</th><th>Owner Address</th>";
-		inner1+="<th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>";
-		var inner2="";
-		var delivered="";
-		var ndelivered="";
-		var delayed="";
-		var canceled="";
-		var pcanceled="";
-		
-		var countndelivered=document.getElementById('count-ndelivered');
-		var countdelivered=document.getElementById('count-delivered');
-		var countdelayed=document.getElementById('count-delayed');
-		var countcanceled=document.getElementById('count-canceled');
-		var countpcanceled=document.getElementById('count-pcanceled');
-		
-		var totdel=0,totndel=0,totdelayed=0,totcancel=0,totpcancel=0;
-		
-		get(child(dbref,"requests")).then((snapshot) => 
-		{
-			if (snapshot.exists()) 
-			{
-				const data = snapshot.val();
-				const keys = Object.keys(data).sort().reverse();
-				let i = 0;
-				while (i < keys.length) 
-				{
-					const key = keys[i];
-					const item = data[key];
-					if(item.driver===localStorage.getItem('owner')&&((item.vault=="1"&&historyValue&&historyValue==1)||(item.vault=="0"&&(!historyValue||historyValue==0))))
-					{
-						if(item.state=="0")
-						{
-							ndelivered="active";
-							totndel++;
-						}	
-						else ndelivered="";
-						if(item.state=="1")
-						{
-							delivered="active";
-							totdel++;
-						}	
-						else delivered="";
-						if(item.state=="2")
-						{
-							canceled="active";
-							totcancel++;
-						}	
-						else canceled="";
-						if(item.state=="3")
-						{
-							delayed="active";
-							totdelayed++;
-						}	
-						else delayed="";
-						if(item.state=="5")
-						{
-							pcanceled="active";
-							totpcancel++;
-						}	
-						else pcanceled="";
+function distributeDriver() {
+    const params = new URLSearchParams(window.location.search);
+    let historyValue = params.get('history') || 0;
 
-						inner2+="<tr><td data-label='Ship Number'>"+key+"</td>";
-						inner2+="<td data-label='Owner'>"+item.fullname+"</td>";
-						inner2+="<td data-label='Owner Phone'>"+item.phone+"</td>";
-						inner2+="<td data-label='Owner Address'>"+item.city+"/"+item.street+"</td>";
-						inner2+="<td data-label='Amount'>"+item.total+"</td>";
-						inner2+="<td data-label='Due Date'>"+item.date+"</td>";
-						inner2+="<td data-label='Status'><div class='status-selector'data-username='"+item.username+"'data-shipnumber='"+key+"'>";
-						if((item.state=="0"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-ndelivered "+ndelivered+"'>Not Delivered</button>";
-						if((item.state=="1"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-delivered "+delivered+"'>Delivered</button>";
-						if((item.state=="3"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-delayed "+delayed+"'>Delayed</button>";
-						if((item.state=="2"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-canceled "+canceled+"'>Canceled</button>";
-						if((item.state=="5"&&historyValue==1)||historyValue==0)inner2+="<button class='status-btn btn-pcanceled "+pcanceled+"'>Canceled Payed</button>";
-						if(historyValue==0)inner2+="<button id='cartdriverdetail' data-shipnumber='"+key+"' class='status-btn2 btn-items'>Items</button>";
-						inner2+="</div></td></tr>";
-					}
-					i++;
-				}
-				inner2+="</tbody>";
-				if(drivershiptable)drivershiptable.innerHTML=inner1+inner2;
-				
-				if(countndelivered)countndelivered.innerHTML=""+totndel;
-				if(countdelivered)countdelivered.innerHTML=""+totdel;
-				if(countdelayed)countdelayed.innerHTML=""+totdelayed;
-				if(countcanceled)countcanceled.innerHTML=""+totcancel;
-				if(countpcanceled)countpcanceled.innerHTML=""+totpcancel;
-				
-			} 
-			else 
-			{
-				inner2+="</tbody>";
-				if(drivershiptable)drivershiptable.innerHTML=inner1+inner2;
-				//console.log("No data available");
-			}
-		}).catch((error) => 
-		{
-			console.error(error);
-		});
+    const link1 = document.getElementById('history');
+    if (link1) {
+        if (historyValue == 1) {
+            link1.href = "?history=0";
+            link1.innerHTML = "<i class='fa-solid fa-house me-2'></i>Main";
+        } else {
+            link1.href = "?history=1";
+            link1.innerHTML = "<i class='fa-solid fa-clock-rotate-left me-2'></i>History";
+        }
+    }
+
+    var owner = localStorage.getItem('owner');
+    const drivershiptable = document.getElementById('drivershiptable');
+    
+    if (!owner || owner.length == 0) {
+        if (drivershiptable) drivershiptable.innerHTML = "";
+        return;
+    }
+
+    var inner1 = "<thead><tr><th>Ship Number</th><th>Owner</th><th>Owner Phone</th><th>Owner Address</th>";
+    inner1 += "<th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>";
+    var inner2 = "";
+    
+    var countndelivered = document.getElementById('count-ndelivered');
+    var countdelivered = document.getElementById('count-delivered');
+    var countdelayed = document.getElementById('count-delayed');
+    var countcanceled = document.getElementById('count-canceled');
+    var countpcanceled = document.getElementById('count-pcanceled');
+    
+    var totdel=0, totndel=0, totdelayed=0, totcancel=0, totpcancel=0;
+
+    get(child(dbref, "requests")).then((snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            const keys = Object.keys(data).sort().reverse();
+
+            keys.forEach(key => {
+                const item = data[key];
+                // Filter logic
+                if (item.driver === owner && ((item.vault == "1" && historyValue == 1) || (item.vault == "0" && historyValue == 0))) {
+                    
+                    let stateClass = "";
+                    let stateText = "";
+
+                    if (item.state == "0") { stateClass = "btn-ndelivered"; stateText = "Not Delivered"; totndel++; }
+                    else if (item.state == "1") { stateClass = "btn-delivered"; stateText = "Delivered"; totdel++; }
+                    else if (item.state == "2") { stateClass = "btn-canceled"; stateText = "Canceled"; totcancel++; }
+                    else if (item.state == "3") { stateClass = "btn-delayed"; stateText = "Delayed"; totdelayed++; }
+                    else if (item.state == "5") { stateClass = "btn-pcanceled"; stateText = "Canceled Payed"; totpcancel++; }
+
+                    // Start Row with expandable class
+                    inner2 += `<tr class="expandable">`;
+
+                    // Ship Number Cell with Desktop text AND Mobile Summary Row
+                    inner2 += `<td data-label='Ship Number'>
+                                <span class="desktop-only-text">${key}</span>
+                                <div class="mobile-summary-row">
+                                    <span class="toggle-icon" onclick="toggleCard(this)">+</span>
+                                    <span class="m-ship">#${key}</span>
+                                    <span class="m-total">${item.total} $</span>
+                                    <span class="m-status-badge ${stateClass}">${stateText}</span>
+                                </div>
+                               </td>`;
+
+                    inner2 += `<td data-label='Owner'>${item.fullname}</td>`;
+                    inner2 += `<td data-label='Owner Phone'>${item.phone}</td>`;
+                    inner2 += `<td data-label='Owner Address'>${item.city}/${item.street}</td>`;
+                    inner2 += `<td data-label='Amount'>${item.total}</td>`;
+                    inner2 += `<td data-label='Due Date'>${item.date}</td>`;
+                    
+                    // Status Selector
+                    inner2 += `<td data-label='Status'><div class='status-selector' data-username='${item.username}' data-shipnumber='${key}'>`;
+                    
+                    if ((item.state == "0" && historyValue == 1) || historyValue == 0) 
+                        inner2 += `<button class="status-btn btn-ndelivered ${item.state == '0' ? 'active' : ''}">Not Delivered</button>`;
+                    if ((item.state == "1" && historyValue == 1) || historyValue == 0) 
+                        inner2 += `<button class="status-btn btn-delivered ${item.state == '1' ? 'active' : ''}">Delivered</button>`;
+                    if ((item.state == "3" && historyValue == 1) || historyValue == 0) 
+                        inner2 += `<button class="status-btn btn-delayed ${item.state == '3' ? 'active' : ''}">Delayed</button>`;
+                    if ((item.state == "2" && historyValue == 1) || historyValue == 0) 
+                        inner2 += `<button class="status-btn btn-canceled ${item.state == '2' ? 'active' : ''}">Canceled</button>`;
+                    if ((item.state == "5" && historyValue == 1) || historyValue == 0) 
+                        inner2 += `<button class="status-btn btn-pcanceled ${item.state == '5' ? 'active' : ''}">Canceled Payed</button>`;
+                    
+                    if (historyValue == 0) 
+                        inner2 += `<button id='cartdriverdetail' data-shipnumber='${key}' class='status-btn2 btn-items'>Items</button>`;
+                    
+                    inner2 += `</div></td></tr>`;
+                }
+            });
+
+            inner2 += "</tbody>";
+            if (drivershiptable) drivershiptable.innerHTML = inner1 + inner2;
+
+            if (countndelivered) countndelivered.innerHTML = totndel;
+            if (countdelivered) countdelivered.innerHTML = totdel;
+            if (countdelayed) countdelayed.innerHTML = totdelayed;
+            if (countcanceled) countcanceled.innerHTML = totcancel;
+            if (countpcanceled) countpcanceled.innerHTML = totpcancel;
+
+        } else {
+            inner2 += "<tr><td colspan='7' class='text-center'>No data available</td></tr></tbody>";
+            if (drivershiptable) drivershiptable.innerHTML = inner1 + inner2;
+        }
+    }).catch(console.error);
+}
+
+
+let wakeLock = null;
+
+// Function to keep the screen on
+async function requestWakeLock() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('Screen Wake Lock is active');
+        }
+    } catch (err) {
+        console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+    }
+}
+function startDriverTracking(driverId) 
+{
+	if (window.NoSleep) 
+	{
+            const noSleepInstance = new window.NoSleep();
+            noSleepInstance.enable();
+            console.log("NoSleep activated successfully.");
+        } else {
+            console.warn("NoSleep library not found on window object.");
+        }
+    if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition((position) => {
+            const { latitude, longitude } = position.coords;
+            const db = getDatabase();
+            
+            // Save moving coordinates to Firebase
+            set(ref(db, `drivers/${driverId}/location`), {
+                lat: latitude,
+                lng: longitude,
+                timestamp: Date.now()
+            });
+        }, (err) => console.error(err), {
+            enableHighAccuracy: true, 
+            maximumAge: 0 
+        });
+// 3. Re-acquire Wake Lock if the tab becomes visible again
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
 	}
 }
-export function distributeHistory(username)
+// Global Toggle Function for driver.html
+window.toggleCard = function(btnElement) {
+    const currentRow = btnElement.closest('tr');
+    const isExpanded = currentRow.classList.contains('expanded');
+
+    // Collapse others
+    document.querySelectorAll('.mobile-table tr.expanded').forEach(row => {
+        row.classList.remove('expanded');
+        const icon = row.querySelector('.toggle-icon');
+        if (icon) icon.textContent = '+';
+    });
+
+    // Expand current
+    if (!isExpanded) {
+        currentRow.classList.add('expanded');
+        btnElement.textContent = '−';
+    }
+};
+export function distributeHistory(username) 
 {
-	const historyshiptable = document.getElementById('historyshiptable');
-	if(historyshiptable)historyshiptable.innerHTML="";
-	var inner1="<thead><tr><th>Ship Number</th><th>Full Name</th><th>Phone</th><th>Address</th>";
-	inner1+="<th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>";
-	var inner2="";
-	var delivered="";
-	var ndelivered="";
-	var delayed="";
-	var canceled="";
-	var pcanceled="";
-	
-	var countndelivered=document.getElementById('count-ndelivered');
-	var countdelivered=document.getElementById('count-delivered');
-	var countdelayed=document.getElementById('count-delayed');
-	var countcanceled=document.getElementById('count-canceled');
-	var countpcanceled=document.getElementById('count-pcanceled');
-	
-	var totdel=0,totndel=0,totdelayed=0,totcancel=0,totpcancel=0;
+    const historyshiptable = document.getElementById('historyshiptable');
+    if (historyshiptable) historyshiptable.innerHTML = "";
+    
+    var inner1 = "<thead><tr><th>Ship Number</th><th>Full Name</th><th>Phone</th><th>Address</th>";
+    inner1 += "<th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>";
+    var inner2 = "";
+    
+    // Status selectors
+    var countndelivered = document.getElementById('count-ndelivered');
+    var countdelivered = document.getElementById('count-delivered');
+    var countdelayed = document.getElementById('count-delayed');
+    var countcanceled = document.getElementById('count-canceled');
+    var countpcanceled = document.getElementById('count-pcanceled');
+    
+    var totdel = 0, totndel = 0, totdelayed = 0, totcancel = 0, totpcancel = 0;
 
-	get(child(dbref,"historyRequests/"+username)).then((snapshot) => 
-	{
-		if (snapshot.exists()) 
-		{
-			const data = snapshot.val();
-			const keys = Object.keys(data).sort().reverse();
-			let i = 0;
-			while (i < keys.length) 
-			{
-				const key = keys[i];
-				const item = data[key];
-				
-				if(item.state=="0")
-				{
-					ndelivered="active";
-					totndel++;
-				}	
-				else ndelivered="";
-				if(item.state=="1")
-				{
-					delivered="active";
-					totdel++;
-				}	
-				else delivered="";
-				if(item.state=="2")
-				{
-					canceled="active";
-					totcancel++;
-				}	
-				else canceled="";
-				if(item.state=="3")
-				{
-					delayed="active";
-					totdelayed++;
-				}	
-				else delayed="";
-				if(item.state=="5")
-				{
-					pcanceled="active";
-					totpcancel++;
-				}	
-				else pcanceled="";
+    get(child(dbref, "historyRequests/" + username)).then((snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            const keys = Object.keys(data).sort().reverse();
+            
+            keys.forEach(key => {
+                const item = data[key];
+                let stateClass = "";
+                let stateText = "";
 
-				inner2+="<tr><td data-label='Ship Number'>"+key+"</td>";
-				inner2+="<td data-label='Owner'>"+item.fullname+"</td>";
-				inner2+="<td data-label='Owner Phone'>"+item.phone+"</td>";
-				inner2+="<td data-label='Owner Address'>"+item.city+"/"+item.street+"</td>";
-				inner2+="<td data-label='Amount'>"+item.total+"</td>";
-				inner2+="<td data-label='Due Date'>"+item.date+"</td>";
-				inner2+="<td data-label='Status'><div class='status-selector'data-username='"+item.username+"'data-shipnumber='"+key+"'>";
-				if(item.state=="0")inner2+="<button class='status-btn btn-ndelivered "+ndelivered+"'>Not Delivered</button>";
-				else if(item.state=="1")inner2+="<button class='status-btn btn-delivered "+delivered+"'>Delivered</button>";
-				else if(item.state=="3")inner2+="<button class='status-btn btn-delayed "+delayed+"'>Delayed</button>";
-				else if(item.state=="2")inner2+="<button class='status-btn btn-canceled "+canceled+"'>Canceled</button>";
-				else if(item.state=="5")inner2+="<button class='status-btn btn-pcanceled "+pcanceled+"'>Canceled Payed</button>";
-				inner2+="<button id='carthistorydetail' data-shipnumber='"+key+"' class='status-btn2 btn-items'>Items</button>";
-				inner2+="</div></td></tr>";
-				i++;
-			}
-			inner2+="</tbody>";
-			if(historyshiptable)historyshiptable.innerHTML=inner1+inner2;
-			
-			if(countndelivered)countndelivered.innerHTML=""+totndel;
-			if(countdelivered)countdelivered.innerHTML=""+totdel;
-			if(countdelayed)countdelayed.innerHTML=""+totdelayed;
-			if(countcanceled)countcanceled.innerHTML=""+totcancel;
-			if(countpcanceled)countpcanceled.innerHTML=""+totpcancel;
-			
-		} 
-		else 
-		{
-			inner2+="</tbody>";
-			if(historyshiptable)historyshiptable.innerHTML=inner1+inner2;
-			//console.log("No data available");
-		}
-	}).catch((error) => 
-	{
-		console.error(error);
-	});
+                // Logic for counters and text
+                if (item.state == "0") { stateClass = "btn-ndelivered"; stateText="Not Delivered"; totndel++; }
+                else if (item.state == "1") { stateClass = "btn-delivered"; stateText="Delivered"; totdel++; }
+                else if (item.state == "2") { stateClass = "btn-canceled"; stateText="Canceled"; totcancel++; }
+                else if (item.state == "3") { stateClass = "btn-delayed"; stateText="Delayed"; totdelayed++; }
+                else if (item.state == "5") { stateClass = "btn-pcanceled"; stateText="Canceled Paid"; totpcancel++; }
+
+                inner2 += `<tr class="expandable">`;
+                
+                // REQ 3: Added Ship #, Total, and Status to the first cell for compact view
+                inner2 += `<td data-label='Ship Number'>
+            <span class="desktop-only-text">${key}</span>
+            <div class="mobile-summary-row">
+                <span class="toggle-icon" onclick="toggleCard(this)">+</span>
+                <span class="m-ship">#${key}</span>
+                <span class="m-total">${item.total} $</span>
+                <span class="m-status-badge ${stateClass}">${stateText}</span>
+            </div>
+           </td>`;
+
+inner2 += `<td data-label='Full Name'>${item.fullname}</td>`;
+                inner2 += `<td data-label='Phone'>${item.phone}</td>`;
+                inner2 += `<td data-label='Address'>${item.city}/${item.street}</td>`;
+                inner2 += `<td data-label='Amount'>${item.total} $</td>`;
+                inner2 += `<td data-label='Due Date'>${item.date}</td>`;
+                inner2 += `<td data-label='Status'>
+                            <div class='status-selector' data-username='${item.username}' data-shipnumber='${key}'>
+                                <button class='status-btn ${stateClass} active'>${stateText}</button>
+                                <button id='carthistorydetail' data-shipnumber='${key}' class='status-btn2 btn-items'>Items</button>
+                            </div>
+                           </td>`;
+                inner2 += "</tr>";
+            });
+
+            inner2 += "</tbody>";
+            if (historyshiptable) historyshiptable.innerHTML = inner1 + inner2;
+            
+            // Update counters...
+            if (countndelivered) countndelivered.innerHTML = totndel;
+            if (countdelivered) countdelivered.innerHTML = totdel;
+            if (countdelayed) countdelayed.innerHTML = totdelayed;
+            if (countcanceled) countcanceled.innerHTML = totcancel;
+            if (countpcanceled) countpcanceled.innerHTML = totpcancel;
+        } else {
+            inner2 += "<tr><td colspan='7' class='text-center'>No Orders Exist</td></tr></tbody>";
+            if (historyshiptable) historyshiptable.innerHTML = inner1 + inner2;
+        }
+    });
 }
+
+// REQ 1 & 2 Logic: One expanded at a time + Button-only toggle
+window.toggleCard = function(btnElement) {
+    const currentRow = btnElement.closest('tr');
+    const isExpanded = currentRow.classList.contains('expanded');
+
+    // Requirement 2: Collapse all other rows
+    document.querySelectorAll('.mobile-table tr.expanded').forEach(row => {
+        row.classList.remove('expanded');
+        row.querySelector('.toggle-icon').textContent = '+';
+    });
+
+    // Requirement 1: Only expand/shrink when icon is clicked
+    if (!isExpanded) {
+        currentRow.classList.add('expanded');
+        btnElement.textContent = '−';
+    }
+};
+
+
 function loadPersonals()
 {
 	var fullname=document.getElementById("fullname");
@@ -1630,6 +1671,7 @@ document.addEventListener('DOMContentLoaded', function()
 						{
 							isAuthenticated = true;
 							driverData = data;
+							startDriverTracking(childSnapshot.key);
 						}
 					});
 
@@ -1691,6 +1733,7 @@ document.addEventListener('DOMContentLoaded', function()
 				userDropdown.classList.remove('d-none'); // Show "Username"
 				userLabel.innerText = name;             // Set name
 				distributeDriver();
+				
 			}
         } 
 		else
@@ -1957,18 +2000,24 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) => {
     let lng = 0;
 
     // If user wants to share location, try to fetch it
-    if (shareLocation) {
-        try {
-            const position = await new Promise((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
+    if (shareLocation) 
+	{
+        try 
+		{
+            const position = await new Promise((resolve, reject) => 
+			{
+                navigator.geolocation.getCurrentPosition(resolve, reject, 
+				{
                     enableHighAccuracy: true,
                     timeout: 5000
                 });
             });
             lat = position.coords.latitude;
             lng = position.coords.longitude;
-        } catch (error) {
-            console.warn("Location access denied or timed out. Defaulting to 0,0.");
+        } 
+		catch (error) 
+		{
+            showPopup("Location access denied");
             // Optional: showPopup("Could not get location, defaulting to 0,0");
         }
     }
@@ -1976,8 +2025,43 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) => {
     const requestRef = ref(db, 'users');
     const newPushRef = push(requestRef); 
     const newUserId = newPushRef.key;
+	if(lat==0)
+	{
+		set(newPushRef, 
+		{
+			username: username.toLowerCase().trim(),
+			fullname: "",
+			phone: phone,
+			password: password,
+			status: "online",
+			timestamp: new Date().toLocaleDateString('en-CA'),
+			points: 0
+		})
+		.then(() => 
+		{
+			showPopup("Registration Succeed");
+			
+			const modalElement = document.getElementById('registerModal');
+			const modalInstance = bootstrap.Modal.getInstance(modalElement);
+			if (modalInstance) modalInstance.hide();
+			
+			localStorage.setItem('delivoUser', JSON.stringify({
+				id: newUserId,
+				username: username.toLowerCase().trim()
+			}));
 
-    set(newPushRef, {
+			updateNavToLoggedIn(username.toLowerCase().trim());
+			distributeHistory(username.toLowerCase().trim());
+			document.getElementById('registrationForm').reset();
+			window.location.reload(); 
+		
+		}).catch((error) => 
+		{
+			showPopup("Error: " + error.message);
+		});
+	}
+    set(newPushRef, 
+	{
         username: username.toLowerCase().trim(),
         fullname: "",
         phone: phone,
@@ -1988,7 +2072,8 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) => {
         lat: lat, // Updated with real lat
         lng: lng  // Updated with real lng
     })
-    .then(() => {
+    .then(() => 
+	{
         showPopup("Registration Succeed");
         
         const modalElement = document.getElementById('registerModal');
@@ -2005,7 +2090,8 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) => {
         document.getElementById('registrationForm').reset();
         window.location.reload(); 
     
-    }).catch((error) => {
+    }).catch((error) => 
+	{
         showPopup("Error: " + error.message);
     });
 });
@@ -2175,3 +2261,109 @@ window.switchUser = function()
     const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
     loginModal.show();
 };
+
+
+
+window.showPassModal = function() {
+    const wrapper = document.getElementById("CP-Modal-Wrapper");
+    
+    // 1. Close sidebar first
+    const sidebar = document.getElementById("userSidebar");
+    if (sidebar) sidebar.classList.remove("open");
+
+    // 2. Show wrapper with Flex
+    wrapper.style.display = "flex";
+    
+    // 3. Trigger the animation
+    setTimeout(() => {
+        wrapper.classList.add("active");
+    }, 10);
+};
+
+window.hidePassModal = function() {
+    const wrapper = document.getElementById("CP-Modal-Wrapper");
+    wrapper.classList.remove("active");
+    
+    // Wait for animation to finish before hiding display
+    setTimeout(() => {
+        wrapper.style.display = "none";
+    }, 300);
+};
+
+// Close modal when clicking the 'X' or outside the box
+//document.querySelector(".close-modal").onclick = hidePassModal;
+const modal = document.getElementById("passwordModal");
+if(modal)
+window.onclick = function(event) {
+    if (event.target == modal) {
+        hidePassModal();
+    }
+};
+
+// Handle Form Submission (Firebase)
+const changePasswordForm=document.getElementById("changePasswordForm")
+if(changePasswordForm)changePasswordForm.onsubmit = async (e) => {
+    e.preventDefault();
+    
+    const oldPass = document.getElementById("oldPassword").value;
+    const newPass = document.getElementById("newPassword").value;
+    const confirmPass = document.getElementById("confirmPassword").value;
+    
+    // You must have the current logged-in user's key available here
+    const userKey = window.currentUserKey; 
+
+    if (newPass !== confirmPass) {
+        alert("New passwords do not match!");
+        return;
+    }
+
+    try {
+        const userRef = firebase.database().ref('users/' + userKey);
+        const snapshot = await userRef.once('value');
+        const userData = snapshot.val();
+
+        if (userData && userData.password === oldPass) {
+            await userRef.update({ password: newPass });
+            alert("Password updated successfully!");
+            hidePassModal();
+            e.target.reset();
+        } else {
+            alert("Incorrect old password.");
+        }
+    } catch (error) {
+        console.error("Firebase Error:", error);
+        alert("Something went wrong. Check console.");
+    }
+};
+
+
+export function startTracking(driverId) {
+    if ("geolocation" in navigator) {
+        // watchPosition runs every time the GPS detects a move
+        const watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                
+                // Update Firebase with current coordinates
+                set(ref(db, `drivers/${driverId}/location`), {
+                    lat: latitude,
+                    lng: longitude,
+                    timestamp: Date.now()
+                }).then(() => {
+                    console.log("Location updated successfully");
+                });
+            },
+            (error) => {
+                console.error("Tracking error: ", error.message);
+            },
+            {
+                enableHighAccuracy: true, // Uses GPS for best precision
+                maximumAge: 0,            // Do not use cached locations
+                timeout: 5000             // Wait max 5s for a fix
+            }
+        );
+        return watchId;
+    } else {
+        alert("Geolocation is not supported by this browser.");
+    }
+}

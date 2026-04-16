@@ -13,6 +13,7 @@
   <link href="css/category-sidebar.css" rel="stylesheet">
   <link href="css/product-card2.css" rel="stylesheet">
   <link href="css/location.css" rel="stylesheet">
+  <link href="css/passmodal.css" rel="stylesheet">
   
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script src="javascript/sidebar.js"></script>
@@ -352,45 +353,17 @@
     <p id="profilepoints">POINTS BALANCE</p>
   </div>	
   
-<script>
-    let map, marker, selectedCoords; // Must be global
-
-    window.initMap = function() {
-        const defaultPos = { lat: 33.8938, lng: 35.5018 }; // Beirut
-        
-        map = new google.maps.Map(document.getElementById("map-box"), {
-            center: defaultPos,
-            zoom: 14,
-            disableDefaultUI: true,
-            zoomControl: true
-        });
-
-        marker = new google.maps.Marker({
-            position: defaultPos,
-            map: map,
-            draggable: true
-        });
-
-        // RE-ENABLE CLICK TO SET LOCATION
-        map.addListener("click", (event) => {
-            const newPos = event.latLng;
-            marker.setPosition(newPos);
-            selectedCoords = newPos.toJSON();
-        });
-
-        marker.addListener("dragend", () => {
-            selectedCoords = marker.getPosition().toJSON();
-        });
-    };
-</script>
-
 <button id="open-map-trigger" class="loc-btn btn-locate">Update My Location</button>
 <!-- Load Google Maps at the end of body -->
 
   <nav class="sidebar-links">
-    <a href="#">My Dashboard</a>
-    <a href="#">Settings</a>
-    <a href="#" style="color: #ff4d4d;">Logout</a>
+    <a href="index.html">Home</a>
+    <a href="contact.html">Contact</a>
+    <a href="about.html">About Us</a>
+    <a href="orders.html">My Orders</a>
+    <a href="#" style="color: #ff4d4d;"onclick="showPassModal()">Change Password</a>
+    <a href="#" style="color: #ff4d4d;"onclick="switchUser()">Switch User</a>
+    <a id="logoutBtn"href="#" style="color: #ff4d4d;">Logout</a>
   </nav>
 </div>
 <div id="sidebarOverlay" onclick="closeUserSidebar()"></div>
@@ -413,6 +386,20 @@
 <!-- END OF LOCATION MODAL -->
   <script type="module"src="javascript/location.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
+
+<!-- UNIQUE Password Modal -->
+<div id="CP-Modal-Wrapper">
+    <div id="CP-Modal-Content">
+        <span id="CP-Close-Btn" onclick="hidePassModal()">&times;</span>
+        <h2 style="margin-top:0; color:#3498db;">Change Password</h2>
+        <form id="changePasswordForm">
+            <input type="password" id="oldPassword" placeholder="Old Password" required>
+            <input type="password" id="newPassword" placeholder="New Password" required>
+            <input type="password" id="confirmPassword" placeholder="Confirm New Password" required>
+            <button type="submit" id="CP-Submit-Btn">Update Password</button>
+        </form>
+    </div>
+</div>
 
 </body>
 </html>

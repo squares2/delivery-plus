@@ -41,3 +41,13 @@ function previewImage(event)
   };
   reader.readAsDataURL(file);
 }
+// Close Change Password Modal when clicking outside the content box
+window.addEventListener('click', function(event) {
+    const wrapper = document.getElementById("CP-Modal-Wrapper");
+    
+    // Check if the click was exactly on the dark wrapper (the background)
+    // and not on the modal content itself
+    if (event.target === wrapper) {
+        hidePassModal();
+    }
+});
