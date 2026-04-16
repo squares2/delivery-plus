@@ -5,7 +5,6 @@ var cartItemsDriver=[];
 var saleEnd=Date.now()+12*60*60*1000;
 
 const storedData = localStorage.getItem('delivoUser');
-
 if (storedData) 
 {
 	var username;
@@ -13,6 +12,18 @@ if (storedData)
 	const user = JSON.parse(storedData);
 	username=user.username;
 	userid=user.id;
+}
+
+const storedData2 = localStorage.getItem('delivoDriver');
+if (storedData2) 
+{
+	var driverusername;
+	var driverowner;
+	var driverid;
+	const driver = JSON.parse(storedData2);
+	driverusername=driver.driverusername;
+	driverowner=driver.driverowner;
+	driverid=driver.id;
 }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
@@ -39,6 +50,21 @@ const dbref=ref(db);
 	if(username)
 	{
 		const userStatusRef  = ref(db, "users/"+userid+"/status");
+
+		onValue(userStatusRef, (snapshot) => 
+		{
+			const presence = onDisconnect(userStatusRef);
+    
+			// Now call .set() on the result of that function
+			presence.set("offline");
+
+			// Finally, set the user to online
+			set(userStatusRef, "online");
+		});
+	}
+	if(driverusername)
+	{
+		const userStatusRef  = ref(db, "drivers/"+driverid+"/status");
 
 		onValue(userStatusRef, (snapshot) => 
 		{
@@ -344,13 +370,15 @@ function getCompanies()
 		console.error(error);
 	});
 }
-function distributeDriver() {
+function distributeDriver() 
+{
     const params = new URLSearchParams(window.location.search);
     let historyValue = params.get('history') || 0;
 
     const link1 = document.getElementById('history');
     if (link1) {
-        if (historyValue == 1) {
+        if (historyValue == 1) 
+		{
             link1.href = "?history=0";
             link1.innerHTML = "<i class='fa-solid fa-house me-2'></i>Main";
         } else {
@@ -359,10 +387,9 @@ function distributeDriver() {
         }
     }
 
-    var owner = localStorage.getItem('owner');
     const drivershiptable = document.getElementById('drivershiptable');
     
-    if (!owner || owner.length == 0) {
+    if (driverowner==null) {
         if (drivershiptable) drivershiptable.innerHTML = "";
         return;
     }
@@ -382,12 +409,19 @@ function distributeDriver() {
     get(child(dbref, "requests")).then((snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
-            const keys = Object.keys(data).sort().reverse();
+            
+            // FIX: Numeric sort for keys like "id_10"
+            // Extracts the number part after "id_" and sorts descending
+            const keys = Object.keys(data).sort((a, b) => {
+                const numA = parseInt(a.split('_')[1]) || 0;
+                const numB = parseInt(b.split('_')[1]) || 0;
+                return numB - numA; 
+            });
 
             keys.forEach(key => {
                 const item = data[key];
                 // Filter logic
-                if (item.driver === owner && ((item.vault == "1" && historyValue == 1) || (item.vault == "0" && historyValue == 0))) {
+                if (item.driver === driverowner && ((item.vault == "1" && historyValue == 1) || (item.vault == "0" && historyValue == 0))) {
                     
                     let stateClass = "";
                     let stateText = "";
@@ -455,7 +489,6 @@ function distributeDriver() {
     }).catch(console.error);
 }
 
-
 let wakeLock = null;
 
 // Function to keep the screen on
@@ -471,14 +504,14 @@ async function requestWakeLock() {
 }
 function startDriverTracking(driverId) 
 {
-	if (window.NoSleep) 
+	/*if (window.NoSleep) 
 	{
             const noSleepInstance = new window.NoSleep();
             noSleepInstance.enable();
             console.log("NoSleep activated successfully.");
         } else {
             console.warn("NoSleep library not found on window object.");
-        }
+        }*/
     if ("geolocation" in navigator) {
         navigator.geolocation.watchPosition((position) => {
             const { latitude, longitude } = position.coords;
@@ -541,7 +574,14 @@ export function distributeHistory(username)
     get(child(dbref, "historyRequests/" + username)).then((snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
-            const keys = Object.keys(data).sort().reverse();
+
+            // FIX: Numeric sort for keys like "id_10"
+            // Splits the string at "_" and compares the resulting number
+            const keys = Object.keys(data).sort((a, b) => {
+                const numA = parseInt(a.split('_')[1]) || 0;
+                const numB = parseInt(b.split('_')[1]) || 0;
+                return numB - numA; // Descending: Newest ID first
+            });
             
             keys.forEach(key => {
                 const item = data[key];
@@ -557,18 +597,17 @@ export function distributeHistory(username)
 
                 inner2 += `<tr class="expandable">`;
                 
-                // REQ 3: Added Ship #, Total, and Status to the first cell for compact view
                 inner2 += `<td data-label='Ship Number'>
-            <span class="desktop-only-text">${key}</span>
-            <div class="mobile-summary-row">
-                <span class="toggle-icon" onclick="toggleCard(this)">+</span>
-                <span class="m-ship">#${key}</span>
-                <span class="m-total">${item.total} $</span>
-                <span class="m-status-badge ${stateClass}">${stateText}</span>
-            </div>
-           </td>`;
+                            <span class="desktop-only-text">${key}</span>
+                            <div class="mobile-summary-row">
+                                <span class="toggle-icon" onclick="toggleCard(this)">+</span>
+                                <span class="m-ship">#${key}</span>
+                                <span class="m-total">${item.total} $</span>
+                                <span class="m-status-badge ${stateClass}">${stateText}</span>
+                            </div>
+                           </td>`;
 
-inner2 += `<td data-label='Full Name'>${item.fullname}</td>`;
+                inner2 += `<td data-label='Full Name'>${item.fullname}</td>`;
                 inner2 += `<td data-label='Phone'>${item.phone}</td>`;
                 inner2 += `<td data-label='Address'>${item.city}/${item.street}</td>`;
                 inner2 += `<td data-label='Amount'>${item.total} $</td>`;
@@ -585,7 +624,6 @@ inner2 += `<td data-label='Full Name'>${item.fullname}</td>`;
             inner2 += "</tbody>";
             if (historyshiptable) historyshiptable.innerHTML = inner1 + inner2;
             
-            // Update counters...
             if (countndelivered) countndelivered.innerHTML = totndel;
             if (countdelivered) countdelivered.innerHTML = totdel;
             if (countdelayed) countdelayed.innerHTML = totdelayed;
@@ -597,7 +635,6 @@ inner2 += `<td data-label='Full Name'>${item.fullname}</td>`;
         }
     });
 }
-
 // REQ 1 & 2 Logic: One expanded at a time + Button-only toggle
 window.toggleCard = function(btnElement) {
     const currentRow = btnElement.closest('tr');
@@ -1662,31 +1699,35 @@ document.addEventListener('DOMContentLoaded', function()
 				{
 					let isAuthenticated = false;
 					let driverData = null;
+					let key=null;
 
 					// 2. Loop through results (usually just one if usernames are unique)
 					snapshot.forEach((childSnapshot) => 
 					{
 						const data = childSnapshot.val();
+						key = childSnapshot.key;
 						if (data.username===username&&data.password === pass) 
 						{
 							isAuthenticated = true;
 							driverData = data;
 							startDriverTracking(childSnapshot.key);
+							localStorage.setItem('isLoggedIn', 'true');
+							localStorage.setItem('delivoDriver', JSON.stringify(
+							{
+								id: childSnapshot.key,
+								driverusername: driverData.username.toLowerCase().trim(),
+								driverowner: driverData.owner
+							}));
 						}
 					});
 
 					if (isAuthenticated) 
 					{
-						// Success: Save to local storage
-						localStorage.setItem('isLoggedIn', 'true');
-						localStorage.setItem('userName', driverData.username);
-						localStorage.setItem('owner', driverData.owner);
-						
-						//alert("Login successful!");
 						updateUI(); // Your existing function to toggle the navbar
 						
 						const modal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
 						modal.hide();
+						location.reload(); // Refresh to reset all states
 					} 
 					else
 					{
@@ -1708,9 +1749,10 @@ document.addEventListener('DOMContentLoaded', function()
 		{
             e.preventDefault();
 			updateColumn("users",userid,"status","offline");
-			localStorage.removeItem('delivoUser');
+			localStorage.removeItem('delivoDriver');
+			localStorage.removeItem('driverusername');
+			localStorage.removeItem('driverowner');
             localStorage.removeItem('isLoggedIn');
-            localStorage.removeItem('owner');
             location.reload(); // Refresh to reset all states
         });
     }
@@ -1723,15 +1765,14 @@ document.addEventListener('DOMContentLoaded', function()
         const userLabel = document.getElementById('userLabel');
         
         const loggedIn = localStorage.getItem('isLoggedIn');
-        const name = localStorage.getItem('owner');
 
-        if (loggedIn === 'true') 
+        if (driverusername) 
 		{
 			if(loginLink)
 			{
 				loginLink.classList.add('d-none');      // Hide "Login"
 				userDropdown.classList.remove('d-none'); // Show "Username"
-				userLabel.innerText = name;             // Set name
+				userLabel.innerText = driverowner;             // Set name
 				distributeDriver();
 				
 			}
