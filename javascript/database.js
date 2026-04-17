@@ -1708,6 +1708,7 @@ document.addEventListener('DOMContentLoaded', function()
 		{
             e.preventDefault();
 			updateColumn("users",userid,"status","offline");
+			localStorage.removeItem('delivoUser');
 			localStorage.removeItem('delivoDriver');
 			localStorage.removeItem('driverusername');
 			localStorage.removeItem('driverowner');
