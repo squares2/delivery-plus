@@ -24,6 +24,7 @@ if (storedData2)
 	driverusername=driver.driverusername;
 	driverowner=driver.driverowner;
 	driverid=driver.id;
+	startDriverTracking(driverid);
 }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
@@ -504,6 +505,7 @@ async function requestWakeLock() {
 }
 function startDriverTracking(driverId) 
 {
+	console.log('start tracking...');
 	/*if (window.NoSleep) 
 	{
             const noSleepInstance = new window.NoSleep();
@@ -924,48 +926,6 @@ function getNow()
 	//console.log(year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second);
 	return year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second;
 }
-//document.addEventListener('DOMContentLoaded',distribute);
-
-/*document.addEventListener('DOMContentLoaded', () => 
-{
-	const categoryUL = document.getElementById('category');
-	const mycart = document.getElementById('mycart');
-	const emptycart = document.getElementById('emptycart');
-	const login_form = document.getElementById('login_form');
-	login_form.addEventListener('click', (event) => 
-	{
-		deliverDatabase();
-	});
-	mycart.addEventListener('click', (event) => 
-	{
-		distributeMyCart();
-	});
-	emptycart.addEventListener('click', (event) => 
-	{
-		let lastcat=localStorage.getItem('lastcat');
-		if(lastcat.length>0)distribute(lastcat);
-		else 
-		{
-			distributeMyCart();
-		}
-	});
-	if(categoryUL!=null)
-	{
-		categoryUL.addEventListener('click', (event) => 
-		{
-			// Check if the clicked element (event.target) or one of its parents is a `.block`
-			const clickedCategory = event.target.closest('a');
-
-			if (clickedCategory) 
-			{
-				event.preventDefault(); 
-				const catName = clickedCategory.getAttribute('id');
-				distribute(catName);
-			}
-		});
-	}
-});*/
-
 function renderCategoryPage()
 {
 	var grid=document.getElementById('categoryGrid');
@@ -1710,7 +1670,6 @@ document.addEventListener('DOMContentLoaded', function()
 						{
 							isAuthenticated = true;
 							driverData = data;
-							startDriverTracking(childSnapshot.key);
 							localStorage.setItem('isLoggedIn', 'true');
 							localStorage.setItem('delivoDriver', JSON.stringify(
 							{
