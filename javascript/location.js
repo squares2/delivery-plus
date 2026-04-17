@@ -144,7 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			{
                 try 
 				{
-                    await updateCoordinates(selectedCoords.lng,selectedCoords.lat);
+					console.log('confirm');
+                    await updateCoordinates(selectedCoords.lat,selectedCoords.lng);
                     showPopup("Your New Location Saved!");
                     modal.style.display = "none";
                 } 

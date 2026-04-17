@@ -155,7 +155,7 @@ function updateColumn(entity, key, column, value)
       console.error("Error updating field: ", error);
     });
 }
-export async function updateCoordinates(xcoord,ycoord) 
+export async function updateCoordinates(lat,lng) 
 {
     if (username) 
 	{
@@ -165,8 +165,8 @@ export async function updateCoordinates(xcoord,ycoord)
 		// it keeps existing fields (like your coordinates) untouched.
 		await update(userRef, 
 		{
-			x: xcoord,
-			y: ycoord
+			lat: lat,
+			lng: lng
 		});
 	}
 }
