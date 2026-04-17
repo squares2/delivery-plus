@@ -1671,6 +1671,7 @@ document.addEventListener('DOMContentLoaded', function()
 							isAuthenticated = true;
 							driverData = data;
 							localStorage.setItem('isLoggedIn', 'true');
+							localStorage.removeItem('delivoUser');
 							localStorage.setItem('delivoDriver', JSON.stringify(
 							{
 								id: childSnapshot.key,
@@ -2221,7 +2222,7 @@ if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async 
             // 3. Verify Password
             if (userData.password === typedPass) 
 			{
-				localStorage.removeItem('delivoUser');
+				localStorage.removeItem('delivoDriver');
                 // SUCCESS
 				updateColumn("users",userKey,"status","online");
 				updateProfileImage(userData.username);
@@ -2368,3 +2369,11 @@ export function startTracking(driverId) {
         alert("Geolocation is not supported by this browser.");
     }
 }
+
+// Listen for storage changes from other tabs
+window.addEventListener('storage', (event) => {
+    if (event.key === 'delivoUser'||event.key === 'delivoDriver') {
+        console.log('delivoUser changed in another tab. Reloading...');
+        location.reload(); // Refresh the page to apply changes
+    }
+});
