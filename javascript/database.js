@@ -1,7 +1,7 @@
 var cartCount=0;
 var cartItems=[];
-var cartItemsDriver=[];
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
+var cartItemsDriver=[];
 var saleEnd=Date.now()+12*60*60*1000;
 
 const storedData = localStorage.getItem('delivoUser');
@@ -728,6 +728,7 @@ export async function getCategories(companyname)
 export async function distribute(comp,cat)
 {
 			products = [];
+			console.log(comp);
 	await get(child(dbref,"items/"+comp)).then((snapshot) => 
 	{
 		if (snapshot.exists()) 
@@ -742,7 +743,7 @@ export async function distribute(comp,cat)
 				
 				if(item.cat==cat)
 				{
-					let row={id:key,title:item.name,price:item.price,image:'items/'+key+'.png',category:item.cat};
+					let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat,company:''};
 					products.push(row);
 				}
 				i++;
@@ -772,7 +773,7 @@ export async function distribute2(comp)
 				const key = keys[i];
 				const item = data[key];
 				
-				let row={id:key,title:item.name,price:item.price,image:'items/'+key+'.png',category:item.cat};
+				let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat};
 				products.push(row);
 				i++;
 			}
@@ -923,7 +924,6 @@ function getNow()
 	const hour = today.getHours();
 	const minute = today.getMinutes();
 	const second = today.getSeconds();
-	//console.log(year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second);
 	return year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second;
 }
 function renderCategoryPage()
@@ -945,7 +945,6 @@ function renderCategoryPage()
 	var prev='';
 	list.forEach(function(p)
 	{
-		//console.log(prev+":"+p.category);
 		prehtml='';
 		posthtml='';
 		if(prev.length==0)
@@ -1051,8 +1050,12 @@ function addToCart(id)
 	else
 	{
 		let cost=Number(p.price);
+		let sale=Number(p.sale);
 		if(cost>2000)cost=cost/90000;
-		cartItems.push({id:p.id,title:p.title,price:cost,image:p.image,qty:1})
+		if(sale>2000)sale=sale/90000;
+		let price=cost;
+		if(sale>0)price=sale;
+		cartItems.push({id:p.id,title:p.title,price:price,image:p.image,qty:1})
 	}
 	saveCart();
 	updateCartBadge();
@@ -1060,55 +1063,73 @@ function addToCart(id)
 }
 function removeProductOverlay(productId) 
 {
-    // 1. Find the card in the main grid with that ID
-    const card2 = document.querySelector(`#categoryGrid [data-product-id="${productId}"]`);
+    // 1. Find the button with that ID inside the grid
+    const btnInGrid = document.querySelector(`#categoryGrid [data-product-id="${productId}"]`);
     
-    if (card2) 
-	{
-		const card = card2.closest('.product-card');
-		
-        const overlay = card.querySelector('.img-overlay');
-        if (overlay) 
-		{
-            overlay.style.display = 'none'; // Hide overlay
-        }
+    if (btnInGrid) 
+    {
+        // 2. Find the main container using our new class name
+        const card = btnInGrid.closest('.pc-card-main');
         
-        // Optional: Reset button text
-        const btn = card.querySelector('.btn-success');
-        if (btn) 
-		{
-			btn.innerText = 'Add to Cart';
-			btn.classList.replace('btn-success', 'btn-primary');
-		}	
+        if (card) {
+            // 3. Find the overlay using the new class name
+            const overlay = card.querySelector('.pc-cart-overlay');
+            if (overlay) 
+            {
+                overlay.style.display = 'none'; // Hide overlay
+            }
+            
+            // 4. Reset button text and classes using the new names
+            btnInGrid.innerText = 'Add to Cart';
+            // Swap the green gradient for the blue gradient
+            btnInGrid.classList.remove('pc-btn-success', 'btn-success-gradient');
+            btnInGrid.classList.add('pc-btn-primary', 'btn-primary-gradient');
+        }
     }
-	checkForm();
+    checkForm();
 }
-function cardTemplate(p)
-{
-	let found=false;
-	let result='<div class="col-3 col-lg-3">'+
-    '<div class="card product-card h-100">'+
-      '<img src="' + p.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="card-img-top" alt="'+p.title+'">';
-	  
-	for(var i=0;i<cartItems.length;i++)
-	{
-		if(p.id==cartItems[i].id)found=true;
-	}
+function cardTemplate(p) {
+    let found = false;
+    for (var i = 0; i < cartItems.length; i++) {
+        if (p.id == cartItems[i].id) found = true;
+    }
 
-	if(found)result+='<img src="png/cart3.png" style="display:block"class="img-overlay" alt="Overlay">';
-	else result+='<img src="png/cart3.png" style="display:none"class="img-overlay" alt="Overlay">';
-	  result+=
-      '<div class="card-body">'+
-        '<h6 class="card-title">'+p.title+'</h6>'+
-        '<div class="fw-semibold mb-2">'+money(p.price)+'</div>'+
-        '<div class="d-flex gap-2">';
-          if(found)result+='<button class="btn btn-sm btn-success" data-product-id="'+p.id+'">Added to Cart</button>';
-          else result+='<button class="btn btn-sm btn-primary" data-product-id="'+p.id+'">Add to Cart</button>';
-          result+='</div>'+
-      '</div>'+
-    '</div>'+
-  '</div>';
-	return result
+    let result = '<div class="col-3 col-lg-3 pc-grid-item">' +
+        '<div class="pc-card-main">' +
+            // Logic for the Offer Badge
+            (p.sale > 0 ? '<span class="pc-badge-offer">OFFER</span>' : '') +
+            
+            '<div class="pc-img-holder">' +
+                '<img src="' + p.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="pc-product-img" alt="' + p.title + '">';
+                
+                let display = found ? 'block' : 'none';
+                result += '<img src="png/cart3.png" style="display:' + display + '" class="pc-cart-overlay" alt="In Cart">';
+    result += '</div>' +
+            
+            '<div class="pc-body">' +
+                '<h6 class="pc-item-title">' + p.title + '</h6>' +
+                '<div class="pc-price-wrap">';
+                
+                if (p.sale > 0) {
+                    result += '<span class="pc-new-price">' + money(p.sale) + '</span>' +
+                              '<span class="pc-old-price">' + money(p.price) + '</span>';
+                } else {
+                    result += '<span class="pc-standard-price">' + money(p.price) + '</span>';
+                }
+                
+    result += '</div>' +
+                '<div class="pc-btn-group">';
+                if (found) {
+                    result += '<button class="pc-btn-glow pc-btn-success" data-product-id="' + p.id + '">Added</button>';
+                } else {
+                    result += '<button class="pc-btn-glow pc-btn-primary" data-product-id="' + p.id + '">Add to Cart</button>';
+                }
+    result += '</div>' +
+            '</div>' +
+        '</div>' +
+    '</div>';
+    
+    return result;
 }
 function wireButtons(context)
 {
@@ -1228,23 +1249,57 @@ function renderCartSidebar(cartItem1)
 	if(!list||!totalEl)return;
 	var html='';
 	var total=0;
+	
+	// 1. Build Sidebar HTML
 	cartItem1.forEach(function(ci)
 	{
 		total+=ci.price*ci.qty;
-		html+=
-  '<div class="list-group-item d-flex align-items-center justify-content-between">'+
-    '<div class="d-flex align-items-center gap-2">'+
-      '<img src="'+ci.image+'" onerror="this.onerror=null;this.src=\'items/0.png\';" alt="'+ci.title+'" width="48" height="48" style="object-fit:cover;border-radius:6px">'+
-      '<div><div class="small fw-semibold">'+ci.title+'</div><div class="small text-muted">'+money(ci.price)+' × '+ci.qty+'</div></div>'+
-    '</div>'+
-    '<div class="d-flex align-items-center gap-2">'+
-      '<button class="btn btn-sm btn-outline-secondary" data-cart-dec="'+ci.id+'">-</button>'+
-      '<button class="btn btn-sm btn-outline-secondary" data-cart-inc="'+ci.id+'">+</button>'+
-      '<button class="btn btn-sm btn-outline-danger" data-cart-del="'+ci.id+'"><i class="fa-solid fa-trash"></i></button>'+
-    '</div>'+
-  '</div>'
+		html +=
+      '<div class="d-flex align-items-center justify-content-between mb-2 pb-2" style="background-color: #1a1a1a; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px;">'+
+        '<div class="d-flex align-items-center gap-2">'+
+          '<img src="'+ci.image+'" onerror="this.onerror=null;this.src=\'items/0.png\';" alt="'+ci.title+'" width="48" height="48" style="object-fit:cover; border-radius:6px; background: #242424;">'+
+          '<div>' +
+            '<div class="small fw-semibold text-white">'+ci.title+'</div>' +
+            '<div class="small" style="color: #2ecc71; font-weight: bold;">'+money(ci.price)+' × '+ci.qty+'</div>' +
+          '</div>'+
+        '</div>'+
+        '<div class="d-flex align-items-center gap-1">'+
+          '<button class="btn btn-sm btn-outline-light" style="width: 26px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;" data-cart-dec="'+ci.id+'">-</button>'+
+          '<button class="btn btn-sm btn-outline-light" style="width: 26px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;" data-cart-inc="'+ci.id+'">+</button>' +
+          
+          // --- FIXED REMOVE BUTTON START ---
+          '<button class="btn btn-sm" style="width: 32px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border: 1px solid #ff4757 !important; background-color: rgba(255, 71, 87, 0.1) !important; color: #ff4757 !important; margin-left: 4px;" data-cart-del="'+ci.id+'">' +
+            '<i class="fa-solid fa-trash"></i>' +
+          '</button>' +
+          // --- FIXED REMOVE BUTTON END ---
+          
+        '</div>'+
+      '</div>';
 	});
 	list.innerHTML=html;
+
+	// 2. FIX: Sync Main Grid Buttons with current cart state
+	document.querySelectorAll('.pc-card-main').forEach(card => {
+		const btn = card.querySelector('[data-product-id]');
+		const overlay = card.querySelector('.pc-cart-overlay');
+		const productId = btn.getAttribute('data-product-id');
+		
+		const isInCart = cartItem1.some(item => item.id == productId);
+		
+		if (isInCart) {
+			if(overlay) overlay.style.display = 'block';
+			btn.innerText = 'Added';
+			btn.classList.remove('pc-btn-primary', 'btn-primary-gradient');
+			btn.classList.add('pc-btn-success', 'btn-success-gradient');
+		} else {
+			if(overlay) overlay.style.display = 'none';
+			btn.innerText = 'Add to Cart';
+			btn.classList.remove('pc-btn-success', 'btn-success-gradient');
+			btn.classList.add('pc-btn-primary', 'btn-primary-gradient');
+		}
+	});
+
+	// 3. Totals and LocalStorage
 	if(totalEl)
 	{
 		totalEl.textContent=money(total)
@@ -1425,7 +1480,6 @@ async function placeOrder()
 		if (result.committed) 
 		{
 			const newId = "id_"+result.snapshot.val(); // This is your 1, 2, 3...
-
 			// 2. import data to requests
 			await set(ref(db, 'requests/' + newId), 
 			{
@@ -1442,7 +1496,7 @@ async function placeOrder()
 				deliveryplusid: localStorage.getItem('deliveryplusids'),
 				vault:"0",
 				xnote:note.value,
-				username:username
+				username:username||""
 			});
 			// 3. import data to historyRequests
 			if(username&&username.length>0)
@@ -2302,41 +2356,48 @@ window.onclick = function(event) {
     }
 };
 
-// Handle Form Submission (Firebase)
-const changePasswordForm=document.getElementById("changePasswordForm")
-if(changePasswordForm)changePasswordForm.onsubmit = async (e) => {
-    e.preventDefault();
-    
-    const oldPass = document.getElementById("oldPassword").value;
-    const newPass = document.getElementById("newPassword").value;
-    const confirmPass = document.getElementById("confirmPassword").value;
-    
-    // You must have the current logged-in user's key available here
-    const userKey = window.currentUserKey; 
+const changePasswordForm = document.getElementById("changePasswordForm");
 
-    if (newPass !== confirmPass) {
-        alert("New passwords do not match!");
-        return;
-    }
-
-    try {
-        const userRef = firebase.database().ref('users/' + userKey);
-        const snapshot = await userRef.once('value');
-        const userData = snapshot.val();
-
-        if (userData && userData.password === oldPass) {
-            await userRef.update({ password: newPass });
-            alert("Password updated successfully!");
-            hidePassModal();
-            e.target.reset();
-        } else {
-            alert("Incorrect old password.");
+if (changePasswordForm) {
+    changePasswordForm.onsubmit = async (e) => {
+        e.preventDefault();
+        
+        // Use .trim() to remove any accidental spaces at the start or end
+        const oldPass = document.getElementById("oldPassword").value.trim();
+        const newPass = document.getElementById("newPassword").value.trim();
+        const confirmPass = document.getElementById("confirmPassword2").value.trim();
+        
+        if (newPass !== confirmPass) {
+            showPopup("New passwords do not match!");
+            return;
         }
-    } catch (error) {
-        console.error("Firebase Error:", error);
-        alert("Something went wrong. Check console.");
+
+        if (newPass === "") {
+            showPopup("Password cannot be empty!");
+            return;
+        }
+
+        try {
+			const userRef = ref(db, 'users/' + userid);
+    const snapshot = await get(userRef); // use 'get' instead of 'once'
+    const userData = snapshot.val();
+
+    if (userData && userData.password === oldPass) {
+        // use 'update' function instead of .update() method
+        await update(userRef, { password: newPass });
+        
+        showPopup("Password updated successfully!");
+        if (typeof hidePassModal === "function") hidePassModal();
+        e.target.reset();
+    } else {
+        showPopup("Incorrect old password.");
     }
-};
+} catch (error) {
+    console.error("Firebase Error:", error);
+    showPopup("Error updating password. Check console for details.");
+}
+    };
+}
 
 
 export function startTracking(driverId) {

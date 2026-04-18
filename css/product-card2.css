@@ -88,3 +88,79 @@ h6.card-title
     margin-bottom: 10px;
   }  
 }
+
+
+/* Container to keep prices aligned */
+.price-container {
+  display: flex;
+  flex-direction: column; 
+  align-items: center;
+  gap: 1px;
+  margin-bottom: 8px;
+}
+
+/* The New Sale Price - Updated to Green */
+.sale-price {
+  color: #198754; /* Bootstrap success green */
+  font-size: clamp(0.95rem, 2.2vw, 1.3rem);
+  font-weight: 700;
+}
+
+/* The Old Price - Updated to be bigger */
+.old-price {
+  font-size: 0.85rem; /* Increased size */
+  color: #777;
+  text-decoration: line-through; 
+  text-decoration-thickness: 1.5px; /* Makes the "skip" line more visible */
+  font-weight: 500;
+}
+
+/* Adjusted button font for 4-across layout to prevent overflow */
+.btn-sm {
+  font-size: 0.7rem; 
+  padding: 5px 2px;
+  width: 100%;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+/*
+javascript cardTemplate
+function cardTemplate(p) {
+    let found = false;
+    let result = '<div class="col-3 col-lg-3">' +
+        '<div class="card product-card h-100">' +
+        '<img src="' + p.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="card-img-top" alt="' + p.title + '">';
+
+    for (var i = 0; i < cartItems.length; i++) {
+        if (p.id == cartItems[i].id) found = true;
+    }
+
+    if (found) result += '<img src="png/cart3.png" style="display:block" class="img-overlay" alt="Overlay">';
+    else result += '<img src="png/cart3.png" style="display:none" class="img-overlay" alt="Overlay">';
+
+    result += '<div class="card-body">' +
+        '<h6 class="card-title">' + p.title + '</h6>';
+
+    // --- PRICE LOGIC START ---
+    result += '<div class="price-container mb-2">';
+    if (p.sale > 0) {
+        result += '<span class="sale-price fw-semibold">' + money(p.sale) + '</span> ' +
+                  '<span class="old-price">' + money(p.price) + '</span>';
+    } else {
+        result += '<span class="fw-semibold">' + money(p.price) + '</span>';
+    }
+    result += '</div>';
+    // --- PRICE LOGIC END ---
+
+    result += '<div class="d-flex gap-2">';
+    if (found) result += '<button class="btn btn-sm btn-success" data-product-id="' + p.id + '">Added</button>';
+    else result += '<button class="btn btn-sm btn-primary" data-product-id="' + p.id + '">Add to Cart</button>';
+    result += '</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+    return result;
+}
+
+*/

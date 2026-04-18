@@ -413,3 +413,9 @@ body.theme-tobbaco::before
     margin-bottom: 0.5rem;    /* Small gap between bar and menu */
 }
 
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #3498db, #2980b9) !important;
+  border: none !important;
+  color: white !important;
+  box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+}
