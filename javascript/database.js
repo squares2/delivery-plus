@@ -491,53 +491,6 @@ function distributeDriver()
     }).catch(console.error);
 }
 
-let wakeLock = null;
-
-// Function to keep the screen on
-async function requestWakeLock() {
-    try {
-        if ('wakeLock' in navigator) {
-            wakeLock = await navigator.wakeLock.request('screen');
-            console.log('Screen Wake Lock is active');
-        }
-    } catch (err) {
-        console.error(`Wake Lock error: ${err.name}, ${err.message}`);
-    }
-}
-function startDriverTracking(driverId) 
-{
-	console.log('start tracking...');
-	/*if (window.NoSleep) 
-	{
-            const noSleepInstance = new window.NoSleep();
-            noSleepInstance.enable();
-            console.log("NoSleep activated successfully.");
-        } else {
-            console.warn("NoSleep library not found on window object.");
-        }*/
-    if ("geolocation" in navigator) {
-        navigator.geolocation.watchPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            const db = getDatabase();
-            
-            // Save moving coordinates to Firebase
-            set(ref(db, `drivers/${driverId}/location`), {
-                lat: latitude,
-                lng: longitude,
-                timestamp: Date.now()
-            });
-        }, (err) => console.error(err), {
-            enableHighAccuracy: true, 
-            maximumAge: 0 
-        });
-// 3. Re-acquire Wake Lock if the tab becomes visible again
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-                await requestWakeLock();
-            }
-        });
-	}
-}
 // Global Toggle Function for driver.html
 window.toggleCard = function(btnElement) {
     const currentRow = btnElement.closest('tr');
@@ -2501,37 +2454,6 @@ if (changePasswordForm) {
 }
 
 
-export function startTracking(driverId) {
-    if ("geolocation" in navigator) {
-        // watchPosition runs every time the GPS detects a move
-        const watchId = navigator.geolocation.watchPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                
-                // Update Firebase with current coordinates
-                set(ref(db, `drivers/${driverId}/location`), {
-                    lat: latitude,
-                    lng: longitude,
-                    timestamp: Date.now()
-                }).then(() => {
-                    console.log("Location updated successfully");
-                });
-            },
-            (error) => {
-                console.error("Tracking error: ", error.message);
-            },
-            {
-                enableHighAccuracy: true, // Uses GPS for best precision
-                maximumAge: 0,            // Do not use cached locations
-                timeout: 5000             // Wait max 5s for a fix
-            }
-        );
-        return watchId;
-    } else {
-        alert("Geolocation is not supported by this browser.");
-    }
-}
-
 // Listen for storage changes from other tabs
 window.addEventListener('storage', (event) => {
     if (event.key === 'delivoUser'||event.key === 'delivoDriver') {
@@ -2550,19 +2472,8 @@ function appReady(userid) {
 // Call this when the user successfully clicks "Login"
 function onLoginSuccess(userid) {
     window.localStorage.setItem('userid', userid);
-    startTracking2(userid);
-}
-
-function startTracking2(userid) {
-    if (navigator.geolocation) {
-        navigator.geolocation.watchPosition((position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-
-            // Send to Android Bridge
-            if (window.AndroidBridge) {
-                window.AndroidBridge.updateFirebaseLocation(userid, lat, lng);
-            }
-        }, (error) => console.log(error), { enableHighAccuracy: true });
+    // Tell the Android App to start the background service
+    if (window.AndroidBridge) {
+        window.AndroidBridge.startBackgroundTracking(userid);
     }
 }
