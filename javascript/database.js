@@ -24,7 +24,8 @@ if (storedData2)
 	driverusername=driver.driverusername;
 	driverowner=driver.driverowner;
 	driverid=driver.id;
-	startDriverTracking(driverid);
+	//startDriverTracking(driverid);
+	onLoginSuccess(driverid);
 }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
@@ -1313,6 +1314,64 @@ function renderCartSidebar(cartItem1)
 		if(checkTotal!=null)checkTotal.innerHTML=(parseFloat(totalEl.textContent)+2).toFixed(2);
 	}	
 }
+function renderCartSidebar2(cartItem1)
+{
+	var list=document.getElementById('cartList');
+	var totalEl=document.getElementById('cartTotal');
+	if(!list||!totalEl)return;
+	var html='';
+	var total=0;
+	
+	// 1. Build Sidebar HTML
+	cartItem1.forEach(function(ci)
+	{
+		total+=ci.price*ci.qty;
+		html +=
+      '<div class="d-flex align-items-center justify-content-between mb-2 pb-2" style="background-color: #1a1a1a; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px;">'+
+        '<div class="d-flex align-items-center gap-2">'+
+          '<img src="'+ci.image+'" onerror="this.onerror=null;this.src=\'items/0.png\';" alt="'+ci.title+'" width="48" height="48" style="object-fit:cover; border-radius:6px; background: #242424;">'+
+          '<div>' +
+            '<div class="small fw-semibold text-white">'+ci.title+'</div>' +
+            '<div class="small" style="color: #2ecc71; font-weight: bold;">'+money(ci.price)+' × '+ci.qty+'</div>' +
+          '</div>'+
+        '</div>'+
+      '</div>';
+	});
+	list.innerHTML=html;
+	// 2. FIX: Sync Main Grid Buttons with current cart state
+	document.querySelectorAll('.pc-card-main').forEach(card => {
+		const btn = card.querySelector('[data-product-id]');
+		const overlay = card.querySelector('.pc-cart-overlay');
+		const productId = btn.getAttribute('data-product-id');
+		
+		const isInCart = cartItem1.some(item => item.id == productId);
+		
+		if (isInCart) {
+			if(overlay) overlay.style.display = 'block';
+			btn.innerText = 'Added';
+			btn.classList.remove('pc-btn-primary', 'btn-primary-gradient');
+			btn.classList.add('pc-btn-success', 'btn-success-gradient');
+		} else {
+			if(overlay) overlay.style.display = 'none';
+			btn.innerText = 'Add to Cart';
+			btn.classList.remove('pc-btn-success', 'btn-success-gradient');
+			btn.classList.add('pc-btn-primary', 'btn-primary-gradient');
+		}
+	});
+	// 3. Totals and LocalStorage
+	if(totalEl)
+	{
+		totalEl.textContent=money(total)
+		localStorage.setItem('count',getCartCount());
+		localStorage.setItem('total',total+2);
+		var sumitems=document.getElementById('summaryItems');
+		var subTotal=document.getElementById('subTotal');
+		var checkTotal=document.getElementById('checktotal');
+		if(sumitems!=null)sumitems.innerHTML=getCartCount();
+		if(subTotal!=null)subTotal.innerHTML=totalEl.textContent;
+		if(checkTotal!=null)checkTotal.innerHTML=(parseFloat(totalEl.textContent)+2).toFixed(2);
+	}	
+}
 function changeQty(id,delta)
 {
 	var ids=""+id;
@@ -1732,6 +1791,7 @@ document.addEventListener('DOMContentLoaded', function()
 								driverusername: driverData.username.toLowerCase().trim(),
 								driverowner: driverData.owner
 							}));
+							onLoginSuccess(key);
 						}
 					});
 
@@ -1845,9 +1905,50 @@ function updateSideCart(shipnumber)
             if (foundMatch) 
 			{
                 // 3. ONLY SHOW THE SIDEBAR NOW (Data is ready)
-                renderCartSidebar(cartItemsDriver); 
+                renderCartSidebar2(cartItemsDriver); 
                 existingInstance.show();
             }
+        } 
+		else 
+		{
+            console.log("No data available");
+        }
+    }).catch((error) => 
+	{
+        console.error(error);
+    });
+}
+function updateSideCart2(username,shipnumber) 
+{
+    // Reference your Offcanvas instance
+    const offcanvasElement = document.getElementById('cartSidebar');
+    const existingInstance = bootstrap.Offcanvas.getInstance(offcanvasElement) 
+                             || new bootstrap.Offcanvas(offcanvasElement);
+
+    get(child(dbref, "historyRequests/"+username+"/"+shipnumber)).then((snapshot) => 
+	{
+        if (snapshot.exists()) 
+		{
+			const item = snapshot.val();
+            
+			let cartItemsHistory = [];
+			const rawData = item.cart;
+			const items = rawData.split(';').filter(i => i.length > 0);
+
+			items.forEach(itemStr => 
+			{
+				const parts = itemStr.split(':');
+				let row = {
+					id: parts[0],
+					title: parts[1],
+					price: parts[2],
+					image: 'items/' + parts[0] + '.png',
+					qty: parseInt(parts[3])
+				};
+				cartItemsHistory.push(row);
+			});
+			renderCartSidebar2(cartItemsHistory); 
+			existingInstance.show();
         } 
 		else 
 		{
@@ -1869,7 +1970,7 @@ historyshiptable.forEach(container =>
 		if(carthistorydetail)
 		{
 			const shipNum = carthistorydetail.getAttribute('data-shipnumber');
-			updateSideCart(shipNum); 
+			updateSideCart2(username,shipNum); 
 		}
     });
 });
@@ -2438,3 +2539,30 @@ window.addEventListener('storage', (event) => {
         location.reload(); // Refresh the page to apply changes
     }
 });
+
+function appReady(userid) {
+    // This tells Android to start the native service which stays alive
+    if (window.AndroidBridge) {
+        window.AndroidBridge.startBackgroundTracking(userid);
+    }
+}
+
+// Call this when the user successfully clicks "Login"
+function onLoginSuccess(userid) {
+    window.localStorage.setItem('userid', userid);
+    startTracking2(userid);
+}
+
+function startTracking2(userid) {
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition((position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            // Send to Android Bridge
+            if (window.AndroidBridge) {
+                window.AndroidBridge.updateFirebaseLocation(userid, lat, lng);
+            }
+        }, (error) => console.log(error), { enableHighAccuracy: true });
+    }
+}

@@ -11,6 +11,7 @@
   <link href="css/styles3.css" rel="stylesheet">
   <link href="css/rowbadge.css" rel="stylesheet">
   <link href="css/tablestyle.css" rel="stylesheet">
+
   <script src="javascript/anti-sleep.js"></script>
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/bootstrap.bundle.min.js"></script>
@@ -123,20 +124,25 @@
     </table>
   </div>
 
-  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
-    <div class="offcanvas-header">
-      <h5 class="offcanvas-title">Your Cart</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  <div class="offcanvas offcanvas-end text-white" tabindex="-1" id="cartSidebar" style="background-color: #1a1a1a !important;">
+    <div class="offcanvas-header border-bottom border-secondary">
+      <h5 class="offcanvas-title fw-bold">Your Cart</h5>
+      <!-- Changed close button to white variant -->
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body">
-      <div id="cartList" class="list-group mb-3"></div>
-      <div class="d-flex justify-content-between align-items-center border-top pt-3">
+      <!-- Removed 'list-group' class to stop Bootstrap from forcing white backgrounds -->
+      <div id="cartList" class="mb-3"></div>
+      
+      <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
         <div class="fw-semibold">Total</div>
-        <div id="cartTotal" class="fw-bold">$0.00</div>
+        <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
       </div>
-      <a href="checkout.html" class="btn btn-primary w-100 mt-3">Checkout</a>
+      
+      <!-- Applied your Stylish Blue Gradient to the button -->
+      <a href="checkout.html" class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">Checkout</a>
     </div>
-  </div>
+	</div>
 
   <div class="modal fade" id="quickViewModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
