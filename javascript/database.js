@@ -1782,6 +1782,10 @@ document.addEventListener('DOMContentLoaded', function()
 			localStorage.removeItem('driverowner');
             localStorage.removeItem('isLoggedIn');
             location.reload(); // Refresh to reset all states
+			if (window.AndroidBridge) 
+			{
+				window.AndroidBridge.stopBackgroundTracking();
+			}
         });
     }
 
@@ -2463,16 +2467,14 @@ window.addEventListener('storage', (event) => {
 });
 
 function appReady(userid) {
-    // This tells Android to start the native service which stays alive
     if (window.AndroidBridge) {
         window.AndroidBridge.startBackgroundTracking(userid);
     }
 }
 
-// Call this when the user successfully clicks "Login"
+// 2. Keep this for the moment they first log in
 function onLoginSuccess(userid) {
     window.localStorage.setItem('userid', userid);
-    // Tell the Android App to start the background service
     if (window.AndroidBridge) {
         window.AndroidBridge.startBackgroundTracking(userid);
     }
