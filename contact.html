@@ -134,22 +134,23 @@
         
         <!-- Form Block -->
 <div class="col-12 col-lg-6">
-  <!-- 🌓 Removed 'bg-dark' - now it follows the variable in styles.css -->
-  <form class="p-4 border rounded contact-form-theme">
+  <!-- 🌓 Added 'themed-card' for dynamic background and border -->
+  <form class="p-4 border rounded contact-form-theme themed-card">
     <div class="mb-3">
-      <label class="form-label">Name</label>
-      <!-- 🌓 Removed 'bg-secondary' and 'text-white' -->
-      <input type="text" class="form-control" placeholder="Your name">
+      <label class="form-label themed-label">Name</label>
+      <!-- 🌓 Added 'themed-input' for day/night colors -->
+      <input type="text" class="form-control themed-input" placeholder="Your name">
     </div>
     <div class="mb-3">
-      <label class="form-label">Email</label>
-      <input type="email" class="form-control" placeholder="you@example.com">
+      <label class="form-label themed-label">Email</label>
+      <input type="email" class="form-control themed-input" placeholder="you@example.com">
     </div>
     <div class="mb-3">
-      <label class="form-label">Message</label>
-      <textarea class="form-control" rows="5" placeholder="Write your message"></textarea>
+      <label class="form-label themed-label">Message</label>
+      <textarea class="form-control themed-input" rows="5" placeholder="Write your message"></textarea>
     </div>
-    <button type="button" class="btn btn-primary fw-bold">Send Message</button>
+    <!-- 🌓 Replaced with your dynamic theme button -->
+    <button type="button" class="btn btn-theme-primary fw-bold w-100">Send Message</button>
   </form>
 </div>
       </div>

@@ -899,3 +899,57 @@ body.dark-mode .btn-close {
   color: #1b8a4f !important; 
   font-weight: 700; /* Optional: pulls user focus to the final total */
 }
+
+/* 📦 Card / Form Container */
+.themed-card {
+  background-color: var(--bg-cards) !important;
+  border-color: rgba(128, 128, 128, 0.2) !important;
+}
+
+/* 🏷️ Form Labels */
+.themed-label {
+  color: var(--text-main) !important;
+  font-weight: 500;
+}
+
+/* ⌨️ Form Inputs (Matches your previous setups) */
+.themed-input {
+  background-color: var(--bg-inputs) !important;
+  color: var(--text-main) !important;
+  border: 1px solid rgba(128, 128, 128, 0.2) !important;
+  transition: all 0.3s ease;
+}
+
+.themed-input::placeholder {
+  color: var(--text-main);
+  opacity: 0.5;
+}
+
+.themed-input:focus {
+  background-color: var(--bg-inputs) !important;
+  border-color: var(--neon-green) !important;
+  box-shadow: 0 0 0 0.25rem rgba(74, 222, 128, 0.25);
+}
+
+/* Base button state */
+.btn-theme-primary {
+  background-color: var(--neon-green) !important;
+  border-color: var(--neon-green) !important;
+  transition: all 0.3s ease;
+}
+
+/* Day Mode: Text flips to your dark color */
+body:not(.dark-mode) .btn-theme-primary {
+  color: var(--text-main) !important; 
+}
+
+/* Night Mode: Text flips to your light color */
+body.dark-mode .btn-theme-primary {
+  color: var(--text-main) !important; 
+}
+
+/* Active Hover effect */
+.btn-theme-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
