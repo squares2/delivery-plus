@@ -49,7 +49,7 @@ const db = getDatabase(app);   // Realtime Database instance
 const dbref=ref(db);
 
   
-	if(username)
+	if(username&&username.length>0)
 	{
 		const userStatusRef  = ref(db, "users/"+userid+"/status");
 
@@ -334,13 +334,13 @@ function getCompanies()
 				const key = keys[i];
 				const item = data[key];
 				j=0;
-				inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold'>"+key+"</h6>"
+				inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold main-category-dark'>"+key+"</h6>"
 				while (j < item.length)
 				{
 					compname=item[j].companyname;
 					if(item[j].soon=="1")soon="soon";
 					else soon="";
-					inner+="<a class='dropdown-item "+soon+"' href='category.html?category="+compname+"&pattern="+key+"'>"+compname+"</a>"
+					inner+="<a class='dropdown-item sub-category-dark "+soon+"' href='category.html?category="+compname+"&pattern="+key+"'>"+compname+"</a>"
 					j++
 				}	
 				i++;
@@ -637,19 +637,21 @@ export async function getCategories(companyname)
 		{
 			snapshot.forEach((childSnapshot) => 
 			{
-				const key = childSnapshot.key;    // This is your multi-key (e.g., "-N123...")
-				const item = childSnapshot.val(); // This is your multi-item data object
+				const key = childSnapshot.key;    
+				const item = childSnapshot.val(); 
 				if(key==companyname)
 				{
 					for (const [subKey, value] of Object.entries(item)) 
 					{
-						inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold'>"+subKey+"</h6>"
+						// 🌙 Main Category: Added 'main-category-dark' class
+						inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold main-category-dark'>"+subKey+"</h6>"
 						val=value.slice(0, -1);
 						subs=[];
 						const values = val.split(",");
 						for(let i=0;i<values.length;i++)
 						{
-							inner+="<a class='dropdown-item' href='#"+values[i]+"'>"+values[i]+"</a>"
+							// 🌙 Sub-Category: Added 'dropdown-item-dark' and 'sub-category-dark' class
+							inner+="<a class='dropdown-item dropdown-item-dark sub-category-dark' href='#"+values[i]+"'>"+values[i]+"</a>"
 							subs.push(values[i]);
 						}
 						inner+="</div>";
@@ -906,7 +908,7 @@ function renderCategoryPage()
 			prev=p.category;
 			prehtml="<section id='"+p.category+"'class='py-5'><div class='container'>";
 			prehtml+="<div class='d-flex justify-content-between align-items-center mb-4'>";
-			prehtml+="<h2 style='background: linear-gradient(to right, #42adad 30%, #0c2626 70%);color:#fff;border-radius: 10px;padding: 10px 5px;'class='fw-bold'>"+p.category+"</h2></div><div class='row g-3'>";
+			prehtml+="<h2 style='background: linear-gradient(to right, #42adad 30%, #0c2626 70%);color:#fff;border-radius: 10px;padding: 10px 5px;'>"+p.category+"</h2></div><div class='row g-3'>";
 			html+=prehtml+cardTemplate(p);
 		}
 		else if(prev==p.category)
@@ -918,7 +920,7 @@ function renderCategoryPage()
 			prev=p.category;
 			prehtml="<section id='"+p.category+"'class='py-5'><div class='container'>";
 			prehtml+="<div class='d-flex justify-content-between align-items-center mb-4'>";
-			prehtml+="<h2 style='background: linear-gradient(to right, #42adad 30%, #0c2626 70%);color:#fff;border-radius: 10px;padding: 10px 5px;'class='fw-bold'>"+p.category+"</h2></div><div class='row g-3'>";
+			prehtml+="<h2 style='background: linear-gradient(to right, #42adad 30%, #0c2626 70%);color:#fff;border-radius: 10px;padding: 10px 5px;'>"+p.category+"</h2></div><div class='row g-3'>";
 			posthtml="</div></div></section>";
 			html+=posthtml+prehtml+cardTemplate(p);
 		}
@@ -1196,41 +1198,44 @@ function renderProductDetail()
   ;
 	wireButtons(root)
 }
-function renderCartSidebar(cartItem1)
-{
-	var list=document.getElementById('cartList');
-	var totalEl=document.getElementById('cartTotal');
-	if(!list||!totalEl)return;
-	var html='';
-	var total=0;
-	
-	// 1. Build Sidebar HTML
-	cartItem1.forEach(function(ci)
-	{
-		total+=ci.price*ci.qty;
-		html +=
-      '<div class="d-flex align-items-center justify-content-between mb-2 pb-2" style="background-color: #1a1a1a; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px;">'+
-        '<div class="d-flex align-items-center gap-2">'+
-          '<img src="'+ci.image+'" onerror="this.onerror=null;this.src=\'items/0.png\';" alt="'+ci.title+'" width="48" height="48" style="object-fit:cover; border-radius:6px; background: #242424;">'+
-          '<div>' +
-            '<div class="small fw-semibold text-white">'+ci.title+'</div>' +
-            '<div class="small" style="color: #2ecc71; font-weight: bold;">'+money(ci.price)+' × '+ci.qty+'</div>' +
-          '</div>'+
-        '</div>'+
-        '<div class="d-flex align-items-center gap-1">'+
-          '<button class="btn btn-sm btn-outline-light" style="width: 26px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;" data-cart-dec="'+ci.id+'">-</button>'+
-          '<button class="btn btn-sm btn-outline-light" style="width: 26px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;" data-cart-inc="'+ci.id+'">+</button>' +
-          
-          // --- FIXED REMOVE BUTTON START ---
-          '<button class="btn btn-sm" style="width: 32px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; border: 1px solid #ff4757 !important; background-color: rgba(255, 71, 87, 0.1) !important; color: #ff4757 !important; margin-left: 4px;" data-cart-del="'+ci.id+'">' +
-            '<i class="fa-solid fa-trash"></i>' +
-          '</button>' +
-          // --- FIXED REMOVE BUTTON END ---
-          
-        '</div>'+
-      '</div>';
-	});
-	list.innerHTML=html;
+function renderCartSidebar(cartItem1) {
+    var list = document.getElementById('cartList');
+    var totalEl = document.getElementById('cartTotal');
+    var sidebarContainer = document.getElementById('cartSidebar'); 
+    
+    if (!list || !totalEl) return;
+
+    // ✅ FIX: Instead of removing ALL styles, we only clear the hardcoded background
+    // This preserves the Bootstrap "slide" animation
+    if (sidebarContainer) {
+        sidebarContainer.style.backgroundColor = ""; 
+        sidebarContainer.classList.add('themed-sidebar');
+    }
+
+    var html = '';
+    var total = 0;
+
+    cartItem1.forEach(function(ci) {
+        total += ci.price * ci.qty;
+        html +=
+        '<div class="d-flex align-items-center justify-content-between mb-2 pb-2 cart-item-row">' +
+            '<div class="d-flex align-items-center gap-2">' +
+                '<img src="' + ci.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="cart-item-img">' +
+                '<div>' +
+                    '<div class="small fw-semibold cart-item-title">' + ci.title + '</div>' +
+                    '<div class="small cart-item-price">' + money(ci.price) + ' × ' + ci.qty + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="d-flex align-items-center gap-1">' +
+                '<button class="btn btn-sm cart-qty-btn" data-cart-dec="' + ci.id + '">-</button>' +
+                '<button class="btn btn-sm cart-qty-btn" data-cart-inc="' + ci.id + '">+</button>' +
+                '<button class="btn btn-sm cart-remove-btn" data-cart-del="' + ci.id + '">' +
+                    '<i class="fa-solid fa-trash"></i>' +
+                '</button>' +
+            '</div>' +
+        '</div>';
+    });
+    list.innerHTML = html;
 
 	// 2. FIX: Sync Main Grid Buttons with current cart state
 	document.querySelectorAll('.pc-card-main').forEach(card => {
@@ -1267,30 +1272,39 @@ function renderCartSidebar(cartItem1)
 		if(checkTotal!=null)checkTotal.innerHTML=(parseFloat(totalEl.textContent)+2).toFixed(2);
 	}	
 }
-function renderCartSidebar2(cartItem1)
-{
-	var list=document.getElementById('cartList');
-	var totalEl=document.getElementById('cartTotal');
-	if(!list||!totalEl)return;
-	var html='';
-	var total=0;
-	
-	// 1. Build Sidebar HTML
-	cartItem1.forEach(function(ci)
-	{
-		total+=ci.price*ci.qty;
-		html +=
-      '<div class="d-flex align-items-center justify-content-between mb-2 pb-2" style="background-color: #1a1a1a; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 8px;">'+
-        '<div class="d-flex align-items-center gap-2">'+
-          '<img src="'+ci.image+'" onerror="this.onerror=null;this.src=\'items/0.png\';" alt="'+ci.title+'" width="48" height="48" style="object-fit:cover; border-radius:6px; background: #242424;">'+
-          '<div>' +
-            '<div class="small fw-semibold text-white">'+ci.title+'</div>' +
-            '<div class="small" style="color: #2ecc71; font-weight: bold;">'+money(ci.price)+' × '+ci.qty+'</div>' +
-          '</div>'+
-        '</div>'+
-      '</div>';
-	});
-	list.innerHTML=html;
+
+function renderCartSidebar2(cartItem1) {
+    var list = document.getElementById('cartList');
+    var totalEl = document.getElementById('cartTotal');
+    var sidebarContainer = document.getElementById('cartSidebar'); 
+    
+    if (!list || !totalEl) return;
+
+    // ✅ FIX: Instead of removing ALL styles, we only clear the hardcoded background
+    // This preserves the Bootstrap "slide" animation
+    if (sidebarContainer) {
+        sidebarContainer.style.backgroundColor = ""; 
+        sidebarContainer.classList.add('themed-sidebar');
+    }
+
+    var html = '';
+    var total = 0;
+
+    cartItem1.forEach(function(ci) {
+        total += ci.price * ci.qty;
+        html +=
+        '<div class="d-flex align-items-center justify-content-between mb-2 pb-2 cart-item-row">' +
+            '<div class="d-flex align-items-center gap-2">' +
+                '<img src="' + ci.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="cart-item-img">' +
+                '<div>' +
+                    '<div class="small fw-semibold cart-item-title">' + ci.title + '</div>' +
+                    '<div class="small cart-item-price">' + money(ci.price) + ' × ' + ci.qty + '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    });
+    list.innerHTML = html;
+    
 	// 2. FIX: Sync Main Grid Buttons with current cart state
 	document.querySelectorAll('.pc-card-main').forEach(card => {
 		const btn = card.querySelector('[data-product-id]');
@@ -1311,6 +1325,7 @@ function renderCartSidebar2(cartItem1)
 			btn.classList.add('pc-btn-primary', 'btn-primary-gradient');
 		}
 	});
+    
 	// 3. Totals and LocalStorage
 	if(totalEl)
 	{
@@ -1325,6 +1340,7 @@ function renderCartSidebar2(cartItem1)
 		if(checkTotal!=null)checkTotal.innerHTML=(parseFloat(totalEl.textContent)+2).toFixed(2);
 	}	
 }
+
 function changeQty(id,delta)
 {
 	var ids=""+id;
@@ -2479,3 +2495,72 @@ function onLoginSuccess(userid) {
         window.AndroidBridge.startBackgroundTracking(userid);
     }
 }
+
+window.toggleTheme = function() {
+    const body = document.body;
+    body.classList.toggle('dark-mode');
+    
+    const isDark = body.classList.contains('dark-mode');
+    
+    // 1. Save preference to Browser
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+
+    // 2. Flip the Sidebar Icon (Moon <-> Sun)
+    const themeBtnIcon = document.querySelector('#theme-toggle-btn i');
+    if (themeBtnIcon) {
+        if (isDark) {
+            themeBtnIcon.classList.replace('fa-moon', 'fa-sun');
+        } else {
+            themeBtnIcon.classList.replace('fa-sun', 'fa-moon');
+        }
+    }
+
+    // 3. Handle Bootstrap Close Buttons (X) logic if necessary
+    const closeButtons = document.querySelectorAll('.btn-close');
+    closeButtons.forEach(btn => {
+        if (isDark) {
+            btn.classList.add('btn-close-white');
+        } else {
+            btn.classList.remove('btn-close-white');
+        }
+    });
+
+    console.log("System Flip:", isDark ? "Night Mode Active" : "Day Mode Active");
+};
+
+// 🌙 Load preference on startup (Defaults to Dark)
+window.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('theme');
+    
+    // Determine if we should be in dark mode
+    const isDark = (savedTheme !== 'light');
+    
+    // 1. Set body class
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
+    }
+    
+    // 2. Set correct symbol icon (Moon if Day, Sun if Night)
+    const themeBtnIcon = document.querySelector('#theme-toggle-btn i');
+    if (themeBtnIcon) {
+        if (isDark) {
+            themeBtnIcon.classList.remove('fa-moon');
+            themeBtnIcon.classList.add('fa-sun');
+        } else {
+            themeBtnIcon.classList.remove('fa-sun');
+            themeBtnIcon.classList.add('fa-moon');
+        }
+    }
+    
+    // 3. Sync Bootstrap Close Buttons (X)
+    const closeButtons = document.querySelectorAll('.btn-close');
+    closeButtons.forEach(btn => {
+        if (isDark) {
+            btn.classList.add('btn-close-white');
+        } else {
+            btn.classList.remove('btn-close-white');
+        }
+    });
+});

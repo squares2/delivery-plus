@@ -333,6 +333,10 @@
 
 <!-- profile sidebar	-->
 <div id="userSidebar">
+	<!-- 🌓 Theme Toggle Button -->
+	<button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch Day/Night Mode">
+	<i class="fa-solid fa-moon"></i> <!-- Default icon -->
+	</button>
   <button class="close-sidebar-btn" onclick="closeUserSidebar()">&times;</button>
   
   <div class="profile-box">
@@ -346,7 +350,9 @@
     <p id="profilepoints">POINTS BALANCE</p>
   </div>	
   
-<button id="open-map-trigger" class="loc-btn btn-locate">Update My Location</button>
+<button id="open-map-trigger" class="loc-btn btn-locate">
+    <i class="fa-solid fa-earth-americas me-2"></i> Update My Location
+</button>
 <!-- Load Google Maps at the end of body -->
 
   <nav class="sidebar-links">

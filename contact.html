@@ -15,7 +15,7 @@
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script src="javascript/profileSidebar.js"></script>
-  <script type="module"src="javascript/startup.js"></script>
+  <script type="module" src="javascript/startup.js"></script>
 </head>
 <body>
   <div class="announcement-bar text-white">
@@ -26,156 +26,156 @@
       </div>
     </div>
   </div>
-  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
-    <div class="container"><img class="delivo-logo"src="png/castle.png"></img>
-      <a class="navbar-brand fw-bold" href="index.html"></i><img class="delivo-logo"src="png/delivo.png"></a>
- 		<a id="topcart"class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar"><i  class="fa-solid fa-cart-shopping"></i>
-		<span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-		</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 
-       <ul id=""class="navbar-nav">
-          <li class="nav-item dropdown mega">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">ALL Shops</a>
-            <div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
-              <div id="companieslist2"class="row g-3">
-                <div class="col-6 col-lg-3">
-                  <h6 class="fw-semibold">Loading...</h6>
-                </div>
-              </div>
+  <!-- 🌙 Nav Bar: Flipped from 'navbar-light bg-white' to 'navbar-dark bg-dark' -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
+  <div class="container">
+    <img class="delivo-logo" src="png/castle.png">
+    <a class="navbar-brand fw-bold" href="index.html">
+      <img class="delivo-logo" src="png/delivo.png">
+    </a>
+
+    <!-- Mega Menu and remaining links -->
+    <ul class="navbar-nav ms-3">
+      <li class="nav-item dropdown mega">
+        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">ALL Shops</a>
+        <div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
+          <div id="companieslist" class="row g-3">
+            <div class="col-6 col-lg-3">
+              <h6 class="fw-semibold">Loading...</h6>
             </div>
-		</li>	
-        </ul>
+          </div>
+        </div>
+      </li>
+    </ul>
+	
+	
     <!-- Top Right Icons Group -->
     <div class="d-flex align-items-center ms-auto">
       <!-- Cart Icon -->
-		<div class="dropdown ms-2">
-			<a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
-				<i class="fa-solid fa-circle-user fa-lg me-2"></i>
-				<span id="navUserName" class="fw-semibold">Public</span>
-			</a>
-			<!-- The ID here is critical for the JS to inject the items -->
-			<ul id="userDropdownMenu" class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu">
-				<li>
-					<a class="dropdown-item" href="index.html" >Home</a>
-				</li>
-				<li>
-					<a class="dropdown-item" href="about.html" >About Us</a>
-				</li>
-				<li>
-					<a class="dropdown-item" href="contact.html" >Contact</a>
-				</li>
-				<li>
-					<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a>
-				</li>
-				<!-- Updated Register Link -->
-				<li>
-					<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#registerModal" >Register</a>
-				</li>
-			</ul>
-		</div>
-	</div>
-    </div>
-  </nav>
+      <a id="topcart" class="nav-link position-relative me-3" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
+        <i class="fa-solid fa-cart-shopping"></i>
+        <span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
+      </a>
 
-<div id="maintenance-overlay">
-  <div class="message-card">
-    <!-- Status Indicator -->
-    <div class="status-badge">
-      <span class="status-dot"></span>
-      Currently Closed
-    </div>
-
-    <i class="fa-solid fa-store-slash main-icon"></i>
-    <h1>Shop is Resting</h1>
-    <p>Delivo is currently closed for maintenance. We are updating our inventory to serve you better!</p>
-
-    <!-- The Schedule Box -->
-    <div class="schedule-box">
-      <div class="schedule-header">
-        <i class="fa-regular fa-calendar-check"></i> Reopening Tomorrow
-      </div>
-      <div class="schedule-time">
-        <span class="day">Thursday, Feb 12</span>
-        <span class="time">09:00 AM — 09:00 PM</span>
-      </div>
-    </div>
-
-    <div class="footer-links">
-      <a href="#"><i class="fa-brands fa-whatsapp"></i> Contact Support</a>
-    </div>
-  </div>
+		<div class="dropdown ms-2" id="userMenuWrapper">
+    <!-- The ID 'userMenu' is what the JS will use to swap between 'dropdown' and 'offcanvas' -->
+    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fa-solid fa-circle-user fa-lg me-2"></i>
+        <span id="navUserName" class="fw-semibold">Public</span>
+    </a>
+    
+    <!-- This menu only shows when logged out (data-bs-toggle="dropdown") -->
+    <ul id="userDropdownMenu" class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu">
+        <li>
+            <a class="dropdown-item" href="index.html" >Home</a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="about.html" >About Us</a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="contact.html" >Contact</a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#registerModal">Register</a>
+        </li>
+    </ul>
 </div>
-<section class="py-5">
-	<div class="container">
-		<h2 class="fw-bold">Contact Us</h2>
-		<p class="text-muted">We would love to listen to you.</p>
-		<div class="row g-4 mt-1">
-			<div class="col-12 col-lg-6">
-				<div class="p-4 border rounded h-100">
-					<div class="fw-semibold mb-2">Support</div>
-					<p class="text-muted">Email: deliveryplus@gmail.com</p>
-					<p class="text-muted">Phone: +961 70 714 152</p>
-					<div class="fw-semibold mb-2">Address</div>
-					<p class="text-muted">Ras El-Ain Street, Baalbeck, Lebanon</p>
-				</div>
-			</div>
-			<div class="col-12 col-lg-6">
-				<form class="p-4 border rounded">
-					<div class="mb-3">
-						<label class="form-label">Name</label>
-						<input type="text" class="form-control" placeholder="Your name">
-					</div>
-					<div class="mb-3">
-						<label class="form-label">Email</label>
-						<input type="email" class="form-control" placeholder="you@example.com">
-					</div>
-					<div class="mb-3">
-						<label class="form-label">Message</label>
-						<textarea class="form-control" rows="5" placeholder="Write your message"></textarea>
-					</div>
-					<button type="button" class="btn btn-primary">Send Message</button>
-				</form>
-			</div>
-		</div>
 	</div>
-</section>
+</nav>
 
-
-  <footer class="footer bg-dark text-white pt-5">
-    <div class="container">
-      <div class="row g-4">
-        <div class="col-12 col-lg-3">
-          <h6 class="fw-semibold">About</h6>
-          <p class="text-muted">Delivo brings you any thing you need to your door with great prices.</p>
+  <!-- 🌙 Maintenance Card: Hardcoded white defaults stripped -->
+  <div id="maintenance-overlay">
+    <div class="message-card bg-dark text-white border border-secondary p-4 rounded text-center">
+      <div class="status-badge mb-3">
+        <span class="status-dot bg-danger d-inline-block rounded-circle" style="width:10px;height:10px;"></span>
+        Currently Closed
+      </div>
+      <i class="fa-solid fa-store-slash main-icon text-muted mb-3" style="font-size: 3rem;"></i>
+      <h1 class="fw-bold text-white">Shop is Resting</h1>
+      <p class="text-muted">Delivo is currently closed for maintenance. We are updating our inventory to serve you better!</p>
+      
+      <div class="schedule-box bg-secondary p-3 rounded mb-3">
+        <div class="schedule-header fw-bold text-white">
+          <i class="fa-regular fa-calendar-check me-2"></i> Reopening Tomorrow
+        </div>
+        <div class="schedule-time text-light">
+          <span class="day">Thursday, Feb 12</span> |
+          <span class="time">09:00 AM — 09:00 PM</span>
         </div>
       </div>
-      <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivo All rights reserved.</div>
+
+      <div class="footer-links">
+        <a href="#" class="text-success fw-bold"><i class="fa-brands fa-whatsapp"></i> Contact Support</a>
+      </div>
     </div>
-  </footer>
-<!-- Bottom Navigation Bar (Visible only on mobile/tablet) -->
-<nav class="navbar navbar-light bg-white border-top fixed-bottom d-lg-none py-2">
-  <div class="container-fluid d-flex justify-content-around text-center">
-    
-    <a href="index.html" class="nav-link text-dark">
-      <i class="fa-solid fa-house d-block mb-1"></i>
-      <small>Home</small>
-    </a>
-	<a class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
-		<i class="fa-solid fa-cart-shopping"></i>
-		<span id="cartCount2" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-		<small></small>
-    </a>
   </div>
-</nav>
+
+  <!-- 🌙 Content Section: Flipped the text and borders to dark variables -->
+  <section class="py-5 text-white">
+    <div class="container">
+      <h2 class="fw-bold text-white">Contact Us</h2>
+      <p class="text-muted">We would love to listen to you.</p>
+      
+      <div class="row g-4 mt-1">
+        <!-- Contact Info Block -->
+        <div class="col-12 col-lg-6">
+          <div class="p-4 border border-secondary rounded h-100 bg-dark">
+            <div class="fw-semibold mb-2 text-success">Support</div>
+            <p class="text-muted">Email: deliveryplus@gmail.com</p>
+            <p class="text-muted">Phone: +961 70 714 152</p>
+            <div class="fw-semibold mb-2 text-success">Address</div>
+            <p class="text-muted">Ras El-Ain Street, Baalbeck, Lebanon</p>
+          </div>
+        </div>
+        
+        <!-- Form Block -->
+<div class="col-12 col-lg-6">
+  <!-- 🌓 Removed 'bg-dark' - now it follows the variable in styles.css -->
+  <form class="p-4 border rounded contact-form-theme">
+    <div class="mb-3">
+      <label class="form-label">Name</label>
+      <!-- 🌓 Removed 'bg-secondary' and 'text-white' -->
+      <input type="text" class="form-control" placeholder="Your name">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-control" placeholder="you@example.com">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Message</label>
+      <textarea class="form-control" rows="5" placeholder="Write your message"></textarea>
+    </div>
+    <button type="button" class="btn btn-primary fw-bold">Send Message</button>
+  </form>
+</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 🌙 Bottom Nav Bar: Flipped from 'bg-white' and 'text-dark' to dark styling -->
+  <nav class="navbar navbar-dark bg-dark border-top border-secondary fixed-bottom d-lg-none py-2">
+    <div class="container-fluid d-flex justify-content-around text-center">
+      <a href="index.html" class="nav-link text-light">
+        <i class="fa-solid fa-house d-block mb-1"></i>
+        <small>Home</small>
+      </a>
+      <a class="nav-link position-relative text-light" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
+        <i class="fa-solid fa-cart-shopping"></i>
+        <span id="cartCount2" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
+      </a>
+    </div>
+  </nav>
 
   <div class="offcanvas offcanvas-end text-white" tabindex="-1" id="cartSidebar" style="background-color: #1a1a1a !important;">
     <div class="offcanvas-header border-bottom border-secondary">
       <h5 class="offcanvas-title fw-bold">Your Cart</h5>
-      <!-- Changed close button to white variant -->
       <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body">
-      <!-- Removed 'list-group' class to stop Bootstrap from forcing white backgrounds -->
       <div id="cartList" class="mb-3"></div>
       
       <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
@@ -183,94 +183,103 @@
         <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
       </div>
       
-      <!-- Applied your Stylish Blue Gradient to the button -->
       <a href="checkout.html" class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">Checkout</a>
     </div>
-	</div>
+  </div>
 
   <div class="modal fade" id="quickViewModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="quickViewTitle"></h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <!-- 🌙 Flipped to dark card backgrounds -->
+      <div class="modal-content bg-dark text-white border-secondary">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title text-white" id="quickViewTitle"></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <img id="quickViewImage" class="img-fluid rounded mb-3" alt="">
           <div class="d-flex justify-content-between align-items-center">
-            <div class="fw-semibold" id="quickViewPrice"></div>
-            <button class="btn btn-primary" id="quickViewAdd">Add to Cart</button>
+            <div class="fw-semibold text-white" id="quickViewPrice"></div>
+            <button class="btn btn-primary fw-bold" id="quickViewAdd">Add to Cart</button>
           </div>
         </div>
       </div>
     </div>
   </div>
-<!-- Login Modal (Place this before </body>) -->
+
+<!-- Login Modal -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title fw-bold">Sign In</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-content bg-dark text-white border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title fw-bold text-white">Sign In</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label class="form-label small fw-bold">Username</label>
-          <input type="text" id="loginUser" class="form-control">
+          <label class="form-label small fw-bold text-light">Username</label>
+          <!-- 🌙 Flipped inputs to transparent dark with light text -->
+          <input type="text" id="loginUser" class="form-control bg-secondary text-white border-0">
         </div>
         <div class="mb-3">
-          <label class="form-label small fw-bold">Password</label>
-          <input type="password" id="loginPass" class="form-control">
+          <label class="form-label small fw-bold text-light">Password</label>
+          <input type="password" id="loginPass" class="form-control bg-secondary text-white border-0">
         </div>
         <button type="button" id="loginBtn" class="btn btn-primary w-100 fw-bold">Login</button>
       </div>
     </div>
   </div>
 </div>
+
 <!-- Registration Modal -->
 <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
   <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="registerModalLabel">Create New Account</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-content bg-dark text-white border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title text-white" id="registerModalLabel">Create New Account</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <form id="registrationForm">
           <div class="mb-3 position-relative">
-  <label class="form-label">Username</label>
-  <div class="d-flex align-items-center">
-    <input type="text" class="form-control" id="username" placeholder="username" required autocomplete="off">
-    <div id="username-status" class="ms-2" style="min-width: 100px; font-size: 0.85rem;"></div>
-  </div>
-</div>
-          <div class="mb-3">
-            <label class="form-label">Phone Number</label>
-            <input type="tel" class="form-control" id="phone" placeholder="e.g. 76123456" required>
+            <label class="form-label text-light">Username</label>
+            <div class="d-flex align-items-center">
+              <input type="text" class="form-control bg-secondary text-white border-0" id="username" placeholder="username" required autocomplete="off">
+              <div id="username-status" class="ms-2 text-info" style="min-width: 100px; font-size: 0.85rem;"></div>
+            </div>
           </div>
           <div class="mb-3">
-            <label class="form-label">Password</label>
-            <input type="password" class="form-control" id="password" required>
+            <label class="form-label text-light">Phone Number</label>
+            <input type="tel" class="form-control bg-secondary text-white border-0" id="phone" placeholder="e.g. 76123456" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Confirm Password</label>
-            <input type="password" class="form-control" id="confirmPassword" required>
+            <label class="form-label text-light">Password</label>
+            <input type="password" class="form-control bg-secondary text-white border-0" id="password" required>
           </div>
-          <button type="submit" class="btn btn-primary w-100">Register</button>
+          <div class="mb-3">
+            <label class="form-label text-light">Confirm Password</label>
+            <input type="password" class="form-control bg-secondary text-white border-0" id="confirmPassword" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 fw-bold">Register</button>
         </form>
       </div>
     </div>
   </div>
 </div>
+
 <!-- Custom Alert Popup -->
-<div id="customAlert" class="hidden alert-overlay">
-    <div class="alert-content">
-        <p id="alertMessage"></p>
-        <button class="alert-btn" onclick="closeAlert()">OK</button>
+<div id="customAlert" class="hidden alert-overlay" style="background: rgba(0,0,0,0.7) !important;">
+    <div class="alert-content bg-dark border border-secondary text-white">
+        <p id="alertMessage" class="text-light"></p>
+        <button class="alert-btn btn-primary" onclick="closeAlert()">OK</button>
     </div>
 </div>
+
 <!-- profile sidebar	-->
 <div id="userSidebar">
+	<!-- 🌓 Theme Toggle Button -->
+	<button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch Day/Night Mode">
+	<i class="fa-solid fa-moon"></i> <!-- Default icon -->
+	</button>
   <button class="close-sidebar-btn" onclick="closeUserSidebar()">&times;</button>
   
   <div class="profile-box">
@@ -284,7 +293,9 @@
     <p id="profilepoints">POINTS BALANCE</p>
   </div>	
   
-<button id="open-map-trigger" class="loc-btn btn-locate">Update My Location</button>
+<button id="open-map-trigger" class="loc-btn btn-locate">
+    <i class="fa-solid fa-earth-americas me-2"></i> Update My Location
+</button>
 <!-- Load Google Maps at the end of body -->
 
   <nav class="sidebar-links">
@@ -320,15 +331,16 @@
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
 
 <!-- UNIQUE Password Modal -->
-<div id="CP-Modal-Wrapper">
-    <div id="CP-Modal-Content">
-        <span id="CP-Close-Btn" onclick="hidePassModal()">&times;</span>
+<div id="CP-Modal-Wrapper" style="background: rgba(0,0,0,0.7) !important;">
+    <div id="CP-Modal-Content" class="bg-dark text-white border border-secondary p-4 rounded">
+        <span id="CP-Close-Btn" class="text-white" onclick="hidePassModal()">&times;</span>
         <h2 style="margin-top:0; color:#3498db;">Change Password</h2>
         <form id="changePasswordForm">
-            <input type="password" id="oldPassword" placeholder="Old Password" required>
-            <input type="password" id="newPassword" placeholder="New Password" required>
-            <input type="password" id="confirmPassword2" placeholder="Confirm New Password" required>
-            <button type="submit" id="CP-Submit-Btn">Update Password</button>
+            <!-- 🌙 Flipped password field boxes -->
+            <input type="password" id="oldPassword" class="form-control bg-secondary text-white border-0 mb-3" placeholder="Old Password" required>
+            <input type="password" id="newPassword" class="form-control bg-secondary text-white border-0 mb-3" placeholder="New Password" required>
+            <input type="password" id="confirmPassword2" class="form-control bg-secondary text-white border-0 mb-3" placeholder="Confirm New Password" required>
+            <button type="submit" id="CP-Submit-Btn" class="btn btn-primary w-100 fw-bold">Update Password</button>
         </form>
     </div>
 </div>

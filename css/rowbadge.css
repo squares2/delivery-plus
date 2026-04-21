@@ -1,86 +1,103 @@
-/* 1. Main Navbar Layout */
+/* ==========================================
+   1. MAIN NAVBAR LAYOUT (🌓 Dynamic Glass)
+   ========================================== */
 .navbar-styled { 
   height: clamp(48px, 8vh, 60px); 
-  padding: 0 0.75rem; /* Reduced padding for more space */
-  background: rgba(255, 255, 255, 0.95);
+  padding: 0 0.75rem; 
+  background: var(--bg-cards) !important; /* 🌓 Flips between white and dark glass */
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 1000;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color) !important; /* 🌓 Dynamic gray border */
+  box-shadow: 0 10px 30px var(--shadow-color);
+  transition: background 0.5s ease, border-color 0.5s ease;
 }
 
-/* 2. Critical Dropdown Fix */
-#userMenuContainer { position: relative; }
+/* ==========================================
+   2. CRITICAL DROPDOWN FIX
+   ========================================== */
+#userMenuContainer { 
+  position: relative; 
+}
+
 #userMenuContainer .dropdown-menu {
   position: absolute !important;
   top: 100%;
   left: 0;
   z-index: 1100;
   margin-top: 5px;
-  background: white;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background: var(--bg-cards) !important; /* 🌓 Flips background */
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 10px 30px var(--shadow-color) !important;
 }
 
-/* 3. Dynamic Stats Bar - Added Horizontal Scroll for Mobile */
+/* ==========================================
+   3. DYNAMIC STATS BAR (🌓 Dynamic Gray Tone)
+   ========================================== */
 .stats-bar-wide {
   display: flex;
   align-items: center;
-  background: #f1f3f4;
+  background: var(--bg-inputs) !important; /* 🌓 Moves with active theme background */
   border-radius: 10px;
   padding: 2px;
-  border: 1px solid #e0e0e0;
-  /* Allow the bar to take up remaining space but not overflow */
+  border: 1px solid var(--border-color) !important; /* 🌓 Dynamic border */
   width: auto; 
   max-width: 90vw; 
   flex-wrap: nowrap;
-  overflow-x: auto; /* Allows swiping if too narrow */
-  scrollbar-width: none; /* Hides scrollbar on Firefox */
-  -ms-overflow-style: none; /* Hides scrollbar on IE/Edge */
+  overflow-x: auto; 
+  scrollbar-width: none; 
 }
 
-/* Hide scrollbar for Chrome/Safari */
+/* Hide scrollbar for Chrome/Safari and Firefox */
 .stats-bar-wide::-webkit-scrollbar { display: none; }
 
 .stat-segment {
-  flex: 0 0 auto; /* Prevents segments from squishing too much */
+  flex: 0 0 auto; 
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 2px clamp(6px, 1.7vw, 15px);
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--border-color) !important; /* 🌓 Dynamic dividing line */
 }
 
 .stat-segment:last-child { border-right: none; }
 
-/* 4. Fluid Typography - Slightly Smaller Minimums */
+/* 4. Fluid Typography */
 .stat-label-tiny {
-  font-size: clamp(6.5px, 1vw, 10px); /* Lowered min to 6.5px */
+  font-size: clamp(6.5px, 1vw, 10px); 
   text-transform: uppercase;
   font-weight: 800;
   letter-spacing: 0.3px;
   margin-bottom: -2px;
   white-space: nowrap;
+  color: var(--text-muted) !important; /* 🌓 Flips to accessible text tone */
 }
 
 .stat-value-bold {
-  font-size: clamp(9.5px, 1.5vw, 15px); /* Lowered min to 9.5px */
+  font-size: clamp(9.5px, 1.5vw, 15px); 
   font-weight: 900;
   line-height: 1;
+  color: var(--text-main) !important; /* 🌓 Pure black on day, pure white on night */
 }
 
-/* 5. Status Colors */
-.text-delivered { color: #198754 !important; }
-.text-ndelivered { color: #495057 !important; }
-.text-delayed { color: #4f81bd !important; }
-.text-canceled { color: #dc3545 !important; }
-.text-pcanceled { color: #ab6b0c !important; }
+/* ==========================================
+   4. STATUS COLORS (Identical overrides preserved)
+   ========================================== */
+.text-delivered { color: #2ecc71 !important; }  
+.text-ndelivered { color: var(--text-muted) !important; } /* 🌓 Prevents text from going invisible */
+.text-delayed { color: #60a5fa !important; }   
+.text-canceled { color: #ff4d4d !important; }  
+.text-pcanceled { color: #fbbf24 !important; } 
 
-/* 6. Realistic History Button */
+/* ==========================================
+   5. REALISTIC HISTORY BUTTON (🌓 Dynamic bubble background)
+   ========================================== */
 .history-glass-btn {
   text-decoration: none;
   margin-left: 6px;
@@ -90,20 +107,22 @@
 .icon-sphere-realistic {
   width: clamp(28px, 3.5vw, 38px);
   height: clamp(28px, 3.5vw, 38px);
-  background: radial-gradient(circle at 30% 30%, #ffffff, #e6e6e6);
+  /* 🌓 Flips between light and dark metallic physics */
+  background: radial-gradient(circle at 30% 30%, var(--border-color), var(--bg-primary));
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #495057;
-  border: 1px solid rgba(0,0,0,0.1);
-  box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+  color: var(--text-main) !important; 
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 4px 6px var(--shadow-color) !important;
   font-size: clamp(11px, 1.1vw, 16px);
 }
 
-/* 7. Final Fix for Very Narrow Screens */
+/* ==========================================
+   6. FINAL FIX FOR VERY NARROW SCREENS
+   ========================================== */
 @media (max-width: 360px) {
   .navbar-styled { padding: 0 0.4rem; }
   .stat-segment { padding: 2px 5px; }
-  #userLabel { display: none; } /* Hides "User" text, keeps icon to save space */
 }

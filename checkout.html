@@ -73,33 +73,37 @@
     </div>
   </nav>
 
-<section class="py-5">
+<section class="py-5 bg-transparent">
 	<div class="container">
 		<div class="row g-4">
+			<!-- Shipping Address Column -->
 			<div class="col-12 col-lg-7">
-				<div class="p-4 border rounded">
-					<h5 class="mb-3">Shipping Address</h5>
+				<!-- 🌓 Kept themed-card for dynamic background -->
+				<div class="p-4 border rounded shadow-sm themed-card">
+					<h5 class="mb-3 themed-title">Shipping Address</h5>
 					<div class="row g-3">
 						<div class="col-12 col-md-6">
-							<input type="text" id="fullname"class="form-control" placeholder="Full name">
+							<!-- 🌓 Added themed-input to all inputs -->
+							<input type="text" id="fullname" class="form-control themed-input" placeholder="Full name">
 						</div>
 						<div class="col-6 col-md-6">
-							<input type="text" id="phone"class="form-control" placeholder="Phone Number">
+							<input type="text" id="phone" class="form-control themed-input" placeholder="Phone Number">
 						</div>
 						<div class="col-6 col-md-6">
-							<input type="text" id="city"class="form-control" placeholder="City">
+							<input type="text" id="city" class="form-control themed-input" placeholder="City">
 						</div>
 						<div class="col-12">
-							<input type="text" id="street"class="form-control" placeholder="Street - Building - Floor">
+							<input type="text" id="street" class="form-control themed-input" placeholder="Street - Building - Floor">
 						</div>
 						<div class="col-12">
-							<input type="text" id="note"class="form-control" placeholder="Note">
+							<input type="text" id="note" class="form-control themed-input" placeholder="Note">
 						</div>
 					</div>
 				</div>
-			</div>
+			</div>			
+			<!-- Order Summary Column -->
 			<div class="col-12 col-lg-5">
-				<div class="p-4 border rounded">
+				<div class="p-4 border rounded shadow-sm themed-card">
 					<h5 class="mb-3">Order Summary</h5>
 					<div class="d-flex justify-content-between">
 						<span>Items</span>
@@ -109,24 +113,26 @@
 						<span>Subtotal</span>
 						<span id="subTotal">$2.00</span>
 					</div>
-					<div class="d-flex justify-content-between">
+					<div class="d-flex justify-content-between text-danger-strict">
 						<span>Delivery Price</span>
 						<span>2 $</span>
 					</div>
-					<hr class="my-2">
-					<div class="d-flex justify-content-between">
-						<span style="color:#006400;font-size:20px;font-weight:600">Total</span>
-						<span id="checktotal"style="color:#006400;font-size:20px;font-weight:600">2 $</span>
+					<hr class="my-2 themed-hr">
+					<div class="d-flex justify-content-between text-success-strict">
+						<span class="themed-total-label">Total</span>
+						<span id="checktotal" class="themed-total-value">2 $</span>
 					</div>
 				</div>
 			</div>
-			<button id="place_order"class="btn btn-primary2 mt-3">Place Order</button>
-			<div style="display:none"id="message-label" class="btn btn-success mt-3">
-				Order Sent to Delivo SUCCESSFULLY  !
+			
+			<!-- Buttons -->
+			<button id="place_order" class="btn btn-primary2 mt-3 fw-bold">Place Order</button>
+			<div style="display:none" id="message-label" class="btn btn-success mt-3 fw-bold">
+				Order Sent to Delivo SUCCESSFULLY!
 			</div>
 		</div>
 	</div>
-</section>  
+</section>
 
   <footer class="footer bg-dark text-white pt-5">
     <div class="container">
@@ -259,6 +265,10 @@
 </div>
 <!-- profile sidebar	-->
 <div id="userSidebar">
+	<!-- 🌓 Theme Toggle Button -->
+	<button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch Day/Night Mode">
+	<i class="fa-solid fa-moon"></i> <!-- Default icon -->
+	</button>
   <button class="close-sidebar-btn" onclick="closeUserSidebar()">&times;</button>
   
   <div class="profile-box">
@@ -272,7 +282,9 @@
     <p id="profilepoints">POINTS BALANCE</p>
   </div>	
   
-<button id="open-map-trigger" class="loc-btn btn-locate">Update My Location</button>
+<button id="open-map-trigger" class="loc-btn btn-locate">
+    <i class="fa-solid fa-earth-americas me-2"></i> Update My Location
+</button>
 <!-- Load Google Maps at the end of body -->
 
   <nav class="sidebar-links">

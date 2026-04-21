@@ -5,12 +5,15 @@
   font-family: sans-serif;
   margin: 25px 0;
   font-size: 0.9em;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px var(--shadow-color) !important; /* 🌓 Dynamic depth shadow */
   text-align: center;
+  background-color: var(--bg-cards) !important; /* 🌓 Flips between white and dark glass */
+  color: var(--text-main) !important; /* 🌓 Flips text color */
+  transition: background-color 0.5s ease, color 0.5s ease;
 }
 
 .mobile-table thead tr {
-  background-color: #009879;
+  background-color: #1a2e1a !important; /* Kept solid dark green header for contrast on both modes */
   color: #ffffff;
 }
 
@@ -20,11 +23,11 @@
 }
 
 .mobile-table tbody tr {
-  border-bottom: 1px solid #dddddd;
+  border-bottom: 1px solid var(--border-color) !important; /* 🌓 Dynamic border separator */
 }
 
 .mobile-table tbody tr:nth-of-type(even) {
-  background-color: #f3f3f3;
+  background-color: rgba(255, 255, 255, 0.02) !important; /* Keep soft tint for zebra stripes */
 }
 
 /* Hide Mobile Elements on Desktop */
@@ -35,23 +38,25 @@
 
 /* --- Status Badges & Buttons --- */
 .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+
 .status-selector {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: center; 
   gap: 6px;
-  background: #f8f8f8;
+  background: var(--bg-inputs) !important; /* 🌓 Flips box container background */
   padding: 6px;
   border-radius: 10px;
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
+  border: 1px solid var(--border-color) !important;
 }
 
 .status-btn, .status-btn2 {
   flex: 1 1 auto;
   min-width: 85px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color) !important; /* 🌓 Dynamic border mapping */
   padding: 10px 8px;
   font-size: 10px;
   font-weight: 700;
@@ -66,16 +71,27 @@
   transition: all 0.3s ease;
 }
 
-.status-btn { background: #ffffff; color: #444; }
-.status-btn2 { background: #328a68; color: #fff; border-color: #bbb; }
-.status-btn:hover { background: #f0f0f0; border-color: #bbb; }
+.status-btn { 
+  background: var(--bg-inputs) !important; /* 🌓 Moves with the active theme background */
+  color: var(--text-main) !important; 
+}
 
-/* Status Colors (Shared by Buttons and Mobile Badges) */
-.btn-ndelivered.active, .m-status-badge.btn-ndelivered { background-color: #57514a; color: white; border-color: #57514a; }
-.btn-delivered.active, .m-status-badge.btn-delivered { background-color: #27ae60; color: white; border-color: #27ae60; }
-.btn-canceled.active, .m-status-badge.btn-canceled { background-color: #c91c10; color: white; border-color: #c91c10; }
-.btn-pcanceled.active, .m-status-badge.btn-pcanceled { background-color: #ab6b0c; color: white; border-color: #ab6b0c; }
-.btn-delayed.active, .m-status-badge.btn-delayed { background-color: #0d5ba8; color: white; border-color: #0d5ba8; }
+.status-btn2 { 
+  background: #198754 !important; /* Fallback active green */
+  color: #fff; 
+  border-color: var(--border-color) !important; 
+}
+
+.status-btn:hover { 
+  background: var(--border-color) !important; /* Subtle box hover fill based on variables */
+}
+
+/* Status Colors */
+.btn-ndelivered.active, .m-status-badge.btn-ndelivered { background-color: #6b7280; color: white; border-color: #6b7280; }
+.btn-delivered.active, .m-status-badge.btn-delivered { background-color: #2ecc71; color: white; border-color: #2ecc71; }
+.btn-canceled.active, .m-status-badge.btn-canceled { background-color: #ff4d4d; color: white; border-color: #ff4d4d; }
+.btn-pcanceled.active, .m-status-badge.btn-pcanceled { background-color: #fbbf24; color: #121212; border-color: #fbbf24; }
+.btn-delayed.active, .m-status-badge.btn-delayed { background-color: #60a5fa; color: white; border-color: #60a5fa; }
 
 /* --- Mobile Responsive Layout (850px and down) --- */
 @media screen and (max-width: 850px) {
@@ -90,9 +106,9 @@
 
   .mobile-table tr {
     margin-bottom: 15px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color) !important; /* 🌓 Theme-aware card separator */
     border-radius: 8px;
-    background: #fff;
+    background: var(--bg-cards) !important; /* 🌓 Pure white or glass gray dynamically */
     overflow: hidden;
   }
 
@@ -100,8 +116,8 @@
   .mobile-table td[data-label="Ship Number"] {
     padding: 12px !important;
     text-align: left !important;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #eee;
+    background-color: var(--bg-inputs) !important; /* 🌓 Dynamic gray header for rows */
+    border-bottom: 1px solid var(--border-color) !important;
   }
 
   .mobile-table td[data-label="Ship Number"]::before { display: none; }
@@ -116,8 +132,8 @@
     display: inline-block !important;
     width: 28px;
     height: 28px;
-    background: #009879;
-    color: white;
+    background: #4ade80 !important; /* High contrast green button */
+    color: #121212 !important;
     border-radius: 4px;
     text-align: center;
     line-height: 28px;
@@ -126,8 +142,8 @@
     flex-shrink: 0;
   }
 
-  .m-ship { font-weight: bold; flex-grow: 1; color: #333; }
-  .m-total { font-weight: bold; color: #009879; }
+  .m-ship { font-weight: bold; flex-grow: 1; color: var(--text-main) !important; }
+  .m-total { font-weight: bold; color: #22c55e !important; } /* Dynamic green total money marker */
   .m-status-badge { 
     font-size: 9px; 
     padding: 4px 8px; 
@@ -143,7 +159,8 @@
     padding: 12px 15px;
     padding-left: 50%;
     position: relative;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-color) !important;
+    color: var(--text-main) !important;
   }
 
   .mobile-table td:not([data-label="Ship Number"])::before {
@@ -151,7 +168,7 @@
     position: absolute;
     left: 15px;
     font-weight: bold;
-    color: #009879;
+    color: #22c55e !important; /* Label markers stand out on dark and bright grids */
     text-align: left;
   }
 
@@ -161,6 +178,61 @@
   }
 
   .mobile-table tr.expanded .toggle-icon {
-    background: #c91c10;
+    background: #ff4d4d !important; /* Red collapse background */
+    color: white !important;
   }
+}
+
+/* ==========================================
+   🎯 UNIFIED ORDER STATUS COLORS
+   ========================================== */
+
+/* 1. Delivered */
+.text-delivered, .btn-delivered.active, .m-status-badge.btn-delivered { 
+  color: #2ecc71 !important; 
+  border-color: #2ecc71 !important; 
+}
+.btn-delivered.active, .m-status-badge.btn-delivered {
+  background-color: #2ecc71 !important;
+  color: #121212 !important; 
+}
+
+/* 2. Not Delivered */
+.text-ndelivered, .btn-ndelivered.active, .m-status-badge.btn-ndelivered { 
+  color: var(--text-muted) !important; /* 🌓 Dynamic text shift so label doesn't go invisible */
+  border-color: var(--border-color) !important; 
+}
+.btn-ndelivered.active, .m-status-badge.btn-ndelivered {
+  background-color: var(--text-muted) !important;
+  color: #ffffff !important;
+}
+
+/* 3. Delayed */
+.text-delayed, .btn-delayed.active, .m-status-badge.btn-delayed { 
+  color: #60a5fa !important; 
+  border-color: #60a5fa !important; 
+}
+.btn-delayed.active, .m-status-badge.btn-delayed {
+  background-color: #60a5fa !important;
+  color: #ffffff !important;
+}
+
+/* 4. Canceled */
+.text-canceled, .btn-canceled.active, .m-status-badge.btn-canceled { 
+  color: #ff4d4d !important; 
+  border-color: #ff4d4d !important; 
+}
+.btn-canceled.active, .m-status-badge.btn-canceled {
+  background-color: #ff4d4d !important;
+  color: #ffffff !important;
+}
+
+/* 5. Partially Canceled / Pending */
+.text-pcanceled, .btn-pcanceled.active, .m-status-badge.btn-pcanceled { 
+  color: #fbbf24 !important; 
+  border-color: #fbbf24 !important; 
+}
+.btn-pcanceled.active, .m-status-badge.btn-pcanceled {
+  background-color: #fbbf24 !important;
+  color: #121212 !important; 
 }

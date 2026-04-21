@@ -7,14 +7,16 @@
   position: sticky;
   top: 75px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.1) !important; 
+  /* 🌓 Flips background dynamically based on your root variables */
+  background: var(--bg-cards) !important; 
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 1050 !important;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
   padding: 10px 0;
   display: flex;
   flex-direction: column;
+  transition: background 0.5s ease, border-color 0.5s ease;
 }
 
 .sub-nav-wrapper {
@@ -28,11 +30,10 @@
 /* 2. FLIPPER (Title & Arrows) */
 .main-cat-flipper {
   display: grid;
-  /* Columns: [Left Arrow 50px] [Gap 15px] [Word 220px] [Gap 15px] [Right Arrow 50px] */
   grid-template-columns: 50px 220px 50px; 
-  justify-content: center; /* Centers the entire grid on screen */
+  justify-content: center; 
   align-items: center;
-  gap: 20px;               /* Fixed extra distance between arrows and box */
+  gap: 20px;               
   padding: 0 15px;
   margin-bottom: -6px;
   margin-top: 10px;
@@ -40,12 +41,11 @@
 
 .current-main-cat 
 {
-  /* FIXED WIDTH - The box will NEVER change size */
   width: 100%;             
   text-align: center;      
-  
   font-weight: 800;
   font-size: 0.9rem;
+  /* 🌓 Replaced hardcoded dark background with a high-contrast theme gradient */
   background: linear-gradient(to right, #42adad 30%, #0c2626 70%);
   color: #fff;
   border-radius: 10px;
@@ -53,8 +53,8 @@
   text-transform: uppercase;
   letter-spacing: 1px;
   white-space: nowrap;     
-  overflow: hidden;        /* Prevents text from pushing the box wider */
-  text-overflow: ellipsis; /* Adds "..." if a word is impossibly long */
+  overflow: hidden;        
+  text-overflow: ellipsis; 
   display: block;
 }
 
@@ -63,22 +63,19 @@
   border: none;
   font-size: 1.8rem;
   font-weight: 900;
-  color: #dc3545;
-  transition: transform 0.2;
+  color: #dc3545; /* Preserved red for your active brand action */
+  transition: transform 0.2s;
   
-  /* THICKER & WIDER */
   -webkit-text-stroke: 1.5px #dc3545; 
-  transform: scaleX(1.7);   /* Ultra-wide arrows */
+  transform: scaleX(1.7);   
   
-  /* ARROW STABILIZER */
-  width: 100%;             /* Fills the 50px grid column perfectly */
+  width: 100%;             
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
 }
 
-/* Maintain position during click */
 .flip-arrow:active { 
   transform: scaleX(1.7) scale(0.9); 
 }
@@ -98,25 +95,32 @@
 .sub-chip-container::-webkit-scrollbar { display: none; }
 
 .sub-chip {
-  background: #f1f1f1;
-  color: #444;
+  /* 🌓 Flips background and text between gray and white */
+  background: var(--bg-inputs);
+  color: var(--text-main);
   padding: 5px 15px;
   border-radius: 20px;
   font-size: 0.8rem;
   white-space: nowrap;
   text-decoration: none;
-  border: 1px solid #ddd;
-  transition: 0.3s;
+  border: 1px solid var(--border-color);
+  transition: background 0.3s, color 0.3s, border-color 0.3s;
 }
-.sub-chip:hover { background: #dc3545; color: white; border-color: #dc3545; }
+
+.sub-chip:hover { 
+  background: #dc3545; 
+  color: white; 
+  border-color: #dc3545; 
+}
 
 /* 4. NAVIGATION BUTTONS */
 .nav-btn {
   display: none;
-  background: rgba(255, 255, 255, 0.6);
+  /* 🌓 Adapts click-glance overlays to light and dark theme depths */
+  background: var(--bg-cards);
   border: none;
   font-size: 1.2rem;
-  color: #888;
+  color: var(--text-muted);
   padding: 5px 10px;
   z-index: 5;
 }
@@ -138,17 +142,16 @@
     align-items: center;
   }
 
-  /* Shrink Search Bar & Inputs */
   .search-form {
-    max-width: 180px !important; /* Limits width so it doesn't crowd icons */
+    max-width: 180px !important; 
     margin: 0 5px !important;
   }
 
   .search-form .input-group,
   .search-form .form-control,
   .search-form .input-group-text {
-    height: 28px !important; /* Slimmer height */
-    font-size: 0.75rem !important; /* Smaller text */
+    height: 28px !important; 
+    font-size: 0.75rem !important; 
     padding: 0 5px !important;
   }
 

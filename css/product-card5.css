@@ -1,80 +1,49 @@
-/* --- SCOPED MIDNIGHT STYLISH THEME - FINAL OPTIMIZED --- */
-
 /* 1. Main Container */
 .pc-card-main {
-    background-color: #1a1a1a !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 12px !important; /* Slightly tighter for 4-across */
+    /* 🌓 Flips between white and dark glass */
+    background-color: var(--bg-cards) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
     position: relative !important;
     overflow: hidden !important;
     height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+    transition: transform 0.3s ease, background-color 0.5s ease, border-color 0.5s ease !important;
 }
 
 .pc-card-main:hover {
     transform: translateY(-5px) !important;
-    border-color: rgba(46, 204, 113, 0.3) !important;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 10px 20px var(--shadow-color) !important;
 }
 
-/* 2. Top-Left Offer Badge */
+/* 2. Top-Left Offer Badge (Stays Green) */
 .pc-badge-offer {
     position: absolute !important;
     top: 8px !important;
     left: 8px !important;
-    
-    /* Dynamic Width: It will now occupy 35% of the card's width */
     width: 35% !important; 
-    
-    /* Transparency */
-    background: linear-gradient(135deg, rgba(46, 204, 113, 0.6), rgba(39, 174, 96, 0.6)) !important;
-   /* backdrop-filter: blur(4px);  Adds a nice frosted glass effect */
-    
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.8), rgba(39, 174, 96, 0.8)) !important;
     color: white !important;
-    /* Dynamic Font: Changes exactly with the screen width */
-	font-size: 1.5vw !important;
+    font-size: 1.5vw !important;
     font-weight: 900 !important;
-    
-    padding: 4px 0 !important; /* Vertical padding only */
+    padding: 4px 0 !important;
     border-radius: 4px !important;
     z-index: 5 !important;
-    
-    /* Force text to stretch/center */
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     text-align: center !important;
     text-transform: uppercase;
-    
-    /* This makes the word spread out to fill the dynamic width */
     letter-spacing: 0.1em !important; 
-}
-
-@media (min-width: 1024px) {
-    .pc-badge-offer {
-        /* MIN should be smaller than MAX */
-        /* 0.5rem is roughly 8px, 0.8rem is roughly 13px */
-        font-size: clamp(0.5rem, 1vw, 0.8rem) !important;
-        width: 55px !important;
-        padding: 2px 0 !important;
-    }
-}
-
-/* For Mobile (Where your 4-across grid is very tight) */
-@media (max-width: 768px) {
-    .pc-badge-offer {
-        /* Use a higher VW percentage so it shrinks faster in narrow cards */
-        font-size: clamp(0.4rem, 3.5vw, 0.65rem) !important;
-        width: 38% !important; /* Dynamic width */
-    }
 }
 
 /* 3. Image Section */
 .pc-img-holder {
     padding: 8px !important;
-    background: #242424 !important;
+    /* 🌓 Flipped to use input-style background for subtle contrast from the card */
+    background: var(--bg-inputs) !important;
     margin: 5px !important;
     border-radius: 10px !important;
     position: relative !important;
@@ -92,12 +61,12 @@
     top: 4px !important;
     right: 4px !important;
     width: 18% !important;
-    filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)) !important;
+    filter: drop-shadow(0 0 5px var(--shadow-color)) !important;
 }
 
-/* 4. Content Body - Tightened for maximum title space */
+/* 4. Content Body */
 .pc-body {
-    padding: 0.4rem 0.25rem !important; /* Minimal side padding to widen title */
+    padding: 0.4rem 0.25rem !important;
     flex-grow: 1 !important;
     display: flex !important;
     flex-direction: column !important;
@@ -105,38 +74,34 @@
     text-align: center !important;
 }
 
-/* 5. Title - Widened and Heightened */
+/* 5. Title - 🌓 Now Uses var(--text-main) */
 .pc-item-title {
-    color: #efefef !important;
+    color: var(--text-main) !important;
     font-size: clamp(0.65rem, 2.2vw, 0.9rem) !important;
     font-weight: 600 !important;
     margin-bottom: 4px !important;
     line-height: 1.15 !important;
-    
-    /* Allow wrapping to 2 lines without overlap */
     display: -webkit-box !important;
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
-    
-    /* Reserved space for 2 lines */
     min-height: 2.4em !important; 
     width: 100% !important;
 }
 
-/* 6. Pricing - Shrunk to stop stealing space */
+/* 6. Pricing */
 .pc-price-wrap {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     margin-top: auto !important;
-    min-height: 34px !important; /* Shrunk from 48px */
+    min-height: 34px !important;
     margin-bottom: 6px !important;
     justify-content: center !important;
 }
 
 .pc-new-price {
-    color: #2ecc71 !important;
+    color: var(--primary) !important; /* 🌓 Green price */
     font-size: clamp(0.85rem, 2.5vw, 1.05rem) !important;
     font-weight: 800 !important;
     line-height: 1 !important;
@@ -144,113 +109,52 @@
 
 .pc-old-price {
     font-size: clamp(0.75rem, 2vw, 1rem) !important;
-    color: #888 !important;
-    position: relative; /* Required for the X positioning */
+    color: var(--text-muted) !important;
+    position: relative;
     display: inline-block;
     padding: 0 2px;
 }
 
-/* The Red X Layer */
+/* Red X Strike-through for Old Price */
 .pc-old-price::before {
     content: "";
     position: absolute;
     top: 50%;
     left: 0;
-    width: 100%;    /* Covers the full width of the price */
-    height: 60%;    /* Low height to keep the X "flat" and wide */
+    width: 100%;
+    height: 60%;
     transform: translateY(-50%);
     pointer-events: none;
     z-index: 1;
-    
-    /* The Two Diagonal Lines forming the wide X */
     background: 
         linear-gradient(to top right, transparent 46%, rgba(255, 71, 87, 0.7) 48%, rgba(255, 71, 87, 0.7) 52%, transparent 54%),
         linear-gradient(to bottom right, transparent 46%, rgba(255, 71, 87, 0.7) 48%, rgba(255, 71, 87, 0.7) 52%, transparent 54%);
 }
 
 .pc-standard-price {
-    color: #ffffff !important;
+    color: var(--text-main) !important; /* 🌓 Price flips with theme */
     font-weight: 700 !important;
     font-size: clamp(0.85rem, 2.5vw, 1.05rem) !important;
     line-height: 1 !important;
 }
 
-/* 7. Buttons - Compact for 4-across mobile grid */
+/* 7. Buttons */
 .pc-btn-glow {
     width: 100% !important;
     border: none !important;
-    padding: 6px 2px !important; /* Thinner buttons */
+    padding: 6px 2px !important;
     border-radius: 6px !important;
     font-size: 0.65rem !important;
     font-weight: 800 !important;
     text-transform: uppercase !important;
     color: white !important;
-    transition: background 0.3s ease !important;
 }
 
-.pc-btn-primary { 
-    background: linear-gradient(135deg, #3498db, #2980b9) !important;
-}
+.pc-btn-primary { background: linear-gradient(135deg, #3498db, #2980b9) !important; }
+.pc-btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60) !important; }
 
-.pc-btn-success { 
-    background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
-}
-
-/* 8. Mobile Optimization (4-ACROSS) */
+/* 8. Mobile Optimization */
 @media (max-width: 768px) {
-    .pc-grid-item { padding: 2px !important; } /* Tighter grid gaps */
-    .pc-card-main { border-radius: 8px !important; }
+    .pc-grid-item { padding: 2px !important; }
     .pc-badge-offer { font-size: 0.5rem !important; top: 5px; left: 5px; }
-    .pc-item-title { min-height: 2.3em !important; line-height: 1.1 !important; }
-    .pc-price-wrap { min-height: 32px !important; }
 }
-
-
-/*
-
-my script cardTemplate
-function cardTemplate(p) {
-    let found = false;
-    for (var i = 0; i < cartItems.length; i++) {
-        if (p.id == cartItems[i].id) found = true;
-    }
-
-    let result = '<div class="col-3 col-lg-3 pc-grid-item">' +
-        '<div class="pc-card-main">' +
-            // Logic for the Offer Badge
-            (p.sale > 0 ? '<span class="pc-badge-offer">OFFER</span>' : '') +
-            
-            '<div class="pc-img-holder">' +
-                '<img src="' + p.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="pc-product-img" alt="' + p.title + '">';
-                
-                let display = found ? 'block' : 'none';
-                result += '<img src="png/cart3.png" style="display:' + display + '" class="pc-cart-overlay" alt="In Cart">';
-    result += '</div>' +
-            
-            '<div class="pc-body">' +
-                '<h6 class="pc-item-title">' + p.title + '</h6>' +
-                '<div class="pc-price-wrap">';
-                
-                if (p.sale > 0) {
-                    result += '<span class="pc-new-price">' + money(p.sale) + '</span>' +
-                              '<span class="pc-old-price">' + money(p.price) + '</span>';
-                } else {
-                    result += '<span class="pc-standard-price">' + money(p.price) + '</span>';
-                }
-                
-    result += '</div>' +
-                '<div class="pc-btn-group">';
-                if (found) {
-                    result += '<button class="pc-btn-glow pc-btn-success" data-product-id="' + p.id + '">Added</button>';
-                } else {
-                    result += '<button class="pc-btn-glow pc-btn-primary" data-product-id="' + p.id + '">Add to Cart</button>';
-                }
-    result += '</div>' +
-            '</div>' +
-        '</div>' +
-    '</div>';
-    
-    return result;
-}
-
-*/
