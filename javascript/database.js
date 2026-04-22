@@ -49,7 +49,7 @@ const db = getDatabase(app);   // Realtime Database instance
 const dbref=ref(db);
 
   
-	if(username&&username.length>0)
+	if(storedData)
 	{
 		const userStatusRef  = ref(db, "users/"+userid+"/status");
 
@@ -64,7 +64,7 @@ const dbref=ref(db);
 			set(userStatusRef, "online");
 		});
 	}
-	if(driverusername)
+	if(storedData2)
 	{
 		const userStatusRef  = ref(db, "drivers/"+driverid+"/status");
 
@@ -1791,7 +1791,7 @@ document.addEventListener('DOMContentLoaded', function()
         logoutBtn.addEventListener('click', function(e) 
 		{
             e.preventDefault();
-			updateColumn("users",userid,"status","offline");
+			//if(storageData)updateColumn("users",userid,"status","offline");
 			localStorage.removeItem('delivoUser');
 			localStorage.removeItem('delivoDriver');
 			localStorage.removeItem('driverusername');
