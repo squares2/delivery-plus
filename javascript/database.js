@@ -1,5 +1,8 @@
 var cartCount=0;
 var cartItems=[];
+window.lat = 34;
+window.lng = 36;
+
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var cartItemsDriver=[];
 var saleEnd=Date.now()+12*60*60*1000;
@@ -1508,6 +1511,12 @@ async function placeOrder()
 		if (result.committed) 
 		{
 			const newId = "id_"+result.snapshot.val(); // This is your 1, 2, 3...
+			let requestlat='';
+			let requestlng='';
+			if(window.lat!=0&&window.lat!=34)requestlat=window.lat;
+			if(window.lng!=0&&window.lng!=36)requestlng=window.lng;
+			console.log(window.lat+":"+window.lng);
+			window.lat=34;window.lng=36;
 			// 2. import data to requests
 			await set(ref(db, 'requests/' + newId), 
 			{
@@ -1524,7 +1533,9 @@ async function placeOrder()
 				deliveryplusid: localStorage.getItem('deliveryplusids'),
 				vault:"0",
 				xnote:note.value,
-				username:username||""
+				username:username||"",
+				lat:requestlat,
+				lng:requestlng
 			});
 			// 3. import data to historyRequests
 			if(username&&username.length>0)
@@ -2126,9 +2137,10 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) => {
     }
 
     // Default coordinates
-    let lat = 0;
-    let lng = 0;
-
+    let lat = 34;
+    let lng = 36;
+	
+	window.mapSaveMode = 'firebase'; 
     // If user wants to share location, try to fetch it
     if (shareLocation) 
 	{
@@ -2326,7 +2338,7 @@ function updateNavToLoggedOut() {
 }
 const loginBtn = document.getElementById('loginBtn');
 
-if(loginBtn)document.getElementById('loginBtn').addEventListener('click', async function() 
+if(loginBtn)loginBtn.addEventListener('click', async function() 
 {
     const typedUser = document.getElementById('loginUser').value;
     const typedPass = document.getElementById('loginPass').value;
@@ -2564,3 +2576,70 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+
+/*document.addEventListener('DOMContentLoaded', async () => 
+{
+    const toggleSwitch = document.getElementById('myLocation');
+    const openMapBtn = document.getElementById('open-map-trigger');
+
+    if (!toggleSwitch || !openMapBtn) return;
+
+    // 1. GET USER ID AND CHECK FIREBASE
+    const userId = localStorage.getItem('userid');
+    
+    if (userId) 
+	{
+       try 
+		{
+            // Adjust path depending on your DB (Realtime or Firestore)
+            // Realtime DB example:
+			const userData = await getCoordinates(); 
+			if (userData) 
+			{
+				userLat = parseFloat(userData.lat || userData.lat);
+				userLng = parseFloat(userData.lng || userData.lng);
+			}
+            if (userLat > 0 && userLng > 0) 
+			{
+                // Save coordinates to global variables
+                userLat = parseFloat(userData.lat);
+                userLng = parseFloat(userData.lng);
+
+                console.log("Coordinates loaded:", userLat, userLng);
+
+                // Default State: Checkbox ON, Button DISABLED
+                toggleSwitch.checked = true;
+                openMapBtn.disabled = true;
+            } 
+			else 
+			{
+                // If coordinates don't exist or are <= 0
+                toggleSwitch.checked = false;
+                openMapBtn.disabled = false;
+            }
+        } 
+		catch (error) 
+		{
+            console.error("Firebase fetch failed:", error);
+        }
+		console.log('lat:'+userLat+'   lng:'+userLng);
+    }
+
+    // 2. TOGGLE EVENT LISTENER
+    toggleSwitch.addEventListener('change', function() 
+	{
+        if (this.checked) 
+		{
+            // Switch is ON -> Disable Map Button
+            openMapBtn.disabled = true;
+            console.log("Location enabled. Using saved variables:", userLat, userLng);
+        } 
+		else 
+		{
+            // Switch is OFF -> Enable Map Button
+            openMapBtn.disabled = false;
+            console.log("Location disabled. Ready for new input.");
+        }
+    });
+});*/

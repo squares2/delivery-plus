@@ -72,6 +72,90 @@ window.initMap = async function() {
     });
 };
 
+// 🌍 GLOBAL COORDINATES (To use later in your app)
+const shareLocation = document.getElementById('myLocation');
+window.mapSaveMode = 'local'; 
+document.body.addEventListener('click', function(event) {
+    if (event.target && event.target.matches('#myLocation')) {
+        const toggle = event.target;
+        const mapBtn = document.getElementById('open-map-trigger');
+        const place_order = document.getElementById('place_order');
+
+					
+        if (toggle.checked) 
+		{
+			// Disable button and make it gray
+			if (place_order) 
+			{
+				place_order.disabled = true;
+				place_order.style.backgroundColor = "#cccccc"; 
+				place_order.style.color = "#666666";
+				place_order.style.borderColor = "#cccccc";
+				place_order.style.cursor = "not-allowed";
+			}
+			// Disable button and make it gray
+			if (mapBtn) 
+			{
+				mapBtn.disabled = true;
+				mapBtn.style.backgroundColor = "#cccccc"; 
+				mapBtn.style.color = "#666666";
+				mapBtn.style.borderColor = "#cccccc";
+				mapBtn.style.cursor = "not-allowed";
+			}
+
+            console.log("No stored coords. Requesting physical GPS hardware...");
+
+            navigator.geolocation.getCurrentPosition(
+                // 🟢 SUCCESS CALLBACK
+                (position) => 
+				{
+                    window.lat = position.coords.latitude;
+                    window.lng = position.coords.longitude;
+                    showPopup("Success! Coords locked at \nlat:"+window.lat+"\nlng:"+window.lng);
+
+                    // Disable button and make it gray
+					if (place_order) 
+					{
+						place_order.disabled = false;
+						place_order.style.backgroundColor = ""; 
+						place_order.style.color = "";
+						place_order.style.borderColor = "";
+						place_order.style.cursor = "pointer";
+					}
+                },
+                // 🔴 FAILURE CALLBACK
+                (error) => 
+				{
+                    console.error("GPS Error Code:", error.code);
+                    showPopup("Location access denied or failed.");
+                    toggle.checked = false; 
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000 
+                }
+            );
+        } 
+		else 
+		{
+            // ⚪ USER UNCHECKED THE BOX
+            console.log("Checkbox unchecked. Restoring button...");
+            
+            if (mapBtn) 
+			{
+                mapBtn.disabled = false;
+                window.lat=34;
+				window.lng=36;
+                // Clear the inline styles to restore your original CSS file colors
+                mapBtn.style.backgroundColor = ""; 
+                mapBtn.style.color = "";
+                mapBtn.style.borderColor = "";
+                mapBtn.style.cursor = "pointer";
+            }
+        }
+    }
+});
+
 // 3. UI LOGIC
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('mapModal');
@@ -135,30 +219,42 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 }
 
-    // SAVE TO DATABASE
+//window.mapSaveMode = 'local'; 
+
+    // 2. UPDATED SAVE TO DATABASE / LOCAL VARIABLES
     if (saveBtn) 
-	{
+    {
         saveBtn.onclick = async () => 
-		{
+        {
             if (selectedCoords) 
-			{
+            {
                 try 
-				{
-					console.log('confirm');
-                    await updateCoordinates(selectedCoords.lat,selectedCoords.lng);
-                    showPopup("Your New Location Saved!");
+                {
+                    console.log('Save action triggered. Mode:', window.mapSaveMode);
+                    // 🛣️ BRANCH 1: Save directly to Firebase
+                    if (window.mapSaveMode === 'firebase') {
+                        await updateCoordinates(selectedCoords.lat, selectedCoords.lng);
+                        showPopup("Your New Location Saved!");
+                    } 
+                    // 🛣️ BRANCH 2: Save strictly to local JS variables
+                    else {
+                        window.lat = selectedCoords.lat;
+                        window.lng = selectedCoords.lng;
+                        showPopup("Location coordinates locked!");
+						showPopup("Local variables updated via map pin at \nlat:"+window.lat+"\nlng:"+window.lng);
+                    }
+
+                    // Close modal after successful run on either branch
                     modal.style.display = "none";
                 } 
-				catch (err) 
-				{
+                catch (err) 
+                {
+                    console.error("Save failed:", err);
                     showPopup("Error saving location.");
                 }
             }
         };
-    }
-});
-
-
+    }});
 
 // Manual Trigger for Google Maps
 if (typeof google !== 'undefined' && google.maps) {

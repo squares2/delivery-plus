@@ -177,25 +177,6 @@
     </div>
   </div>
 
-  <div class="modal fade" id="quickViewModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <!-- 🌙 Flipped to dark card backgrounds -->
-      <div class="modal-content bg-dark text-white border-secondary">
-        <div class="modal-header border-secondary">
-          <h5 class="modal-title text-white" id="quickViewTitle"></h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <img id="quickViewImage" class="img-fluid rounded mb-3" alt="">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="fw-semibold text-white" id="quickViewPrice"></div>
-            <button class="btn btn-primary fw-bold" id="quickViewAdd">Add to Cart</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
 <!-- Login Modal -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -223,33 +204,40 @@
 <!-- Registration Modal -->
 <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
   <div class="modal-dialog">
-    <div class="modal-content bg-dark text-white border-secondary">
-      <div class="modal-header border-secondary">
-        <h5 class="modal-title text-white" id="registerModalLabel">Create New Account</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="registerModalLabel">Create New Account</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <form id="registrationForm">
           <div class="mb-3 position-relative">
-            <label class="form-label text-light">Username</label>
+            <label class="form-label">Username</label>
             <div class="d-flex align-items-center">
-              <input type="text" class="form-control bg-secondary text-white border-0" id="username" placeholder="username" required autocomplete="off">
-              <div id="username-status" class="ms-2 text-info" style="min-width: 100px; font-size: 0.85rem;"></div>
+              <input type="text" class="form-control" id="username" placeholder="username" required autocomplete="off">
+              <div id="username-status" class="ms-2" style="min-width: 100px; font-size: 0.85rem;"></div>
             </div>
           </div>
           <div class="mb-3">
-            <label class="form-label text-light">Phone Number</label>
-            <input type="tel" class="form-control bg-secondary text-white border-0" id="phone" placeholder="e.g. 76123456" required>
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-control" id="phone" placeholder="e.g. 76123456" required>
           </div>
           <div class="mb-3">
-            <label class="form-label text-light">Password</label>
-            <input type="password" class="form-control bg-secondary text-white border-0" id="password" required>
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" required>
           </div>
           <div class="mb-3">
-            <label class="form-label text-light">Confirm Password</label>
-            <input type="password" class="form-control bg-secondary text-white border-0" id="confirmPassword" required>
+            <label class="form-label">Confirm Password</label>
+            <input type="password" class="form-control" id="confirmPassword" required>
           </div>
-          <button type="submit" class="btn btn-primary w-100 fw-bold">Register</button>
+          
+          <!-- NEW: Location Toggle -->
+          <div class="mb-3 form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="shareLocation">
+            <label class="form-check-label" for="shareLocation">Share Live Location on Map</label>
+          </div>
+
+          <button type="submit" id="registerBtn" class="btn btn-primary w-100">Register</button>
         </form>
       </div>
     </div>
