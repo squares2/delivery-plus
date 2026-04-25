@@ -66,106 +66,19 @@
 </script>
 </head>
 <body>
-  <div class="announcement-bar text-white">
-    <div class="container d-flex justify-content-between align-items-center">
-      <div class="d-flex gap-4">
-        <span><i class="fa-solid fa-truck-fast me-2"></i>Free delivery</span>
-        <span><i class="fa-solid fa-bolt me-2"></i>Fast delivery</span>
-      </div>
-    </div>
-  </div>
-  
-  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
-    <div class="container"><img class="delivo-logo"src="png/castle.png"></img>
-      <a class="navbar-brand fw-bold" href="index.html"></i><img class="delivo-logo"src="png/delivo.png"></a>
- 		<a id="topcart"class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar"><i  class="fa-solid fa-cart-shopping"></i>
-		<span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-		</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-
-       <ul id=""class="navbar-nav">
-          <li class="nav-item dropdown mega">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">ALL Shops</a>
-            <div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
-              <div id="companieslist2"class="row g-3">
-                <div class="col-6 col-lg-3">
-                  <h6 class="fw-semibold">Loading...</h6>
-                </div>
-              </div>
-            </div>
-			</li>
-        </ul>
-
-       <ul id="topcompany2"class="navbar-nav">
-          <li class="nav-item dropdown mega">
-            <a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown"><span id="company">SHOP</span></a>
-            <div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
-              <div id="categorieslist"class="row g-3">
-                <div class="col-6 col-lg-3">
-                  <h6 class="fw-semibold">Loading...</h6>
-                </div>
-              </div>
-            </div>
-			</li>
-        </ul>
-    <!-- Top Right Icons Group -->
-    <div class="d-flex align-items-center ms-auto">
-      <!-- Cart Icon -->
-		<div class="dropdown ms-2">
-			<a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
-				<i class="fa-solid fa-circle-user fa-lg me-2"></i>
-				<span id="navUserName" style="font-weight:600">Public</span>
-			</a>
-			<!-- The ID here is critical for the JS to inject the items -->
-			<ul id="userDropdownMenu" class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu">
-				<li>
-					<a class="dropdown-item" href="index.html" >Home</a>
-				</li>
-				<li>
-					<a class="dropdown-item" href="about.html" >About Us</a>
-				</li>
-				<li>
-					<a class="dropdown-item" href="contact.html" >Contact</a>
-				</li>
-				<li>
-					<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a>
-				</li>
-				<!-- Updated Register Link -->
-				<li>
-					<a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#registerModal" >Register</a>
-				</li>
-			</ul>
-		</div>
+<ul id="topcompany2"class="navbar-nav">
+<li class="nav-item dropdown mega">
+<a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown"><span id="company">SHOP</span></a>
+<div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
+  <div id="categorieslist"class="row g-3">
+	<div class="col-6 col-lg-3">
+	  <h6 class="fw-semibold">Loading...</h6>
 	</div>
-    </div>
-  </nav>
-<div id="maintenance-overlay">
-  <div class="message-card">
-    <!-- Status Indicator -->
-    <div class="status-badge">
-      <span class="status-dot"></span>
-      Currently Closed
-    </div>
-
-    <i class="fa-solid fa-store-slash main-icon"></i>
-    <h1>Shop is Resting</h1>
-    <p>Delivo is currently closed for maintenance. We are updating our inventory to serve you better!</p>
-
-    <!-- The Schedule Box -->
-    <div class="schedule-box">
-      <div class="schedule-header">
-        <i class="fa-regular fa-calendar-check"></i> Reopening Tomorrow
-      </div>
-      <div class="schedule-time">
-        <span class="day">Thursday, Feb 12</span>
-        <span class="time">09:00 AM — 09:00 PM</span>
-      </div>
-    </div>
-
-    <div class="footer-links">
-      <a href="#"><i class="fa-brands fa-whatsapp"></i> Contact Support</a>
-    </div>
   </div>
 </div>
+</li>
+</ul>
+
 <div class="category-sidebar">
   <!-- Main Category Flipper (Previous code remains here) -->
   <div class="main-cat-flipper">
@@ -187,20 +100,35 @@
 </div>
 <div id="categoryGrid">
 </div>
-  <footer class="footer bg-dark text-white pt-5">
-    <div class="container">
-      <div class="row g-4">
-        <div class="col-12 col-lg-3">
-          <h6 class="fw-semibold">About</h6>
-          <p class="text-muted">Delivo brings you any thing you need to your door with great prices.</p>
-        </div>
-      </div>
-      <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivo All rights reserved.</div>
-    </div>
-  </footer>
+	<div id="topbar"></div>
+	<div id="userbar"></div>
+	<div id="changepassword"></div>
+	<div id="footer"></div>
+	<div id="maintenance"></div>
+	<script>
+	fetch('topbar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('topbar').innerHTML = data; });
+		
+	fetch('usersidebar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('userbar').innerHTML = data; });
+
+	fetch('changepassword.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('changepassword').innerHTML = data; });
+
+	fetch('footer.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('footer').innerHTML = data; });
+
+	fetch('maintenance.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('maintenance').innerHTML = data; });
+	</script> 
 
 <!-- Bottom Navigation Bar (Visible only on mobile/tablet) -->
-<nav class="navbar navbar-light bg-white border-top fixed-bottom d-lg-none py-2">
+<nav class="navbar navbar-light bg-white border-top fixed-bottom py-2">
   <div class="container-fluid d-flex justify-content-around text-center">
     
     <a href="index.html" class="nav-link text-dark">
@@ -321,43 +249,6 @@
     </div>
 </div>
 
-<!-- profile sidebar	-->
-<div id="userSidebar">
-	<!-- 🌓 Theme Toggle Button -->
-	<button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch Day/Night Mode">
-	<i class="fa-solid fa-moon"></i> <!-- Default icon -->
-	</button>
-  <button class="close-sidebar-btn" onclick="closeUserSidebar()">&times;</button>
-  
-  <div class="profile-box">
-    <div class="profile-img-wrap" onclick="triggerFileInput()">
-      <img id="sidebar-pfp">
-      <div class="img-overlay">📷</div>
-    </div>
-    <input type="file" id="profileInput" accept="image/*" style="display:none" onchange="previewImage(event)">
-
-    <h3 id="profilename">Full Name</h3>
-    <p id="profilepoints">POINTS BALANCE</p>
-  </div>	
-  
-<button id="open-map-trigger" class="loc-btn btn-locate">
-    <i class="fa-solid fa-earth-americas me-2"></i> Update My Location
-</button>
-<!-- Load Google Maps at the end of body -->
-
-  <nav class="sidebar-links">
-    <a href="index.html">Home</a>
-    <a href="contact.html">Contact</a>
-    <a href="about.html">About Us</a>
-    <a href="orders.html">My Orders</a>
-    <a href="#" style="color: #ff4d4d;"onclick="showPassModal()">Change Password</a>
-    <a href="#" style="color: #ff4d4d;"onclick="switchUser()">Switch User</a>
-    <a id="logoutBtn"href="#" style="color: #ff4d4d;">Logout</a>
-  </nav>
-</div>
-<div id="sidebarOverlay" onclick="closeUserSidebar()"></div>
-<!-- close profile sidebar	-->
-
 
 <!-- START OF LOCATION MODAL -->
 <div id="mapModal" class="map-modal-overlay">
@@ -376,20 +267,5 @@
 <!-- END OF LOCATION MODAL -->
   <script type="module"src="javascript/location.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
-
-<!-- UNIQUE Password Modal -->
-<div id="CP-Modal-Wrapper">
-    <div id="CP-Modal-Content">
-        <span id="CP-Close-Btn" onclick="hidePassModal()">&times;</span>
-        <h2 style="margin-top:0; color:#3498db;">Change Password</h2>
-        <form id="changePasswordForm">
-            <input type="password" id="oldPassword" placeholder="Old Password" required>
-            <input type="password" id="newPassword" placeholder="New Password" required>
-            <input type="password" id="confirmPassword2" placeholder="Confirm New Password" required>
-            <button type="submit" id="CP-Submit-Btn">Update Password</button>
-        </form>
-    </div>
-</div>
-
 </body>
 </html>

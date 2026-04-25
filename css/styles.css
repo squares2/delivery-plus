@@ -953,3 +953,76 @@ body.dark-mode .btn-theme-primary {
   opacity: 0.9;
   transform: translateY(-1px);
 }
+
+/* 1. Force the layout to stay on one line */
+.navbar-styled .container {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* 2. Castle Symbol - Dynamic Sizing */
+.castle-icon {
+    /* Scale between 15px and 30px based on screen width */
+    height: clamp(15px, 5vw, 30px); 
+    width: auto;
+    flex-shrink: 0;
+}
+
+/* 3. Keep main Delivo logo stable but slightly responsive */
+.navbar-brand .delivo-logo {
+    height: clamp(20px, 6vw, 35px);
+    width: auto;
+    flex-shrink: 0;
+}
+
+/* 4. "All Shops" - Dynamic Font Size */
+.navbar-styled .mega .nav-link {
+    font-size: clamp(10px, 3vw, 16px);
+    white-space: nowrap;
+    padding: 0 4px !important;
+}
+
+/* 5. Extreme Tightening for widths < 250px */
+@media (max-width: 250px) {
+    /* Shrink the castle symbol further to save space */
+    .castle-icon {
+        height: 12px;
+    }
+
+    /* Reduce spacing between all elements */
+    .ms-3, .ms-auto, .ms-2 {
+        margin-left: 4px !important;
+    }
+    
+    .me-3 {
+        margin-right: 4px !important;
+    }
+
+    /* Hide "Public" text to prioritize the Castle and All Shops */
+    #navUserName {
+        display: none;
+    }
+}
+
+#profilepoints {
+    text-align: center;
+}
+
+/* Styling inputs to use the variables */
+.custom-input, .custom-input-addon {
+  background-color: var(--bg-inputs) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.custom-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* Optional: Smooth transition when switching modes */
+body, .profile-card, .form-control, h2, p {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

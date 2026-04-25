@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<div id="topbar"></div>
+	<div id="userbar"></div>
+	<div id="changepassword"></div>
+	<div id="bottom"></div>
+	<script>
+	fetch('topbar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('topbar').innerHTML = data; });
+		
+	fetch('changepassword.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('changepassword').innerHTML = data; });
+
+	fetch('usersidebar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('userbar').innerHTML = data; });
+		
+	fetch('bottombar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('bottom').innerHTML = data; });
+	</script> 
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delivo Profile</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/all.min.css" rel="stylesheet">
+  <link href="css/styles.css" rel="stylesheet">
+  <link href="css/styles2.css" rel="stylesheet">
+  <link href="css/styles3.css" rel="stylesheet">
+  <link href="css/sidebar.css" rel="stylesheet">
+  <link href="css/location.css" rel="stylesheet">
+  <link href="css/passmodal.css" rel="stylesheet">
+  <script type="module" src="javascript/database.js"></script> 
+  <script src="javascript/bootstrap.bundle.min.js"></script>
+  <script src="javascript/profileSidebar.js"></script>
+  <script type="module" src="javascript/startup.js"></script>
+  <script type="module"src="javascript/whatsapp.js"></script>
+  <script type="module">
+	import { getCoordinates,updateProfileInfo,showPopup } from './javascript/database.js';
+	
+	const storagedata = localStorage.getItem('delivoUser');
+	if (storagedata) 
+	{
+		var username2;
+		var userid2;
+		const user = JSON.parse(storagedata);
+		username2=user.username;
+		userid2=user.id;
+	}
+
+	const editFullName = document.getElementById('editFullName');
+	const editUsername = document.getElementById('editUsername');
+	const editPhone = document.getElementById('editPhone');
+	const usernameFeedback = document.getElementById('usernameFeedback');
+	const data = await getCoordinates();
+	if (data) 
+	{
+		if(data.fullname)editFullName.value=data.fullname;
+		editUsername.value=data.username;
+		if(data.phone)editPhone.value=data.phone;
+	} 
+	else 
+	{
+		console.log("No data found");
+	}
+	const profileForm = document.getElementById('profileForm');
+
+	profileForm.addEventListener('submit', (event) => 
+	{
+		event.preventDefault();
+		if(usernameFeedback.innerHTML.includes('Available')||username2==editUsername.value)
+		{
+			updateProfileInfo(userid2,editUsername.value,editFullName.value,editPhone.value);
+			if(editFullName.value.length>0)document.getElementById('profilename').innerHTML=editFullName.value;
+			else document.getElementById('profilename').innerHTML=editUsername.value;
+			showPopup('Your User Profile Data Updated');
+		}
+		else 
+		{
+			if(usernameFeedback.innerHTML.includes('Too short'))showPopup('Username is too short');
+			else if(editUsername.value.length==0)showPopup('Username can not be Null');
+			else showPopup('Sorry,This Username Exist');
+		}	
+	});
+  </script>
+</head>
+<body>
+
+<section class="pb-5" style="margin-top: 4vh; padding-top: 3rem; background-color: var(--bg-primary);">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-8 col-lg-6">
+        
+        <div class="d-flex align-items-center mb-4">
+          <i class="fa-solid fa-circle-user fa-3x text-success me-3"></i>
+          <div>
+            <!-- Dynamically sized and colored title -->
+            <h2 class="fw-bold mb-0 fs-4 fs-md-2" style="color: var(--text-main);">Profile Settings</h2>
+            <p class="small mb-0" style="color: var(--text-muted);">Manage your account information</p>
+          </div>
+        </div>
+
+        <div class="profile-card p-4 shadow-lg" style="background: var(--bg-cards); border: 1px solid var(--border-color); border-radius: 15px; box-shadow: 0 10px 30px var(--shadow-color) !important;">
+          <form id="profileForm">
+            
+            <!-- Full Name -->
+            <div class="mb-3">
+              <label class="form-label small fw-bold" style="color: var(--text-muted);">FULL NAME</label>
+              <input type="text" id="editFullName" class="form-control custom-input" placeholder="Enter full name">
+            </div>
+
+            <!-- Username -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label small fw-bold mb-0" style="color: var(--text-muted);">USERNAME</label>
+                <span id="usernameFeedback" class="small fw-bold"></span>
+              </div>
+              <div class="input-group">
+                <span class="input-group-text custom-input-addon">@</span>
+                <input type="text" id="editUsername" class="form-control custom-input" placeholder="username">
+              </div>
+            </div>
+
+            <!-- Phone Number -->
+            <div class="mb-3">
+              <label class="form-label small fw-bold" style="color: var(--text-muted);">PHONE NUMBER</label>
+              <input type="tel" id="editPhone" class="form-control custom-input" placeholder="e.g. 76123456">
+            </div>
+
+            <hr class="my-4" style="border-color: var(--border-color); opacity: 1;">
+
+            <!-- Password Section -->
+            <div class="mb-4">
+              <label class="form-label small fw-bold" style="color: var(--text-muted);">SECURITY</label>
+              <button onclick="showPassModal()" type="button" class="btn btn-outline-warning w-100 btn-sm">
+                <i class="fa-solid fa-key me-2"></i> Change Account Password
+              </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-grid gap-2">
+              <button id="submit" class="btn btn-success fw-bold py-2" style="background-color: var(--primary); border: none;">
+                Save Changes
+              </button>
+              <a href="index.html" class="btn btn-link text-danger btn-sm">Cancel</a>
+            </div>
+
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+  <div class="offcanvas offcanvas-end text-white" tabindex="-1" id="cartSidebar" style="background-color: #1a1a1a !important;">
+    <div class="offcanvas-header border-bottom border-secondary">
+      <h5 class="offcanvas-title fw-bold">Your Cart</h5>
+      <!-- Changed close button to white variant -->
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <!-- Removed 'list-group' class to stop Bootstrap from forcing white backgrounds -->
+      <div id="cartList" class="mb-3"></div>
+      
+      <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
+        <div class="fw-semibold">Total</div>
+        <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
+      </div>
+      
+      <!-- Applied your Stylish Blue Gradient to the button -->
+      <a href="checkout.html" class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">Checkout</a>
+    </div>
+	</div>
+
+<!-- Login Modal -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-white border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title fw-bold text-white">Sign In</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-light">Username</label>
+          <!-- 🌙 Flipped inputs to transparent dark with light text -->
+          <input type="text" id="loginUser" class="form-control bg-secondary text-white border-0">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-light">Password</label>
+          <input type="password" id="loginPass" class="form-control bg-secondary text-white border-0">
+        </div>
+        <button type="button" id="loginBtn" class="btn btn-primary w-100 fw-bold">Login</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Registration Modal -->
+<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="registerModalLabel">Create New Account</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="registrationForm">
+          <div class="mb-3 position-relative">
+            <label class="form-label">Username</label>
+            <div class="d-flex align-items-center">
+              <input type="text" class="form-control" id="username" placeholder="username" required autocomplete="off">
+              <div id="username-status" class="ms-2" style="min-width: 100px; font-size: 0.85rem;"></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-control" id="phone" placeholder="e.g. 76123456" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" class="form-control" id="confirmPassword" required>
+          </div>
+          
+          <!-- NEW: Location Toggle -->
+          <div class="mb-3 form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="shareLocation">
+            <label class="form-check-label" for="shareLocation">Share Live Location on Map</label>
+          </div>
+
+          <button type="submit" id="registerBtn" class="btn btn-primary w-100">Register</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Alert Popup -->
+<div id="customAlert" class="hidden alert-overlay" style="background: rgba(0,0,0,0.7) !important;">
+    <div class="alert-content bg-dark border border-secondary text-white">
+        <p id="alertMessage" class="text-light"></p>
+        <button class="alert-btn btn-primary" onclick="closeAlert()">OK</button>
+    </div>
+</div>
+
+<!-- START OF LOCATION MODAL -->
+<div id="mapModal" class="map-modal-overlay">
+    <div class="map-modal-content profile-location-container">
+        <span id="close-modal" class="close-x">&times;</span>
+        <h3>Select Your Location</h3>
+        
+        <div id="map-box"></div>
+        
+        <button id="one-click-locate" class="loc-btn btn-locate">📍 Press To Set Your Live Location</button>
+		<p class="map-hint">Press on map to update your location or drag the red pin manually to your location</p>
+        <button id="confirm-save-btn" class="loc-btn btn-save">Confirm & Save</button>
+		<p class="map-hint">Press Confirm & Save after changing location otherwise location will not update</p>
+    </div>
+</div>
+<!-- END OF LOCATION MODAL -->
+  <script type="module"src="javascript/location.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
+</body>
+</html>

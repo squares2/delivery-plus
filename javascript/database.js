@@ -219,7 +219,8 @@ async function updateProfileInfos(autoNumberId)
 			const profilepoints=document.getElementById('profilepoints');
 			if(profilename)
 			{
-				profilename.innerHTML=userData.username;
+				if(userData.fullname&&userData.fullname.length>0)profilename.innerHTML=userData.fullname;
+				else profilename.innerHTML=userData.username;
 				const points=userData.points;
 				var p="point";
 				if(points>1)p="points";
@@ -278,6 +279,29 @@ function updateRequestAndHistory(requestId, username, newState)
   // Path 2: Update the nested history entry using dot-notation paths
   // This updates only the 'state' field without overwriting the rest of the object
   if(username.length>0)updates[`/historyRequests/${username}/${requestId}/state`] = newState;
+
+  try {
+    // Perform the update atomically
+    update(rootRef, updates);
+    console.log("Both locations updated successfully!");
+  } catch (error) {
+    console.error("Error updating database:", error);
+  }
+}
+export function updateProfileInfo(userid, username, fullname,phone) 
+{
+	console.log('update function')
+  const db = getDatabase();
+  const rootRef = ref(db);
+
+  // Define the multiple paths you want to update
+  const updates = {};
+  
+  // Path 1: Update the primary request
+  updates[`/users/${userid}/username`] = username;
+  updates[`/users/${userid}/fullname`] = fullname;
+  updates[`/users/${userid}/phone`] = phone;
+  
 
   try {
     // Perform the update atomically
@@ -755,30 +779,58 @@ function setCompany(comp)
 	
 	if(comp=="-1")
 	{
-		inner="<div class='col-6 col-lg-2'><a href='' data-company-name='Restaurants'"
-		inner+="class='card category-card text-center'><img src='png/restaurants.jpg' "
-		inner+="class='card-img-top'><div class='card-body'><h6>Restaurants</h6></div></a></div>"
+		inner="<div class='col-6 col-lg-2'><a href='' data-company-name='Restaurants'";
+		inner+="class='card category-card text-center'><img src='png/restaurants.jpg' ";
+		inner+="class='card-img-top'><div class='card-body'><h6>Restaurants</h6></div></a></div>";
+		
 		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Markets'";
 		inner+="class='card category-card text-center'><img src='png/markets.jpg' ";
 		inner+="class='card-img-top' alt='Dairy'><div class='card-body'><h6>Markets</h6></div></a></div>";
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Groceries'";
-		inner+="class='card category-card text-center'><img src='png/groceries.jpg' ";
-		inner+="class='card-img-top' alt='Snacks'><div class='card-body'><h6>Groceries</h6></div>  ";
+		
 		inner+="</a></div><div class='col-6 col-lg-2'><a href='' data-company-name='Butchers'";
 		inner+="class='card category-card text-center'><img src='png/butchershops.jpg' ";
 		inner+="class='card-img-top' alt='Staples'><div class='card-body'><h6>Butchers</h6></div></a></div>";
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Toys shop'";
-		inner+="class='card category-card text-center'><img src='png/toys.jpg' class='card-img-top'";
-		inner+="alt='Staples'><div class='card-body'><h6>Toys shop</h6></div></a></div>";
+		
 		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Bakery'";
 		inner+="class='card category-card text-center'><img src='png/bakery.jpg' ";
 		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Bakery</h6></div></a></div>";
+		
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Fish Shop'";
+		inner+="class='card category-card text-center'><img src='png/fishshop.jpg' ";
+		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Fish Shop</h6></div></a></div>";
+		
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Chicken Shop'";
+		inner+="class='card category-card text-center'><img src='png/chickenshop.jpg' ";
+		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Chicken Shop</h6></div></a></div>";
+		
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Dairy Shop'";
+		inner+="class='card category-card text-center'><img src='png/dairyshop.jpg' ";
+		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Dairy Shop</h6></div></a></div>";
+		
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Flower Shop'";
+		inner+="class='card category-card text-center'><img src='png/flowershop.jpg' ";
+		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Flower Shop</h6></div></a></div>";
+		
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Taxi'";
+		inner+="class='card category-card text-center'><img src='png/taxi.jpg' ";
+		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Taxi</h6></div></a></div>";
+		
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Groceries'";
+		inner+="class='card category-card text-center'><img src='png/groceries.jpg' ";
+		inner+="class='card-img-top' alt='Snacks'><div class='card-body'><h6>Groceries</h6></div></a></div>";
+		
 		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Sweets'";
 		inner+="class='card category-card text-center'><img src='png/sweets.jpg' ";
 		inner+="class='card-img-top' alt='Household'><div class='card-body'><h6>Sweets</h6></div></a></div>";
+		
 		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Tobbaco'";
 		inner+="class='card category-card text-center'><img src='png/tobacco.jpg' ";
 		inner+="class='card-img-top' alt='Household'><div class='card-body'><h6>Tobbaco</h6></div></a></div>";
+		
+		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Toys shop'";
+		inner+="class='card category-card text-center'><img src='png/toys.jpg' class='card-img-top'";
+		inner+="alt='Staples'><div class='card-body'><h6>Toys shop</h6></div></a></div>";
+		
 		featured.innerHTML=inner;
 	}	
 	else
@@ -1454,9 +1506,10 @@ function checkForm()
 	var phone=document.getElementById("phone");
 	var city=document.getElementById("city");
 	var street=document.getElementById("street");
-	var cartcount=document.getElementById("cartCount3");
+	var cartcount=document.getElementById("cartCount2");
 	var order=document.getElementById("place_order");
-	if(name!=null&&name.value.length>0&&phone.value.length>0&&city.value.length>0&&street.value.length>0&&cartcount.innerHTML!="0")
+	if(name!=null&&name.value.length>0&&phone.value.length>0&&city.value.length>0&&street.value.length>0
+	&&cartcount.innerHTML!="0")
 	{
 		if(order!=null)
 		{
@@ -1534,8 +1587,8 @@ async function placeOrder()
 				vault:"0",
 				xnote:note.value,
 				username:username||"",
-				lat:requestlat,
-				lng:requestlng
+				lat:String(requestlat),
+				lng:String(requestlng)
 			});
 			// 3. import data to historyRequests
 			if(username&&username.length>0)
@@ -2098,9 +2151,67 @@ window.closeAlert = function()
     document.getElementById('customAlert').classList.add('hidden');
 }
 
+// Global variables to store location (default values)
+let userLat = 34;
+let userLng = 36;
+
+const locationCheckbox2 = document.getElementById('shareLocation');
+const registerBtn = document.getElementById('registerBtn');
+
+// Helper function to toggle button state and styles
+const setRegisterButtonState = (isDisabled) => {
+    if (!registerBtn) return;
+    registerBtn.disabled = isDisabled;
+    if (isDisabled) {
+        registerBtn.style.backgroundColor = "#cccccc"; 
+        registerBtn.style.color = "#666666";
+        registerBtn.style.borderColor = "#cccccc";
+        registerBtn.style.cursor = "not-allowed";
+        registerBtn.innerText = "Locating..."; // Optional: update text
+    } else {
+        registerBtn.style.backgroundColor = "";
+        registerBtn.style.color = "";
+        registerBtn.style.borderColor = "";
+        registerBtn.style.cursor = "pointer";
+        registerBtn.innerText = "Register"; // Reset text
+    }
+};
+
+if (locationCheckbox2) {
+    locationCheckbox2.addEventListener('change', async function() {
+        if (this.checked) {
+            // 1. Lock the button immediately
+            setRegisterButtonState(true);
+
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 5000
+                    });
+                });
+                
+                userLat = position.coords.latitude;
+                userLng = position.coords.longitude;
+                showPopup("Your Coordinates Set Via Your Phone Location");
+
+            } catch (error) {
+                this.checked = false; 
+                showPopup("Location access denied or timed out.");
+            } finally {
+                // 2. This runs whether try SUCCEEDS or FAILS
+                setRegisterButtonState(false);
+            }
+        } else {
+            // Re-enable if user unchecks the box
+            setRegisterButtonState(false);
+        }
+    });
+}
 // Registration Submit:
 const registrationForm = document.getElementById('registrationForm');
-if (registrationForm) registrationForm.addEventListener('submit', async (e) => { // Added async
+if (registrationForm) registrationForm.addEventListener('submit', async (e) => 
+{ // Added async
     e.preventDefault();
     let isValid = true;
     const inputs = e.target.querySelectorAll('input[required]');
@@ -2136,38 +2247,10 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) => {
         return;
     }
 
-    // Default coordinates
-    let lat = 34;
-    let lng = 36;
-	
-	window.mapSaveMode = 'firebase'; 
-    // If user wants to share location, try to fetch it
-    if (shareLocation) 
-	{
-        try 
-		{
-            const position = await new Promise((resolve, reject) => 
-			{
-                navigator.geolocation.getCurrentPosition(resolve, reject, 
-				{
-                    enableHighAccuracy: true,
-                    timeout: 5000
-                });
-            });
-            lat = position.coords.latitude;
-            lng = position.coords.longitude;
-        } 
-		catch (error) 
-		{
-            showPopup("Location access denied");
-            // Optional: showPopup("Could not get location, defaulting to 0,0");
-        }
-    }
-
     const requestRef = ref(db, 'users');
     const newPushRef = push(requestRef); 
     const newUserId = newPushRef.key;
-	if(lat==0)
+	if(userLat==34)
 	{
 		set(newPushRef, 
 		{
@@ -2211,8 +2294,8 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) => {
         status: "online",
         timestamp: new Date().toLocaleDateString('en-CA'),
         points: 0,
-        lat: lat, // Updated with real lat
-        lng: lng  // Updated with real lng
+        lat: userLat, // Updated with real lat
+        lng: userLng  // Updated with real lng
     })
     .then(() => 
 	{
@@ -2507,6 +2590,69 @@ function onLoginSuccess(userid) {
         window.AndroidBridge.startBackgroundTracking(userid);
     }
 }
+//profile username keyup
+const editUsername = document.getElementById('editUsername');
+const usernameFeedback = document.getElementById('usernameFeedback');
+
+if(editUsername)
+{
+	editUsername.addEventListener('keyup', function(event) 
+	{
+		const username2=editUsername.value.trim();
+		// 1. Immediate UI Reset
+		clearTimeout(timeout);
+		usernameFeedback.innerHTML = '';
+		
+		// 2. Client-side validation
+		if (username2.length === 0) return;
+		if (username2.length < 3) 
+		{
+		  usernameFeedback.innerHTML = '<span class="text-muted">Too short</span>';
+		  return;
+		}
+
+		// 3. Show Spinner
+		usernameFeedback.innerHTML = '<div class="spinner-tiny"></div>';
+
+		// 4. Debounced Database Check
+		timeout = setTimeout(async () => 
+		{
+		  try 
+		  {
+			const usersRef = ref(db, 'users'); 
+			
+			// Create the query
+			const userQuery = query(
+			  usersRef, 
+			  orderByChild('username'), 
+			  equalTo(username2.toLowerCase())
+			);
+
+			// Fetch the data
+			const snapshot = await get(userQuery);
+			// In Realtime DB, if no match is found, snapshot.val() is null
+			if (snapshot.exists()) 
+			{
+			  snapshot.forEach((childSnapshot) => 
+			  {
+				const dat = childSnapshot.val(); // Now 'dat' is the actual user object
+				
+				if(dat.username!=username)usernameFeedback.innerHTML = '<span class="text-invalid">✖ Username Taken</span>';
+				else usernameFeedback.innerHTML = '<span class="text-invalid"></span>';
+			  });
+			} 
+			else 
+			{
+			  usernameFeedback.innerHTML = '<span class="text-valid">✔ Username Available</span>';
+			}
+		  } 
+		  catch (error) 
+		  {
+			console.error("Database Error:", error);
+		  }
+		}, 500);
+	});
+}
 
 window.toggleTheme = function() {
     const body = document.body;
@@ -2577,69 +2723,3 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-
-/*document.addEventListener('DOMContentLoaded', async () => 
-{
-    const toggleSwitch = document.getElementById('myLocation');
-    const openMapBtn = document.getElementById('open-map-trigger');
-
-    if (!toggleSwitch || !openMapBtn) return;
-
-    // 1. GET USER ID AND CHECK FIREBASE
-    const userId = localStorage.getItem('userid');
-    
-    if (userId) 
-	{
-       try 
-		{
-            // Adjust path depending on your DB (Realtime or Firestore)
-            // Realtime DB example:
-			const userData = await getCoordinates(); 
-			if (userData) 
-			{
-				userLat = parseFloat(userData.lat || userData.lat);
-				userLng = parseFloat(userData.lng || userData.lng);
-			}
-            if (userLat > 0 && userLng > 0) 
-			{
-                // Save coordinates to global variables
-                userLat = parseFloat(userData.lat);
-                userLng = parseFloat(userData.lng);
-
-                console.log("Coordinates loaded:", userLat, userLng);
-
-                // Default State: Checkbox ON, Button DISABLED
-                toggleSwitch.checked = true;
-                openMapBtn.disabled = true;
-            } 
-			else 
-			{
-                // If coordinates don't exist or are <= 0
-                toggleSwitch.checked = false;
-                openMapBtn.disabled = false;
-            }
-        } 
-		catch (error) 
-		{
-            console.error("Firebase fetch failed:", error);
-        }
-		console.log('lat:'+userLat+'   lng:'+userLng);
-    }
-
-    // 2. TOGGLE EVENT LISTENER
-    toggleSwitch.addEventListener('change', function() 
-	{
-        if (this.checked) 
-		{
-            // Switch is ON -> Disable Map Button
-            openMapBtn.disabled = true;
-            console.log("Location enabled. Using saved variables:", userLat, userLng);
-        } 
-		else 
-		{
-            // Switch is OFF -> Enable Map Button
-            openMapBtn.disabled = false;
-            console.log("Location disabled. Ready for new input.");
-        }
-    });
-});*/

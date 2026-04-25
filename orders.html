@@ -138,17 +138,23 @@
     </div>
 	</div>
 
-  <footer class="footer bg-dark text-white pt-5">
-    <div class="container">
-      <div class="row g-4">
-        <div class="col-12 col-lg-3">
-          <h6 class="fw-semibold">About</h6>
-          <p class="text-muted">Delivo brings you any thing you need to your door with great prices.</p>
-        </div>
-      </div>
-      <div class="border-top mt-4 py-3 text-center text-muted">© 2026 Delivo All rights reserved.</div>
-    </div>
-  </footer>
+	<div id="userbar"></div>
+	<div id="changepassword"></div>
+	<div id="footer"></div>
+	<script>
+	fetch('usersidebar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('userbar').innerHTML = data; });
+
+	fetch('changepassword.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('changepassword').innerHTML = data; });
+
+	fetch('footer.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('footer').innerHTML = data; });
+	</script> 
+
 <!-- Login Modal (Place this before </body>) -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -221,7 +227,7 @@
     </div>
 </div>
 <!-- Bottom Navigation Bar (Visible only on mobile/tablet) -->
-<nav class="navbar navbar-light bg-white border-top fixed-bottom d-lg-none py-2">
+<nav class="navbar navbar-light bg-white border-top fixed-bottom py-2">
   <div class="container-fluid d-flex justify-content-around text-center">
     
     <a href="index.html" class="nav-link text-dark">
@@ -247,43 +253,6 @@
     </ul>
   </div>
 </nav>
-<!-- profile sidebar	-->
-<div id="userSidebar">
-	<!-- 🌓 Theme Toggle Button -->
-	<button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch Day/Night Mode">
-	<i class="fa-solid fa-moon"></i> <!-- Default icon -->
-	</button>
-  <button class="close-sidebar-btn" onclick="closeUserSidebar()">&times;</button>
-  
-  <div class="profile-box">
-    <div class="profile-img-wrap" onclick="triggerFileInput()">
-      <img id="sidebar-pfp">
-      <div class="img-overlay">📷</div>
-    </div>
-    <input type="file" id="profileInput" accept="image/*" style="display:none" onchange="previewImage(event)">
-
-    <h3 id="profilename">Full Name</h3>
-    <p id="profilepoints">POINTS BALANCE</p>
-  </div>	
-  
-<button id="open-map-trigger" class="loc-btn btn-locate">
-    <i class="fa-solid fa-earth-americas me-2"></i> Update My Location
-</button>
-<!-- Load Google Maps at the end of body -->
-
-  <nav class="sidebar-links">
-    <a href="index.html">Home</a>
-    <a href="contact.html">Contact</a>
-    <a href="about.html">About Us</a>
-    <a href="orders.html">My Orders</a>
-    <a href="#" style="color: #ff4d4d;"onclick="showPassModal()">Change Password</a>
-    <a href="#" style="color: #ff4d4d;"onclick="switchUser()">Switch User</a>
-    <a id="logoutBtn"href="#" style="color: #ff4d4d;">Logout</a>
-  </nav>
-</div>
-<div id="sidebarOverlay" onclick="closeUserSidebar()"></div>
-<!-- close profile sidebar	-->
-
 
 <!-- START OF LOCATION MODAL -->
 <div id="mapModal" class="map-modal-overlay">
@@ -302,20 +271,5 @@
 <!-- END OF LOCATION MODAL -->
   <script type="module"src="javascript/location.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
-  
-<!-- UNIQUE Password Modal -->
-<div id="CP-Modal-Wrapper">
-    <div id="CP-Modal-Content">
-        <span id="CP-Close-Btn" onclick="hidePassModal()">&times;</span>
-        <h2 style="margin-top:0; color:#3498db;">Change Password</h2>
-        <form id="changePasswordForm">
-            <input type="password" id="oldPassword" placeholder="Old Password" required>
-            <input type="password" id="newPassword" placeholder="New Password" required>
-            <input type="password" id="confirmPassword2" placeholder="Confirm New Password" required>
-            <button type="submit" id="CP-Submit-Btn">Update Password</button>
-        </form>
-    </div>
-</div>
-
-</body>
+  </body>
 </html>

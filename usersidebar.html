@@ -1,0 +1,34 @@
+<div id="userSidebar">
+	<!-- 🌓 Theme Toggle Button -->
+	<button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch Day/Night Mode">
+	<i class="fa-solid fa-moon"></i> <!-- Default icon -->
+	</button>
+  <button class="close-sidebar-btn" onclick="closeUserSidebar()">&times;</button>
+  
+  <div class="profile-box">
+    <div class="profile-img-wrap" onclick="triggerFileInput()">
+      <img id="sidebar-pfp">
+      <div class="img-overlay">📷</div>
+    </div>
+    <input type="file" id="profileInput" accept="image/*" style="display:none" onchange="previewImage(event)">
+
+    <h3 id="profilename">Full Name</h3>
+    
+  </div>	
+  
+
+<!-- Load Google Maps at the end of body -->
+
+  <nav class="sidebar-links">
+	<p id="profilepoints">POINTS BALANCE</p>
+    <a href="profile.html">My Profile</a>
+    <button id="open-map-trigger" class="loc-btn btn-locate">
+    <i class="fa-solid fa-earth-americas me-2"></i> Update My Location
+	</button>
+    <a href="about.html">About Us</a>
+    <a href="orders.html">My Orders</a>
+    <a href="#" style="color: #ff4d4d;"onclick="switchUser()">Switch User</a>
+    <a id="logoutBtn"href="#" style="color: #ff4d4d;">Logout</a>
+  </nav>
+</div>
+<div id="sidebarOverlay" onclick="closeUserSidebar()"></div>

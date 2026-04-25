@@ -74,8 +74,8 @@ window.initMap = async function() {
 
 // 🌍 GLOBAL COORDINATES (To use later in your app)
 const shareLocation = document.getElementById('myLocation');
-window.mapSaveMode = 'local'; 
-document.body.addEventListener('click', function(event) {
+document.body.addEventListener('click', function(event) 
+{
     if (event.target && event.target.matches('#myLocation')) {
         const toggle = event.target;
         const mapBtn = document.getElementById('open-map-trigger');
@@ -111,7 +111,7 @@ document.body.addEventListener('click', function(event) {
 				{
                     window.lat = position.coords.latitude;
                     window.lng = position.coords.longitude;
-                    showPopup("Success! Coords locked at \nlat:"+window.lat+"\nlng:"+window.lng);
+                    showPopup("You Request Set At Your Phone Location");
 
                     // Disable button and make it gray
 					if (place_order) 
@@ -156,36 +156,38 @@ document.body.addEventListener('click', function(event) {
     }
 });
 
-// 3. UI LOGIC
-document.addEventListener('DOMContentLoaded', () => {
+// 3. UI LOGIC (Fixed for Dynamic Fetching)
+document.addEventListener('click', function(event) {
     const modal = document.getElementById('mapModal');
-    const openBtn = document.getElementById('open-map-trigger');
-    const closeBtn = document.getElementById('close-modal');
-    const locateBtn = document.getElementById('one-click-locate');
-    const saveBtn = document.getElementById('confirm-save-btn');
+    
+    // --- 1. OPEN MODAL LOGIC (Event Delegation) ---
+    // This catches the click even if the sidebar is fetched late
+    const openBtn = event.target.closest('#open-map-trigger');
+    const openBtn2 = event.target.closest('#open-map-trigger2');
 
-    // Open Modal Logic
-    if (openBtn) {
-        openBtn.onclick = () => {
+    if (openBtn || openBtn2) {
+        window.mapSaveMode = openBtn ? 'firebase' : 'local';
+        console.log("Map Save Mode:", window.mapSaveMode);
+        
+        if (modal) {
             modal.style.display = "block";
+            // Give the map a moment to resize after showing the modal
             setTimeout(() => {
-                if (map) {
+                if (map && marker) {
                     google.maps.event.trigger(map, "resize");
                     map.setCenter(marker.getPosition());
                 }
-            }, 300); 
-        };
+            }, 300);
+        }
     }
 
-    // Close Modal Logic
-    if (closeBtn) {
-        closeBtn.onclick = () => modal.style.display = "none";
+    // --- 2. CLOSE MODAL LOGIC ---
+    if (event.target.id === 'close-modal' || event.target.closest('#close-modal')) {
+        if (modal) modal.style.display = "none";
     }
 
-    // ONE-CLICK LOCATE LOGIC
-    if (locateBtn) {
-    locateBtn.onclick = () => {
-        // One-click requires HTTPS to work online
+    // --- 3. ONE-CLICK LOCATE LOGIC ---
+    if (event.target.id === 'one-click-locate' || event.target.closest('#one-click-locate')) {
         if (!navigator.geolocation) {
             alert("Geolocation is not supported by this browser.");
             return;
@@ -196,66 +198,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 lat: position.coords.latitude, 
                 lng: position.coords.longitude 
             };
-
-            // Force the modal open so the user sees the map update
-            modal.style.display = "block";
-
-            // If map is already initialized, update it
             if (map && marker) {
                 map.setCenter(pos);
                 map.setZoom(17);
                 marker.setPosition(pos);
                 selectedCoords = pos;
-            } else {
-                // If map isn't ready yet, wait for initMap then set position
-                window.initMap().then(() => {
-                    map.setCenter(pos);
-                    marker.setPosition(pos);
-                });
             }
         }, (error) => {
-            alert("Location access denied. Check your browser permissions.");
+            alert("Location access denied.");
         }, { enableHighAccuracy: true });
-    };
-}
+    }
 
-//window.mapSaveMode = 'local'; 
+    // --- 4. SAVE LOGIC ---
+    if (event.target.id === 'confirm-save-btn' || event.target.closest('#confirm-save-btn')) {
+        handleSaveLocation();
+    }
+});
 
-    // 2. UPDATED SAVE TO DATABASE / LOCAL VARIABLES
-    if (saveBtn) 
-    {
-        saveBtn.onclick = async () => 
-        {
-            if (selectedCoords) 
-            {
-                try 
-                {
-                    console.log('Save action triggered. Mode:', window.mapSaveMode);
-                    // 🛣️ BRANCH 1: Save directly to Firebase
-                    if (window.mapSaveMode === 'firebase') {
-                        await updateCoordinates(selectedCoords.lat, selectedCoords.lng);
-                        showPopup("Your New Location Saved!");
-                    } 
-                    // 🛣️ BRANCH 2: Save strictly to local JS variables
-                    else {
-                        window.lat = selectedCoords.lat;
-                        window.lng = selectedCoords.lng;
-                        showPopup("Location coordinates locked!");
-						showPopup("Local variables updated via map pin at \nlat:"+window.lat+"\nlng:"+window.lng);
-                    }
-
-                    // Close modal after successful run on either branch
-                    modal.style.display = "none";
-                } 
-                catch (err) 
-                {
-                    console.error("Save failed:", err);
-                    showPopup("Error saving location.");
-                }
+// Helper function for saving to keep the click listener clean
+async function handleSaveLocation() {
+    if (selectedCoords) {
+        try {
+            if (window.mapSaveMode === 'firebase') {
+                await updateCoordinates(selectedCoords.lat, selectedCoords.lng);
+                showPopup("Your New Location Saved!");
+            } else {
+                // Your Local Save Logic
+                window.lat = selectedCoords.lat;
+                window.lng = selectedCoords.lng;
+                showPopup("Location set for this order!");
             }
-        };
-    }});
-
+            document.getElementById('mapModal').style.display = "none";
+        } catch (err) {
+            console.error("Save failed:", err);
+        }
+    }
+}
 // Manual Trigger for Google Maps
 if (typeof google !== 'undefined' && google.maps) {
     window.initMap();

@@ -158,3 +158,37 @@
     .pc-grid-item { padding: 2px !important; }
     .pc-badge-offer { font-size: 0.5rem !important; top: 5px; left: 5px; }
 }
+
+
+/*	last css update targeting items to be 3 in row not 4 in row  */
+/* 1. Target the parent container (usually a .row) */
+#featuredcompanies, 
+.row.g-3 { 
+    display: grid !important;
+    /* This forces exactly 3 equal columns */
+    grid-template-columns: repeat(3, 1fr) !important; 
+    gap: 8px !important; /* Adjust spacing between cards */
+}
+
+/* 2. Reset the grid items so they don't use Bootstrap's 12-column widths */
+.pc-grid-item, 
+.col-6, 
+.col-lg-2 {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+    padding: 0 !important;
+}
+
+/* 3. Adjust your Offer Badge font for the smaller 3-item width */
+.pc-badge-offer {
+    font-size: 2.2vw !important; /* Slightly larger than 1.5vw to keep it readable */
+    width: 45% !important; /* Widened to fit the text better in a 3-column layout */
+}
+
+/* 4. Fix for the title to prevent height issues in small columns */
+.pc-item-title {
+    font-size: clamp(0.55rem, 2.8vw, 0.85rem) !important;
+    min-height: 2.8em !important;
+}
+

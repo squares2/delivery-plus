@@ -16,103 +16,30 @@
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script src="javascript/profileSidebar.js"></script>
   <script type="module" src="javascript/startup.js"></script>
+  <script type="module" src="javascript/whatsapp.js"></script>
 </head>
 <body>
-  <div class="announcement-bar text-white">
-    <div class="container d-flex justify-content-between align-items-center">
-      <div class="d-flex gap-4">
-        <span><i class="fa-solid fa-truck-fast me-2"></i>Free delivery</span>
-        <span><i class="fa-solid fa-bolt me-2"></i>Fast delivery</span>
-      </div>
-    </div>
-  </div>
+	<div id="topbar"></div>
+	<div id="userbar"></div>
+	<div id="changepassword"></div>
+	<div id="bottom"></div>
+	<script>
+	fetch('topbar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('topbar').innerHTML = data; });
+		
+	fetch('changepassword.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('changepassword').innerHTML = data; });
 
-  <!-- 🌙 Nav Bar: Flipped from 'navbar-light bg-white' to 'navbar-dark bg-dark' -->
-<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top navbar-styled">
-  <div class="container">
-    <img class="delivo-logo" src="png/castle.png">
-    <a class="navbar-brand fw-bold" href="index.html">
-      <img class="delivo-logo" src="png/delivo.png">
-    </a>
+	fetch('bottombar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('bottom').innerHTML = data; });
 
-    <!-- Mega Menu and remaining links -->
-    <ul class="navbar-nav ms-3">
-      <li class="nav-item dropdown mega">
-        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">ALL Shops</a>
-        <div class="dropdown-menu dropdown-menu-end p-4 mega-menu">
-          <div id="companieslist" class="row g-3">
-            <div class="col-6 col-lg-3">
-              <h6 class="fw-semibold">Loading...</h6>
-            </div>
-          </div>
-        </div>
-      </li>
-    </ul>
-	
-	
-    <!-- Top Right Icons Group -->
-    <div class="d-flex align-items-center ms-auto">
-      <!-- Cart Icon -->
-      <a id="topcart" class="nav-link position-relative me-3" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
-        <i class="fa-solid fa-cart-shopping"></i>
-        <span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-      </a>
-
-		<div class="dropdown ms-2" id="userMenuWrapper">
-    <!-- The ID 'userMenu' is what the JS will use to swap between 'dropdown' and 'offcanvas' -->
-    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
-        <i class="fa-solid fa-circle-user fa-lg me-2"></i>
-        <span id="navUserName" class="fw-semibold">Public</span>
-    </a>
-    
-    <!-- This menu only shows when logged out (data-bs-toggle="dropdown") -->
-    <ul id="userDropdownMenu" class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenu">
-        <li>
-            <a class="dropdown-item" href="index.html" >Home</a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="about.html" >About Us</a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="contact.html" >Contact</a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Sign In</a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#registerModal">Register</a>
-        </li>
-    </ul>
-</div>
-	</div>
-</nav>
-
-  <!-- 🌙 Maintenance Card: Hardcoded white defaults stripped -->
-  <div id="maintenance-overlay">
-    <div class="message-card bg-dark text-white border border-secondary p-4 rounded text-center">
-      <div class="status-badge mb-3">
-        <span class="status-dot bg-danger d-inline-block rounded-circle" style="width:10px;height:10px;"></span>
-        Currently Closed
-      </div>
-      <i class="fa-solid fa-store-slash main-icon text-muted mb-3" style="font-size: 3rem;"></i>
-      <h1 class="fw-bold text-white">Shop is Resting</h1>
-      <p class="text-muted">Delivo is currently closed for maintenance. We are updating our inventory to serve you better!</p>
-      
-      <div class="schedule-box bg-secondary p-3 rounded mb-3">
-        <div class="schedule-header fw-bold text-white">
-          <i class="fa-regular fa-calendar-check me-2"></i> Reopening Tomorrow
-        </div>
-        <div class="schedule-time text-light">
-          <span class="day">Thursday, Feb 12</span> |
-          <span class="time">09:00 AM — 09:00 PM</span>
-        </div>
-      </div>
-
-      <div class="footer-links">
-        <a href="#" class="text-success fw-bold"><i class="fa-brands fa-whatsapp"></i> Contact Support</a>
-      </div>
-    </div>
-  </div>
+	fetch('usersidebar.html')
+		.then(response => response.text())
+		.then(data => { document.getElementById('userbar').innerHTML = data; });
+	</script> 
 
   <!-- 🌙 Content Section: Flipped the text and borders to dark variables -->
   <section class="py-5 text-white">
@@ -156,20 +83,6 @@
       </div>
     </div>
   </section>
-
-  <!-- 🌙 Bottom Nav Bar: Flipped from 'bg-white' and 'text-dark' to dark styling -->
-  <nav class="navbar navbar-dark bg-dark border-top border-secondary fixed-bottom d-lg-none py-2">
-    <div class="container-fluid d-flex justify-content-around text-center">
-      <a href="index.html" class="nav-link text-light">
-        <i class="fa-solid fa-house d-block mb-1"></i>
-        <small>Home</small>
-      </a>
-      <a class="nav-link position-relative text-light" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
-        <i class="fa-solid fa-cart-shopping"></i>
-        <span id="cartCount2" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-      </a>
-    </div>
-  </nav>
 
   <div class="offcanvas offcanvas-end text-white" tabindex="-1" id="cartSidebar" style="background-color: #1a1a1a !important;">
     <div class="offcanvas-header border-bottom border-secondary">
@@ -263,44 +176,6 @@
     </div>
 </div>
 
-<!-- profile sidebar	-->
-<div id="userSidebar">
-	<!-- 🌓 Theme Toggle Button -->
-	<button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch Day/Night Mode">
-	<i class="fa-solid fa-moon"></i> <!-- Default icon -->
-	</button>
-  <button class="close-sidebar-btn" onclick="closeUserSidebar()">&times;</button>
-  
-  <div class="profile-box">
-    <div class="profile-img-wrap" onclick="triggerFileInput()">
-      <img id="sidebar-pfp">
-      <div class="img-overlay">📷</div>
-    </div>
-    <input type="file" id="profileInput" accept="image/*" style="display:none" onchange="previewImage(event)">
-
-    <h3 id="profilename">Full Name</h3>
-    <p id="profilepoints">POINTS BALANCE</p>
-  </div>	
-  
-<button id="open-map-trigger" class="loc-btn btn-locate">
-    <i class="fa-solid fa-earth-americas me-2"></i> Update My Location
-</button>
-<!-- Load Google Maps at the end of body -->
-
-  <nav class="sidebar-links">
-    <a href="index.html">Home</a>
-    <a href="contact.html">Contact</a>
-    <a href="about.html">About Us</a>
-    <a href="orders.html">My Orders</a>
-    <a href="#" style="color: #ff4d4d;"onclick="showPassModal()">Change Password</a>
-    <a href="#" style="color: #ff4d4d;"onclick="switchUser()">Switch User</a>
-    <a id="logoutBtn"href="#" style="color: #ff4d4d;">Logout</a>
-  </nav>
-</div>
-<div id="sidebarOverlay" onclick="closeUserSidebar()"></div>
-<!-- close profile sidebar	-->
-
-
 <!-- START OF LOCATION MODAL -->
 <div id="mapModal" class="map-modal-overlay">
     <div class="map-modal-content profile-location-container">
@@ -318,21 +193,5 @@
 <!-- END OF LOCATION MODAL -->
   <script type="module"src="javascript/location.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
-
-<!-- UNIQUE Password Modal -->
-<div id="CP-Modal-Wrapper" style="background: rgba(0,0,0,0.7) !important;">
-    <div id="CP-Modal-Content" class="bg-dark text-white border border-secondary p-4 rounded">
-        <span id="CP-Close-Btn" class="text-white" onclick="hidePassModal()">&times;</span>
-        <h2 style="margin-top:0; color:#3498db;">Change Password</h2>
-        <form id="changePasswordForm">
-            <!-- 🌙 Flipped password field boxes -->
-            <input type="password" id="oldPassword" class="form-control bg-secondary text-white border-0 mb-3" placeholder="Old Password" required>
-            <input type="password" id="newPassword" class="form-control bg-secondary text-white border-0 mb-3" placeholder="New Password" required>
-            <input type="password" id="confirmPassword2" class="form-control bg-secondary text-white border-0 mb-3" placeholder="Confirm New Password" required>
-            <button type="submit" id="CP-Submit-Btn" class="btn btn-primary w-100 fw-bold">Update Password</button>
-        </form>
-    </div>
-</div>
-
 </body>
 </html>
