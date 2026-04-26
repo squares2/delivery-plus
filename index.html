@@ -22,29 +22,36 @@
   <link href="css/passmodal.css" rel="stylesheet">
   <link href="css/intro.css" rel="stylesheet">
 <style>
+/* 1. MAIN OVERLAY (Full Screen) */
 #onboarding-overlay {
     position: fixed;
     inset: 0;
     width: 100vw;
     height: 100vh;
-    background: #f8f9fa; /* Light grey background to make cards pop */
+    background: #f8f9fa; /* Light grey background */
     z-index: 10000;
-    display: flex; 
+    display: none; /* Hidden by default to prevent flicker */
     justify-content: center;
     align-items: center;
+    transition: opacity 0.6s ease, visibility 0.6s;
 }
 
+/* 2. STEP HANDLING */
 .step {
     position: absolute;
     inset: 0;
-    display: none; /* JS toggles this */
+    display: none; /* Hidden by default */
     justify-content: center;
     align-items: center;
 }
 
-.step.active { display: flex; animation: slideUp 0.4s ease-out; }
+/* Only the active step shows as a flex container */
+.step.active { 
+    display: flex; 
+    animation: slideUp 0.4s ease-out forwards; 
+}
 
-/* The Card Container */
+/* 3. THE CARD DESIGN */
 .onboarding-card {
     background: white;
     width: 90%;
@@ -57,51 +64,105 @@
     flex-direction: column;
 }
 
-/* Image Section (500x730 Portrait) */
+/* 4. MEDIA SECTION (500x730 Images) */
 .card-media {
-    flex: 1.5; /* Takes more space */
+    flex: 1.6; /* Takes more vertical space */
     overflow: hidden;
 }
 
 .card-img {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Fits your portrait image perfectly */
+    object-fit: cover; /* Perfectly fits your portrait images */
 }
 
-/* Text & Buttons Section */
-.card-body {
+/* 5. TEXT & BUTTONS SECTION */
+.card-body2 {
     flex: 1;
     padding: 30px;
     text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    background: white;
 }
 
-.card-body h2 { color: #333; font-size: 1.8rem; margin-bottom: 10px; }
-.card-body p { color: #666; margin-bottom: 25px; }
+.card-body2 h2 { 
+    color: #333; 
+    font-size: 1.8rem; 
+    margin-bottom: 10px; 
+    font-weight: 700;
+}
 
-/* Buttons & Dots */
+.card-body2 p { 
+    color: #666; 
+    font-size: 1rem;
+    line-height: 1.4;
+    margin-bottom: 25px; 
+}
+
+/* 6. BUTTONS & DOTS */
 #onboarding-overlay button {
     background: #0056b3;
     color: white;
     border: none;
-    padding: 14px;
+    padding: 16px;
     border-radius: 15px;
+    font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
 }
 
-.onboarding-dots { margin-bottom: 20px; }
-.dot { display: inline-block; width: 8px; height: 8px; background: #ddd; border-radius: 50%; margin: 0 4px; }
-.dot.active { background: #0056b3; width: 20px; border-radius: 10px; }
+#onboarding-overlay button:active {
+    transform: scale(0.96);
+}
 
+.onboarding-dots { 
+    margin-bottom: 20px; 
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.dot { 
+    display: inline-block; 
+    width: 8px; 
+    height: 8px; 
+    background: #ddd; 
+    border-radius: 50%; 
+    transition: all 0.3s ease;
+}
+
+.dot.active { 
+    background: #0056b3; 
+    width: 22px; 
+    border-radius: 10px; 
+}
+
+/* 7. ANIMATIONS & TRANSITIONS */
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(30px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+.fade-out { 
+    opacity: 0 !important; 
+    visibility: hidden !important; 
+}
+
+/* Extra utility to force show via Head Script */
+.force-show {
+    display: flex !important;
+}
 </style>
+<script>
+    (function() {
+        if (!localStorage.getItem('onboardingComplete')) {
+            document.write('<style>#onboarding-overlay { display: flex !important; }</style>');
+        }
+    })();
+</script>
   <script type="module" src="javascript/database.js"></script> 
   <script type="module"src="javascript/whatsapp.js"></script>
   <script src="javascript/bootstrap.bundle.min.js"></script>
@@ -124,7 +185,7 @@ window.addEventListener('load', function() {
         setTimeout(() => {
             splash.classList.add('fade-out');
             sessionStorage.setItem('introSeen', 'true');
-        }, 3000);
+        }, 5000);
     } else {
         // If they already saw it this session, remove it immediately
         splash.style.display = 'none';
@@ -141,7 +202,7 @@ window.addEventListener('load', function() {
       <div class="card-media">
         <img src="png/intro1.png" class="card-img" alt="Fast Delivery">
       </div>
-      <div class="card-body">
+      <div class="card-body2">
         <h2>Fast Delivery</h2>
         <p>Everything reaches you in record time, straight to your door.</p>
         <div class="onboarding-dots">
@@ -160,7 +221,7 @@ window.addEventListener('load', function() {
       <div class="card-media">
         <img src="png/intro1.png" class="card-img" alt="Live Tracking">
       </div>
-      <div class="card-body">
+      <div class="card-body2">
         <h2>Live Tracking</h2>
         <p>Watch your order move on the map in real-time.</p>
         <div class="onboarding-dots">
@@ -179,7 +240,7 @@ window.addEventListener('load', function() {
       <div class="card-media">
         <img src="png/intro1.png" class="card-img" alt="Safe & Secure">
       </div>
-      <div class="card-body">
+      <div class="card-body2">
         <h2>Safe & Secure</h2>
         <p>Reliable service you can trust every single day.</p>
         <div class="onboarding-dots">
@@ -432,6 +493,8 @@ window.addEventListener('load', function() {
       if (pwaBanner) pwaBanner.style.display = 'none';
     });
 	
+	
+	
 document.addEventListener('DOMContentLoaded', () => {
     const onboarding = document.getElementById('onboarding-overlay');
     const splash = document.getElementById('splash-screen');
@@ -441,55 +504,47 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let currentStep = 0;
 
+    function runLogoIntro() {
+        if (splash) {
+            splash.style.display = 'flex';
+            splash.classList.add('start-animation');
+            setTimeout(() => {
+                splash.classList.add('fade-out');
+                setTimeout(() => { splash.style.display = 'none'; }, 800);
+            }, 3000);
+        }
+    }
+
     // 1. Initial Visibility Check
     if (localStorage.getItem('onboardingComplete')) {
         if(onboarding) onboarding.style.display = 'none';
-        runLogoIntro(); // Already seen? Go to logo
+        runLogoIntro();
     } else {
-        if(onboarding) onboarding.style.display = 'flex';
+        if(onboarding) onboarding.classList.add('show-flex');
     }
 
-    // 2. "Next" Button Logic
+    // 2. Next Button Logic
     nextBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            steps[currentStep].classList.remove('active');
-            currentStep++;
-            if (steps[currentStep]) {
+            if (currentStep < steps.length - 1) {
+                steps[currentStep].classList.remove('active');
+                currentStep++;
                 steps[currentStep].classList.add('active');
             }
         });
     });
 
-    // 3. "Get Started" Button Logic (The Fix)
+    // 3. Done Button Logic
     if (doneBtn) {
-        doneBtn.addEventListener('click', () => {
+        doneBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             localStorage.setItem('onboardingComplete', 'true');
-            
-            // Fade out the onboarding card
             onboarding.classList.add('fade-out');
-            
-            // Wait for fade, then start logo intro
             setTimeout(() => {
                 onboarding.style.display = 'none';
                 runLogoIntro();
             }, 600);
         });
-    }
-
-    // 4. Logo Intro Function
-    function runLogoIntro() {
-        if (splash) {
-            splash.style.display = 'flex';
-            splash.classList.add('start-animation'); // Triggers your CSS bike move
-
-            // Hide everything and show main site after 3 seconds
-            setTimeout(() => {
-                splash.classList.add('fade-out');
-                setTimeout(() => {
-                    splash.style.display = 'none';
-                }, 800);
-            }, 3000);
-        }
     }
 });
 
