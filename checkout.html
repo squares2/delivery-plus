@@ -18,12 +18,13 @@
   <script src="javascript/profileSidebar.js"></script>
   <script type="module"src="javascript/startup.js"></script>
   <script type="module"src="javascript/whatsapp.js"></script>
+  <script src="javascript/themes.js"></script>
 </head>
 <body>
 
-<section class="py-5 bg-transparent">
+<section class="pt-2 bg-transparent">
 	<div class="container">
-		<div class="row g-4">
+		<div class="row g-2">
 			<!-- Shipping Address Column -->
 			<div class="col-12 col-lg-7">
 				<!-- 🌓 Kept themed-card for dynamic background -->
@@ -49,21 +50,20 @@
 
 						<!-- NEW: Location Toggle -->
 						<div class="mb-3">
-  <!-- Top: Toggle Switch -
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="myLocation">
-    <label class="form-check-label fw-bold small" for="myLocation">Set My Location</label>
-  </div>-->
 
-  <!-- Bottom: Small Button (Block width to fit nicely) -->
-  <button id="open-map-trigger2" class="loc-btn btn-locate btn-sm py-1 px-2 w-100" style="font-size: 0.85rem;">
-    <i class="fa-solid fa-earth-americas me-1"></i> Set Request Location
-  </button>
-</div>
-						
+						<!-- Bottom: Small Button (Block width to fit nicely) -->
+						<button id="open-map-trigger2" class="loc-btn btn-locate btn-sm py-1 px-2 w-100" style="font-size: 0.85rem;">
+						<i class="fa-solid fa-earth-americas me-1"></i> Set Request Location
+						</button>
+						</div>
 					</div>
 				</div>
 			</div>			
+			<!-- Buttons -->
+			<button id="place_order" class="btn btn-primary2 mt-3 fw-bold">Place Order</button>
+			<div style="display:none" id="message-label" class="btn btn-success mt-3 fw-bold">
+				Order Sent to Delivo SUCCESSFULLY!
+			</div>
 			<!-- Order Summary Column -->
 			<div class="col-12 col-lg-5">
 				<div class="p-4 border rounded shadow-sm themed-card">
@@ -86,12 +86,6 @@
 						<span id="checktotal" class="themed-total-value">2 $</span>
 					</div>
 				</div>
-			</div>
-			
-			<!-- Buttons -->
-			<button id="place_order" class="btn btn-primary2 mt-3 fw-bold">Place Order</button>
-			<div style="display:none" id="message-label" class="btn btn-success mt-3 fw-bold">
-				Order Sent to Delivo SUCCESSFULLY!
 			</div>
 		</div>
 	</div>

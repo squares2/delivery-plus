@@ -895,7 +895,6 @@ function setCompany(comp)
 		event.preventDefault(); 
 
 		const companyname = link.dataset.companyName;
-		
 		setCompany(companyname);
 	  });
 	});
@@ -1027,21 +1026,26 @@ function getCartCount()
 	}
 	return n
 }
-function updateCartBadge()
-{
-	cartCount=getCartCount();
-	var el=document.getElementById('cartCount');
-	if(el)el.textContent=String(cartCount);
-	el=document.getElementById('cartCount2');
-	if(el)el.textContent=String(cartCount);
-	el=document.getElementById('cartCount3');
-	if(el)el.textContent=String(cartCount);
-	checkForm();
-	/*const elements = document.querySelectorAll('#cartCount');
-	elements.forEach(el => 
-	{
-		el.textContent=String(cartCount);
-	});*/
+function updateCartBadge() {
+    const cartCount = getCartCount();
+    const ids = ['cartCount', 'cartCount2', 'cartCount3'];
+    let foundAll = true;
+
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = String(cartCount);
+        } else {
+            foundAll = false;
+        }
+    });
+
+    // If elements weren't found, try again in 100ms
+    if (!foundAll) {
+        setTimeout(updateCartBadge, 100);
+    }
+    
+    checkForm();
 }
 function addToCart(id)
 {
@@ -1057,6 +1061,7 @@ function addToCart(id)
 	if(found)
 	{
 		found.qty+=1
+		playSound('add');
 	}
 	else
 	{
@@ -1067,6 +1072,7 @@ function addToCart(id)
 		let price=cost;
 		if(sale>0)price=sale;
 		cartItems.push({id:p.id,title:p.title,price:price,image:p.image,qty:1})
+		playSound('add');
 	}
 	saveCart();
 	updateCartBadge();
@@ -1224,7 +1230,7 @@ function renderProductDetail()
       '<p class="text-muted">High-quality product sourced from trusted suppliers.</p>'+
       '<div class="d-flex gap-2">'+
         '<button class="btn btn-primary" data-product-id="'+p.id+'">Add to Cart</button>'+
-        '<a class="btn btn-outline-secondary" href="checkout.html">Buy Now</a>'+
+        '<a class="btn btn-outline-secondary" id="checkoutbutton"href="checkout.html">Buy Now</a>'+
       '</div>'+
     '</div>'+
   '</div>'+
@@ -1430,10 +1436,12 @@ function wireCartSidebar()
 		if(inc)
 		{
 			changeQty(parseInt(inc),1)
+			playSound('add');
 		}
 		else if(dec)
 		{
 			changeQty(parseInt(dec),-1)
+			playSound('remove');
 		}
 		else if(del)
 		{
@@ -1442,6 +1450,7 @@ function wireCartSidebar()
 				return ci.id===del
 			});			
 			if(item)changeQty(parseInt(del),-item.qty)
+			playSound('remove');
 		}
 	})
 }
@@ -1509,7 +1518,7 @@ function checkForm()
 	var cartcount=document.getElementById("cartCount2");
 	var order=document.getElementById("place_order");
 	if(name!=null&&name.value.length>0&&phone.value.length>0&&city.value.length>0&&street.value.length>0
-	&&cartcount.innerHTML!="0")
+	&&cartcount&&cartcount.innerHTML!="0")
 	{
 		if(order!=null)
 		{
@@ -1590,6 +1599,7 @@ async function placeOrder()
 				lat:String(requestlat),
 				lng:String(requestlng)
 			});
+			playSound('order');
 			// 3. import data to historyRequests
 			if(username&&username.length>0)
 			{
@@ -2378,7 +2388,7 @@ if (usernameInput)
 }, 500);
   });
 }
-function updateNavToLoggedIn(username) {
+export function updateNavToLoggedIn(username) {
     const userMenu = document.getElementById('userMenu');
     const navUserName = document.getElementById('navUserName');
     
@@ -2419,8 +2429,24 @@ function updateNavToLoggedOut() {
         new bootstrap.Dropdown(userMenu);
     }
 }
-const loginBtn = document.getElementById('loginBtn');
+// Your existing state (set this wherever you handle login)
+let currentUsername = "Guest"; 
+let isLoggedIn = false;
 
+function refreshUserUI() {
+    if (isLoggedIn) {
+        updateNavToLoggedIn(currentUsername);
+    } else {
+        updateNavToLoggedOut();
+    }
+}
+
+// Listen for the top bar specifically
+window.addEventListener('topBarLoaded', () => {
+    refreshUserUI();
+});
+
+const loginBtn = document.getElementById('loginBtn');
 if(loginBtn)loginBtn.addEventListener('click', async function() 
 {
     const typedUser = document.getElementById('loginUser').value;
@@ -2654,72 +2680,91 @@ if(editUsername)
 	});
 }
 
-window.toggleTheme = function() {
-    const body = document.body;
-    body.classList.toggle('dark-mode');
-    
-    const isDark = body.classList.contains('dark-mode');
-    
-    // 1. Save preference to Browser
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+const themeList = [
+  { name: 'light',    icon: 'fa-sun' },
+  { name: 'dark',     icon: 'fa-moon' },
+  { name: 'midnight', icon: 'fa-user-astronaut' },
+  { name: 'forest',   icon: 'fa-tree' },
+  { name: 'purple',   icon: 'fa-bolt' }
+];
 
-    // 2. Flip the Sidebar Icon (Moon <-> Sun)
-    const themeBtnIcon = document.querySelector('#theme-toggle-btn i');
-    if (themeBtnIcon) {
-        if (isDark) {
-            themeBtnIcon.classList.replace('fa-moon', 'fa-sun');
-        } else {
-            themeBtnIcon.classList.replace('fa-sun', 'fa-moon');
-        }
-    }
-
-    // 3. Handle Bootstrap Close Buttons (X) logic if necessary
-    const closeButtons = document.querySelectorAll('.btn-close');
-    closeButtons.forEach(btn => {
-        if (isDark) {
-            btn.classList.add('btn-close-white');
-        } else {
-            btn.classList.remove('btn-close-white');
-        }
-    });
-
-    console.log("System Flip:", isDark ? "Night Mode Active" : "Day Mode Active");
-};
-
-// 🌙 Load preference on startup (Defaults to Dark)
-window.addEventListener('DOMContentLoaded', () => {
-    const savedTheme = localStorage.getItem('theme');
-    
-    // Determine if we should be in dark mode
-    const isDark = (savedTheme !== 'light');
-    
-    // 1. Set body class
-    if (isDark) {
-        document.body.classList.add('dark-mode');
-    } else {
-        document.body.classList.remove('dark-mode');
-    }
-    
-    // 2. Set correct symbol icon (Moon if Day, Sun if Night)
-    const themeBtnIcon = document.querySelector('#theme-toggle-btn i');
-    if (themeBtnIcon) {
-        if (isDark) {
-            themeBtnIcon.classList.remove('fa-moon');
-            themeBtnIcon.classList.add('fa-sun');
-        } else {
-            themeBtnIcon.classList.remove('fa-sun');
-            themeBtnIcon.classList.add('fa-moon');
-        }
-    }
-    
-    // 3. Sync Bootstrap Close Buttons (X)
-    const closeButtons = document.querySelectorAll('.btn-close');
-    closeButtons.forEach(btn => {
-        if (isDark) {
-            btn.classList.add('btn-close-white');
-        } else {
-            btn.classList.remove('btn-close-white');
-        }
-    });
+// 1. Event Delegation: Listen for clicks even on fetched content
+document.addEventListener('click', function (event) {
+  const btn = event.target.closest('#theme-toggle-btn');
+  if (btn) {
+    cycleTheme(btn);
+  }
 });
 
+function cycleTheme(btn) {
+  const root = document.documentElement;
+  let currentName = root.getAttribute('data-theme') || 'light';
+  let currentIndex = themeList.findIndex(t => t.name === currentName);
+  
+  let nextIndex = (currentIndex + 1) % themeList.length;
+  let nextTheme = themeList[nextIndex];
+
+  // Trigger CSS animation via JS
+  btn.style.transition = "transform 0.25s ease-in-out";
+  btn.style.transform = "translateY(-10px) scale(1.2)";
+
+  setTimeout(() => {
+    // Update Theme
+    root.setAttribute('data-theme', nextTheme.name);
+    localStorage.setItem('preferred-theme', nextTheme.name);
+    
+    // Update Icon: Replace with fresh <i> so FontAwesome re-renders
+    btn.innerHTML = `<i class="fa-solid ${nextTheme.icon}"></i>`;
+    
+    // Force FontAwesome to process the new icon
+    if (window.FontAwesome) {
+      window.FontAwesome.dom.i2svg({ node: btn });
+    }
+    
+    // Reset CSS animation
+    btn.style.transform = "translateY(0) scale(1)";
+  }, 250);
+}
+
+// 3. Sync on load/fetch
+function syncThemeIcon() {
+  const saved = localStorage.getItem('preferred-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  
+  const btn = document.getElementById('theme-toggle-btn');
+  const active = themeList.find(t => t.name === saved);
+  
+  if (btn && active) {
+    btn.innerHTML = `<i class="fa-solid ${active.icon}"></i>`;
+    if (window.FontAwesome) {
+      window.FontAwesome.dom.i2svg({ node: btn });
+    }
+  }
+}
+
+// Run sync when the DOM is ready (in case button is already there)
+window.addEventListener('DOMContentLoaded', syncThemeIcon);
+
+//play sound function
+function playSound(sound) 
+{
+	console.log('play sound');
+    var audio = new Audio('sounds/'+sound+'.mp3'); 
+    audio.play();
+}
+
+const checkoutbutton = document.getElementById('checkoutbutton');
+
+if (checkoutbutton) {
+    checkoutbutton.addEventListener('click', function(e) { // Add 'e' here
+        e.preventDefault(); // Fix: Call it on the event object
+        // 1. Play the sound first
+        playSound('checkout'); 
+        // 2. Trigger alert (optional)
+        // Note: Alert might still cut off the sound in some browsers.
+        setTimeout(() => {
+        window.location.href = 'checkout.html';
+		}, 400); 
+		
+    });
+}

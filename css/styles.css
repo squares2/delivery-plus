@@ -2,32 +2,57 @@
    1. MASTER THEME CONTROLLER & ROOT
    ========================================== */
 
-/* ☀️ DEFAULT DAY MODE (Bright) */
-:root {
-  --primary: #198754;
-  --bg-primary: #f8f9fa;               /* Light page background */
-  --text-main: #1f2937;                /* Dark gray text */
-  --text-muted: #6c757d;               /* Soft gray text */
-  --bg-cards: rgba(255, 255, 255, 0.95); /* Bright glass cards */
-  --bg-inputs: #ffffff;                /* Pure white inputs */
-  --border-color: #e5e7eb;             /* Soft light border */
-  --shadow-color: rgba(0, 0, 0, 0.06); /* Light soft shadow */
-  --blur-brightness: brightness(1);    /* Keep background image bright */
-  --overlay-bg: rgba(0, 0, 0, 0.5);    /* Lighter modal overlay */
+/* 1. ☀️ LIGHT - Sun Icon */
+:root, [data-theme="light"] {
+  --bg-primary: #f8f9fa;
+  --text-main: #1f2937;
+  --bg-cards: #ffffff;
+  --border-color: #e5e7eb;
 }
 
-/* 🌙 NIGHT MODE STATE (Overrides variables when active) */
-body.dark-mode {
+/* 2. 🌙 DARK - Moon Icon */
+[data-theme="dark"] {
   --bg-primary: #121212;
   --text-main: #f3f4f6;
-  --text-muted: #9ca3af;
-  --bg-cards: rgba(26, 26, 26, 0.85);
-  --bg-inputs: #2a2a2a;
+  --bg-cards: #1e1e1e;
   --border-color: #374151;
-  --shadow-color: rgba(0, 0, 0, 0.5);
-  --blur-brightness: brightness(0.3);  /* Darkens background image */
-  --overlay-bg: rgba(0, 0, 0, 0.7);    /* Darker modal overlay */
 }
+
+/* 3. 🌌 MIDNIGHT - Astronaut Icon */
+[data-theme="midnight"] {
+  --bg-primary: #020617;
+  --text-main: #f1f5f9;
+  --bg-cards: #0f172a;
+  --border-color: #1e293b;
+}
+
+/* 4. 🌲 FOREST - Tree Icon */
+[data-theme="forest"] {
+  --bg-primary: #052e16;
+  --text-main: #ecfdf5;
+  --bg-cards: #064e3b;
+  --border-color: #065f46;
+}
+
+/* 5. ☂️ AMETHYST - Bolt Icon */
+[data-theme="purple"] {
+  --bg-primary: #2e1065;
+  --text-main: #f5f3ff;
+  --bg-cards: #4c1d95;
+  --border-color: #6d28d9;
+}
+
+/* Animation for the Icon Switch */
+#theme-icon {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.2s;
+}
+.icon-jump {
+  transform: translateY(-25px) scale(0);
+  opacity: 0;
+}
+
+
 
 * {
   box-sizing: border-box;
@@ -1026,3 +1051,17 @@ body.dark-mode .btn-theme-primary {
 body, .profile-card, .form-control, h2, p {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
+
+/* Replace [data-theme='light'] with whatever class/attribute you use for your light mode */
+[data-theme='light'] .mega-menu, 
+[data-theme='light'] .mega-menu * {
+    color: black !important;
+	font-weight: 700
+}
+
+/* Specifically target the 'ALL Shops' toggle link if it's still white */
+[data-theme='light'] .nav-link.dropdown-toggle {
+    color: black !important;
+	font-weight: 700
+}
+

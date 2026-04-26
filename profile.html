@@ -38,8 +38,10 @@
   <script src="javascript/profileSidebar.js"></script>
   <script type="module" src="javascript/startup.js"></script>
   <script type="module"src="javascript/whatsapp.js"></script>
+  <script src="javascript/themes.js"></script>
   <script type="module">
-	import { getCoordinates,updateProfileInfo,showPopup } from './javascript/database.js';
+	
+	import { getCoordinates,updateProfileInfo,showPopup,updateNavToLoggedIn } from './javascript/database.js';
 	
 	const storagedata = localStorage.getItem('delivoUser');
 	if (storagedata) 
@@ -76,6 +78,8 @@
 			updateProfileInfo(userid2,editUsername.value,editFullName.value,editPhone.value);
 			if(editFullName.value.length>0)document.getElementById('profilename').innerHTML=editFullName.value;
 			else document.getElementById('profilename').innerHTML=editUsername.value;
+			updateStoredUsername(editUsername.value);
+			updateNavToLoggedIn(editUsername.value);
 			showPopup('Your User Profile Data Updated');
 		}
 		else 
@@ -85,6 +89,21 @@
 			else showPopup('Sorry,This Username Exist');
 		}	
 	});
+	function updateStoredUsername(newUsername) {
+    // 1. Get the existing object from localStorage
+    const rawData = localStorage.getItem('delivoUser');
+    
+    if (rawData) {
+        // 2. Parse it back into a JavaScript object
+        let userData = JSON.parse(rawData);
+        
+        // 3. Update only the username property
+        userData.username = newUsername.toLowerCase().trim();
+        
+        // 4. Save the updated object back to localStorage
+        localStorage.setItem('delivoUser', JSON.stringify(userData));
+    }
+}
   </script>
 </head>
 <body>
@@ -142,7 +161,7 @@
 
             <!-- Action Buttons -->
             <div class="d-grid gap-2">
-              <button id="submit" class="btn btn-success fw-bold py-2" style="background-color: var(--primary); border: none;">
+              <button id="submit" class="btn btn-success fw-bold py-2">
                 Save Changes
               </button>
               <a href="index.html" class="btn btn-link text-danger btn-sm">Cancel</a>
@@ -172,7 +191,7 @@
       </div>
       
       <!-- Applied your Stylish Blue Gradient to the button -->
-      <a href="checkout.html" class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">Checkout</a>
+      <a href="checkout.html" id="checkoutbutton"class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">Checkout</a>
     </div>
 	</div>
 

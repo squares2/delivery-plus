@@ -15,11 +15,12 @@
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script type="module" src="javascript/startup.js"></script>
+  <script src="javascript/themes.js"></script>
 </head>
 <body class="themed-body">
 <!-- 🌓 Floating Theme Toggle Button -->
-  <button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch Day/Night Mode" class="floating-theme-btn">
-    <i class="fa-solid fa-moon"></i>
+  <button id="theme-toggle-btn" onclick="cycleTheme()" style="background:none; border:none; cursor:pointer; color:var(--text-main); font-size:1.5rem;">
+  <i id="theme-icon" class="fa-solid fa-sun"></i> 
   </button>
   <!-- Announcement Bar -->
   <div class="announcement-bar text-white">
