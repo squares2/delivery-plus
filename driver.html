@@ -16,7 +16,13 @@
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script type="module" src="javascript/startup.js"></script>
   <script src="javascript/themes.js"></script>
-</head>
+<script>
+    (function() {
+        if (!localStorage.getItem('onboardingComplete')) {
+            document.write('<style>#onboarding-overlay { display: flex !important; }</style>');
+        }
+    })();
+</script></head>
 <body class="themed-body">
 <!-- 🌓 Floating Theme Toggle Button -->
   <button id="theme-toggle-btn" onclick="cycleTheme()" style="background:none; border:none; cursor:pointer; color:var(--text-main); font-size:1.5rem;">
