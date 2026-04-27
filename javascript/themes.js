@@ -1,4 +1,4 @@
-const themeList = [
+themeList = [
   { name: 'light',    icon: 'fa-sun' },
   { name: 'dark',     icon: 'fa-moon' },
   { name: 'midnight', icon: 'fa-user-astronaut' },

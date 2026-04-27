@@ -1822,7 +1822,7 @@ document.addEventListener('DOMContentLoaded', function()
 					{
 						const data = childSnapshot.val();
 						key = childSnapshot.key;
-						if (data.username===username&&data.password === pass) 
+						if (data.username===username.toLowerCase().trim()&&data.password === pass) 
 						{
 							isAuthenticated = true;
 							driverData = data;
