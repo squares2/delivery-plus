@@ -67,7 +67,7 @@ const dbref=ref(db);
 			set(userStatusRef, "online");
 		});
 	}
-	if(storedData2)
+	/*if(storedData2)
 	{
 		const userStatusRef  = ref(db, "drivers/"+driverid+"/status");
 
@@ -81,7 +81,7 @@ const dbref=ref(db);
 			// Finally, set the user to online
 			set(userStatusRef, "online");
 		});
-	}
+	}*/
 
 	const maintenanceRef = ref(db, "maintenance/1");
 	onValue(maintenanceRef, (snapshot) => 
