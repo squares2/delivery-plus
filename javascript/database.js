@@ -7,30 +7,6 @@ window.lng = 36;
 var cartItemsDriver=[];
 var saleEnd=Date.now()+12*60*60*1000;
 
-const storedData = localStorage.getItem('delivoUser');
-if (storedData) 
-{
-	var username;
-	var userid;
-	const user = JSON.parse(storedData);
-	username=user.username;
-	userid=user.id;
-}
-
-const storedData2 = localStorage.getItem('delivoDriver');
-if (storedData2) 
-{
-	var driverusername;
-	var driverowner;
-	var driverid;
-	const driver = JSON.parse(storedData2);
-	driverusername=driver.driverusername;
-	driverowner=driver.driverowner;
-	driverid=driver.id;
-	//startDriverTracking(driverid);
-	onLoginSuccess(driverid);
-}
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 import { getDatabase,onDisconnect,query, push ,set, get, update, remove, ref, increment, runTransaction, child, onValue,orderByChild,equalTo } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
@@ -52,36 +28,52 @@ const db = getDatabase(app);   // Realtime Database instance
 const dbref=ref(db);
 
   
+const storedData = localStorage.getItem('delivoUser');
+if (storedData) 
+{
+	var username;
+	var userid;
+	const user = JSON.parse(storedData);
+	username=user.username;
+	userid=user.id;
+//	updateColumn("users",userid,"timestamp",Date.now());
+}
+
+const storedData2 = localStorage.getItem('delivoDriver');
+if (storedData2) 
+{
+	var driverusername;
+	var driverowner;
+	var driverid;
+	const driver = JSON.parse(storedData2);
+	driverusername=driver.driverusername;
+	driverowner=driver.driverowner;
+	driverid=driver.id;
+	//startDriverTracking(driverid);
+	onLoginSuccess(driverid);
+	updateColumn('drivers',driverid,'timestamp',Date.now());
+	updateColumn('drivers',driverid,'status','online');
+}
+
+
 	if(storedData)
 	{
 		const userStatusRef  = ref(db, "users/"+userid+"/status");
+		const timestampRef = ref(db, "users/" + userid + "/timestamp");
 
 		onValue(userStatusRef, (snapshot) => 
 		{
 			const presence = onDisconnect(userStatusRef);
+			const presence2 = onDisconnect(timestampRef);
     
 			// Now call .set() on the result of that function
 			presence.set("offline");
+			presence2.set(Date.now());
 
 			// Finally, set the user to online
 			set(userStatusRef, "online");
 		});
 	}
-	/*if(storedData2)
-	{
-		const userStatusRef  = ref(db, "drivers/"+driverid+"/status");
-
-		onValue(userStatusRef, (snapshot) => 
-		{
-			const presence = onDisconnect(userStatusRef);
-    
-			// Now call .set() on the result of that function
-			presence.set("offline");
-
-			// Finally, set the user to online
-			set(userStatusRef, "online");
-		});
-	}*/
 
 	const maintenanceRef = ref(db, "maintenance/1");
 	onValue(maintenanceRef, (snapshot) => 
@@ -1800,7 +1792,7 @@ document.addEventListener('DOMContentLoaded', function()
     const loginForm = document.getElementById('loginForm');
     const logoutBtn = document.getElementById('logoutBtn');
     
-    // 1. Handle Login Submission
+    // 1. Driver Login Submission
     if(loginForm) 
 	{
         loginForm.addEventListener('submit', function(e) 
@@ -1835,6 +1827,8 @@ document.addEventListener('DOMContentLoaded', function()
 								driverowner: driverData.owner
 							}));
 							onLoginSuccess(key);
+							updateColumn('drivers',childSnapshot.key,'timestamp',Date.now());
+							updateColumn('drivers',childSnapshot.key,'status','online');
 						}
 					});
 
@@ -1859,13 +1853,23 @@ document.addEventListener('DOMContentLoaded', function()
 			});
 		});
 	}
-    // 2. Handle Logout
+    // 2. Driver Logout
     if(logoutBtn) 
 	{
         logoutBtn.addEventListener('click', function(e) 
 		{
             e.preventDefault();
 			//if(storageData)updateColumn("users",userid,"status","offline");
+			if(userid)
+			{
+				updateColumn('users',userid,'status','offline');
+				updateColumn('users',userid,'timestamp',Date.now());
+			}	
+			if(driverid)
+			{
+				updateColumn('drivers',driverid,'status','offline');
+				updateColumn('drivers',driverid,'timestamp',Date.now());
+			}	
 			localStorage.removeItem('delivoUser');
 			localStorage.removeItem('delivoDriver');
 			localStorage.removeItem('driverusername');
@@ -2473,7 +2477,9 @@ if(loginBtn)loginBtn.addEventListener('click', async function()
 			{
 				localStorage.removeItem('delivoDriver');
                 // SUCCESS
+				
 				updateColumn("users",userKey,"status","online");
+				updateColumn("users",userKey,"timestamp",new Date().toLocaleDateString('en-CA'));
 				updateProfileImage(userData.username);
                 updateNavToLoggedIn(userData.username);
                 distributeHistory(userData.username);
