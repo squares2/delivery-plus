@@ -56,6 +56,7 @@ if (storedData2)
 }
 
 
+
 	if(storedData)
 	{
 		const userStatusRef  = ref(db, "users/"+userid+"/status");
@@ -102,7 +103,7 @@ if (storedData2)
 		{
 			if (username) 
 			{
-				distributeHistory(username);
+				distributeHistory(userid);
 			}	        
 	    }
 	});
@@ -117,6 +118,45 @@ if (storedData2)
 	    }
 	});
 	
+window.initLiveTracking = function(orderId, driverId) {
+    // 1. Show the tracking modal
+    const trackModal = new bootstrap.Modal(document.getElementById('trackingModal'));
+    trackModal.show();
+
+    // 2. Initialize Google Map
+    const map = new google.maps.Map(document.getElementById("live-tracking-map"), {
+        zoom: 15,
+        center: { lat: 0, lng: 0 },
+        styles: [] // You can add custom dark mode styles here
+    });
+
+    const driverMarker = new google.maps.Marker({
+        position: { lat: 0, lng: 0 },
+        map: map,
+        icon: {
+            url: "https://google.com", // Delivery icon
+            scaledSize: new google.maps.Size(40, 40)
+        }
+    });
+
+    // 3. Listen to Driver's Real-time location in Firebase
+    // Adjust the path "drivers/${driverId}/location" to match your actual database path
+    const driverLocRef = ref(db, `drivers/${driverId}/location`);
+    
+    onValue(driverLocRef, (snapshot) => {
+        if (snapshot.exists()) {
+            const loc = snapshot.val();
+            const pos = { lat: parseFloat(loc.lat), lng: parseFloat(loc.lng) };
+
+            driverMarker.setPosition(pos);
+            map.panTo(pos);
+            document.getElementById('tracking-status').innerText = "Driver is on the way!";
+        } else {
+            document.getElementById('tracking-status').innerText = "Waiting for driver GPS...";
+        }
+    });
+};
+
 	
 window.onload = function() 
 {
@@ -135,6 +175,22 @@ window.onload = function()
 		//updateProfileImage(user.username,user.id);
     }
 };
+async function checkTrack(requestId) {
+    try {
+        const snapshot = await get(child(ref(db), `requests/${requestId}`));
+        
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            // Check if trackorder is 1 (handles both string "1" and number 1)
+            return data.trackorder == "1" || data.trackorder == 1;
+        }
+        
+        return false; // Request not found
+    } catch (error) {
+        console.error("Error checking tracking status:", error);
+        return false;
+    }
+}
 function updateColumn(entity, key, column, value) 
 {
   
@@ -256,9 +312,8 @@ function updateProfileImage(username, userId) {
         pfp.src = "users/" + username + ".png";
     });
 }
-function updateRequestAndHistory(requestId, username, newState) 
+function updateRequestAndHistory(requestId, userid, newState) 
 {
-	console.log(requestId+":"+username+":"+ newState);
   const db = getDatabase();
   const rootRef = ref(db);
 
@@ -270,7 +325,7 @@ function updateRequestAndHistory(requestId, username, newState)
   
   // Path 2: Update the nested history entry using dot-notation paths
   // This updates only the 'state' field without overwriting the rest of the object
-  if(username.length>0)updates[`/historyRequests/${username}/${requestId}/state`] = newState;
+  if(userid&&userid.length>0)updates[`/historyRequests/${userid}/${requestId}/state`] = newState;
 
   try {
     // Perform the update atomically
@@ -391,15 +446,12 @@ function getCompanies()
 		console.error(error);
 	});
 }
-function distributeDriver() 
-{
+function distributeDriver() {
     const params = new URLSearchParams(window.location.search);
     let historyValue = params.get('history') || 0;
-
     const link1 = document.getElementById('history');
     if (link1) {
-        if (historyValue == 1) 
-		{
+        if (historyValue == 1) {
             link1.href = "?history=0";
             link1.innerHTML = "<i class='fa-solid fa-house me-2'></i>Main";
         } else {
@@ -410,7 +462,7 @@ function distributeDriver()
 
     const drivershiptable = document.getElementById('drivershiptable');
     
-    if (driverowner==null) {
+    if (driverowner == null) {
         if (drivershiptable) drivershiptable.innerHTML = "";
         return;
     }
@@ -427,23 +479,26 @@ function distributeDriver()
     
     var totdel=0, totndel=0, totdelayed=0, totcancel=0, totpcancel=0;
 
-    get(child(dbref, "requests")).then((snapshot) => {
+    // 1. Added 'async' to the snapshot callback
+    get(child(dbref, "requests")).then(async (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
             
-            // FIX: Numeric sort for keys like "id_10"
-            // Extracts the number part after "id_" and sorts descending
             const keys = Object.keys(data).sort((a, b) => {
                 const numA = parseInt(a.split('_')[1]) || 0;
                 const numB = parseInt(b.split('_')[1]) || 0;
                 return numB - numA; 
             });
 
-            keys.forEach(key => {
+            // 2. Switched from .forEach to 'for...of' to allow 'await' inside the loop
+            for (const key of keys) {
                 const item = data[key];
-                // Filter logic
+                
                 if (item.driver === driverowner && ((item.vault == "1" && historyValue == 1) || (item.vault == "0" && historyValue == 0))) {
                     
+                    // 3. This 'await' will now work correctly
+                    const uId = await getUserId(item.username);
+
                     let stateClass = "";
                     let stateText = "";
 
@@ -453,14 +508,26 @@ function distributeDriver()
                     else if (item.state == "3") { stateClass = "btn-delayed"; stateText = "Delayed"; totdelayed++; }
                     else if (item.state == "5") { stateClass = "btn-pcanceled"; stateText = "Canceled Payed"; totpcancel++; }
 
-                    // Start Row with expandable class
-                    inner2 += `<tr class="expandable">`;
+                    let trackBtnHtml = "";
+                    // Using await for checkTrack because it is also an async function
+                    if (item.vault != "1" && item.state == "0") {
+                        const isTracking = await checkTrack(key);
+                        const btnColor = isTracking ? "btn-danger" : "btn-success";
+                        const btnText = isTracking ? "Stop Tracking" : "Start Tracking";
+                        
+                        trackBtnHtml = `
+                            <button class="btn btn-sm ${btnColor} track-btn-main action-track" 
+                                    data-orderid="${key}"> 
+                                <i class="fa-solid fa-location-arrow me-1"></i> ${btnText}
+                            </button>`;
+                    }
 
-                    // Ship Number Cell with Desktop text AND Mobile Summary Row
+                    inner2 += `<tr class="expandable">`;
                     inner2 += `<td data-label='Ship Number'>
                                 <span class="desktop-only-text">${key}</span>
                                 <div class="mobile-summary-row">
                                     <span class="toggle-icon" onclick="toggleCard(this)">+</span>
+                                    <div class="shrink-track-wrapper">${trackBtnHtml}</div>
                                     <span class="m-ship">#${key}</span>
                                     <span class="m-total">${item.total} $</span>
                                     <span class="m-status-badge ${stateClass}">${stateText}</span>
@@ -473,8 +540,8 @@ function distributeDriver()
                     inner2 += `<td data-label='Amount'>${item.total}</td>`;
                     inner2 += `<td data-label='Due Date'>${item.date}</td>`;
                     
-                    // Status Selector
-                    inner2 += `<td data-label='Status'><div class='status-selector' data-username='${item.username}' data-shipnumber='${key}'>`;
+                    inner2 += `<td data-label='Status'>
+                                <div class='status-selector' data-user='${uId}' data-shipnumber='${key}'>`;
                     
                     if ((item.state == "0" && historyValue == 1) || historyValue == 0) 
                         inner2 += `<button class="status-btn btn-ndelivered ${item.state == '0' ? 'active' : ''}">Not Delivered</button>`;
@@ -490,9 +557,11 @@ function distributeDriver()
                     if (historyValue == 0) 
                         inner2 += `<button id='cartdriverdetail' data-shipnumber='${key}' class='status-btn2 btn-items'>Items</button>`;
                     
-                    inner2 += `</div></td></tr>`;
+                    inner2 += `</div>
+                               <div class="expanded-track-wrapper">${trackBtnHtml}</div>
+                               </td></tr>`;
                 }
-            });
+            }
 
             inner2 += "</tbody>";
             if (drivershiptable) drivershiptable.innerHTML = inner1 + inner2;
@@ -508,6 +577,32 @@ function distributeDriver()
             if (drivershiptable) drivershiptable.innerHTML = inner1 + inner2;
         }
     }).catch(console.error);
+}
+
+var shiptable = document.getElementById('drivershiptable');
+
+if (shiptable) {
+    shiptable.addEventListener('click', function(e) {
+        const btn = e.target.closest('.action-track');
+        if (!btn) return;
+
+        const dataorderId = btn.getAttribute('data-orderid');
+        
+        // Check if the button is currently in 'Start' or 'Stop' mode
+        // If it has 'btn-success', it means it's ready to START (1)
+        // If it has 'btn-danger', it means it's ready to STOP (0)
+        const isCurrentlyTracking = btn.classList.contains('btn-danger');
+        const newState = isCurrentlyTracking ? '0' : '1';
+
+        // Update Firebase
+        updateColumn('requests', dataorderId, 'trackorder', newState);
+        
+        console.log(`Order ${dataorderId} tracking set to: ${newState}`);
+
+        // IMPORTANT: Refresh the UI after update so the button changes color/text
+        // This calls the function you previously built
+        distributeDriver(); 
+    });
 }
 
 // Global Toggle Function for driver.html
@@ -528,16 +623,13 @@ window.toggleCard = function(btnElement) {
         btnElement.textContent = '−';
     }
 };
-export function distributeHistory(username) 
-{
+export function distributeHistory(username) {
     const historyshiptable = document.getElementById('historyshiptable');
     if (historyshiptable) historyshiptable.innerHTML = "";
     
     var inner1 = "<thead><tr><th>Ship Number</th><th>Full Name</th><th>Phone</th><th>Address</th>";
     inner1 += "<th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>";
-    var inner2 = "";
     
-    // Status selectors
     var countndelivered = document.getElementById('count-ndelivered');
     var countdelivered = document.getElementById('count-delivered');
     var countdelayed = document.getElementById('count-delayed');
@@ -546,58 +638,97 @@ export function distributeHistory(username)
     
     var totdel = 0, totndel = 0, totdelayed = 0, totcancel = 0, totpcancel = 0;
 
-    get(child(dbref, "historyRequests/" + username)).then((snapshot) => {
+    get(child(dbref, "historyRequests/" + userid)).then(async (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
-
-            // FIX: Numeric sort for keys like "id_10"
-            // Splits the string at "_" and compares the resulting number
             const keys = Object.keys(data).sort((a, b) => {
-                const numA = parseInt(a.split('_')[1]) || 0;
-                const numB = parseInt(b.split('_')[1]) || 0;
-                return numB - numA; // Descending: Newest ID first
+                const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                const numB = parseInt(b.replace(/\D/g, '')) || 0;
+                return numB - numA; 
             });
-            
-            keys.forEach(key => {
+
+            const rowPromises = keys.map(async (key) => {
                 const item = data[key];
                 let stateClass = "";
                 let stateText = "";
 
-                // Logic for counters and text
                 if (item.state == "0") { stateClass = "btn-ndelivered"; stateText="Not Delivered"; totndel++; }
                 else if (item.state == "1") { stateClass = "btn-delivered"; stateText="Delivered"; totdel++; }
                 else if (item.state == "2") { stateClass = "btn-canceled"; stateText="Canceled"; totcancel++; }
                 else if (item.state == "3") { stateClass = "btn-delayed"; stateText="Delayed"; totdelayed++; }
                 else if (item.state == "5") { stateClass = "btn-pcanceled"; stateText="Canceled Paid"; totpcancel++; }
 
-                inner2 += `<tr class="expandable">`;
+                let finalDriverId = "";
                 
-                inner2 += `<td data-label='Ship Number'>
-                            <span class="desktop-only-text">${key}</span>
-                            <div class="mobile-summary-row">
-                                <span class="toggle-icon" onclick="toggleCard(this)">+</span>
-                                <span class="m-ship">#${key}</span>
-                                <span class="m-total">${item.total} $</span>
-                                <span class="m-status-badge ${stateClass}">${stateText}</span>
-                            </div>
-                           </td>`;
+                try {
+                    // 1. Get live data from 'requests' node for this specific Ship Number
+                    const requestSnap = await get(child(dbref, `requests/${key}`));
+                    if (requestSnap.exists()) 
+					{
+                        const reqData = requestSnap.val();
+                        
+                        // 2. CHECK TRACKORDER FROM REQUESTS (Live)
+                        if (reqData.trackorder == "1" || reqData.trackorder == 1) 
+						{
+                            const driverName = reqData.driver; // e.g., "JohnDoe"
+                            
+                            // 3. Get the Driver's Unique ID/Key from 'drivers' node
+                            const driverSnap = await get(child(dbref, `drivers`));
+                            if (driverSnap.exists()) 
+							{
+                                const allDrivers = driverSnap.val();
+                                // Find the key where the driver's info matches the name
+                                for (let dKey in allDrivers) 
+								{
+                                    if (allDrivers[dKey].owner === driverName || dKey === driverName) {
+                                        finalDriverId = dKey; 
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e) { console.error("Tracking check failed", e); }
 
-                inner2 += `<td data-label='Full Name'>${item.fullname}</td>`;
-                inner2 += `<td data-label='Phone'>${item.phone}</td>`;
-                inner2 += `<td data-label='Address'>${item.city}/${item.street}</td>`;
-                inner2 += `<td data-label='Amount'>${item.total} $</td>`;
-                inner2 += `<td data-label='Due Date'>${item.date}</td>`;
-                inner2 += `<td data-label='Status'>
-                            <div class='status-selector' data-username='${item.username}' data-shipnumber='${key}'>
-                                <button class='status-btn ${stateClass} active'>${stateText}</button>
-                                <button id='carthistorydetail' data-shipnumber='${key}' class='status-btn2 btn-items'>Items</button>
-                            </div>
-                           </td>`;
-                inner2 += "</tr>";
+                let trackButtonHtml = "";
+				
+                if (finalDriverId) {
+                    trackButtonHtml = `
+                        <button class="btn btn-warning track-btn-main" 
+                                onclick="openTrackingModal('${key}', '${finalDriverId}')">
+                            <i class="fa-solid fa-location-dot"></i> Track
+                        </button>`;
+                }
+
+                return `
+                <tr class="expandable">
+                    <td data-label='Ship Number'>
+                        <span class="desktop-only-text">${key}</span>
+                        <div class="mobile-summary-row">
+                            <span class="toggle-icon" onclick="toggleCard(this)">+</span>
+                            <div class="shrink-track-wrapper">${trackButtonHtml}</div>
+                            <span class="m-ship">#${key}</span>
+                            <span class="m-total">${item.total} $</span>
+                            <span class="m-status-badge ${stateClass}">${stateText}</span>
+                        </div>
+                    </td>
+                    <td data-label='Full Name'>${item.fullname}</td>
+                    <td data-label='Phone'>${item.phone}</td>
+                    <td data-label='Address'>${item.city}/${item.street}</td>
+                    <td data-label='Amount'>${item.total} $</td>
+                    <td data-label='Due Date'>${item.date}</td>
+                    <td data-label='Status'>
+                        <div class='status-selector' data-username='${item.username}' data-shipnumber='${key}'>
+                            <button class='status-btn ${stateClass} active'>${stateText}</button>
+                            <button id='carthistorydetail' data-shipnumber='${key}' class='status-btn2 btn-items'>Items</button>
+                        </div>
+                        <div class="expanded-track-wrapper">${trackButtonHtml}</div>
+                    </td>
+                </tr>`;
             });
 
-            inner2 += "</tbody>";
-            if (historyshiptable) historyshiptable.innerHTML = inner1 + inner2;
+            const rows = await Promise.all(rowPromises);
+            if (historyshiptable) historyshiptable.innerHTML = inner1 + rows.join("") + "</tbody>";
             
             if (countndelivered) countndelivered.innerHTML = totndel;
             if (countdelivered) countdelivered.innerHTML = totdel;
@@ -605,8 +736,7 @@ export function distributeHistory(username)
             if (countcanceled) countcanceled.innerHTML = totcancel;
             if (countpcanceled) countpcanceled.innerHTML = totpcancel;
         } else {
-            inner2 += "<tr><td colspan='7' class='text-center'>No Orders Exist</td></tr></tbody>";
-            if (historyshiptable) historyshiptable.innerHTML = inner1 + inner2;
+            if (historyshiptable) historyshiptable.innerHTML = inner1 + "<tr><td colspan='7' class='text-center'>No Orders Exist</td></tr></tbody>";
         }
     });
 }
@@ -915,6 +1045,27 @@ async function getUserPoints(userId)
 	catch (error) 
 	{
         console.error("Error fetching single value:", error);
+    }
+}
+async function getUserId(targetUsername) {
+    try {
+        const usersRef = ref(db, 'users');
+        const snapshot = await get(usersRef);
+
+        if (snapshot.exists()) {
+            const users = snapshot.val();
+            
+            // Loop through the object keys to find a match
+            for (const key in users) {
+                if (users[key].username === targetUsername) {
+                    return key; // This is the 'users/key' you need
+                }
+            }
+        }
+        return null; // No match found
+    } catch (error) {
+        console.error("Error retrieving user key:", error);
+        return null;
     }
 }
 function getNow()
@@ -1589,13 +1740,14 @@ async function placeOrder()
 				xnote:note.value,
 				username:username||"",
 				lat:String(requestlat),
-				lng:String(requestlng)
+				lng:String(requestlng),
+				trackorder:'0'
 			});
 			playSound('order');
-			// 3. import data to historyRequests
+
 			if(username&&username.length>0)
 			{
-				await set(ref(db, 'historyRequests/' + username+'/'+newId), 
+				await set(ref(db, 'historyRequests/' + userid+'/'+newId), 
 				{
 					fullname: fullname.value,
 					phone: phone.value,
@@ -1976,7 +2128,7 @@ function updateSideCart2(username,shipnumber)
     const existingInstance = bootstrap.Offcanvas.getInstance(offcanvasElement) 
                              || new bootstrap.Offcanvas(offcanvasElement);
 
-    get(child(dbref, "historyRequests/"+username+"/"+shipnumber)).then((snapshot) => 
+    get(child(dbref, "historyRequests/"+userid+"/"+shipnumber)).then((snapshot) => 
 	{
         if (snapshot.exists()) 
 		{
@@ -2050,7 +2202,8 @@ if(table)
 
 		const rowContainer = clickedBtn.closest('.status-selector');
 		const shipNum = rowContainer.getAttribute('data-shipnumber');
-		const usernam = rowContainer.getAttribute('data-username');
+		const duserid = rowContainer.getAttribute('data-user');
+		console.log(duserid);
 		const allButtonsInThisRow = rowContainer.querySelectorAll('.status-btn');
 		allButtonsInThisRow.forEach(btn => 
 		{
@@ -2061,23 +2214,23 @@ if(table)
 
 		if (clickedBtn.classList.contains('btn-delivered')) 
 		{
-			updateRequestAndHistory(shipNum, usernam, "1");
+			updateRequestAndHistory(shipNum, duserid, "1");
 		} 
 		else if (clickedBtn.classList.contains('btn-ndelivered')) 
 		{
-			updateRequestAndHistory(shipNum, usernam, "0");
+			updateRequestAndHistory(shipNum, duserid, "0");
 		}
 		else if (clickedBtn.classList.contains('btn-delayed')) 
 		{
-			updateRequestAndHistory(shipNum, usernam, "3");
+			updateRequestAndHistory(shipNum, duserid, "3");
 		}
 		else if (clickedBtn.classList.contains('btn-pcanceled')) 
 		{
-			updateRequestAndHistory(shipNum, usernam, "5");
+			updateRequestAndHistory(shipNum, duserid, "5");
 		}
 		else if (clickedBtn.classList.contains('btn-canceled')) 
 		{
-			updateRequestAndHistory(shipNum, usernam, "2");
+			updateRequestAndHistory(shipNum, duserid, "2");
 		}
 	});
 }
@@ -2224,8 +2377,7 @@ if (locationCheckbox2) {
 }
 // Registration Submit:
 const registrationForm = document.getElementById('registrationForm');
-if (registrationForm) registrationForm.addEventListener('submit', async (e) => 
-{ // Added async
+if (registrationForm) registrationForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     let isValid = true;
     const inputs = e.target.querySelectorAll('input[required]');
@@ -2249,8 +2401,7 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) =>
     const phone = document.getElementById('phone').value;
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
-    const shareLocation = document.getElementById('shareLocation').checked; // Get toggle state
-
+    
     if (password !== confirmPassword) {
         showPopup("Passwords do not match!");
         return;
@@ -2261,77 +2412,61 @@ if (registrationForm) registrationForm.addEventListener('submit', async (e) =>
         return;
     }
 
-    const requestRef = ref(db, 'users');
-    const newPushRef = push(requestRef); 
-    const newUserId = newPushRef.key;
-	if(userLat==34)
-	{
-		set(newPushRef, 
-		{
-			username: username.toLowerCase().trim(),
-			fullname: "",
-			phone: phone,
-			password: password,
-			status: "online",
-			timestamp: new Date().toLocaleDateString('en-CA'),
-			points: 0
-		})
-		.then(() => 
-		{
-			showPopup("Registration Succeed");
-			
-			const modalElement = document.getElementById('registerModal');
-			const modalInstance = bootstrap.Modal.getInstance(modalElement);
-			if (modalInstance) modalInstance.hide();
-			
-			localStorage.setItem('delivoUser', JSON.stringify({
-				id: newUserId,
-				username: username.toLowerCase().trim()
-			}));
-
-			updateNavToLoggedIn(username.toLowerCase().trim());
-			distributeHistory(username.toLowerCase().trim());
-			document.getElementById('registrationForm').reset();
-			window.location.reload(); 
-		
-		}).catch((error) => 
-		{
-			showPopup("Error: " + error.message);
-		});
-	}
-    set(newPushRef, 
-	{
-        username: username.toLowerCase().trim(),
-        fullname: "",
-        phone: phone,
-        password: password,
-        status: "online",
-        timestamp: new Date().toLocaleDateString('en-CA'),
-        points: 0,
-        lat: userLat, // Updated with real lat
-        lng: userLng  // Updated with real lng
-    })
-    .then(() => 
-	{
-        showPopup("Registration Succeed");
-        
-        const modalElement = document.getElementById('registerModal');
-        const modalInstance = bootstrap.Modal.getInstance(modalElement);
-        if (modalInstance) modalInstance.hide();
-        
-        localStorage.setItem('delivoUser', JSON.stringify({
-            id: newUserId,
-            username: username.toLowerCase().trim()
-        }));
-
-        updateNavToLoggedIn(username.toLowerCase().trim());
-        distributeHistory(username.toLowerCase().trim());
-        document.getElementById('registrationForm').reset();
-        window.location.reload(); 
+    // --- START OF ASYNC CHECK ---
+    const deviceId = localStorage.getItem('deliveryplusids');
     
-    }).catch((error) => 
-	{
-        showPopup("Error: " + error.message);
+    countUUIDNoIndex(deviceId, (total) => {
+        if (total >= 3) {
+            showPopup('Your Device Cannot register more than 3 users');
+            return; // Stops execution here
+        }
+
+        // --- SUCCESS: NOW SAVE DATA ---
+        const requestRef = ref(db, 'users');
+        const newPushRef = push(requestRef); 
+        const newUserId = newPushRef.key;
+
+        // Prepare data object
+        const userData = {
+            username: username.toLowerCase().trim(),
+            fullname: "",
+            phone: phone,
+            password: password,
+            status: "online",
+            timestamp: new Date().toLocaleDateString('en-CA'),
+            points: 0,
+            uuid: deviceId
+        };
+
+        // Add location if available (not default 34)
+        if (typeof userLat !== 'undefined' && userLat !== 34) {
+            userData.lat = userLat;
+            userData.lng = userLng;
+        }
+
+        set(newPushRef, userData)
+        .then(() => {
+            showPopup("Registration Succeed");
+            
+            const modalElement = document.getElementById('registerModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) modalInstance.hide();
+            
+            localStorage.setItem('delivoUser', JSON.stringify({
+                id: newUserId,
+                username: username.toLowerCase().trim()
+            }));
+
+            updateNavToLoggedIn(username.toLowerCase().trim());
+            distributeHistory(username.toLowerCase().trim());
+            document.getElementById('registrationForm').reset();
+            
+            // Short delay before reload to let user see the popup
+            setTimeout(() => { window.location.reload(); }, 1500); 
+        
+        }).catch((error) => {
+            showPopup("Error: " + error.message);
+        });
     });
 });
 let timeout = null;
@@ -2758,6 +2893,35 @@ function playSound(sound)
     var audio = new Audio('sounds/'+sound+'.mp3'); 
     audio.play();
 }
+function countUUIDNoIndex(targetUuid, callback) {
+    const usersRef = ref(db, 'users');
+
+    get(usersRef).then((snapshot) => {
+        let count = 0;
+
+        if (snapshot.exists()) {
+            // Loop through every single user manually
+            snapshot.forEach((userSnapshot) => {
+                const userData = userSnapshot.val();
+                
+                // Check if this user has the matching uuid
+                if (userData.uuid === targetUuid) {
+                    count++;
+                }
+            });
+        }
+        
+        callback(count);
+    }).catch((error) => {
+        console.error("Error fetching users:", error);
+        callback(0);
+    });
+}
+
+// Usage:
+countUUIDNoIndex("DEVICE_ID_123", (total) => {
+    console.log("Found " + total + " users with this ID.");
+});
 
 const checkoutbutton = document.getElementById('checkoutbutton');
 
@@ -2774,3 +2938,64 @@ if (checkoutbutton) {
 		
     });
 }
+
+
+
+//Track My Order
+let trackingMap;
+let driverMarker;
+let trackingListener;
+
+window.openTrackingModal = function(shipNumber, driverId) {
+    // 1. Show Modal
+    const modal = new bootstrap.Modal(document.getElementById('trackingModal'));
+    modal.show();
+
+    // 2. Initialize Map (if not already done)
+    if (!trackingMap) {
+        trackingMap = new google.maps.Map(document.getElementById("tracking-map"), {
+            zoom: 16,
+            center: { lat: 0, lng: 0 },
+            mapId: "DEMO_MAP_ID" // Required for Advanced Markers
+        });
+    }
+
+    // 3. Set up the Driver Marker
+    if (!driverMarker) {
+        driverMarker = new google.maps.Marker({
+            map: trackingMap,
+            title: "Delivery Driver",
+            icon: {
+                url: "https://google.com", // Delivery truck icon
+                scaledSize: new google.maps.Size(40, 40)
+            }
+        });
+    }
+
+    // 4. Start Live Firebase Listener
+    // Change "drivers/location/" to your actual Firebase path
+    const driverRef = ref(db, `drivers/${driverId}/location`);
+    
+    // Remove previous listener if switching orders
+    if (trackingListener) trackingListener(); 
+
+    trackingListener = onValue(driverRef, (snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            const pos = { lat: parseFloat(data.lat), lng: parseFloat(data.lng) };
+
+            driverMarker.setPosition(pos);
+            trackingMap.panTo(pos);
+            document.getElementById('tracking-info').innerText = "Driver is moving...";
+            document.getElementById('tracking-info').className = "p-3 bg-success text-white text-center fw-bold";
+        } else {
+            document.getElementById('tracking-info').innerText = "Driver location not available";
+            document.getElementById('tracking-info').className = "p-3 bg-danger text-white text-center fw-bold";
+        }
+    });
+
+    // Cleanup when modal closes
+    document.getElementById('trackingModal').addEventListener('hidden.bs.modal', () => {
+        if (trackingListener) trackingListener(); // Stop listening to save data
+    });
+};

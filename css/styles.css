@@ -1065,3 +1065,38 @@ body, .profile-card, .form-control, h2, p {
 	font-weight: 700
 }
 
+
+#btn-close2 {
+  /* This forces the SVG icon to follow your theme's text color */
+  filter: var(--close-btn-invert);
+  opacity: 0.7;
+  transition: filter 0.5s ease, opacity 0.2s;
+}
+
+#btn-close2:hover {
+  opacity: 1;
+}
+
+/* Local style definitions per theme */
+:root, [data-theme="light"] {
+  --close-btn-invert: brightness(0); /* Black */
+}
+
+[data-theme="dark"], 
+[data-theme="midnight"], 
+[data-theme="forest"], 
+[data-theme="purple"] {
+  --close-btn-invert: invert(1); /* White */
+}
+
+/* Ensure expanded content is visible inside offcanvas */
+.offcanvas-body {
+    overflow-y: visible !important;
+    height: auto !important;
+}
+
+/* Force visibility for collapse components if they stay hidden after expanding */
+.collapse.show {
+    visibility: visible !important;
+    display: block !important;
+}

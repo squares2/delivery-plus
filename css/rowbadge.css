@@ -126,3 +126,53 @@
   .navbar-styled { padding: 0 0.4rem; }
   .stat-segment { padding: 2px 5px; }
 }
+
+
+
+.track-btn-main {
+    background-color: #ffc107 !important;
+    color: #121212 !important;
+    font-weight: bold !important;
+    border: none !important;
+    border-radius: 6px !important;
+    text-transform: uppercase;
+    transition: transform 0.2s ease;
+}
+
+.track-btn-main:hover {
+    transform: scale(1.05);
+}
+
+/* 1. Shrinked Mode (Smaller button inside the mobile summary row) */
+.shrink-track-wrapper .track-btn-main {
+    padding: 2px 8px !important;
+    font-size: 9px !important;
+    margin-right: 5px;
+}
+
+/* 2. Expanded Mode & Desktop (Big/Full Width button inside the status cell) */
+.expanded-track-wrapper .track-btn-main {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px !important;
+    font-size: 14px !important;
+}
+
+/* Hide the tiny summary button on Desktop so it doesn't look messy */
+@media screen and (min-width: 851px) {
+    .shrink-track-wrapper { display: none; }
+}
+
+/* Nuclear Layer Fix */
+.modal-backdrop {
+    display: none !important; /* Temporarily hide the gray layer to see if it's the culprit */
+}
+
+#trackingModal {
+    z-index: 99999 !important;
+    background: rgba(0,0,0,0.8); /* Manual backdrop to replace the broken one */
+}
+
+#trackingModal .modal-dialog {
+    z-index: 100000 !important;
+}

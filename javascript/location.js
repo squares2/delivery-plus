@@ -234,6 +234,7 @@ async function handleSaveLocation() {
         }
     }
 }
+
 // Manual Trigger for Google Maps
 if (typeof google !== 'undefined' && google.maps) {
     window.initMap();

@@ -108,7 +108,14 @@
     <div class="modal-content bg-dark text-white border-secondary">
       <div class="modal-header border-secondary">
         <h5 class="modal-title fw-bold text-white">Sign In</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button type="button" 
+                id="CP-Close-Btn"
+                data-bs-dismiss="modal" 
+                style="background: none; border: none; color: white; fontSize: 1.5rem; line-height: 1; opacity: 1; transition: opacity 0.2s ease; cursor: pointer;"
+                onmouseover="this.style.opacity='0.5'" 
+                onmouseout="this.style.opacity='1'">
+          &times;
+        </button>
       </div>
       <div class="modal-body">
         <div class="mb-3">

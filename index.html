@@ -430,7 +430,7 @@ window.addEventListener('load', function() {
     <div class="offcanvas-header border-bottom border-secondary">
       <h5 class="offcanvas-title fw-bold">Your Cart</h5>
       <!-- Changed close button to white variant -->
-      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+      <button type="button" id="btn-close2" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body">
       <!-- Removed 'list-group' class to stop Bootstrap from forcing white backgrounds -->
@@ -555,7 +555,14 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title fw-bold">Sign In</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" 
+                id="CP-Close-Btn"
+                data-bs-dismiss="modal" 
+                style="background: none; border: none; color: white; fontSize: 1.5rem; line-height: 1; opacity: 1; transition: opacity 0.2s ease; cursor: pointer;"
+                onmouseover="this.style.opacity='0.5'" 
+                onmouseout="this.style.opacity='1'">
+          &times;
+        </button>
       </div>
       <div class="modal-body">
         <div class="mb-3">

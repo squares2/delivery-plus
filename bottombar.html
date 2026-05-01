@@ -6,7 +6,22 @@
       <i class="fa-solid fa-house d-block mb-1"></i>
       <small>Home</small>
     </a>
-    
+    <!-- FIX 1: Added 'dropup' and 'position-static' -->
+    <ul class="navbar-nav position-static">
+      <li class="nav-item dropup mega position-static">
+        <a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown">
+          <span id="company2">SHOP</span>
+        </a>
+        <!-- FIX 2: Added 'w-100 start-0' to prevent cutting off -->
+        <div class="dropdown-menu w-100 start-0 p-4 mega-menu">
+          <div id="companieslist4" class="row g-3">
+            <div class="col-6 col-lg-3">
+              <h6 class="fw-semibold">Loading...</h6>
+            </div>
+          </div>
+        </div>
+      </li>
+    </ul>
 	<a id="whatsapp-btn"href="#" target="_blank" aria-label="Chat on WhatsApp">
 		<img src="png/whatsapp.png"	style="width: 40px; height: 40px;">
 	</a>

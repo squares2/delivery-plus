@@ -136,6 +136,21 @@
       <i class="fa-solid fa-house d-block mb-1"></i>
       <small>Home</small>
     </a>
+    <ul class="navbar-nav position-static">
+      <li class="nav-item dropup mega position-static">
+        <a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown">
+          <span id="company">SHOP</span>
+        </a>
+        <!-- FIX 2: Added 'w-100 start-0' to prevent cutting off -->
+        <div class="dropdown-menu w-100 start-0 p-4 mega-menu">
+          <div id="companieslist4" class="row g-3">
+            <div class="col-6 col-lg-3">
+              <h6 class="fw-semibold">Loading...</h6>
+            </div>
+          </div>
+        </div>
+      </li>
+    </ul>
 <ul class="navbar-nav">
   <!-- 1. Add 'position-static' to the li -->
   <li class="nav-item dropup mega position-static">
@@ -184,7 +199,14 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title fw-bold">Sign In</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" 
+                id="CP-Close-Btn"
+                data-bs-dismiss="modal" 
+                style="background: none; border: none; color: white; fontSize: 1.5rem; line-height: 1; opacity: 1; transition: opacity 0.2s ease; cursor: pointer;"
+                onmouseover="this.style.opacity='0.5'" 
+                onmouseout="this.style.opacity='1'">
+          &times;
+        </button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
