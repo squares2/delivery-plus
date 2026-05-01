@@ -9,7 +9,7 @@ var saleEnd=Date.now()+12*60*60*1000;
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-import { getDatabase,onDisconnect,query, push ,set, get, update, remove, ref, increment, runTransaction, child, onValue,orderByChild,equalTo } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+import { getDatabase,onDisconnect,query, push ,set, get, update, remove, ref, increment, runTransaction, child, onValue,orderByChild,equalTo,onChildChanged } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 import { getFirestore, doc, getDocs,setLogLevel,collection, where, limit  } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -96,6 +96,23 @@ if (storedData2)
 	    }
 	});
 	
+	onChildChanged(requestRef, (snapshot) => {
+    const updatedRequest = snapshot.val();
+    const requestId = snapshot.key;
+
+    // 1. Precise Check: Only refresh if 'trackorder' is present in the change
+    // Since onChildChanged returns the whole child, we compare or just check existence
+    if (updatedRequest.hasOwnProperty('trackorder')) {
+        console.log(`Track status changed for ${requestId}. Refreshing UI...`);
+
+        const storedData = localStorage.getItem('delivoUser');
+        if (storedData) {
+            const username = JSON.parse(storedData).username;
+            // 2. Refresh only the history table to reflect the new button state
+            distributeHistory(username);
+        }
+    }
+});
 	const requestcustomerRef = ref(db, "historyRequests");
 	onValue(requestcustomerRef, (snapshot) => 
 	{
