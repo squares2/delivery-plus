@@ -1010,133 +1010,77 @@ export async function distribute2(comp)
 	});
 	renderCategoryPage();
 };
-function setCompany(comp)
-{
-	const back = document.getElementById('back');
-	const featured = document.getElementById('featuredcompanies');
-	var inner="";
-	
-	if(comp=="-1")
-	{
-		inner="<div class='col-6 col-lg-2'><a href='' data-company-name='Restaurants'";
-		inner+="class='card category-card text-center'><img src='png/restaurants.jpg' ";
-		inner+="class='card-img-top'><div class='card-body'><h6>Restaurants</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Markets'";
-		inner+="class='card category-card text-center'><img src='png/markets.jpg' ";
-		inner+="class='card-img-top' alt='Dairy'><div class='card-body'><h6>Markets</h6></div></a></div>";
-		
-		inner+="</a></div><div class='col-6 col-lg-2'><a href='' data-company-name='Butchers'";
-		inner+="class='card category-card text-center'><img src='png/butchershops.jpg' ";
-		inner+="class='card-img-top' alt='Staples'><div class='card-body'><h6>Butchers</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Bakery'";
-		inner+="class='card category-card text-center'><img src='png/bakery.jpg' ";
-		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Bakery</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Fish Shop'";
-		inner+="class='card category-card text-center'><img src='png/fishshop.jpg' ";
-		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Fish Shop</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Chicken Shop'";
-		inner+="class='card category-card text-center'><img src='png/chickenshop.jpg' ";
-		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Chicken Shop</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Dairy Shop'";
-		inner+="class='card category-card text-center'><img src='png/dairyshop.jpg' ";
-		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Dairy Shop</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Flower Shop'";
-		inner+="class='card category-card text-center'><img src='png/flowershop.jpg' ";
-		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Flower Shop</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Taxi'";
-		inner+="class='card category-card text-center'><img src='png/taxi.jpg' ";
-		inner+="class='card-img-top' alt='Meat'><div class='card-body'><h6>Taxi</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Groceries'";
-		inner+="class='card category-card text-center'><img src='png/groceries.jpg' ";
-		inner+="class='card-img-top' alt='Snacks'><div class='card-body'><h6>Groceries</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Sweets'";
-		inner+="class='card category-card text-center'><img src='png/sweets.jpg' ";
-		inner+="class='card-img-top' alt='Household'><div class='card-body'><h6>Sweets</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Tobbaco'";
-		inner+="class='card category-card text-center'><img src='png/tobacco.jpg' ";
-		inner+="class='card-img-top' alt='Household'><div class='card-body'><h6>Tobbaco</h6></div></a></div>";
-		
-		inner+="<div class='col-6 col-lg-2'><a href='' data-company-name='Toys shop'";
-		inner+="class='card category-card text-center'><img src='png/toys.jpg' class='card-img-top'";
-		inner+="alt='Staples'><div class='card-body'><h6>Toys shop</h6></div></a></div>";
-		
-		featured.innerHTML=inner;
-	}	
-	else
-	{
-		get(child(dbref,"pattern")).then((snapshot) => 
-		{
-			if (snapshot.exists()) 
-			{
-				const data = snapshot.val();
-				const keys = Object.keys(data);
-				let i = 0;
-				let j = 0;
-				let compname="";
-				let soon="";
-				inner="";
-				while (i < keys.length) 
-				{
-					const key = keys[i];
-					const item = data[key];
-					j=0;
-					while (j < item.length)
-					{
-						compname=item[j].companyname;
-						soon=item[j].soon;
-						if(comp==key&&parseInt(soon)>1)
-						{
-							inner+="<div class='col-6 col-lg-2'><a href='category.html?category="+compname+"&pattern="+key+"' data-company-name='"+compname+"'"
-							inner+="class='card category-card text-center'><img src='png/"+comp.toLowerCase()+".jpg' "
-							inner+="class='card-img-top'><div class='card-body'><h6>"+compname+"</h6></div></a></div>";
-						}
-						j++
-					}	
-					i++;
-				}	
-				featured.innerHTML=inner;
-			} 
-			else 
-			{
-				console.log("No data available");
-			}
-		}).catch((error) => 
-		{
-			console.error(error);
-		});
-	}
-	if(comp=="-1")back.style.display="none";
-	else back.style.display="block";
-	if(back)
-	{
-		back.addEventListener('click', function(event) 
-		{
-			event.preventDefault(); 
-			setCompany("-1");
-		});
-	}
-	const links = document.querySelectorAll('#featuredcompanies a');
+function setCompany(comp) {
+    const back = document.getElementById('back');
+    const featured = document.getElementById('featuredcompanies');
+    var inner = "";
 
-	links.forEach(link => 
-	{
-	  link.addEventListener('click', function(event) 
-	  {
-		event.preventDefault(); 
+    if (comp == "-1") {
+        // Hardcoded categories to match your provided HTML exactly
+        inner = "<div class='col-6 col-lg-2'><a href='' data-company-name='Restaurants' class='card category-card text-center'><img src='png/restaurants.jpg' class='card-img-top'><div class='card-body p-1'><h6 class='m-0'>Restaurants</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Markets' class='card category-card text-center'><img src='png/markets.jpg' class='card-img-top' alt='Dairy'><div class='card-body p-1'><h6 class='m-0'>Markets</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='ButcherShops' class='card category-card text-center'><img src='png/butchershops.jpg' class='card-img-top' alt='Staples'><div class='card-body p-1'><h6 class='m-0'>Butchers</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Bakery' class='card category-card text-center'><img src='png/bakery.jpg' class='card-img-top' alt='Meat'><div class='card-body p-1'><h6 class='m-0'>Bakery</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Fish Shop' class='card category-card text-center'><img src='png/fishshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Fish Shop</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Chicken Shop' class='card category-card text-center'><img src='png/chickenshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Chicken Shop</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Dairy Shop' class='card category-card text-center'><img src='png/dairyshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Dairy Shop</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Flower Shop' class='card category-card text-center'><img src='png/flowershop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Flower Shop</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Taxi' class='card category-card text-center'><img src='png/taxi.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Taxi</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Groceries' class='card category-card text-center'><img src='png/groceries.jpg' class='card-img-top' alt='Snacks'><div class='card-body p-1'><h6 class='m-0'>Groceries</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Sweets' class='card category-card text-center'><img src='png/sweets.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Sweets</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Tobbaco' class='card category-card text-center'><img src='png/tobacco.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Tobbaco</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Toys shop' class='card category-card text-center'><img src='png/toys.jpg' class='card-img-top' alt='Staples'><div class='card-body p-1'><h6 class='m-0'>Toys shop</h6></div></a></div>";
+        
+        featured.innerHTML = inner;
+        attachLinkListeners();
+    } else {
+        get(child(dbref, "pattern")).then((snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                const keys = Object.keys(data);
+                inner = "";
+                for (let i = 0; i < keys.length; i++) {
+                    const key = keys[i];
+                    const item = data[key];
+                    for (let j = 0; j < item.length; j++) {
+                        let compname = item[j].companyname;
+                        let soon = item[j].soon;
+                        if (comp == key && parseInt(soon) > 1) {
+                            // Fixed: Using your specific category.html link structure
+                            inner += "<div class='col-6 col-lg-2'><a href='category.html?category=" + compname + "&pattern=" + key + "' data-company-name='" + compname + "'";
+                            inner += " class='card category-card text-center'><img src='png/" + comp.toLowerCase() + ".jpg' ";
+                            inner += " class='card-img-top'><div class='card-body p-1'><h6 class='m-0'>" + compname + "</h6></div></a></div>";
+                        }
+                    }
+                }
+                featured.innerHTML = inner;
+                attachLinkListeners();
+            }
+        }).catch((error) => console.error(error));
+    }
 
-		const companyname = link.dataset.companyName;
-		setCompany(companyname);
-	  });
-	});
+    if (back) back.style.display = (comp == "-1") ? "none" : "flex";
+}
+
+function attachLinkListeners() {
+    const back = document.getElementById('back');
+    if (back) {
+        back.onclick = function(event) {
+            event.preventDefault();
+            setCompany("-1");
+        };
+    }
+    const links = document.querySelectorAll('#featuredcompanies a');
+    links.forEach(link => {
+        link.onclick = function(event) {
+            // Only prevent default if it's a "back to menu" category (no href set to category.html)
+            if (link.getAttribute('href') === "" || link.getAttribute('href') === "#") {
+                event.preventDefault();
+                const companyname = link.dataset.companyName;
+                setCompany(companyname);
+            }
+        };
+    });
 }
 async function getUserPoints(userId) 
 {
