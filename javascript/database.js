@@ -497,66 +497,56 @@ export async function getHomeTrack(uname)
                     const dId = await getUserId(item.username);
 				}
 			}
-			const hometrack=document.getElementById('hometrack');
-			if(hometrack)
-			{
-				if(counter==0)
-				{
-					hometrack.style.display='none';
-				}
-				else if(counter==1)
-				{
-					let finalDriverId = "";
-				
-					try 
-					{
-						console.log(`requests/${firstkey}`);
-						// 1. Get live data from 'requests' node for this specific Ship Number
-						const requestSnap = await get(child(dbref, `requests/${firstkey}`));
-						if (requestSnap.exists()) 
-						{
-							const reqData = requestSnap.val();
-							
-							// 2. CHECK TRACKORDER FROM REQUESTS (Live)
-							if (reqData.trackorder == "1" || reqData.trackorder == 1) 
-							{
-								const driverName = reqData.driver; // e.g., "JohnDoe"
-								
-								// 3. Get the Driver's Unique ID/Key from 'drivers' node
-								const driverSnap = await get(child(dbref, `drivers`));
-								if (driverSnap.exists()) 
-								{
-									const allDrivers = driverSnap.val();
-									// Find the key where the driver's info matches the name
-									for (let dKey in allDrivers) 
-									{
-										if (allDrivers[dKey].owner === driverName || dKey === driverName) {
-											finalDriverId = dKey; 
-											break;
-										}
-									}
-								}
-							}
-						}
-					} 
-					catch (e) { console.error("Tracking check failed", e); }
-					hometrack.style.display='block';
-					hometrack.onclick = function() 
-					{
-						openTrackingModal(firstkey, finalDriverId);
-					};
-					console.log(firstkey+":"+finalDriverId);
-					console.log("openTrackingModal('"+firstkey+"', '"+finalDriverId+"')");
-				}
-				else
-				{
-					hometrack.style.display='block';
-					hometrack.onclick = function() 
-					{
-						window.location.href = "orders.html"; 
-					};
-				}
-			}
+			const hometrack = document.getElementById('hometrack');
+
+if (hometrack) {
+    if (counter == 0) {
+        // HIDE
+        hometrack.classList.add('d-none');
+        hometrack.classList.remove('d-flex');
+    } 
+    else if (counter == 1) {
+        let finalDriverId = "";
+        try {
+            const requestSnap = await get(child(dbref, `requests/${firstkey}`));
+            if (requestSnap.exists()) {
+                const reqData = requestSnap.val();
+                if (reqData.trackorder == "1" || reqData.trackorder == 1) {
+                    const driverName = reqData.driver;
+                    const driverSnap = await get(child(dbref, `drivers`));
+                    if (driverSnap.exists()) {
+                        const allDrivers = driverSnap.val();
+                        for (let dKey in allDrivers) {
+                            if (allDrivers[dKey].owner === driverName || dKey === driverName) {
+                                finalDriverId = dKey;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e) { console.error("Tracking check failed", e); }
+
+        // SHOW as Flexbox
+        hometrack.classList.remove('d-none');
+        hometrack.classList.add('d-flex');
+
+        hometrack.onclick = function(e) {
+            e.preventDefault(); // Stop page jump
+            openTrackingModal(firstkey, finalDriverId);
+        };
+    } 
+    else {
+        // SHOW as Flexbox for multiple orders
+        hometrack.classList.remove('d-none');
+        hometrack.classList.add('d-flex');
+
+        hometrack.onclick = function(e) {
+            e.preventDefault();
+            window.location.href = "orders.html";
+        };
+    }
+}
 		}
     }).catch(console.error);
 }

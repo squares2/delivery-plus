@@ -1111,3 +1111,62 @@ body, .profile-card, .form-control, h2, p {
     visibility: visible !important;
     display: block !important;
 }
+
+/* 1. Main Navbar Container */
+.theme-nav {
+    background-color: var(--bg-cards) !important;
+    border-top: 1px solid var(--border-color) !important;
+}
+
+/* 2. The Icon Circles (Merged & Theme-Ready) */
+.nav-icon-circle {
+    width: 42px;
+    height: 42px;
+    background-color: var(--bg-primary) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 2px;
+    font-size: 18px;
+    transition: all 0.2s ease;
+    position: relative; /* For the cart badge anchor */
+    overflow: visible !important; 
+}
+
+/* 3. Text and Labels */
+.theme-text, .theme-text small {
+    color: var(--text-main) !important;
+    text-decoration: none;
+}
+
+.theme-text small {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: block;
+}
+
+/* 4. Fix for Shop Dropdown (Hide Arrow & Fix Colors) */
+.dropdown-toggle::after {
+    display: none !important;
+}
+
+.theme-card {
+    background-color: var(--bg-cards) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+/* 5. Cart Badge Gap */
+.border-theme {
+    border: 2px solid var(--bg-cards) !important;
+}
+
+/* Hover effect */
+.nav-link:hover .nav-icon-circle {
+    filter: brightness(1.2);
+    transform: translateY(-2px);
+}
