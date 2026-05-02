@@ -96,20 +96,23 @@ if (storedData2)
 	    }
 	});
 	
-	onChildChanged(requestRef, (snapshot) => {
+	onChildChanged(requestRef, (snapshot) => 
+	{
     const updatedRequest = snapshot.val();
     const requestId = snapshot.key;
 
     // 1. Precise Check: Only refresh if 'trackorder' is present in the change
     // Since onChildChanged returns the whole child, we compare or just check existence
-    if (updatedRequest.hasOwnProperty('trackorder')) {
+    if (updatedRequest.hasOwnProperty('trackorder')) 
+	{
         console.log(`Track status changed for ${requestId}. Refreshing UI...`);
-
         const storedData = localStorage.getItem('delivoUser');
-        if (storedData) {
+        if (storedData) 
+		{
             const username = JSON.parse(storedData).username;
             // 2. Refresh only the history table to reflect the new button state
             distributeHistory(username);
+			getHomeTrack(username);
         }
     }
 });
@@ -134,7 +137,7 @@ if (storedData2)
 	        getCompanies();
 	    }
 	});
-	
+/*	
 window.initLiveTracking = function(orderId, driverId) {
     // 1. Show the tracking modal
     const trackModal = new bootstrap.Modal(document.getElementById('trackingModal'));
@@ -173,7 +176,7 @@ window.initLiveTracking = function(orderId, driverId) {
         }
     });
 };
-
+*/
 	
 window.onload = function() 
 {
@@ -463,6 +466,100 @@ function getCompanies()
 		console.error(error);
 	});
 }
+export async function getHomeTrack(uname)
+{
+	get(child(dbref, "requests")).then(async (snapshot) => 
+	{
+        if (snapshot.exists()) 
+		{
+			var counter=0;
+			var firstkey=-1;
+			var dId=-1
+			var key;
+            const data = snapshot.val();
+            
+            const keys = Object.keys(data).sort((a, b) => {
+                const numA = parseInt(a.split('_')[1]) || 0;
+                const numB = parseInt(b.split('_')[1]) || 0;
+                return numB - numA; 
+            });
+
+            // 2. Switched from .forEach to 'for...of' to allow 'await' inside the loop
+            for (key of keys) 
+			{
+                const item = data[key];
+                
+                if (item.username==uname&&item.vault == "0"&&item.state == "0" && item.trackorder == '1') 
+				{
+                    counter++;
+					if(firstkey==-1)firstkey=key;
+                    // 3. This 'await' will now work correctly
+                    const dId = await getUserId(item.username);
+				}
+			}
+			const hometrack=document.getElementById('hometrack');
+			if(hometrack)
+			{
+				if(counter==0)
+				{
+					hometrack.style.display='none';
+				}
+				else if(counter==1)
+				{
+					let finalDriverId = "";
+				
+					try 
+					{
+						console.log(`requests/${firstkey}`);
+						// 1. Get live data from 'requests' node for this specific Ship Number
+						const requestSnap = await get(child(dbref, `requests/${firstkey}`));
+						if (requestSnap.exists()) 
+						{
+							const reqData = requestSnap.val();
+							
+							// 2. CHECK TRACKORDER FROM REQUESTS (Live)
+							if (reqData.trackorder == "1" || reqData.trackorder == 1) 
+							{
+								const driverName = reqData.driver; // e.g., "JohnDoe"
+								
+								// 3. Get the Driver's Unique ID/Key from 'drivers' node
+								const driverSnap = await get(child(dbref, `drivers`));
+								if (driverSnap.exists()) 
+								{
+									const allDrivers = driverSnap.val();
+									// Find the key where the driver's info matches the name
+									for (let dKey in allDrivers) 
+									{
+										if (allDrivers[dKey].owner === driverName || dKey === driverName) {
+											finalDriverId = dKey; 
+											break;
+										}
+									}
+								}
+							}
+						}
+					} 
+					catch (e) { console.error("Tracking check failed", e); }
+					hometrack.style.display='block';
+					hometrack.onclick = function() 
+					{
+						openTrackingModal(firstkey, finalDriverId);
+					};
+					console.log(firstkey+":"+finalDriverId);
+					console.log("openTrackingModal('"+firstkey+"', '"+finalDriverId+"')");
+				}
+				else
+				{
+					hometrack.style.display='block';
+					hometrack.onclick = function() 
+					{
+						window.location.href = "orders.html"; 
+					};
+				}
+			}
+		}
+    }).catch(console.error);
+}
 function distributeDriver() {
     const params = new URLSearchParams(window.location.search);
     let historyValue = params.get('history') || 0;
@@ -497,7 +594,8 @@ function distributeDriver() {
     var totdel=0, totndel=0, totdelayed=0, totcancel=0, totpcancel=0;
 
     // 1. Added 'async' to the snapshot callback
-    get(child(dbref, "requests")).then(async (snapshot) => {
+    get(child(dbref, "requests")).then(async (snapshot) => 
+	{
         if (snapshot.exists()) {
             const data = snapshot.val();
             
@@ -508,7 +606,8 @@ function distributeDriver() {
             });
 
             // 2. Switched from .forEach to 'for...of' to allow 'await' inside the loop
-            for (const key of keys) {
+            for (const key of keys) 
+			{
                 const item = data[key];
                 
                 if (item.driver === driverowner && ((item.vault == "1" && historyValue == 1) || (item.vault == "0" && historyValue == 0))) {
@@ -527,7 +626,8 @@ function distributeDriver() {
 
                     let trackBtnHtml = "";
                     // Using await for checkTrack because it is also an async function
-                    if (item.vault != "1" && item.state == "0") {
+                    if (item.vault != "1" && item.state == "0") 
+					{
                         const isTracking = await checkTrack(key);
                         const btnColor = isTracking ? "btn-danger" : "btn-success";
                         const btnText = isTracking ? "Stop Tracking" : "Start Tracking";
@@ -2958,61 +3058,177 @@ if (checkoutbutton) {
 
 
 
-//Track My Order
-let trackingMap;
-let driverMarker;
-let trackingListener;
+let liveTrackingMap;
+let liveDriverMarker;
+let userMarker; 
+let directionsService; 
+let directionsRenderer;
+let liveTrackingListener;
+let currentPos = null;
 
 window.openTrackingModal = function(shipNumber, driverId) {
-    // 1. Show Modal
-    const modal = new bootstrap.Modal(document.getElementById('trackingModal'));
+    const modalElement = document.getElementById('trackingModal');
+    const modal = new bootstrap.Modal(modalElement);
     modal.show();
 
-    // 2. Initialize Map (if not already done)
-    if (!trackingMap) {
-        trackingMap = new google.maps.Map(document.getElementById("tracking-map"), {
-            zoom: 16,
-            center: { lat: 0, lng: 0 },
-            mapId: "DEMO_MAP_ID" // Required for Advanced Markers
-        });
-    }
+    // The listener is marked async to handle the Firebase data fetch
+    modalElement.addEventListener('shown.bs.modal', async function () {
+        
+        // --- NEW: Fetch Ship coordinates from Firebase requests path ---
+        let userPos;
+        try {
+            // Import 'get' and 'child' if not already available in your Firebase config
+            const shipRef = ref(db, `requests/${shipNumber}`);
+            const snapshot = await get(shipRef);
+            
+            if (snapshot.exists()) {
+                const shipData = snapshot.val();
+                userPos = { 
+                    lat: parseFloat(shipData.lat), 
+                    lng: parseFloat(shipData.lng) 
+                };
+            } else {
+                console.error("Ship number not found in database.");
+                return; // Exit if the ship record doesn't exist
+            }
+        } catch (error) {
+            console.error("Error fetching ship data:", error);
+            return;
+        }
+        // ------------------------------------------------------------
 
-    // 3. Set up the Driver Marker
-    if (!driverMarker) {
-        driverMarker = new google.maps.Marker({
-            map: trackingMap,
-            title: "Delivery Driver",
-            icon: {
-                url: "https://google.com", // Delivery truck icon
-                scaledSize: new google.maps.Size(40, 40)
+        // 1. Initialize Map and Services
+        if (!liveTrackingMap) {
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                suppressMarkers: true,
+                preserveViewport: true,
+                polylineOptions: {
+                    strokeColor: "#007bff",
+                    strokeOpacity: 0.8,
+                    strokeWeight: 6
+                }
+            });
+
+            liveTrackingMap = new google.maps.Map(document.getElementById("tracking-map"), {
+                zoom: 16,
+                center: userPos,
+                mapTypeId: google.maps.MapTypeId.HYBRID,
+                mapTypeControl: true
+            });
+            directionsRenderer.setMap(liveTrackingMap);
+        }
+
+        // 2. Set User Marker (Destination)
+        if (!userMarker) {
+            userMarker = new google.maps.Marker({
+                position: userPos,
+                map: liveTrackingMap,
+                title: "Delivery Location",
+                zIndex: 10000,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    fillColor: "#007bff",
+                    fillOpacity: 1,
+                    strokeColor: "#ffffff",
+                    strokeWeight: 3,
+                    scale: 10
+                }
+            });
+        } else {
+            userMarker.setPosition(userPos);
+        }
+
+        // 3. Initialize Taxi Marker
+        if (!liveDriverMarker) {
+            liveDriverMarker = new google.maps.Marker({
+                map: liveTrackingMap,
+                title: "Your Driver",
+                zIndex: 9999,
+                optimized: false,
+                icon: {
+                    path: "M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z",
+                    fillColor: "#ffc107",
+                    fillOpacity: 1,
+                    strokeWeight: 2,
+                    strokeColor: "#ffffff",
+                    scale: 1.5,
+                    anchor: new google.maps.Point(12, 12)
+                }
+            });
+        }
+
+        // 4. Start Firebase Listener for Driver
+        const driverRef = ref(db, `drivers/${driverId}/location`);
+        if (liveTrackingListener) liveTrackingListener(); 
+
+        liveTrackingListener = onValue(driverRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                const newPos = { lat: parseFloat(data.lat), lng: parseFloat(data.lng) };
+
+                if (!currentPos) {
+                    liveDriverMarker.setPosition(newPos);
+                    liveTrackingMap.setCenter(newPos);
+                    currentPos = newPos;
+                } else {
+                    animateMarker(liveDriverMarker, currentPos, newPos);
+                    currentPos = newPos;
+                }
+
+                // Update the Route Line
+                updateRoute(newPos, userPos);
+                document.getElementById('tracking-info').innerText = "Driver is on the way!";
             }
         });
-    }
+    }, { once: true });
+};
 
-    // 4. Start Live Firebase Listener
-    // Change "drivers/location/" to your actual Firebase path
-    const driverRef = ref(db, `drivers/${driverId}/location`);
-    
-    // Remove previous listener if switching orders
-    if (trackingListener) trackingListener(); 
-
-    trackingListener = onValue(driverRef, (snapshot) => {
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            const pos = { lat: parseFloat(data.lat), lng: parseFloat(data.lng) };
-
-            driverMarker.setPosition(pos);
-            trackingMap.panTo(pos);
-            document.getElementById('tracking-info').innerText = "Driver is moving...";
-            document.getElementById('tracking-info').className = "p-3 bg-success text-white text-center fw-bold";
-        } else {
-            document.getElementById('tracking-info').innerText = "Driver location not available";
-            document.getElementById('tracking-info').className = "p-3 bg-danger text-white text-center fw-bold";
+function updateRoute(origin, destination) {
+    directionsService.route({
+        origin: origin,
+        destination: destination,
+        travelMode: google.maps.TravelMode.DRIVING
+    }, (response, status) => {
+        if (status === "OK") {
+            directionsRenderer.setDirections(response);
         }
     });
+}
 
-    // Cleanup when modal closes
-    document.getElementById('trackingModal').addEventListener('hidden.bs.modal', () => {
-        if (trackingListener) trackingListener(); // Stop listening to save data
-    });
-};
+function animateMarker(marker, startPos, endPos) {
+    const frames = 60;
+    let count = 0;
+    const deltaLat = (endPos.lat - startPos.lat) / frames;
+    const deltaLng = (endPos.lng - startPos.lng) / frames;
+
+    function move() {
+        const lat = startPos.lat + (deltaLat * count);
+        const lng = startPos.lng + (deltaLng * count);
+        const newPos = new google.maps.LatLng(lat, lng);
+        marker.setPosition(newPos);
+        if (count % 15 === 0) liveTrackingMap.panTo(newPos);
+        if (count < frames) {
+            count++;
+            requestAnimationFrame(move);
+        }
+    }
+    move();
+}
+
+// Visual Pulse Animation for Taxi
+let scaleDirection = 1;
+setInterval(() => {
+    if (liveDriverMarker) {
+        const icon = liveDriverMarker.getIcon();
+        if (icon && icon.scale) {
+            let currentScale = icon.scale;
+            currentScale += (0.02 * scaleDirection);
+            if (currentScale > 1.7 || currentScale < 1.4) scaleDirection *= -1;
+            icon.scale = currentScale;
+            liveDriverMarker.setIcon(icon);
+        }
+    }
+}, 100);
+
+

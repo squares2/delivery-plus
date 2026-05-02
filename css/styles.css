@@ -744,18 +744,29 @@ body.dark-mode #theme-toggle-btn i::before {
 }
 
 .btn-close {
-    filter: brightness(0) !important; /* Makes the SVG pure black */
     opacity: 0.8;
     transition: all 0.3s ease;
 }
 
-.btn-close:hover {
-    opacity: 1;
+/* 1. LIGHT THEME - Makes the button black */
+:root, [data-theme="light"] {
+    --close-btn-filter: brightness(0);
 }
 
-/* 2. Night Mode (Force it to be bright/white) */
-body.dark-mode .btn-close {
-    filter: invert(1) grayscale(100%) brightness(200%) !important; /* Makes the SVG pure white */
+/* 2. ALL DARK THEMES - Makes the button white */
+[data-theme="dark"], 
+[data-theme="midnight"], 
+[data-theme="forest"], 
+[data-theme="purple"] {
+    --close-btn-filter: invert(1) brightness(2);
+}
+
+/* Apply the filter using the variable */
+.btn-close {
+    filter: var(--close-btn-filter) !important;
+}
+
+.btn-close:hover {
     opacity: 1;
 }
 

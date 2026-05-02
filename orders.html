@@ -239,23 +239,22 @@
         <button class="alert-btn" onclick="closeAlert()">OK</button>
     </div>
 </div>
-<!-- START OF LOCATION MODAL -->
+
+<!-- 1. LOCATION MODAL (Address Picker) -->
 <div id="mapModal" class="map-modal-overlay">
     <div class="map-modal-content profile-location-container">
         <span id="close-modal" class="close-x">&times;</span>
         <h3>Select Your Location</h3>
-        
-        <div id="map-box"></div>
-        
+        <div id="map-box" style="height: 400px; width: 100%;"></div>
         <button id="one-click-locate" class="loc-btn btn-locate">📍 Press To Set Your Live Location</button>
-		<p class="map-hint">Press on map to update your location or drag the red pin manually to your location</p>
+        <p class="map-hint">Press on map to update your location or drag the red pin manually to your location</p>
         <button id="confirm-save-btn" class="loc-btn btn-save">Confirm & Save</button>
-		<p class="map-hint">Press Confirm & Save after changing location otherwise location will not update</p>
+        <p class="map-hint">Press Confirm & Save after changing location otherwise location will not update</p>
     </div>
 </div>
 
-<!-- Tracking Modal -->
-<div class="modal fade" id="trackingModal" tabindex="-1" aria-hidden="true">
+<!-- 2. TRACKING MODAL (Driver Tracking) -->
+<div class="modal fade" id="trackingModal" tabindex="-1" aria-hidden="true" style="z-index: 9999;">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content bg-dark text-white">
       <div class="modal-header border-secondary">
@@ -263,14 +262,17 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-0">
-        <div id="tracking-map" style="height: 500px; width: 100%;"></div>
+        <div id="tracking-map" style="height: 500px; width: 100%;"></div> 
         <div id="tracking-info" class="p-3 bg-secondary text-center fw-bold">Connecting to driver...</div>
       </div>
     </div>
   </div>
 </div>
-<!-- END OF LOCATION MODAL -->
-  <script type="module"src="javascript/location.js"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
+
+<!-- 3. SCRIPTS -->
+<script type="module" src="javascript/location.js"></script>
+<script type="module" src="javascript/database.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
+	
   </body>
 </html>
