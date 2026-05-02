@@ -316,97 +316,155 @@ window.addEventListener('load', function() {
         </div>
         </div>
       </div>
-      <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
-      <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+<!--      <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+      <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>-->
     </div>
   </section>
-  <section class="py-5">
-    <div style="margin-top:-100px;"class="container">
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="section-title">Featured Shops</h3>
-        <a href="" data-company-name="-1"style="display:none"id="back"class="text-primary">Back</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-      </div>
-      <div id="featuredcompanies"class="row g-3">
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Restaurants"class="card category-card text-center">
-            <img src="png/restaurants.jpg" class="card-img-top">
-            <div class="card-body"><h6>Restaurants</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Markets"class="card category-card text-center">
-            <img src="png/markets.jpg" class="card-img-top" alt="Dairy">
-            <div class="card-body"><h6>Markets</h6></div>
-          </a>
-        </div>
-       <div class="col-6 col-lg-2">
-          <a href="" data-company-name="ButcherShops"class="card category-card text-center">
-            <img src="png/butchershops.jpg" class="card-img-top" alt="Staples">
-            <div class="card-body"><h6>Butchers</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Bakery"class="card category-card text-center">
-            <img src="png/bakery.jpg" class="card-img-top" alt="Meat">
-            <div class="card-body"><h6>Bakery</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Fish Shop"class="card category-card text-center">
-            <img src="png/fishshop.jpg" class="card-img-top" alt="Household">
-            <div class="card-body"><h6>Fish Shop</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Chicken Shop"class="card category-card text-center">
-            <img src="png/chickenshop.jpg" class="card-img-top" alt="Household">
-            <div class="card-body"><h6>Chicken Shop</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Dairy Shop"class="card category-card text-center">
-            <img src="png/dairyshop.jpg" class="card-img-top" alt="Household">
-            <div class="card-body"><h6>Dairy Shop</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Flower Shop"class="card category-card text-center">
-            <img src="png/flowershop.jpg" class="card-img-top" alt="Household">
-            <div class="card-body"><h6>Flower Shop</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Taxi"class="card category-card text-center">
-            <img src="png/taxi.jpg" class="card-img-top" alt="Household">
-            <div class="card-body"><h6>Taxi</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Groceries"class="card category-card text-center">
-            <img src="png/groceries.jpg" class="card-img-top" alt="Snacks">
-            <div class="card-body"><h6>Groceries</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Sweets"class="card category-card text-center">
-            <img src="png/sweets.jpg" class="card-img-top" alt="Household">
-            <div class="card-body"><h6>Sweets</h6></div>
-          </a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Tobbaco"class="card category-card text-center">
-            <img src="png/tobacco.jpg" class="card-img-top" alt="Household">
-            <div class="card-body"><h6>Tobbaco</h6></div>
-          </a>
-        </div>
-       <div class="col-6 col-lg-2">
-          <a href="" data-company-name="Toys shop"class="card category-card text-center">
-            <img src="png/toys.jpg" class="card-img-top" alt="Staples">
-            <div class="card-body"><h6>Toys shop</h6></div>
-          </a>
+  <section class="py-1">
+    <div style="margin-top:-20px;" class="container">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+    <a href="" 
+       data-company-name="-1" 
+       id="back" 
+       class="btn btn-primary btn-sm px-4 rounded-pill shadow-sm" 
+       style="display:none; z-index:9999;">
+       <i class="fa-solid fa-arrow-left me-2"></i>Back
+    </a>
+</div>
+        
+        <div id="featuredcompanies" class="row g-3">
+            <!-- Card: Restaurants -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Restaurants" class="card category-card text-center">
+                    <img src="png/restaurants.jpg" class="card-img-top">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Restaurants</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Markets -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Markets" class="card category-card text-center">
+                    <img src="png/markets.jpg" class="card-img-top" alt="Dairy">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Markets</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Butchers -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="ButcherShops" class="card category-card text-center">
+                    <img src="png/butchershops.jpg" class="card-img-top" alt="Staples">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Butchers</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Bakery -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Bakery" class="card category-card text-center">
+                    <img src="png/bakery.jpg" class="card-img-top" alt="Meat">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Bakery</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Fish Shop -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Fish Shop" class="card category-card text-center">
+                    <img src="png/fishshop.jpg" class="card-img-top" alt="Household">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Fish Shop</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Chicken Shop -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Chicken Shop" class="card category-card text-center">
+                    <img src="png/chickenshop.jpg" class="card-img-top" alt="Household">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Chicken Shop</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Dairy Shop -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Dairy Shop" class="card category-card text-center">
+                    <img src="png/dairyshop.jpg" class="card-img-top" alt="Household">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Dairy Shop</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Flower Shop -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Flower Shop" class="card category-card text-center">
+                    <img src="png/flowershop.jpg" class="card-img-top" alt="Household">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Flower Shop</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Taxi -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Taxi" class="card category-card text-center">
+                    <img src="png/taxi.jpg" class="card-img-top" alt="Household">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Taxi</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Groceries -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Groceries" class="card category-card text-center">
+                    <img src="png/groceries.jpg" class="card-img-top" alt="Snacks">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Groceries</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Sweets -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Sweets" class="card category-card text-center">
+                    <img src="png/sweets.jpg" class="card-img-top" alt="Household">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Sweets</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Tobacco -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Tobbaco" class="card category-card text-center">
+                    <img src="png/tobacco.jpg" class="card-img-top" alt="Household">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Tobbaco</h6>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Card: Toys Shop -->
+            <div class="col-6 col-lg-2">
+                <a href="" data-company-name="Toys shop" class="card category-card text-center">
+                    <img src="png/toys.jpg" class="card-img-top" alt="Staples">
+                    <div class="card-body p-1">
+                        <h6 class="m-0">Toys shop</h6>
+                    </div>
+                </a>
+            </div>
         </div>
     </div>
-  </section>
+</section>
 
 	<div id="topbar"></div>
 	<div id="userbar"></div>
