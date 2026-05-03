@@ -1181,7 +1181,8 @@ function renderCategoryPage()
 function money(num) {
   if (num < 10000) {
     // Return as double with .00 and $
-    return num.toFixed(2) + '$';
+	var numericValue = Number(num) || 0;
+    return numericValue.toFixed(2) + '$';
   } else {
     // Return as integer with commas and L.L.
     return Math.floor(num).toLocaleString('en-US') + ' L.L.';
