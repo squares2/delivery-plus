@@ -23,8 +23,23 @@ let currentIndex = 0;
  * Updates the UI elements based on the current main category index
  */
 function updateCategoryUI() {
+	
     const active = deliveryMenu[currentIndex];
     if (!active) return;
+    
+    const titleEl = document.getElementById('currentMainTitle');
+    titleEl.innerText = active.main;
+
+    // Detect if the text contains Arabic characters
+    const isArabic = /[\u0600-\u06FF]/.test(active.main);
+
+    if (isArabic) {
+        titleEl.setAttribute('lang', 'ar');
+        titleEl.style.fontSize = "3.5rem"; // Large size for Arabic
+    } else {
+        titleEl.setAttribute('lang', 'en');
+        titleEl.style.fontSize = "0.9rem"; // Small size for English
+    }
     
     // 1. Update Main Title
     document.getElementById('currentMainTitle').innerText = active.main;
@@ -32,7 +47,7 @@ function updateCategoryUI() {
     // 2. Update Sub-Category Chips (FIXED: Added # for same-page scrolling)
     const container = document.getElementById('subCategoryRow');
     container.innerHTML = active.subs.map(sub => 
-        `<a href="#${encodeURIComponent(sub)}" class="sub-chip">${sub}</a>`
+        `<a href="#${encodeURIComponent(sub)}" lang="ar"class="sub-chip">${sub}</a>`
     ).join('');
 
     // 3. Reset scroll position to the start for new categories

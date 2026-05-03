@@ -568,7 +568,25 @@ nav.fixed-bottom .nav-link {
 .dropdown-item.sub-category-dark:hover {
   background-color: var(--border-color) !important;
 }
+body[lang="ar"] .main-category-dark {
+  font-family: 'KhebratMusamim', sans-serif !important;
+  /* Bumping the size slightly for Arabic legibility */
+  font-size: clamp(1.2rem, 1.8vw, 1.5rem) !important; 
+  line-height: 1.4 !important;
+}
 
+/* Sub Category Items in Arabic */
+body[lang="ar"] .dropdown-item.sub-category-dark {
+  font-family: 'KhebratMusamim', sans-serif !important;
+  font-size: 1.1rem !important; 
+  font-weight: bold !important;
+  text-align: right !important; /* Ensure text aligns to the right for Arabic */
+}
+
+/* Ensure the hover effect remains consistent */
+body[lang="ar"] .dropdown-item.sub-category-dark:hover {
+  background-color: var(--border-color) !important;
+}
 section.py-5 .container .row .bg-dark {
     background-color: var(--bg-cards) !important;
     border-color: var(--border-color) !important;
@@ -1170,3 +1188,4 @@ body, .profile-card, .form-control, h2, p {
     filter: brightness(1.2);
     transform: translateY(-2px);
 }
+

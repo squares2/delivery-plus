@@ -7,7 +7,6 @@
   position: sticky;
   top: 75px;
   width: 100%;
-  /* 🌓 Flips background dynamically based on your root variables */
   background: var(--bg-cards) !important; 
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -35,17 +34,43 @@
   align-items: center;
   gap: 20px;               
   padding: 0 15px;
-  margin-bottom: -6px;
+  margin-bottom: 10px;
   margin-top: 10px;
 }
 
-.current-main-cat 
-{
+/* ARABIC FLIPPER OVERRIDE */
+[lang="ar"] .main-cat-flipper {
+    direction: rtl !important;
+    grid-template-columns: 50px 1fr 50px; 
+    margin-bottom: 30px !important; /* Increased horizontal space between rows */
+}
+
+.flip-arrow {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #dc3545;
+  transition: transform 0.2s;
+  -webkit-text-stroke: 1.5px #dc3545; 
+  transform: scaleX(1.7);   
+  width: 100%;             
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+[lang="ar"] .flip-arrow { transform: scaleX(-1.7) !important; }
+
+.flip-arrow:active { transform: scaleX(1.7) scale(0.9); }
+[lang="ar"] .flip-arrow:active { transform: scaleX(-1.7) scale(0.9) !important; }
+
+.current-main-cat {
   width: 100%;             
   text-align: center;      
   font-weight: 800;
   font-size: 0.9rem;
-  /* 🌓 Replaced hardcoded dark background with a high-contrast theme gradient */
   background: linear-gradient(to right, #42adad 30%, #0c2626 70%);
   color: #fff;
   border-radius: 10px;
@@ -58,26 +83,16 @@
   display: block;
 }
 
-.flip-arrow {
-  background: none;
-  border: none;
-  font-size: 1.8rem;
-  font-weight: 900;
-  color: #dc3545; /* Preserved red for your active brand action */
-  transition: transform 0.2s;
-  
-  -webkit-text-stroke: 1.5px #dc3545; 
-  transform: scaleX(1.7);   
-  
-  width: 100%;             
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-}
-
-.flip-arrow:active { 
-  transform: scaleX(1.7) scale(0.9); 
+/* ARABIC MAIN CAT OVERRIDE (Ultra Size) */
+[lang="ar"].current-main-cat {
+    font-family: 'KhebratMusamim', sans-serif !important;
+    font-size: 1.5rem !important; 
+    padding: 15px 10px !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    line-height: 1.1 !important;
+    height: auto !important;
+    display: block !important;
 }
 
 /* 3. SUB-CATEGORY CHIPS */
@@ -87,36 +102,46 @@
   overflow-x: auto;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  padding: 8px 15px;
+  padding: 2px 10px !important;
   gap: 8px;
   width: 100%;
   scrollbar-width: none;
 }
+
+[lang="ar"] .sub-chip-container {
+    direction: rtl !important;
+    gap: 15px !important; 
+    padding: 10px 15px !important;
+}
+
 .sub-chip-container::-webkit-scrollbar { display: none; }
 
 .sub-chip {
-  /* 🌓 Flips background and text between gray and white */
   background: var(--bg-inputs);
   color: var(--text-main);
   padding: 5px 15px;
   border-radius: 20px;
   font-size: 0.8rem;
+  font-weight:Bold;
   white-space: nowrap;
   text-decoration: none;
   border: 1px solid var(--border-color);
   transition: background 0.3s, color 0.3s, border-color 0.3s;
 }
 
-.sub-chip:hover { 
-  background: #dc3545; 
-  color: white; 
-  border-color: #dc3545; 
+/* ARABIC SUB-CHIP OVERRIDE (Ultra Size) */
+[lang="ar"] .sub-chip {
+    font-family: 'KhebratMusamim', sans-serif !important;
+    font-size: 1.6rem !important;
+    padding: 10px 22px !important;
+    line-height: 1.2 !important;
 }
+
+.sub-chip:hover { background: #dc3545; color: white; border-color: #dc3545; }
 
 /* 4. NAVIGATION BUTTONS */
 .nav-btn {
   display: none;
-  /* 🌓 Adapts click-glance overlays to light and dark theme depths */
   background: var(--bg-cards);
   border: none;
   font-size: 1.2rem;
@@ -125,65 +150,15 @@
   z-index: 5;
 }
 .nav-btn.visible { display: block; }
-.nav-btn:active { color: #dc3545; }
+[lang="ar"] .sub-nav-wrapper { direction: rtl !important; }
 
-/* 5. ANCHOR SCROLLING FIX */
-.py-5[id] {
-  scroll-margin-top: 66px;
+
+/* Apply to these classes immediately, no matter what */
+@font-face {
+    font-family: 'KhebratMusamim';
+    src: url('webfonts/Khebrat_Musamim_Bold.ttf') format('truetype');
+    font-weight: bold;
+    /* ONLY apply this font to the Arabic character set */
+    unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFF;
 }
 
-/* 6. RESPONSIVE: SHORT SCREENS (Landscape) */
-@media screen and (max-height: 650px) {
-  .navbar-styled {
-    height: 40px !important;
-    min-height: 40px !important;
-    padding: 0 !important;
-    display: flex;
-    align-items: center;
-  }
-
-  .search-form {
-    max-width: 180px !important; 
-    margin: 0 5px !important;
-  }
-
-  .search-form .input-group,
-  .search-form .form-control,
-  .search-form .input-group-text {
-    height: 28px !important; 
-    font-size: 0.75rem !important; 
-    padding: 0 5px !important;
-  }
-
-  .navbar-brand, .nav-link {
-    font-size: 0.85rem !important;
-    padding: 0 5px !important;
-  }
-
-  .category-sidebar {
-    top: 40px !important;
-    padding: 2px 0 !important;
-  }
-
-  .main-cat-flipper {
-    margin-bottom: 2px !important;
-    padding: 0 10px !important;
-  }
-
-  .current-main-cat { font-size: 0.85rem !important; }
-  .flip-arrow { font-size: 1.1rem !important; }
-
-  .sub-chip-container {
-    padding: 2px 10px !important;
-    gap: 5px !important;
-  }
-
-  .sub-chip {
-    padding: 2px 12px !important;
-    font-size: 0.7rem !important;
-  }
-
-  .py-5[id] {
-    scroll-margin-top: 80px !important;
-  }
-}

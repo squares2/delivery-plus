@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,8 +7,8 @@
   <link href="css/bootstrap.min.css" rel="stylesheet">
   <link href="css/all.min.css" rel="stylesheet">
   <link href="css/styles.css" rel="stylesheet">
-  <link href="css/styles2.css" rel="stylesheet">
   <link href="css/styles3.css" rel="stylesheet">
+  <link href="css/styles2.css" rel="stylesheet">
   <link href="css/sidebar.css" rel="stylesheet">
   <link href="css/category-sidebar.css" rel="stylesheet">
   <link href="css/product-card5.css" rel="stylesheet">
@@ -84,7 +84,7 @@
   <!-- Main Category Flipper (Previous code remains here) -->
   <div class="main-cat-flipper">
     <button class="flip-arrow" onclick="prevCategory()"><i class="fa-solid fa-chevron-left"></i></button>
-    <span id="currentMainTitle" class="current-main-cat">Fruits</span>
+    <span id="currentMainTitle" lang='ar'class="current-main-cat">Fruits</span>
     <button class="flip-arrow" onclick="nextCategory()"><i class="fa-solid fa-chevron-right"></i></button>
   </div>
 
@@ -159,7 +159,7 @@
     </a>
     <!-- 2. Add 'w-100' and 'start-0' to the menu -->
     <div class="dropdown-menu w-100 start-0 p-4 mega-menu">
-      <div id="categorieslist2" class="row g-3">
+      <div id="categorieslist2" class="row g-3 dynamic-nav2"lang="ar">
         <div class="col-6 col-lg-3">
           <h6 class="fw-semibold">Loading...</h6>
         </div>
@@ -291,4 +291,8 @@
   <script type="module"src="javascript/location.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
 </body>
+<style>
+
+</style>
+
 </html>
