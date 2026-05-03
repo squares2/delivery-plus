@@ -1178,16 +1178,15 @@ function renderCategoryPage()
 	grid.innerHTML=html;
 	wireButtons(grid)
 };
-		
-function money(v)
-{
-	const formatter = new Intl.NumberFormat('en-US', 
-	{
-		style: 'decimal', // Use for standard number formatting
-	});
-	var numericValue = Number(v) || 0;
-	return numericValue.toFixed(2)+' $'; 
-}
+function money(num) {
+  if (num < 10000) {
+    // Return as double with .00 and $
+    return num.toFixed(2) + '$';
+  } else {
+    // Return as integer with commas and L.L.
+    return Math.floor(num).toLocaleString('en-US') + ' L.L.';
+  }
+}		
 function saveCart()
 {
 	try
