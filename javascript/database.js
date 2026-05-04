@@ -2265,6 +2265,7 @@ if(table)
 
 		if (clickedBtn.classList.contains('btn-delivered')) 
 		{
+			updateColumn('requests',shipNum,'trackorder','0');
 			updateRequestAndHistory(shipNum, duserid, "1");
 		} 
 		else if (clickedBtn.classList.contains('btn-ndelivered')) 
@@ -2273,14 +2274,17 @@ if(table)
 		}
 		else if (clickedBtn.classList.contains('btn-delayed')) 
 		{
+			updateColumn('requests',shipNum,'trackorder','0');
 			updateRequestAndHistory(shipNum, duserid, "3");
 		}
 		else if (clickedBtn.classList.contains('btn-pcanceled')) 
 		{
+			updateColumn('requests',shipNum,'trackorder','0');
 			updateRequestAndHistory(shipNum, duserid, "5");
 		}
 		else if (clickedBtn.classList.contains('btn-canceled')) 
 		{
+			updateColumn('requests',shipNum,'trackorder','0');
 			updateRequestAndHistory(shipNum, duserid, "2");
 		}
 	});
