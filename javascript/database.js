@@ -2824,25 +2824,31 @@ if(loginBtn)loginBtn.addEventListener('click', async function()
             // 3. Verify Password
             if (userData.password === typedPass) 
 			{
-				localStorage.removeItem('delivoDriver');
-                // SUCCESS
-				
-				updateColumn("users",userKey,"status","online");
-				updateColumn("users",userKey,"timestamp",new Date().toLocaleDateString('en-CA'));
-				updateProfileImage(userData.username);
-                updateNavToLoggedIn(userData.username);
-                distributeHistory(userData.username);
-                localStorage.setItem('delivoUser', JSON.stringify({
-                    id: userKey,
-                    username: userData.username
-                }));
+				if(userData.status=='offline')
+				{
+					localStorage.removeItem('delivoDriver');
+					// SUCCESS
+					
+					updateColumn("users",userKey,"status","online");
+					updateColumn("users",userKey,"timestamp",new Date().toLocaleDateString('en-CA'));
+					updateProfileImage(userData.username);
+					updateNavToLoggedIn(userData.username);
+					distributeHistory(userData.username);
+					localStorage.setItem('delivoUser', JSON.stringify({
+						id: userKey,
+						username: userData.username
+					}));
 
-                // Close Modal
-                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
-				document.getElementById('loginUser').value = "";
-				document.getElementById('loginPass').value = "";
-				window.location.reload(); 
-            } else {
+					// Close Modal
+					bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+					document.getElementById('loginUser').value = "";
+					document.getElementById('loginPass').value = "";
+					window.location.reload(); 
+				}
+				else showPopup("User Already Logged In");
+            } 
+			else 
+			{
                 showPopup("Incorrect password.");
             }
         } else {
