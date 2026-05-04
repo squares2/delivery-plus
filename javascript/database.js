@@ -489,7 +489,7 @@ export async function getHomeTrack(uname)
 			{
                 const item = data[key];
                 
-                if (item.username==uname&&item.vault == "0"&&item.state == "0" && item.trackorder == '1') 
+                if (item.username==uname&&item.vault == "0"&&item.state == "0" && item.trackorder == '1'&&item.lat&&item.lat.length>0) 
 				{
                     counter++;
 					if(firstkey==-1)firstkey=key;
@@ -543,7 +543,7 @@ if (hometrack) {
 
         hometrack.onclick = function(e) {
             e.preventDefault();
-            window.location.href = "orders.html";
+            window.location.href = "trackorders.html";
         };
     }
 }
@@ -775,7 +775,7 @@ export function distributeHistory(username) {
                         const reqData = requestSnap.val();
                         
                         // 2. CHECK TRACKORDER FROM REQUESTS (Live)
-                        if (reqData.trackorder == "1" || reqData.trackorder == 1) 
+                        if (reqData.trackorder == "1"&&reqData.lat&&reqData.lat.length>0) 
 						{
                             const driverName = reqData.driver; // e.g., "JohnDoe"
                             
@@ -844,6 +844,127 @@ export function distributeHistory(username) {
             if (countpcanceled) countpcanceled.innerHTML = totpcancel;
         } else {
             if (historyshiptable) historyshiptable.innerHTML = inner1 + "<tr><td colspan='7' class='text-center'>No Orders Exist</td></tr></tbody>";
+        }
+    });
+}
+export function distributeTrack(username) 
+{
+    const historytracktable = document.getElementById('historytracktable');
+    if (historytracktable) historytracktable.innerHTML = "";
+    
+    var inner1 = "<thead><tr><th>Ship Number</th><th>Full Name</th><th>Phone</th><th>Address</th>";
+    inner1 += "<th>Amount</th><th>Due Date</th><th>Status</th></tr></thead><tbody>";
+    
+    var countndelivered = document.getElementById('count-ndelivered');
+    var countdelivered = document.getElementById('count-delivered');
+    var countdelayed = document.getElementById('count-delayed');
+    var countcanceled = document.getElementById('count-canceled');
+    var countpcanceled = document.getElementById('count-pcanceled');
+    
+    var totdel = 0, totndel = 0, totdelayed = 0, totcancel = 0, totpcancel = 0;
+
+    get(child(dbref, "requests/")).then(async (snapshot) => {
+        if (snapshot.exists()) 
+		{
+            const data = snapshot.val();
+            const keys = Object.keys(data).sort((a, b) => 
+			{
+                const numA = parseInt(a.replace(/\D/g, '')) || 0;
+                const numB = parseInt(b.replace(/\D/g, '')) || 0;
+                return numB - numA; 
+            });
+
+            const rowPromises = keys.map(async (key) => 
+			{
+                const item = data[key];
+                let stateClass = "";
+                let stateText = "";
+				if(item.username==username&&item.trackorder=="1")
+				{
+					if (item.state == "0") { stateClass = "btn-ndelivered"; stateText="Not Delivered"; totndel++; }
+					else if (item.state == "1") { stateClass = "btn-delivered"; stateText="Delivered"; totdel++; }
+					else if (item.state == "2") { stateClass = "btn-canceled"; stateText="Canceled"; totcancel++; }
+					else if (item.state == "3") { stateClass = "btn-delayed"; stateText="Delayed"; totdelayed++; }
+					else if (item.state == "5") { stateClass = "btn-pcanceled"; stateText="Canceled Paid"; totpcancel++; }
+
+					let finalDriverId = "";
+					
+					try 
+					{
+						// 1. Get live data from 'requests' node for this specific Ship Number
+						const requestSnap = await get(child(dbref, `requests/${key}`));
+						if (requestSnap.exists()) 
+						{
+							const reqData = requestSnap.val();
+							
+							const driverName = reqData.driver; // e.g., "JohnDoe"
+							
+							// 3. Get the Driver's Unique ID/Key from 'drivers' node
+							const driverSnap = await get(child(dbref, `drivers`));
+							if (driverSnap.exists()) 
+							{
+								const allDrivers = driverSnap.val();
+								// Find the key where the driver's info matches the name
+								for (let dKey in allDrivers) 
+								{
+									if (allDrivers[dKey].owner === driverName || dKey === driverName) {
+										finalDriverId = dKey; 
+										break;
+									}
+								}
+							}
+						}
+					} catch (e) { console.error("Tracking check failed", e); }
+
+					let trackButtonHtml = "";
+					
+					if (finalDriverId) {
+						trackButtonHtml = `
+							<button class="btn btn-warning track-btn-main" 
+									onclick="openTrackingModal('${key}', '${finalDriverId}')">
+								<i class="fa-solid fa-location-dot"></i> Track
+							</button>`;
+					}
+
+					return `
+					<tr class="expandable">
+						<td data-label='Ship Number'>
+							<span class="desktop-only-text">${key}</span>
+							<div class="mobile-summary-row">
+								<span class="toggle-icon" onclick="toggleCard(this)">+</span>
+								<div class="shrink-track-wrapper">${trackButtonHtml}</div>
+								<span class="m-ship">#${key}</span>
+								<span class="m-total">${item.total} $</span>
+								<span class="m-status-badge ${stateClass}">${stateText}</span>
+							</div>
+						</td>
+						<td data-label='Full Name'>${item.fullname}</td>
+						<td data-label='Phone'>${item.phone}</td>
+						<td data-label='Address'>${item.city}/${item.street}</td>
+						<td data-label='Amount'>${item.total} $</td>
+						<td data-label='Due Date'>${item.date}</td>
+						<td data-label='Status'>
+							<div class='status-selector' data-username='${item.username}' data-shipnumber='${key}'>
+								<button class='status-btn ${stateClass} active'>${stateText}</button>
+								<button id='carthistorydetail' data-shipnumber='${key}' class='status-btn2 btn-items'>Items</button>
+							</div>
+							<div class="expanded-track-wrapper">${trackButtonHtml}</div>
+						</td>
+					</tr>`;
+				}
+
+            });
+
+            const rows = await Promise.all(rowPromises);
+            if (historytracktable) historytracktable.innerHTML = inner1 + rows.join("") + "</tbody>";
+            
+            if (countndelivered) countndelivered.innerHTML = totndel;
+            if (countdelivered) countdelivered.innerHTML = totdel;
+            if (countdelayed) countdelayed.innerHTML = totdelayed;
+            if (countcanceled) countcanceled.innerHTML = totcancel;
+            if (countpcanceled) countpcanceled.innerHTML = totpcancel;
+        } else {
+            if (historytracktable) historytracktable.innerHTML = inner1 + "<tr><td colspan='7' class='text-center'>No Orders Exist</td></tr></tbody>";
         }
     });
 }
@@ -1299,48 +1420,86 @@ function removeProductOverlay(productId)
     }
     checkForm();
 }
-function cardTemplate(p) {
-    let found = false;
-    for (var i = 0; i < cartItems.length; i++) {
-        if (p.id == cartItems[i].id) found = true;
-    }
-
-    let result = '<div class="col-3 col-lg-3 pc-grid-item">' +
-        '<div class="pc-card-main">' +
-            // Logic for the Offer Badge
-            (p.sale > 0 ? '<span class="pc-badge-offer">OFFER</span>' : '') +
-            
-            '<div class="pc-img-holder">' +
-                '<img src="' + p.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="pc-product-img" alt="' + p.title + '">';
-                
-                let display = found ? 'block' : 'none';
-                result += '<img src="png/cart3.png" style="display:' + display + '" class="pc-cart-overlay" alt="In Cart">';
-    result += '</div>' +
-            
-            '<div class="pc-body">' +
-                '<h6 class="pc-item-title">' + p.title + '</h6>' +
-                '<div class="pc-price-wrap">';
-                
-                if (p.sale > 0) {
-                    result += '<span class="pc-new-price">' + money(p.sale) + '</span>' +
-                              '<span class="pc-old-price">' + money(p.price) + '</span>';
-                } else {
-                    result += '<span class="pc-standard-price">' + money(p.price) + '</span>';
-                }
-                
-    result += '</div>' +
-                '<div class="pc-btn-group">';
-                if (found) {
-                    result += '<button class="pc-btn-glow pc-btn-success" data-product-id="' + p.id + '">Added</button>';
-                } else {
-                    result += '<button class="pc-btn-glow pc-btn-primary" data-product-id="' + p.id + '">Add to Cart</button>';
-                }
-    result += '</div>' +
-            '</div>' +
-        '</div>' +
-    '</div>';
+window.openImageModal = function(src) {
+    const modal = document.createElement('div');
+    // Styling the background overlay
+    modal.style = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.9); z-index: 10000; display: flex;
+        align-items: center; justify-content: center; cursor: zoom-out;
+        opacity: 0; transition: opacity 0.3s ease;
+    `;
     
-    return result;
+    const img = document.createElement('img');
+    img.src = src;
+    // Styling the image for maximum visibility
+    img.style = `
+    width: 50vw;       /* 150% of the screen width */
+    height: auto;       /* Keep aspect ratio */
+    object-fit: contain; 
+    border-radius: 4px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    transform: scale(1);
+    transition: transform 0.3s ease;
+`;
+    
+    modal.appendChild(img);
+    document.body.appendChild(modal);
+
+    // Trigger animations
+    setTimeout(() => {
+        modal.style.opacity = "1";
+        img.style.transform = "scale(1)";
+    }, 10);
+
+    // Close function
+    modal.onclick = () => {
+        modal.style.opacity = "0";
+        setTimeout(() => modal.remove(), 300);
+    };
+}
+function cardTemplate(p) {
+    // Check if item is in cart
+    let found = cartItems.some(item => item.id == p.id);
+    let display = found ? 'block' : 'none';
+
+    return `
+    <div class="col-3 col-lg-3 pc-grid-item">
+        <div class="pc-card-main">
+            ${p.sale > 0 ? '<span class="pc-badge-offer">OFFER</span>' : ''}
+            
+            <div class="pc-img-holder">
+                <img src="${p.image}" 
+                     onclick="openImageModal('${p.image}')"
+                     onerror="this.onerror=null;this.src='items/0.png';" 
+                     class="pc-product-img" 
+                     alt="${p.title}" 
+                     style="cursor:pointer">
+                
+                <img src="png/cart3.png" 
+                     style="display:${display}" 
+                     class="pc-cart-overlay" 
+                     alt="In Cart">
+            </div>
+            
+            <div class="pc-body">
+                <h6 class="pc-item-title">${p.title}</h6>
+                <div class="pc-price-wrap">
+                    ${p.sale > 0 
+                        ? `<span class="pc-new-price">${money(p.sale)}</span>
+                           <span class="pc-old-price">${money(p.price)}</span>`
+                        : `<span class="pc-standard-price">${money(p.price)}</span>`
+                    }
+                </div>
+                <div class="pc-btn-group">
+                    <button class="pc-btn-glow ${found ? 'pc-btn-success' : 'pc-btn-primary'}" 
+                            data-product-id="${p.id}">
+                        ${found ? 'Added' : 'Add to Cart'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>`;
 }
 function wireButtons(context)
 {
@@ -2975,7 +3134,7 @@ function countUUIDNoIndex(targetUuid, callback) {
 
 // Usage:
 countUUIDNoIndex("DEVICE_ID_123", (total) => {
-    console.log("Found " + total + " users with this ID.");
+    //console.log("Found " + total + " users with this ID.");
 });
 
 const checkoutbutton = document.getElementById('checkoutbutton');
