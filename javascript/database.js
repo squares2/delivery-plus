@@ -616,7 +616,7 @@ function distributeDriver() {
 
                     let trackBtnHtml = "";
                     // Using await for checkTrack because it is also an async function
-                    if (item.vault != "1" && item.state == "0") 
+                    if (item.vault != "1" && item.state == "0"&&item.lat.length>0) 
 					{
                         const isTracking = await checkTrack(key);
                         const btnColor = isTracking ? "btn-danger" : "btn-success";
