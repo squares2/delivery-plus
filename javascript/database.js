@@ -1434,7 +1434,7 @@ window.openImageModal = function(src) {
     img.src = src;
     // Styling the image for maximum visibility
     img.style = `
-    width: 50vw;       /* 150% of the screen width */
+    width: 200px;       /* 150% of the screen width */
     height: auto;       /* Keep aspect ratio */
     object-fit: contain; 
     border-radius: 4px;

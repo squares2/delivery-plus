@@ -517,7 +517,35 @@ body.theme-tobbaco::before { background-color: #1a242d; background-image: url('.
   .search-form .input-group { border-radius: 14px; }
   .offcanvas-end#cartSidebar { --bs-offcanvas-width: 100vw; }
 }
+.offcanvas-end#cartSidebar { 
+  --bs-offcanvas-width: 360px; 
+}
 
+.offcanvas#cartSidebar {
+  background-color: var(--bg-cards) !important; 
+  z-index: 2100 !important;
+  color: var(--text-main);
+  border-left: 1px solid var(--border-color);
+  transition: background 0.5s ease, color 0.5s ease;
+  
+  /* FIX: Ensure the sidebar itself never exceeds screen height */
+  height: 100vh !important; 
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* FIX: Force the body to scroll and occupy remaining space */
+#cartSidebar .offcanvas-body {
+  flex: 1 1 auto;
+  overflow-y: auto !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* FIX: Prevent the cart list from collapsing */
+#cartList {
+  width: 100%;
+}
 @media (min-width: 992px) {
   .mega-menu {
     left: 50% !important;
