@@ -129,51 +129,83 @@
 	</script> 
 
 <!-- Bottom Navigation Bar (Visible only on mobile/tablet) -->
-<nav class="navbar navbar-light bg-white border-top fixed-bottom py-2">
-  <div class="container-fluid d-flex justify-content-around text-center">
+<nav class="navbar border-top fixed-bottom py-1 theme-nav bg-white">
+  <div class="container-fluid d-flex justify-content-around align-items-center text-center">
     
-    <a href="index.html" class="nav-link text-dark">
-      <i class="fa-solid fa-house d-block mb-1"></i>
+    <!-- Home -->
+    <a href="index.html" class="nav-link p-0 text-dark d-flex flex-column align-items-center">
+      <div class="nav-icon-circle mb-1">
+        <i class="fa-solid fa-house"></i>
+      </div>
       <small>Home</small>
     </a>
-    <ul class="navbar-nav position-static">
-      <li class="nav-item dropup mega position-static">
-        <a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown">
-          <span id="company">SHOP</span>
-        </a>
-        <!-- FIX 2: Added 'w-100 start-0' to prevent cutting off -->
-        <div class="dropdown-menu w-100 start-0 p-4 mega-menu">
-          <div id="companieslist4" class="row g-3">
-            <div class="col-6 col-lg-3">
-              <h6 class="fw-semibold">Loading...</h6>
-            </div>
-          </div>
+
+    <!-- Companies Dropup (Shop 1) -->
+    <div class="dropup position-static">
+      <a class="nav-link dropdown-toggle p-0 d-flex flex-column align-items-center text-dark" href="#" data-bs-toggle="dropdown">
+        <div class="nav-icon-circle mb-1">
+          <i class="fa-solid fa-store"></i>
         </div>
-      </li>
-    </ul>
-<ul class="navbar-nav">
-  <!-- 1. Add 'position-static' to the li -->
-  <li class="nav-item dropup mega position-static">
-    <a class="nav-link dropdown-toggle dynamic-nav" href="#" data-bs-toggle="dropdown">
-      <span id="company2">SHOP</span>
-    </a>
-    <!-- 2. Add 'w-100' and 'start-0' to the menu -->
-    <div class="dropdown-menu w-100 start-0 p-4 mega-menu">
-      <div id="categorieslist2" class="row g-3 dynamic-nav2"lang="ar">
-        <div class="col-6 col-lg-3">
-          <h6 class="fw-semibold">Loading...</h6>
+        <small id="company">SHOP</small>
+      </a>
+      <div class="dropdown-menu w-100 start-0 p-4 mega-menu theme-card">
+        <div id="companieslist4" class="row g-3">
+          <div class="col-6 col-lg-3"><h6 class="fw-semibold">Loading...</h6></div>
         </div>
       </div>
     </div>
-  </li>
-</ul>    
-	<a class="nav-link position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
-		<i class="fa-solid fa-cart-shopping"></i>
-		<span id="cartCount2" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-		<small></small>
+
+    <!-- Categories Dropup (Shop 2) -->
+    <div class="dropup position-static">
+      <a class="nav-link dropdown-toggle p-0 d-flex flex-column align-items-center text-dark" href="#" data-bs-toggle="dropdown">
+        <div class="nav-icon-circle mb-1">
+          <i class="fa-solid fa-layer-group"></i>
+        </div>
+        <small id="company2">SHOP</small>
+      </a>
+      <div class="dropdown-menu w-100 start-0 p-4 mega-menu theme-card">
+        <div id="categorieslist2" class="row g-3 dynamic-nav2" lang="ar">
+          <div class="col-6 col-lg-3"><h6 class="fw-semibold">Loading...</h6></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cart -->
+    <a class="nav-link p-0 text-dark d-flex flex-column align-items-center position-relative" href="#" data-bs-toggle="offcanvas" data-bs-target="#cartSidebar">
+      <div class="nav-icon-circle mb-1 position-relative">
+        <i class="fa-solid fa-cart-shopping"></i>
+        <span id="cartCount2" class="position-absolute badge rounded-pill bg-danger border border-white" 
+              style="top: -5px; right: -5px; font-size: 10px; padding: 3px 6px;">
+          0
+        </span>
+      </div>
+      <small>Cart</small>
     </a>
+
   </div>
 </nav>
+
+<style>
+  /* Base CSS for the "Icon Circle" look */
+  .nav-icon-circle {
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    /* background: #f8f9fa; Optional: add if you want circles to have backgrounds */
+    font-size: 1.1rem;
+  }
+  .nav-link small {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  /* Remove the default caret if it looks messy */
+  .dropdown-toggle::after {
+    display: none;
+  }
+</style>
   <div class="offcanvas offcanvas-end text-white" tabindex="-1" id="cartSidebar" style="background-color: #1a1a1a !important;">
     <div class="offcanvas-header border-bottom border-secondary">
       <h5 class="offcanvas-title fw-bold">Your Cart</h5>
