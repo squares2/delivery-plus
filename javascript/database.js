@@ -1463,10 +1463,19 @@ function cardTemplate(p) {
     let found = cartItems.some(item => item.id == p.id);
     let display = found ? 'block' : 'none';
 
+    // Calculate percentage discount
+    let discountPercent = 0;
+    if (p.sale > 0 && p.price > 0) {
+        discountPercent = Math.round(((p.price - p.sale) / p.price) * 100);
+    }
+
     return `
     <div class="col-3 col-lg-3 pc-grid-item">
         <div class="pc-card-main">
-            ${p.sale > 0 ? '<span class="pc-badge-offer">OFFER</span>' : ''}
+            ${p.sale > 0 ? `
+                <span class="pc-badge-offer">OFFER</span>
+                <span class="pc-badge-percent">-${discountPercent}%</span>
+            ` : ''}
             
             <div class="pc-img-holder">
                 <img src="${p.image}" 
