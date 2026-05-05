@@ -1131,16 +1131,16 @@ function setCompany(comp) {
         inner = "<div class='col-6 col-lg-2'><a href='' data-company-name='Restaurants' class='card category-card text-center'><img src='png/restaurants.jpg' class='card-img-top'><div class='card-body p-1'><h6 class='m-0'>Restaurants</h6></div></a></div>";
         inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Markets' class='card category-card text-center'><img src='png/markets.jpg' class='card-img-top' alt='Dairy'><div class='card-body p-1'><h6 class='m-0'>Markets</h6></div></a></div>";
         inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='ButcherShops' class='card category-card text-center'><img src='png/butchershops.jpg' class='card-img-top' alt='Staples'><div class='card-body p-1'><h6 class='m-0'>Butchers</h6></div></a></div>";
-        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Bakery' class='card category-card text-center'><img src='png/bakery.jpg' class='card-img-top' alt='Meat'><div class='card-body p-1'><h6 class='m-0'>Bakery</h6></div></a></div>";
-        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Fish Shop' class='card category-card text-center'><img src='png/fishshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Fish Shop</h6></div></a></div>";
-        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Chicken Shop' class='card category-card text-center'><img src='png/chickenshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Chicken Shop</h6></div></a></div>";
-        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Dairy Shop' class='card category-card text-center'><img src='png/dairyshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Dairy Shop</h6></div></a></div>";
-        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Flower Shop' class='card category-card text-center'><img src='png/flowershop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Flower Shop</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='BakeryShops' class='card category-card text-center'><img src='png/bakeryshops.jpg' class='card-img-top' alt='Meat'><div class='card-body p-1'><h6 class='m-0'>Bakery</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='FishShops' class='card category-card text-center'><img src='png/fishshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Fish</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='ChickenShops' class='card category-card text-center'><img src='png/chickenshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Chicken</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='DairyShops' class='card category-card text-center'><img src='png/dairyshop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Dairy</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='FlowerShops' class='card category-card text-center'><img src='png/flowershop.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Flower</h6></div></a></div>";
         inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Taxi' class='card category-card text-center'><img src='png/taxi.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Taxi</h6></div></a></div>";
         inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Groceries' class='card category-card text-center'><img src='png/groceries.jpg' class='card-img-top' alt='Snacks'><div class='card-body p-1'><h6 class='m-0'>Groceries</h6></div></a></div>";
         inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Sweets' class='card category-card text-center'><img src='png/sweets.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Sweets</h6></div></a></div>";
         inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Tobbaco' class='card category-card text-center'><img src='png/tobacco.jpg' class='card-img-top' alt='Household'><div class='card-body p-1'><h6 class='m-0'>Tobbaco</h6></div></a></div>";
-        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Toys shop' class='card category-card text-center'><img src='png/toys.jpg' class='card-img-top' alt='Staples'><div class='card-body p-1'><h6 class='m-0'>Toys shop</h6></div></a></div>";
+        inner += "<div class='col-6 col-lg-2'><a href='' data-company-name='Toysshops' class='card category-card text-center'><img src='png/toys.jpg' class='card-img-top' alt='Staples'><div class='card-body p-1'><h6 class='m-0'>Toys</h6></div></a></div>";
         
         featured.innerHTML = inner;
         attachLinkListeners();
@@ -3163,7 +3163,7 @@ if (checkoutbutton) {
         // Note: Alert might still cut off the sound in some browsers.
         setTimeout(() => {
         window.location.href = 'checkout.html';
-		}, 400); 
+		}, 600); 
 		
     });
 }
