@@ -222,5 +222,52 @@
   <script type="module"src="javascript/location.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA36vu2A9AyTlGcXLApPrhtUrnhWCxyQ6c&callback=initMap" async defer></script>
 </body>
+<script>
+window.addEventListener('pageshow', function() {
+    const rawCart = localStorage.getItem('grocer_cart');
+    
+    if (rawCart) {
+        const cartItems = JSON.parse(rawCart);
+        
+        let subtotal = 0;
+        let totalItems = 0;
+        const uniqueShops = new Set();
 
+        cartItems.forEach(item => {
+            // 1. Math for Subtotal (Price * Quantity)
+            subtotal += parseFloat(item.price) * parseInt(item.qty);
+            
+            // 2. Count total items
+            totalItems += parseInt(item.qty);
+            
+            // 3. Track unique shops for delivery calculation
+            if (item.company) {
+                uniqueShops.add(item.company);
+            }
+        });
+
+        // 4. Delivery Math: Number of unique shops x $2.00
+        const deliveryPrice = uniqueShops.size * 2;
+        const finalGrandTotal = subtotal + deliveryPrice;
+
+        // --- UPDATE THE HTML ---
+        
+        // Items count
+        if(document.getElementById('summaryItems')) 
+            document.getElementById('summaryItems').innerText = totalItems;
+        
+        // Subtotal
+        if(document.getElementById('subTotal')) 
+            document.getElementById('subTotal').innerText = "$" + subtotal.toFixed(2);
+        
+        // Delivery Price
+        if(document.getElementById('checkouttotaldelivery')) 
+            document.getElementById('checkouttotaldelivery').innerText = deliveryPrice.toFixed(2) + " $";
+        
+        // Total
+        if(document.getElementById('checktotal')) 
+            document.getElementById('checktotal').innerText = finalGrandTotal.toFixed(2) + " $";
+    }
+});
+</script>
 </html>

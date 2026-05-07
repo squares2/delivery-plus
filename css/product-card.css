@@ -1,38 +1,194 @@
-.product-card
-{
-	position:relative;
-	border:1px solid #e5e7eb;
-	transition:transform .2s,box-shadow .2s;
+/* 1. Main Container */
+.pc-card-main {
+    /* 🌓 Flips between white and dark glass */
+    background-color: var(--bg-cards) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    transition: transform 0.3s ease, background-color 0.5s ease, border-color 0.5s ease !important;
 }
-.product-card:hover
-{
-	transform:translateY(-4px);
-	box-shadow:0 10px 20px rgba(0,0,0,.08);
+
+.pc-card-main:hover {
+    transform: translateY(-5px) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 10px 20px var(--shadow-color) !important;
 }
-.product-card .card-img-top
-{
-	height:70%;
-	width:70%;
-	object-fit:cover;
-	margin: 0 auto;
+
+/* 2. Top-Left Offer Badge (Stays Green) */
+.pc-badge-offer {
+    position: absolute !important;
+    top: 8px !important;
+    left: 8px !important;
+    width: 35% !important; 
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.8), rgba(39, 174, 96, 0.8)) !important;
+    color: white !important;
+    font-size: 1.5vw !important;
+    font-weight: 900 !important;
+    padding: 4px 0 !important;
+    border-radius: 4px !important;
+    z-index: 5 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em !important; 
 }
-.product-card .card-body .d-flex
-{
-	flex-wrap:wrap
+
+/* 3. Image Section */
+.pc-img-holder {
+    padding: 8px !important;
+    /* 🌓 Flipped to use input-style background for subtle contrast from the card */
+    background: var(--bg-inputs) !important;
+    margin: 5px !important;
+    border-radius: 10px !important;
+    position: relative !important;
 }
-@media(max-width:576px)
-{
-  .product-card .card-body .d-flex{flex-direction:column;gap:.5rem}
-  .product-card .card-body .d-flex .btn{width:100%}
+
+.pc-product-img {
+    width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    object-fit: contain !important;
+    display: block !important;
 }
-h6.card-title
-{
-	font-size:20px;
+
+.pc-cart-overlay {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    width: 18% !important;
+    filter: drop-shadow(0 0 5px var(--shadow-color)) !important;
 }
-@media(max-width:768px)
-{
-  .hero .hero-slide{height:380px}
-  .product-card .card-img-top{height:160px}
-  .category-card .card-img-top{height:120px}
-  .brand-logo{height:48px}
+
+/* 4. Content Body */
+.pc-body {
+    padding: 0.4rem 0.25rem !important;
+    flex-grow: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important; 
+    text-align: center !important;
 }
+
+/* 5. Title - 🌓 Now Uses var(--text-main) */
+.pc-item-title {
+    color: var(--text-main) !important;
+    font-size: clamp(0.65rem, 2.2vw, 0.9rem) !important;
+    font-weight: 600 !important;
+    margin-bottom: 4px !important;
+    line-height: 1.15 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    min-height: 2.4em !important; 
+    width: 100% !important;
+}
+
+/* 6. Pricing */
+.pc-price-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    margin-top: auto !important;
+    min-height: 34px !important;
+    margin-bottom: 6px !important;
+    justify-content: center !important;
+}
+
+.pc-new-price {
+    color: var(--primary) !important; /* 🌓 Green price */
+    font-size: clamp(0.85rem, 2.5vw, 1.05rem) !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+}
+
+.pc-old-price {
+    font-size: clamp(0.75rem, 2vw, 1rem) !important;
+    color: var(--text-muted) !important;
+    position: relative;
+    display: inline-block;
+    padding: 0 2px;
+}
+
+/* Red X Strike-through for Old Price */
+.pc-old-price::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 60%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 1;
+    background: 
+        linear-gradient(to top right, transparent 46%, rgba(255, 71, 87, 0.7) 48%, rgba(255, 71, 87, 0.7) 52%, transparent 54%),
+        linear-gradient(to bottom right, transparent 46%, rgba(255, 71, 87, 0.7) 48%, rgba(255, 71, 87, 0.7) 52%, transparent 54%);
+}
+
+.pc-standard-price {
+    color: var(--text-main) !important; /* 🌓 Price flips with theme */
+    font-weight: 700 !important;
+    font-size: clamp(0.85rem, 2.5vw, 1.05rem) !important;
+    line-height: 1 !important;
+}
+
+/* 7. Buttons */
+.pc-btn-glow {
+    width: 100% !important;
+    border: none !important;
+    padding: 6px 2px !important;
+    border-radius: 6px !important;
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    color: white !important;
+}
+
+.pc-btn-primary { background: linear-gradient(135deg, #3498db, #2980b9) !important; }
+.pc-btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60) !important; }
+
+/* 8. Mobile Optimization */
+@media (max-width: 768px) {
+    .pc-grid-item { padding: 2px !important; }
+    .pc-badge-offer { font-size: 0.5rem !important; top: 5px; left: 5px; }
+}
+
+
+/*	last css update targeting items to be 3 in row not 4 in row  */
+/* 1. Target the parent container (usually a .row) */
+#featuredcompanies, 
+.row.g-3 { 
+    display: grid !important;
+    /* This forces exactly 3 equal columns */
+    grid-template-columns: repeat(3, 1fr) !important; 
+    gap: 8px !important; /* Adjust spacing between cards */
+}
+
+/* 2. Reset the grid items so they don't use Bootstrap's 12-column widths */
+.pc-grid-item, 
+.col-6, 
+.col-lg-2 {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+    padding: 0 !important;
+}
+
+/* 3. Adjust your Offer Badge font for the smaller 3-item width */
+.pc-badge-offer {
+    font-size: 2.2vw !important; /* Slightly larger than 1.5vw to keep it readable */
+    width: 45% !important; /* Widened to fit the text better in a 3-column layout */
+}
+
+/* 4. Fix for the title to prevent height issues in small columns */
+.pc-item-title {
+    font-size: clamp(0.55rem, 2.8vw, 0.85rem) !important;
+    min-height: 2.8em !important;
+}
+
