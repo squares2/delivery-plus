@@ -98,22 +98,7 @@
       </thead>
       <tbody>
         <tr>
-          <td data-label="Ship Number">9</td>
-          <td data-label="Owner">folan lfolany</td>
-          <td data-label="Owner Phone">76884643</td>
-          <td data-label="Owner Address">Baalbeck/nahle street/outa building</td>
-          <td data-label="Amount">$2,500</td>
-          <td data-label="Due Date">03/25/2026</td>
-          <td data-label="Status">
-            <div class="status-selector bg-transparent border-secondary" data-shipnumber="9">
-              <button class="status-btn btn-ndelivered active">Not Delivered</button>
-              <button class="status-btn btn-delivered">Delivered</button>
-              <button class="status-btn btn-delayed">Delayed</button>
-              <button class="status-btn btn-canceled">Canceled</button>
-              <button class="status-btn btn-pcanceled">Canceled Payed</button>
-              <button id="cartdriverdetail" data-shipnumber="9" class="status-btn2 btn-items">Items</button>
-            </div>
-          </td>
+          <td colspan=7 >Loading...</td>
         </tr>
       </tbody>
     </table>
@@ -126,13 +111,14 @@
       <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body">
-      <div id="cartList" class="mb-3"></div>
-      <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
-        <div class="fw-semibold">Total</div>
-        <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
-      </div>
-      <a href="checkout.html" class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2">Checkout</a>
-    </div>
+  <div id="cartList" class="mb-3"></div>
+  <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
+    <div class="fw-semibold">Total</div>
+    <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
+  </div>
+  <!-- This adds the horizontal line -->
+  <hr class="border-light opacity-100 mt-2"> 
+</div>
   </div>
 
   <!-- Driver Login Modal -->

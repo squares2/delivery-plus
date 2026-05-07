@@ -5,17 +5,25 @@
       <button type="button" id="btn-close2" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body">
-      <!-- Applied your Stylish Blue Gradient to the button -->
-      <a href="checkout.html" id="checkoutbutton"class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">Checkout</a>
+      <!-- Removed 'list-group' class to stop Bootstrap from forcing white backgrounds -->
+      <div id="cartList" class="mb-3"></div>
+      
       <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
         <div class="fw-semibold">Total</div>
         <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
       </div>
-	  <!-- Removed 'list-group' class to stop Bootstrap from forcing white backgrounds -->
-      <div id="cartList" class="mb-3"></div>
-      
-      
       
     </div>
 	</div>
   <script src="javascript/database.js"></script>
+  <style>
+  [lang="ar"]#cartList {
+    font-family: 'KhebratMusamim', sans-serif !important;
+    font-size: 1.5rem !important; 
+    padding: 10px 5px !important; /* Slightly adjusted for card spacing */
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    line-height: 1.1 !important;
+    height: auto !important;
+}
+  </style>

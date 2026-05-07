@@ -19,7 +19,8 @@
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script src="javascript/profileSidebar.js"></script>
   <script src="javascript/themes.js"></script>
-	<div id="userbar"></div>
+<script type="module" src="javascript/startup.js"></script>
+<script type="module" src="javascript/whatsapp.js"></script>	<div id="userbar"></div>
 	<div id="changepassword"></div>
 </head>
 <body>
@@ -102,34 +103,27 @@
     <tbody>
       <!-- Example of how a row should look for the toggle to work -->
       <tr class="expandable">
-        <td colspan=7 data-label="Ship Number">
-          No Orders, Please login in first.
-        </td>
+        <td colspan=7 >Loading...</td>
       </tr>
     </tbody>
   </table>
 </div>
 
 	<div id="cartsidebar"></div>
-	<div id="bottom"></div>
-	<div id="footer"></div>
 	<div id="popup"></div>
+	<div id="footer"></div>
 	<script>
 	fetch('usersidebar.html')
 		.then(response => response.text())
 		.then(data => { document.getElementById('userbar').innerHTML = data; });
 
-	fetch('cartsidebar.html')
+	fetch('cartsidebar2.html')
 		.then(response => response.text())
 		.then(data => { document.getElementById('cartsidebar').innerHTML = data; });
 		
 	fetch('changepassword.html')
 		.then(response => response.text())
 		.then(data => { document.getElementById('changepassword').innerHTML = data; });
-
-	fetch('bottombar.html')
-		.then(response => response.text())
-		.then(data => { document.getElementById('bottom').innerHTML = data; });
 
 	fetch('footer.html')
 		.then(response => response.text())
@@ -139,7 +133,43 @@
 		.then(response => response.text())
 		.then(data => { document.getElementById('popup').innerHTML = data; });
 	</script> 
+<!-- Fully Theme-Compatible Bottom Navigation -->
+<nav class="navbar border-top fixed-bottom py-1 theme-nav">
+  <div class="container-fluid d-flex justify-content-around align-items-center text-center">
+    
+    <!-- Home -->
+    <a href="index.html" class="nav-link p-0 theme-text d-flex flex-column align-items-center">
+      <div class="nav-icon-circle">
+        <i class="fa-solid fa-house"></i>
+      </div>
+      <small>Home</small>
+    </a>
 
+    <!-- Shop (Mega Menu) - Fixed to stack vertically -->
+    <div class="dropup position-static">
+      <a class="nav-link dropdown-toggle p-0 d-flex flex-column align-items-center theme-text" href="#" data-bs-toggle="dropdown">
+        <div class="nav-icon-circle">
+          <i class="fa-solid fa-store"></i>
+        </div>
+        <small id="company2">Shop</small>
+      </a>
+      <div class="dropdown-menu w-100 start-0 p-4 mega-menu theme-card">
+        <div id="companieslist4" class="row g-3">
+          <div class="col-6 col-lg-3"><h6 class="fw-semibold">Loading...</h6></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WhatsApp -->
+    <a id="whatsapp-btn" href="#" target="_blank" class="nav-link p-0 theme-text d-flex flex-column align-items-center">
+      <div class="nav-icon-circle">
+        <img src="png/whatsapp.png" style="width: 24px; height: 24px;">
+      </div>
+      <small>Chat</small>
+    </a>
+
+  </div>
+</nav>
 <!-- Login Modal (Place this before </body>) -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">

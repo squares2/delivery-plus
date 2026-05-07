@@ -3,6 +3,9 @@ var cartItems=[];
 window.lat = 34;
 window.lng = 36;
 
+// Global variable for delivery
+export var totalDelivery = 0;
+
 //[{id: '6', title: 'bananas', price: 1, image: 'items/6.png', qty: 1}]
 var cartItemsDriver=[];
 var saleEnd=Date.now()+12*60*60*1000;
@@ -662,7 +665,7 @@ function distributeDriver() {
                         inner2 += `<button class="status-btn btn-pcanceled ${item.state == '5' ? 'active' : ''}">Canceled Payed</button>`;
                     
                     if (historyValue == 0) 
-                        inner2 += `<button id='cartdriverdetail' data-shipnumber='${key}' class='status-btn2 btn-items'>Items</button>`;
+                        inner2 += `<button id='cartdriverdetail' data-shipnumber='${key} 'data-username='${item.username}' class='status-btn2 btn-items'>Items</button>`;
                     
                     inner2 += `</div>
                                <div class="expanded-track-wrapper">${trackBtnHtml}</div>
@@ -1061,7 +1064,6 @@ export async function getCategories(companyname)
 export async function distribute(comp,cat)
 {
 			products = [];
-			console.log(comp);
 	await get(child(dbref,"items/"+comp)).then((snapshot) => 
 	{
 		if (snapshot.exists()) 
@@ -1076,7 +1078,7 @@ export async function distribute(comp,cat)
 				
 				if(item.cat==cat)
 				{
-					let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat,company:''};
+					let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat,company:comp};
 					products.push(row);
 				}
 				i++;
@@ -1106,7 +1108,7 @@ export async function distribute2(comp)
 				const key = keys[i];
 				const item = data[key];
 				
-				let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat};
+				let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat,company:comp};
 				products.push(row);
 				i++;
 			}
@@ -1386,12 +1388,12 @@ function addToCart(id)
 		if(sale>2000)sale=sale/90000;
 		let price=cost;
 		if(sale>0)price=sale;
-		cartItems.push({id:p.id,title:p.title,price:price,image:p.image,qty:1})
+		cartItems.push({id:p.id,title:p.title,price:price,image:p.image,qty:1,company:p.company})
 		playSound('add');
 	}
 	saveCart();
 	updateCartBadge();
-	renderCartSidebar(cartItems)
+	renderCartSidebar(cartItems);
 }
 function removeProductOverlay(productId) 
 {
@@ -1459,6 +1461,10 @@ window.openImageModal = function(src) {
     };
 }
 function cardTemplate(p) {
+    // Detect if title is Arabic to apply specific font styling
+    const isArabic = /[\u0600-\u06FF]/.test(p.title);
+    const langAttr = isArabic ? 'lang="ar"' : 'lang="en"';
+
     // Check if item is in cart
     let found = cartItems.some(item => item.id == p.id);
     let display = found ? 'block' : 'none';
@@ -1470,7 +1476,7 @@ function cardTemplate(p) {
     }
 
     return `
-    <div class="col-3 col-lg-3 pc-grid-item">
+    <div class="col-3 col-lg-3 pc-grid-item" ${langAttr}>
         <div class="pc-card-main">
             ${p.sale > 0 ? `
                 <span class="pc-badge-offer">OFFER</span>
@@ -1624,144 +1630,179 @@ function renderProductDetail()
 function renderCartSidebar(cartItem1) {
     var list = document.getElementById('cartList');
     var totalEl = document.getElementById('cartTotal');
-    var sidebarContainer = document.getElementById('cartSidebar'); 
     
     if (!list || !totalEl) return;
 
-    // ✅ FIX: Instead of removing ALL styles, we only clear the hardcoded background
-    // This preserves the Bootstrap "slide" animation
-    if (sidebarContainer) {
-        sidebarContainer.style.backgroundColor = ""; 
-        sidebarContainer.classList.add('themed-sidebar');
-    }
+    const groupedByCompany = cartItem1.reduce((acc, ci) => {
+        const shop = ci.company || "Other"; 
+        if (!acc[shop]) acc[shop] = [];
+        acc[shop].push(ci);
+        return acc;
+    }, {});
 
     var html = '';
-    var total = 0;
+    var subTotal = 0;
+    
+    // Calculate total delivery ($2 per shop)
+    const shopCount = Object.keys(groupedByCompany).length;
+    totalDelivery = shopCount * 2;
 
-    cartItem1.forEach(function(ci) {
-        total += ci.price * ci.qty;
-        html +=
-        '<div class="d-flex align-items-center justify-content-between mb-2 pb-2 cart-item-row">' +
-            '<div class="d-flex align-items-center gap-2">' +
-                '<img src="' + ci.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="cart-item-img">' +
-                '<div>' +
-                    '<div class="small fw-semibold cart-item-title">' + ci.title + '</div>' +
-                    '<div class="small cart-item-price">' + money(ci.price) + ' × ' + ci.qty + '</div>' +
-                '</div>' +
-            '</div>' +
-            '<div class="d-flex align-items-center gap-1">' +
-                '<button class="btn btn-sm cart-qty-btn" data-cart-dec="' + ci.id + '">-</button>' +
-                '<button class="btn btn-sm cart-qty-btn" data-cart-inc="' + ci.id + '">+</button>' +
-                '<button class="btn btn-sm cart-remove-btn" data-cart-del="' + ci.id + '">' +
-                    '<i class="fa-solid fa-trash"></i>' +
-                '</button>' +
-            '</div>' +
-        '</div>';
-    });
+    for (const shopName in groupedByCompany) {
+        html += `
+        <div class="shop-container mb-4 p-2 border border-secondary rounded" style="border-style: dashed !important;">
+            <div class="shop-header d-flex justify-content-between align-items-center mb-3 pb-1" style="border-bottom: 1px solid #333;">
+                <div>
+                    <i class="fa-solid fa-shop me-2" style="color: #2ecc71; font-size: 0.8rem;"></i>
+                    <span class="text-uppercase fw-bold" style="font-size: 0.75rem; color: #bbb;">${shopName}</span>
+                </div>
+                <span class="badge rounded-pill bg-dark text-success border border-secondary" style="font-size: 0.65rem;">+Delivery: $2.00</span>
+            </div>`;
+
+        groupedByCompany[shopName].forEach(function(ci) {
+            subTotal += ci.price * ci.qty;
+            html += `
+            <div class="d-flex align-items-center justify-content-between mb-2 pb-2 cart-item-row">
+                <div class="d-flex align-items-center gap-2">
+                    <img src="${ci.image}" onerror="this.onerror=null;this.src='items/0.png';" class="cart-item-img" style="width:45px; height:45px; border-radius: 4px;">
+                    <div>
+                        <div class="small fw-semibold cart-item-title">${ci.title}</div>
+                        <div class="small cart-item-price" style="color: #2ecc71;">${money(ci.price)} × ${ci.qty}</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-sm cart-qty-btn" data-cart-dec="${ci.id}">-</button>
+                    <button class="btn btn-sm cart-qty-btn" data-cart-inc="${ci.id}">+</button>
+                    <button class="btn btn-sm cart-remove-btn" data-cart-del="${ci.id}">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>`;
+        });
+
+        html += '</div>';
+    }
+
     list.innerHTML = html;
 
-	// 2. FIX: Sync Main Grid Buttons with current cart state
-	document.querySelectorAll('.pc-card-main').forEach(card => {
-		const btn = card.querySelector('[data-product-id]');
-		const overlay = card.querySelector('.pc-cart-overlay');
-		const productId = btn.getAttribute('data-product-id');
-		
-		const isInCart = cartItem1.some(item => item.id == productId);
-		
-		if (isInCart) {
-			if(overlay) overlay.style.display = 'block';
-			btn.innerText = 'Added';
-			btn.classList.remove('pc-btn-primary', 'btn-primary-gradient');
-			btn.classList.add('pc-btn-success', 'btn-success-gradient');
-		} else {
-			if(overlay) overlay.style.display = 'none';
-			btn.innerText = 'Add to Cart';
-			btn.classList.remove('pc-btn-success', 'btn-success-gradient');
-			btn.classList.add('pc-btn-primary', 'btn-primary-gradient');
-		}
-	});
+    // Final Grand Total (Subtotal + All Delivery Fees)
+    var finalGrandTotal = subTotal + totalDelivery;
 
-	// 3. Totals and LocalStorage
-	if(totalEl)
-	{
-		totalEl.textContent=money(total)
-		localStorage.setItem('count',getCartCount());
-		localStorage.setItem('total',total+2);
-		var sumitems=document.getElementById('summaryItems');
-		var subTotal=document.getElementById('subTotal');
-		var checkTotal=document.getElementById('checktotal');
-		if(sumitems!=null)sumitems.innerHTML=getCartCount();
-		if(subTotal!=null)subTotal.innerHTML=totalEl.textContent;
-		if(checkTotal!=null)checkTotal.innerHTML=(parseFloat(totalEl.textContent)+2).toFixed(2);
-	}	
+    if(totalEl) {
+        totalEl.textContent = money(finalGrandTotal);
+                
+        // Sync other UI elements if they exist
+        if(document.getElementById('subTotal')) document.getElementById('subTotal').innerHTML = money(subTotal);
+        if(document.getElementById('checktotal')) document.getElementById('checktotal').innerHTML = money(finalGrandTotal);
+        if(document.getElementById('checkouttotaldelivery')) document.getElementById('checkouttotaldelivery').innerHTML = totalDelivery+" $";
+        if(document.getElementById('summaryItems')) document.getElementById('summaryItems').innerHTML = document.getElementById('cartCount2').innerHTML;
+    }
+document.querySelectorAll('.pc-card-main').forEach(card => {
+    const btn = card.querySelector('[data-product-id]');
+    if (!btn) return;
+    
+    const productId = btn.getAttribute('data-product-id');
+    const overlay = card.querySelector('.pc-cart-overlay');
+    
+    // Check if THIS specific product is in the cart
+    const isInCart = cartItem1.some(item => item.id == productId);
+    
+    if (isInCart) {
+        // Change to Green / Success state
+        btn.innerText = 'Added';
+        btn.classList.remove('pc-btn-primary');
+        btn.classList.add('pc-btn-success');
+        if(overlay) overlay.style.display = 'block';
+    } else {
+        // Change back to Blue / Primary state
+        btn.innerText = 'Add to Cart';
+        btn.classList.remove('pc-btn-success');
+        btn.classList.add('pc-btn-primary');
+        if(overlay) overlay.style.display = 'none';
+    }
+});
 }
-
-function renderCartSidebar2(cartItem1) {
+function renderCartSidebar2(historyData) {
     var list = document.getElementById('cartList');
-    var totalEl = document.getElementById('cartTotal');
-    var sidebarContainer = document.getElementById('cartSidebar'); 
-    
-    if (!list || !totalEl) return;
+    var totalEl = document.getElementById('cartTotal'); // Target your existing total display
+    if (!list) return;
 
-    // ✅ FIX: Instead of removing ALL styles, we only clear the hardcoded background
-    // This preserves the Bootstrap "slide" animation
-    if (sidebarContainer) {
-        sidebarContainer.style.backgroundColor = ""; 
-        sidebarContainer.classList.add('themed-sidebar');
+    if (!Array.isArray(historyData)) {
+        console.error("historyData is not an array:", historyData);
+        return;
     }
 
-    var html = '';
-    var total = 0;
+    // 1. Group by company
+    const groupedByShop = historyData.reduce((acc, product) => {
+        const shop = product.company || "General Shop";
+        if (!acc[shop]) acc[shop] = [];
+        acc[shop].push(product);
+        return acc;
+    }, {});
 
-    cartItem1.forEach(function(ci) {
-        total += ci.price * ci.qty;
-        html +=
-        '<div class="d-flex align-items-center justify-content-between mb-2 pb-2 cart-item-row">' +
-            '<div class="d-flex align-items-center gap-2">' +
-                '<img src="' + ci.image + '" onerror="this.onerror=null;this.src=\'items/0.png\';" class="cart-item-img">' +
-                '<div>' +
-                    '<div class="small fw-semibold cart-item-title">' + ci.title + '</div>' +
-                    '<div class="small cart-item-price">' + money(ci.price) + ' × ' + ci.qty + '</div>' +
-                '</div>' +
-            '</div>' +
-        '</div>';
-    });
+    var html = '';
+    var subTotal = 0;
+
+    // 2. Loop through shops to build the UI
+    for (const shopName in groupedByShop) {
+        html += `
+        <div class="shop-container mb-4 p-2 border border-secondary rounded" style="border-style: dashed !important;">
+            <div class="shop-header d-flex justify-content-between align-items-center mb-3 pb-1" style="border-bottom: 1px solid #333;">
+                <span class="text-uppercase fw-bold text-success" style="font-size: 0.75rem;">
+                    <i class="fa-solid fa-store me-1"></i> ${shopName}
+                </span>
+                <span class="badge bg-dark text-success border border-secondary" style="font-size: 0.65rem;">+Delivery: 2.00 $</span>
+            </div>`;
+
+        groupedByShop[shopName].forEach(function(item) {
+            // Calculate subtotal (convert price to number to be safe)
+            subTotal += parseFloat(item.price) * parseInt(item.qty);
+            
+            html += `
+            <div class="d-flex align-items-center justify-content-between mb-2 pb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <img src="${item.image}" 
+                         onerror="this.onerror=null;this.src='items/0.png';" 
+                         class="cart-item-img" 
+                         style="width:40px; height:40px; border-radius: 4px; object-fit: cover;">
+                    <div>
+                        <div class="small fw-semibold text-white">${item.title}</div>
+                        <div class="small text-white-50">${money(item.price)} × ${item.qty}</div>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        html += '</div>';
+    }
+
+    // 3. Calculate Final Totals
+    const shopCount = Object.keys(groupedByShop).length;
+    const totalDelivery = shopCount * 2;
+    const finalTotal = subTotal + totalDelivery;
+
+    // 4. Add a Summary section at the bottom of the list
+    html += `
+    <div class="p-2 mt-2 border-top border-secondary">
+        <div class="d-flex justify-content-between small text-white-50">
+            <span>Subtotal:</span>
+            <span>${money(subTotal)}</span>
+        </div>
+        <div class="d-flex justify-content-between small text-white-50">
+            <span>Total Delivery:</span>
+            <span>${totalDelivery.toFixed(2)} $</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold text-success mt-1" style="font-size: 1.1rem;">
+            <span>Order Total:</span>
+            <span>${money(finalTotal)}</span>
+        </div>
+    </div>`;
+
     list.innerHTML = html;
-    
-	// 2. FIX: Sync Main Grid Buttons with current cart state
-	document.querySelectorAll('.pc-card-main').forEach(card => {
-		const btn = card.querySelector('[data-product-id]');
-		const overlay = card.querySelector('.pc-cart-overlay');
-		const productId = btn.getAttribute('data-product-id');
-		
-		const isInCart = cartItem1.some(item => item.id == productId);
-		
-		if (isInCart) {
-			if(overlay) overlay.style.display = 'block';
-			btn.innerText = 'Added';
-			btn.classList.remove('pc-btn-primary', 'btn-primary-gradient');
-			btn.classList.add('pc-btn-success', 'btn-success-gradient');
-		} else {
-			if(overlay) overlay.style.display = 'none';
-			btn.innerText = 'Add to Cart';
-			btn.classList.remove('pc-btn-success', 'btn-success-gradient');
-			btn.classList.add('pc-btn-primary', 'btn-primary-gradient');
-		}
-	});
-    
-	// 3. Totals and LocalStorage
-	if(totalEl)
-	{
-		totalEl.textContent=money(total)
-		localStorage.setItem('count',getCartCount());
-		localStorage.setItem('total',total+2);
-		var sumitems=document.getElementById('summaryItems');
-		var subTotal=document.getElementById('subTotal');
-		var checkTotal=document.getElementById('checktotal');
-		if(sumitems!=null)sumitems.innerHTML=getCartCount();
-		if(subTotal!=null)subTotal.innerHTML=totalEl.textContent;
-		if(checkTotal!=null)checkTotal.innerHTML=(parseFloat(totalEl.textContent)+2).toFixed(2);
-	}	
+
+    // 5. Update the main sidebar total element if it exists
+    if (totalEl) {
+        totalEl.textContent = money(finalTotal);
+    }
 }
 
 function changeQty(id,delta)
@@ -1919,7 +1960,7 @@ async function placeOrder()
 		for (let i = 0; i < cartItems.length;i++) 
 		{
 			const product = cartItems[i];
-			cartList+=product.id+":"+product.title+":"+product.price+":"+product.qty+";";
+			cartList+=product.id+":"+product.title+":"+product.price+":"+product.qty+":"+product.company+";";
 		}
 		const num = parseFloat(localStorage.getItem('total')); // Converts string to number
 		const tot = num.toFixed(2);
@@ -2317,7 +2358,8 @@ function updateSideCart(shipnumber)
                             title: parts[1],
                             price: parts[2],
                             image: 'items/' + parts[0] + '.png',
-                            qty: parseInt(parts[3])
+                            qty: parseInt(parts[3]),
+							company:parts[4]
                         };
                         cartItemsDriver.push(row);
                     });
@@ -2365,7 +2407,8 @@ function updateSideCart2(username,shipnumber)
 					title: parts[1],
 					price: parts[2],
 					image: 'items/' + parts[0] + '.png',
-					qty: parseInt(parts[3])
+					qty: parseInt(parts[3]),
+					company:parts[4]
 				};
 				cartItemsHistory.push(row);
 			});
@@ -2379,6 +2422,49 @@ function updateSideCart2(username,shipnumber)
     }).catch((error) => 
 	{
         console.error(error);
+    });
+}
+function updateSideCart3(username, shipnumber) {
+    const offcanvasElement = document.getElementById('cartSidebar');
+    const existingInstance = bootstrap.Offcanvas.getOrCreateInstance(offcanvasElement);
+
+    // Use .trim() to ensure the path is clean
+    get(child(dbref, "requests/" + shipnumber.trim())).then((snapshot) => {
+        if (snapshot.exists()) {
+            const item = snapshot.val();
+            
+            let cartItemsHistory = [];
+            const rawData = item.cart;
+            // Split by ';' then each item by ':'
+            const items = rawData.split(';').filter(i => i.length > 0);
+
+            items.forEach(itemStr => {
+                const parts = itemStr.split(':');
+                cartItemsHistory.push({
+                    id: parts[0],
+                    title: parts[1],
+                    price: parts[2],
+                    image: 'items/' + parts[0] + '.png',
+                    qty: parseInt(parts[3]),
+                    company: parts[4] || "General Shop" // The categorized shop name
+                });
+            });
+
+            // 1. IMPORTANT: Set the flag to stop database.js from loading the local cart
+            offcanvasElement.skipGlobalRender = true;
+
+            // 2. Call the categorized rendering function (History Style)
+            renderCartSidebar2(cartItemsHistory); 
+
+            // 3. Open the sidebar
+            existingInstance.show();
+            
+            console.log("History Loaded Successfully:", cartItemsHistory);
+        } else {
+            console.log("No data available for ship:", shipnumber);
+        }
+    }).catch((error) => {
+        console.error("Firebase Error:", error);
     });
 }
 //	historyshiptable
@@ -2407,7 +2493,8 @@ drivershiptable.forEach(container =>
 		if(cartdriverdetail)
 		{
 			const shipNum = cartdriverdetail.getAttribute('data-shipnumber');
-			updateSideCart(shipNum); 
+			const uname = cartdriverdetail.getAttribute('data-username');
+			updateSideCart3(uname,shipNum); 
 		}
     });
 });
@@ -3343,4 +3430,26 @@ setInterval(() => {
     }
 }, 100);
 
+
+document.addEventListener('show.bs.offcanvas', function (event) {
+    const sidebar = event.target;
+    
+    if (sidebar.id === 'cartSidebar') {
+        // 1. Check if we are on the orders page
+        const isOrdersPage = window.location.pathname.includes('orders.html');
+
+        // 2. If 'skipGlobalRender' is manually set (by the driver function)
+        // or if we are on the orders.html page, do NOT load the local cart.
+        if (sidebar.skipGlobalRender || isOrdersPage) {
+            console.log("Skipping local cart render (History or Orders Page mode).");
+            delete sidebar.skipGlobalRender; // Clean up flag
+            return; 
+        }
+
+        // 3. Otherwise, render the active local cart (Main page behavior)
+        if (typeof renderCartSidebar === 'function' && typeof cartItems !== 'undefined') {
+            renderCartSidebar(cartItems);
+        }
+    }
+});
 

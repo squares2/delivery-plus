@@ -83,16 +83,21 @@
   display: block;
 }
 
-/* ARABIC MAIN CAT OVERRIDE (Ultra Size) */
 [lang="ar"].current-main-cat {
-    font-family: 'KhebratMusamim', sans-serif !important;
+    font-family: 'Sakkal Majalla', sans-serif !important;
     font-size: 1.5rem !important; 
-    padding: 15px 10px !important;
+    padding: 10px 5px !important; /* Slightly adjusted for card spacing */
     text-transform: none !important;
     letter-spacing: 0 !important;
     line-height: 1.1 !important;
     height: auto !important;
-    display: block !important;
+}
+
+/* Optional: Specifically scale the title if 1.5rem is too big for the grid */
+[lang="ar"] .pc-item-title {
+    font-size: 1.3rem !important;
+	font-family: 'Sakkal Majalla', sans-serif !important;
+    margin-bottom: 8px;
 }
 
 /* 3. SUB-CATEGORY CHIPS */
