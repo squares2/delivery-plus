@@ -420,7 +420,55 @@ footer.footer {
   border-left: 1px solid var(--border-color);
   transition: background 0.5s ease, color 0.5s ease;
 }
+@media(max-width:576px) {
+  .announcement-bar { display: none !important; }
+  .hero .hero-slide { height: 300px; }
+  .hero h1 { font-size: 1.5rem; }
+  .hero .lead { font-size: .95rem; }
+  .search-form .input-group { border-radius: 14px; }
+  .offcanvas-end#cartSidebar { --bs-offcanvas-width: 100vw; }
+}
+.offcanvas-end#cartSidebar { 
+  --bs-offcanvas-width: 360px; 
+}
 
+.offcanvas#cartSidebar {
+  background-color: var(--bg-cards) !important; 
+  z-index: 2100 !important;
+  color: var(--text-main);
+  border-left: 1px solid var(--border-color);
+  transition: background 0.5s ease, color 0.5s ease;
+  
+  /* FIX: Ensure the sidebar itself never exceeds screen height */
+  height: 100vh !important; 
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* FIX: Force the body to scroll and occupy remaining space */
+#cartSidebar .offcanvas-body {
+  flex: 1 1 auto;
+  overflow-y: auto !important;
+  display: flex;
+  flex-direction: column;
+}
+/* Add this to your existing CSS to fix the small details */
+#cartSidebar .btn-close {
+    /* Makes the X icon white in dark themes and dark in light themes */
+    filter: var(--close-filter, none);
+}
+
+/* Update borders to use your theme variable instead of Bootstrap's gray */
+#cartSidebar .border-top, 
+#cartSidebar .border-bottom {
+    border-color: var(--border-color) !important;
+}
+
+/* Theme-specific icon adjustment */
+[data-theme="dark"] { --close-filter: invert(1) grayscale(1) brightness(2); }
+[data-theme="midnight"] { --close-filter: invert(1) grayscale(1) brightness(2); }
+[data-theme="forest"] { --close-filter: invert(1) grayscale(1) brightness(2); }
+[data-theme="purple"] { --close-filter: invert(1) grayscale(1) brightness(2); }
 .custom-alert {
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
@@ -507,39 +555,6 @@ body.theme-tobbaco::before { background-color: #1a242d; background-image: url('.
    ========================================== */
 @media(max-width:992px) {
   .mega .dropdown-menu { min-width: unset; width: 100%; }
-}
-
-@media(max-width:576px) {
-  .announcement-bar { display: none !important; }
-  .hero .hero-slide { height: 300px; }
-  .hero h1 { font-size: 1.5rem; }
-  .hero .lead { font-size: .95rem; }
-  .search-form .input-group { border-radius: 14px; }
-  .offcanvas-end#cartSidebar { --bs-offcanvas-width: 100vw; }
-}
-.offcanvas-end#cartSidebar { 
-  --bs-offcanvas-width: 360px; 
-}
-
-.offcanvas#cartSidebar {
-  background-color: var(--bg-cards) !important; 
-  z-index: 2100 !important;
-  color: var(--text-main);
-  border-left: 1px solid var(--border-color);
-  transition: background 0.5s ease, color 0.5s ease;
-  
-  /* FIX: Ensure the sidebar itself never exceeds screen height */
-  height: 100vh !important; 
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-/* FIX: Force the body to scroll and occupy remaining space */
-#cartSidebar .offcanvas-body {
-  flex: 1 1 auto;
-  overflow-y: auto !important;
-  display: flex;
-  flex-direction: column;
 }
 
 /* FIX: Prevent the cart list from collapsing */
@@ -1228,4 +1243,206 @@ body, .profile-card, .form-control, h2, p {
     font-weight: bold;
     font-size: 0.8rem;
     z-index: 10;
+}
+
+
+/* 1. Modal Overlay & Background */
+.custom-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* Slightly darker for better focus */
+    display: none; 
+    align-items: center; 
+    justify-content: center;
+    z-index: 10000; 
+    backdrop-filter: blur(8px);
+    padding: 20px;
+}
+.custom-modal-overlay.active { display: flex; }
+
+/* 2. Main Card Structure */
+.modal-card-content {
+    background: var(--bg-cards);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    width: 100%; 
+    max-width: 750px;
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+/* 3. The Grid Layout (Fixed) */
+.modal-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1.2fr; /* Desktop side-by-side */
+}
+
+/* 4. Image Side with Theme-Aware Background */
+.modal-img-side {
+    background-color: var(--bg-primary);
+    filter: brightness(0.95);
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    padding: 40px;
+    border-right: 1px solid var(--border-color);
+}
+
+/* Specific brightness boost for darker themes */
+[data-theme="forest"] .modal-img-side, 
+[data-theme="midnight"] .modal-img-side,
+[data-theme="dark"] .modal-img-side,
+[data-theme="purple"] .modal-img-side {
+    filter: brightness(1.3); 
+}
+
+.modal-img-side img { 
+    max-width: 100%; 
+    max-height: 350px;
+    height: auto; 
+    border-radius: 12px; 
+    filter: brightness(1.0); /* Keeps product natural */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    object-fit: contain;
+}
+
+/* 5. Information Side */
+.modal-info-side { 
+    padding: 40px; 
+    display: flex; 
+    flex-direction: column; 
+}
+.modal-info-side h3 { 
+    margin: 0 0 15px 0; 
+    font-weight: 700; 
+    font-size: 1.6rem;
+}
+.unit-desc { 
+    font-size: 1rem; 
+    opacity: 0.85; 
+    margin-bottom: 25px; 
+    line-height: 1.6; 
+}
+
+/* 6. Pricing */
+.modal-price-wrap { 
+    font-size: 1.8rem; 
+    font-weight: bold; 
+    margin-bottom: 30px; 
+}
+.modal-sale { color: #ff4757; margin-right: 12px; }
+.modal-old { font-size: 1.1rem; text-decoration: line-through; opacity: 0.4; }
+
+/* 7. Buttons (Blue/Green Logic) */
+.modal-btn {
+    border: none; 
+    padding: 16px 25px; 
+    border-radius: 12px;
+    font-weight: 700; 
+    cursor: pointer; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: auto; 
+}
+.btn-blue { background: #3b82f6; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); }
+.btn-green { background: #10b981; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }
+
+.modal-btn:hover {
+    transform: translateY(-3px);
+    filter: brightness(1.1);
+}
+
+/* 8. Utilities */
+.close-modal {
+    position: absolute; 
+    right: 20px; 
+    top: 15px;
+    font-size: 30px; 
+    cursor: pointer; 
+    opacity: 0.5; 
+    z-index: 10;
+    transition: 0.2s;
+}
+.close-modal:hover { opacity: 1; }
+
+.animate-pop { 
+    animation: modalPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); 
+}
+@keyframes modalPop {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* 9. Mobile Responsiveness (Fixed) */
+@media (max-width: 650px) { 
+    .modal-grid { 
+        grid-template-columns: 1fr; /* Stacks image on top of text */
+    }
+    .modal-img-side {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 30px;
+    }
+    .modal-card-content {
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+    .modal-info-side { padding: 25px; }
+}
+
+/* Make text-muted adapt to every theme */
+.text-muted {
+  /* This takes your current theme's text color and makes it 60% opaque */
+  color: var(--text-main) !important;
+  opacity: 0.6; 
+}
+
+/* Specific adjustment for very dark themes to ensure it's still readable */
+[data-theme="midnight"] .text-muted,
+[data-theme="forest"] .text-muted,
+[data-theme="dark"] .text-muted {
+  opacity: 0.5;
+}
+
+/* Fix for links that use text-muted */
+a.text-muted:hover {
+  opacity: 1;
+  color: var(--text-main) !important;
+}
+
+[lang="ar"] .modal-title {
+    font-family: 'Cairo', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1.45rem !important; /* Slightly smaller for a "compact" bold look */
+    line-height: 1.3;
+    letter-spacing: 0;
+}
+
+/* Apply to the Description when Arabic is detected */
+[lang="ar"] .unit-desc {
+    font-family: 'Cairo', sans-serif !important;
+    font-weight: 600 !important; /* Semi-bold for readability */
+    font-size: 0.95rem !important; /* Matches English 1rem scale */
+    line-height: 1.5;
+    opacity: 0.95;
+}
+
+/* Apply to the Button when Arabic is detected */
+[lang="ar"] .modal-btn {
+    font-family: 'Cairo', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+/* Force layout to stay Left-to-Right */
+[lang="ar"].modal-card-content {
+    direction: ltr !important;
+    text-align: left !important;
 }

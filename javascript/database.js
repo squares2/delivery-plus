@@ -1078,7 +1078,7 @@ export async function distribute(comp,cat)
 				
 				if(item.cat==cat)
 				{
-					let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat,company:comp};
+					let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat,company:comp,unitdesc:item.unitdesc};
 					products.push(row);
 				}
 				i++;
@@ -1108,7 +1108,7 @@ export async function distribute2(comp)
 				const key = keys[i];
 				const item = data[key];
 				
-				let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat,company:comp};
+				let row={id:key,title:item.name,price:item.price,sale:item.sale,image:'items/'+key+'.png',category:item.cat,company:comp,unitdesc:item.unitdesc};
 				products.push(row);
 				i++;
 			}
@@ -1460,7 +1460,78 @@ window.openImageModal = function(src) {
         setTimeout(() => modal.remove(), 300);
     };
 }
+window.openProductModal = function(productId) {
+    const p = products.find(item => item.id == productId);
+    if (!p) return;
+
+    const isInCart = cartItems.some(item => item.id == p.id);
+    
+    // Detect Arabic characters in Title or Description
+    const isArabic = /[\u0600-\u06FF]/.test(p.title + (p.unitdesc || ''));
+    const langAttr = isArabic ? 'lang="ar"' : 'lang="en"';
+
+    let modal = document.getElementById('productQuickView');
+    if(!modal) {
+        modal = document.createElement('div');
+        modal.id = 'productQuickView';
+        modal.className = 'custom-modal-overlay';
+        modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('active'); };
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-card-content animate-pop" ${langAttr}>
+            <span class="close-modal" onclick="this.closest('.custom-modal-overlay').classList.remove('active')">&times;</span>
+            <div class="modal-grid">
+                <div class="modal-img-side">
+                    <img src="${p.image}" onerror="this.src='items/0.png'">
+                </div>
+                <div class="modal-info-side">
+                    <h3 class="modal-title">${p.title}</h3>
+                    <p class="unit-desc">${p.unitdesc || ''}</p>
+                    
+                    <div class="modal-price-wrap">
+                        ${p.sale > 0 
+                            ? `<span class="modal-sale">${money(p.sale)}</span><span class="modal-old">${money(p.price)}</span>`
+                            : `<span>${money(p.price)}</span>`
+                        }
+                    </div>
+
+                    <button class="modal-btn ${isInCart ? 'btn-green' : 'btn-blue'}" 
+                            onclick="handleModalAddToCart('${p.id}', this)">
+                        ${isInCart ? '✓ تمّت الإضافة' : 'Add to Cart'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    modal.classList.add('active');
+}
+
+// Helper to trigger your existing add-to-cart logic
+window.handleModalAddToCart = function(id, btn) {
+    // 1. Find the hidden button on the main page grid that matches this ID
+    const mainBtn = document.querySelector(`.pc-btn-glow[data-product-id="${id}"]`);
+    
+    if (mainBtn) {
+        // 2. Trigger the click on the main button to run your existing Firebase/Cart logic
+        mainBtn.click();
+        
+        // 3. Update the modal button styling immediately
+        btn.classList.remove('btn-blue');
+        btn.classList.add('btn-green');
+        btn.innerHTML = '✓ Added to Cart';
+        
+        // Optional: Add a little "bounce" effect on click
+        btn.style.transform = "scale(0.95)";
+        setTimeout(() => btn.style.transform = "scale(1)", 100);
+    } else {
+        console.error("Main add-to-cart button not found for ID:", id);
+    }
+};
+
 function cardTemplate(p) {
+
     // Detect if title is Arabic to apply specific font styling
     const isArabic = /[\u0600-\u06FF]/.test(p.title);
     const langAttr = isArabic ? 'lang="ar"' : 'lang="en"';
@@ -1485,11 +1556,10 @@ function cardTemplate(p) {
             
             <div class="pc-img-holder">
                 <img src="${p.image}" 
-                     onclick="openImageModal('${p.image}')"
-                     onerror="this.onerror=null;this.src='items/0.png';" 
-                     class="pc-product-img" 
-                     alt="${p.title}" 
-                     style="cursor:pointer">
+				 onclick="openProductModal('${p.id}')"
+				 onerror="this.onerror=null;this.src='items/0.png';" 
+				 class="pc-product-img" 
+				 style="cursor:pointer">
                 
                 <img src="png/cart3.png" 
                      style="display:${display}" 
@@ -1723,7 +1793,7 @@ document.querySelectorAll('.pc-card-main').forEach(card => {
 }
 function renderCartSidebar2(historyData) {
     var list = document.getElementById('cartList');
-    var totalEl = document.getElementById('cartTotal'); // Target your existing total display
+    var totalEl = document.getElementById('cartTotal');
     if (!list) return;
 
     if (!Array.isArray(historyData)) {
@@ -1731,7 +1801,6 @@ function renderCartSidebar2(historyData) {
         return;
     }
 
-    // 1. Group by company
     const groupedByShop = historyData.reduce((acc, product) => {
         const shop = product.company || "General Shop";
         if (!acc[shop]) acc[shop] = [];
@@ -1742,19 +1811,20 @@ function renderCartSidebar2(historyData) {
     var html = '';
     var subTotal = 0;
 
-    // 2. Loop through shops to build the UI
     for (const shopName in groupedByShop) {
         html += `
-        <div class="shop-container mb-4 p-2 border border-secondary rounded" style="border-style: dashed !important;">
-            <div class="shop-header d-flex justify-content-between align-items-center mb-3 pb-1" style="border-bottom: 1px solid #333;">
+        <div class="shop-container mb-4 p-2 border rounded" style="border-style: dashed !important; border-color: var(--border-color) !important;">
+            <div class="shop-header d-flex justify-content-between align-items-center mb-3 pb-1" style="border-bottom: 1px solid var(--border-color);">
                 <span class="text-uppercase fw-bold text-success" style="font-size: 0.75rem;">
                     <i class="fa-solid fa-store me-1"></i> ${shopName}
                 </span>
-                <span class="badge bg-dark text-success border border-secondary" style="font-size: 0.65rem;">+Delivery: 2.00 $</span>
+                <!-- Replaced bg-dark with a themed border/background style -->
+                <span class="badge border" style="font-size: 0.65rem; color: #10b981; border-color: var(--border-color) !important; background: transparent;">
+                    +Delivery: 2.00 $
+                </span>
             </div>`;
 
         groupedByShop[shopName].forEach(function(item) {
-            // Calculate subtotal (convert price to number to be safe)
             subTotal += parseFloat(item.price) * parseInt(item.qty);
             
             html += `
@@ -1762,11 +1832,12 @@ function renderCartSidebar2(historyData) {
                 <div class="d-flex align-items-center gap-2">
                     <img src="${item.image}" 
                          onerror="this.onerror=null;this.src='items/0.png';" 
-                         class="cart-item-img" 
-                         style="width:40px; height:40px; border-radius: 4px; object-fit: cover;">
+                         style="width:40px; height:40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color);">
                     <div>
-                        <div class="small fw-semibold text-white">${item.title}</div>
-                        <div class="small text-white-50">${money(item.price)} × ${item.qty}</div>
+                        <!-- Changed text-white to default (var(--text-main)) -->
+                        <div class="small fw-semibold">${item.title}</div>
+                        <!-- Changed text-white-50 to text-muted (which we fixed earlier) -->
+                        <div class="small text-muted">${money(item.price)} × ${item.qty}</div>
                     </div>
                 </div>
             </div>`;
@@ -1775,19 +1846,17 @@ function renderCartSidebar2(historyData) {
         html += '</div>';
     }
 
-    // 3. Calculate Final Totals
     const shopCount = Object.keys(groupedByShop).length;
     const totalDelivery = shopCount * 2;
     const finalTotal = subTotal + totalDelivery;
 
-    // 4. Add a Summary section at the bottom of the list
     html += `
-    <div class="p-2 mt-2 border-top border-secondary">
-        <div class="d-flex justify-content-between small text-white-50">
+    <div class="p-2 mt-2 border-top" style="border-color: var(--border-color) !important;">
+        <div class="d-flex justify-content-between small text-muted">
             <span>Subtotal:</span>
             <span>${money(subTotal)}</span>
         </div>
-        <div class="d-flex justify-content-between small text-white-50">
+        <div class="d-flex justify-content-between small text-muted">
             <span>Total Delivery:</span>
             <span>${totalDelivery.toFixed(2)} $</span>
         </div>
@@ -1799,7 +1868,6 @@ function renderCartSidebar2(historyData) {
 
     list.innerHTML = html;
 
-    // 5. Update the main sidebar total element if it exists
     if (totalEl) {
         totalEl.textContent = money(finalTotal);
     }

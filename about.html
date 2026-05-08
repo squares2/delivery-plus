@@ -78,26 +78,29 @@
 		</div>
 	</div>
 </section>
-  <div class="offcanvas offcanvas-end text-white" tabindex="-1" id="cartSidebar" style="background-color: #1a1a1a !important;">
-    <div class="offcanvas-header border-bottom border-secondary">
-      <h5 class="offcanvas-title fw-bold">Your Cart</h5>
-      <!-- Changed close button to white variant -->
-      <button type="button" id="btn-close2" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title fw-bold">Your Cart</h5>
+        <button type="button" id="btn-close2" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
+    
     <div class="offcanvas-body">
-      <!-- Applied your Stylish Blue Gradient to the button -->
-      <a href="checkout.html" id="checkoutbutton"class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">Checkout</a>
-      <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
-        <div class="fw-semibold">Total</div>
-        <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
-      </div>
-	  <!-- Removed 'list-group' class to stop Bootstrap from forcing white backgrounds -->
-      <div id="cartList" class="mb-3"></div>
-      
-      
-      
+
+        <!-- Spacer to push total/checkout to bottom -->
+        <div class="mt-auto">
+            <a href="checkout.html" id="checkoutbutton" class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">
+                Checkout
+            </a>
+			
+            <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                <div class="fw-semibold">Total</div>
+                <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
+            </div>
+        </div>
+        <!-- Cart items go here -->
+        <div id="cartList" class="mb-3"></div>
     </div>
-	</div>
+</div>
 
 <!-- Login Modal -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">

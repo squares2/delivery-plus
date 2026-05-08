@@ -465,26 +465,29 @@ window.addEventListener('load', function() {
         </div>
     </div>
 </section>
-  <div class="offcanvas offcanvas-end text-white" tabindex="-1" id="cartSidebar" style="background-color: #1a1a1a !important;">
-    <div class="offcanvas-header border-bottom border-secondary">
-      <h5 class="offcanvas-title fw-bold">Your Cart</h5>
-      <!-- Changed close button to white variant -->
-      <button type="button" id="btn-close2" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartSidebar">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title fw-bold">Your Cart</h5>
+        <button type="button" id="btn-close2" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
+    
     <div class="offcanvas-body">
-      <!-- Applied your Stylish Blue Gradient to the button -->
-      <a href="checkout.html" id="checkoutbutton"class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">Checkout</a>
-      <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
-        <div class="fw-semibold">Total</div>
-        <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
-      </div>
-	  <!-- Removed 'list-group' class to stop Bootstrap from forcing white backgrounds -->
-      <div id="cartList" class="mb-3"></div>
-      
-      
-      
+
+        <!-- Spacer to push total/checkout to bottom -->
+        <div class="mt-auto">
+            <a href="checkout.html" id="checkoutbutton" class="btn btn-primary-gradient w-100 mt-3 fw-bold py-2" style="text-transform: uppercase; letter-spacing: 1px;">
+                Checkout
+            </a>
+			
+            <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                <div class="fw-semibold">Total</div>
+                <div id="cartTotal" class="fw-bold" style="color: #2ecc71;">$0.00</div>
+            </div>
+        </div>
+        <!-- Cart items go here -->
+        <div id="cartList" class="mb-3"></div>
     </div>
-	</div>
+</div>
 
 	<div id="topbar"></div>
 	<div id="userbar"></div>
@@ -519,17 +522,6 @@ window.addEventListener('load', function() {
 		.then(data => { document.getElementById('popup').innerHTML = data; });
 	</script> 
 
-<!--
-<div id="pwaInstallBanner" style="display:none; position: fixed; bottom: 0; left: 0; width: 100%; background: #28a745; color: white; padding: 15px; text-align: center; z-index: 999999; box-shadow: 0 -2px 10px rgba(0,0,0,0.2);">
-  <div class="container d-flex justify-content-between align-items-center">
-    <span class="small fw-bold">Install Delivo for a better experience!</span>
-    <div class="d-flex gap-2">
-      <button id="installBtn" class="btn btn-sm btn-light fw-bold">Install</button>
-      <button onclick="document.getElementById('pwaInstallBanner').style.display='none'" class="btn btn-sm btn-outline-light border-0"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-  </div>
-</div>  
--->
 <!-- PWA LOGIC SCRIPT -->
   <script>
     let deferredPrompt;
