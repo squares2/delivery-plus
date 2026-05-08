@@ -446,12 +446,6 @@ footer.footer {
 }
 
 /* FIX: Force the body to scroll and occupy remaining space */
-#cartSidebar .offcanvas-body {
-  flex: 1 1 auto;
-  overflow-y: auto !important;
-  display: flex;
-  flex-direction: column;
-}
 /* Add this to your existing CSS to fix the small details */
 #cartSidebar .btn-close {
     /* Makes the X icon white in dark themes and dark in light themes */
@@ -463,7 +457,25 @@ footer.footer {
 #cartSidebar .border-bottom {
     border-color: var(--border-color) !important;
 }
+#cartSidebar .offcanvas-body {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100%;
+}
 
+/* Allow the cart list to take up available space and scroll */
+#cartList {
+  flex: 1; /* This tells the list to take all available space */
+  overflow-y: auto; /* This allows the list itself to scroll if it's long */
+}
+
+/* Ensure the checkout area doesn't shrink and stays at the bottom */
+#cartSidebar .mt-auto {
+  flex-shrink: 0; 
+  margin-top: auto; /* Pushes to bottom */
+  background-color: var(--bg-cards); /* Matches sidebar background */
+  z-index: 10;
+}
 /* Theme-specific icon adjustment */
 [data-theme="dark"] { --close-filter: invert(1) grayscale(1) brightness(2); }
 [data-theme="midnight"] { --close-filter: invert(1) grayscale(1) brightness(2); }

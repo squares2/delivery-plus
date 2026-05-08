@@ -58,7 +58,38 @@ if (storedData2)
 	updateColumn('drivers',driverid,'status','online');
 }
 
+const audioCache = {};
 
+// 2. Pre-load the specific sounds your app uses
+// Call this once at the top of your script or inside startPage()
+function initSounds() {
+    const sounds = ['add', 'remove', 'order', 'checkout'];
+    sounds.forEach(name => {
+        const audio = new Audio(`sounds/${name}.mp3`);
+        audio.preload = 'auto'; // Tells browser to download it immediately
+        audio.load();           // Forces the load
+        audioCache[name] = audio;
+    });
+}
+
+// 3. The optimized play function
+export function playSound(sound) {
+    const audio = audioCache[sound];
+    if (audio) {
+        // Reset the sound to the beginning in case it's already playing
+        audio.currentTime = 0; 
+        
+        // Use a Promise-based play to handle browser autoplay policies
+        audio.play().catch(e => console.warn("Audio play blocked/failed:", e));
+    } else {
+        // Fallback for sounds not in cache (optional)
+        const newAudio = new Audio(`sounds/${sound}.mp3`);
+        newAudio.play();
+    }
+}
+
+// Call init once
+initSounds();
 
 	if(storedData)
 	{
@@ -1499,7 +1530,7 @@ window.openProductModal = function(productId) {
 
                     <button class="modal-btn ${isInCart ? 'btn-green' : 'btn-blue'}" 
                             onclick="handleModalAddToCart('${p.id}', this)">
-                        ${isInCart ? '✓ تمّت الإضافة' : 'Add to Cart'}
+                        ${isInCart ? '✓ Added to Cart' : 'Add to Cart'}
                     </button>
                 </div>
             </div>
@@ -1763,6 +1794,7 @@ function renderCartSidebar(cartItem1) {
         // Sync other UI elements if they exist
         if(document.getElementById('subTotal')) document.getElementById('subTotal').innerHTML = money(subTotal);
         if(document.getElementById('checktotal')) document.getElementById('checktotal').innerHTML = money(finalGrandTotal);
+		localStorage.setItem('total',finalGrandTotal);
         if(document.getElementById('checkouttotaldelivery')) document.getElementById('checkouttotaldelivery').innerHTML = totalDelivery+" $";
         if(document.getElementById('summaryItems')) document.getElementById('summaryItems').innerHTML = document.getElementById('cartCount2').innerHTML;
     }
@@ -3270,13 +3302,6 @@ function syncThemeIcon() {
 // Run sync when the DOM is ready (in case button is already there)
 window.addEventListener('DOMContentLoaded', syncThemeIcon);
 
-//play sound function
-function playSound(sound) 
-{
-	console.log('play sound');
-    var audio = new Audio('sounds/'+sound+'.mp3'); 
-    audio.play();
-}
 function countUUIDNoIndex(targetUuid, callback) {
     const usersRef = ref(db, 'users');
 
