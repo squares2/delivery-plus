@@ -22,6 +22,7 @@
   <link href="css/passmodal.css" rel="stylesheet">
   <link href="css/intro.css" rel="stylesheet">
   <link href="css/onboarding.css" rel="stylesheet">
+  <link href="css/splash.css" rel="stylesheet">
 <script>
     (function() {
         if (!localStorage.getItem('onboardingComplete')) {
@@ -53,23 +54,42 @@
     window.addEventListener('DOMContentLoaded', function1);
 </script>
 <script>
-window.addEventListener('load', function() {
+(function() {
     const splash = document.getElementById('splash-screen');
-    const hasSeenIntro = sessionStorage.getItem('introSeen');
+    const seen = localStorage.getItem('introSeen');
 
-    if (!hasSeenIntro) {
-        setTimeout(() => {
-            splash.classList.add('fade-out');
-            sessionStorage.setItem('introSeen', 'true');
-        }, 5000);
+    if (seen) {
+        if(splash) splash.remove();
     } else {
-        // If they already saw it this session, remove it immediately
-        splash.style.display = 'none';
+        // Motor arrives at 3.2s. 
+        // 7000ms (7 seconds) ensures it stays visible AFTER arrival.
+        const totalDisplayTime = 6000; 
+
+        setTimeout(() => { 
+            if (splash) {
+                splash.classList.add('fade-out');
+                localStorage.setItem('introSeen', 'true');
+                // Wait for the 1s CSS fade-out transition to finish
+                setTimeout(() => { splash.remove(); }, 2000);
+            }
+        }, totalDisplayTime); 
     }
-});
+})();
 </script>
 </head>
 <body>
+<div id="splash-screen">
+    <div class="intro-wrapper">
+        <!-- Part 1: Static Main Logo -->
+        <img src="png/d-main.png" class="logo-part d-main" alt="Main">
+        
+        <!-- Part 2: Motor 2 (The one that passes through) -->
+        <img src="png/d-motor2.png" class="logo-part d-motor2" alt="Passing">
+        
+        <!-- Part 3: Motor (The one that stays) -->
+        <img src="png/d-motor.png" class="logo-part d-motor" alt="Driver">
+    </div>
+</div>
 <div id="onboarding-overlay">
 
   <!-- Step 1 -->
@@ -131,18 +151,6 @@ window.addEventListener('load', function() {
 
 </div>
 
-<!-- The Full Screen Splash Overlay -->
-<div id="splash-screen">
-    <div class="intro-container">
-        <div class="logo-wrapper">
-            <img src="png/motorcycle-only.png" class="motorcycle-icon">
-            <div class="text-reveal">
-                <img src="png/delivo-text-only.png" class="logo-text">
-                <p class="arabic-slogan">كل شي بيوصلك</p>
-            </div>
-        </div>
-    </div>
-</div>
   <section class="hero">
     <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel">
       <div class="carousel-indicators">
