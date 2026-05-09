@@ -1193,8 +1193,8 @@ function setCompany(comp) {
                     if (comp == key && parseInt(soon) > 1) {
                         // 1. Define the specific company image path
                         // 2. Define the fallback category image path
-                        let companyImg = "png/" + compname.replace(/\s+/g, '') + ".png";
-                        let categoryFallback = "png/" + comp.replace(/\s+/g, '') + ".jpg";
+                        let companyImg = "png/" + compname.toLowerCase().replace(/\s+/g, '') + ".png";
+                        let categoryFallback = "png/" + comp.toLowerCase().replace(/\s+/g, '') + ".jpg";
 
                         inner += "<div class='col-6 col-lg-2'>";
                         inner +=   "<a href='category.html?category=" + compname + "&pattern=" + key + "' data-company-name='" + compname + "' class='card category-card text-center'>";
