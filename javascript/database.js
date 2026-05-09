@@ -1178,30 +1178,44 @@ function setCompany(comp) {
         featured.innerHTML = inner;
         attachLinkListeners();
     } else {
-        get(child(dbref, "pattern")).then((snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                const keys = Object.keys(data);
-                inner = "";
-                for (let i = 0; i < keys.length; i++) {
-                    const key = keys[i];
-                    const item = data[key];
-                    for (let j = 0; j < item.length; j++) {
-                        let compname = item[j].companyname;
-                        let soon = item[j].soon;
-                        if (comp == key && parseInt(soon) > 1) {
-                            // Fixed: Using your specific category.html link structure
-                            inner += "<div class='col-6 col-lg-2'><a href='category.html?category=" + compname + "&pattern=" + key + "' data-company-name='" + compname + "'";
-                            inner += " class='card category-card text-center'><img src='png/" + comp.toLowerCase() + ".jpg' ";
-                            inner += " class='card-img-top'><div class='card-body p-1'><h6 class='m-0'>" + compname + "</h6></div></a></div>";
-                        }
+    get(child(dbref, "pattern")).then((snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            const keys = Object.keys(data);
+            inner = "";
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                const item = data[key];
+                for (let j = 0; j < item.length; j++) {
+                    let compname = item[j].companyname;
+                    let soon = item[j].soon;
+
+                    if (comp == key && parseInt(soon) > 1) {
+                        // 1. Define the specific company image path
+                        // 2. Define the fallback category image path
+                        let companyImg = "png/" + compname.toLowerCase().replace(/\s+/g, '') + ".png";
+                        let categoryFallback = "png/" + comp.toLowerCase().replace(/\s+/g, '') + ".jpg";
+
+                        inner += "<div class='col-6 col-lg-2'>";
+                        inner +=   "<a href='category.html?category=" + compname + "&pattern=" + key + "' data-company-name='" + compname + "' class='card category-card text-center'>";
+                        
+                        // Use onerror to switch to the category image if company-specific png doesn't exist
+						inner += "<img src='" + companyImg + "' ";
+						inner += "onerror=\"this.onerror=null; this.src='" + categoryFallback + "';\" ";
+						// object-fit: fill forces the image to stretch to the exact dimensions
+						inner += "style='height: 150px; width: 100%; object-fit: fill;' "; 
+						inner += "class='card-img-top'>";                        
+                        inner +=     "<div class='card-body p-1'><h6 class='m-0'>" + compname + "</h6></div>";
+                        inner +=   "</a>";
+                        inner += "</div>";
                     }
                 }
-                featured.innerHTML = inner;
-                attachLinkListeners();
             }
-        }).catch((error) => console.error(error));
-    }
+            featured.innerHTML = inner;
+            attachLinkListeners();
+        }
+    }).catch((error) => console.error(error));
+}
 
     if (back) back.style.display = (comp == "-1") ? "none" : "flex";
 }
