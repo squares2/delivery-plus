@@ -447,58 +447,53 @@ function getCompanies()
 	const list4 = document.getElementById('companieslist4');
 	var inner="";
 	
-	get(child(dbref,"pattern")).then((snapshot) => 
-	{
-		if (snapshot.exists()) 
-		{
-			const data = snapshot.val();
-			const keys = Object.keys(data);
-			let i = 0;
-			let j = 0;
-			let compname="";
-			let soon="";
-			while (i < keys.length) 
-			{
-				const key = keys[i];
-				const item = data[key];
-				j=0;
-				inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold main-category-dark'>"+key+"</h6>"
-				while (j < item.length)
-				{
-					compname=item[j].companyname;
-					if(item[j].soon=="1")soon="soon";
-					else soon="";
-					inner+="<a class='dropdown-item sub-category-dark "+soon+"' href='category.html?category="+compname+"&pattern="+key+"'>"+compname+"</a>"
-					j++
-				}	
-				i++;
-				inner+="</div>";
-			}
-			if(list!=null)
-			{
-				list.innerHTML=inner;
-			}	
-			if(list2!=null)
-			{
-				list2.innerHTML=inner;
-			}	
-			if(list3!=null)
-			{
-				list3.innerHTML=inner;
-			}	
-			if(list4!=null)
-			{
-				list4.innerHTML=inner;
-			}	
-		} 
-		else 
-		{
-			console.log("No data available");
-		}
-	}).catch((error) => 
-	{
-		console.error(error);
-	});
+	get(child(dbref, "pattern")).then((snapshot) => {
+    if (snapshot.exists()) {
+        const data = snapshot.val();
+        const keys = Object.keys(data);
+        let inner = ""; 
+        let i = 0;
+
+        while (i < keys.length) {
+            const key = keys[i];
+            let items = data[key]; // This is your array of shops (e.g., ButcherShops)
+
+            // --- ADDED SORTING LOGIC HERE ---
+            // This sorts the shops by the 'soon' field (0, 1, 2...)
+            if (Array.isArray(items)) {
+                items.sort((a, b) => {
+                    let rankA = parseInt(a.rank) || 0;
+                    let rankB = parseInt(b.rank) || 0;
+                    return rankA - rankB; // Change to rankB - rankA for descending
+                });
+            }
+            // --------------------------------
+
+            let j = 0;
+            inner += "<div class='col-6 col-lg-3'><h6 class='fw-semibold main-category-dark'>" + key + "</h6>";
+            
+            while (j < items.length) {
+                let currentItem = items[j];
+                let compname = currentItem.companyname;
+                let soonClass = (currentItem.soon == "1") ? "soon" : "";
+
+                inner += "<a class='dropdown-item sub-category-dark " + soonClass + 
+                         "' href='category.html?category=" + compname + "&pattern=" + key + "'>" + 
+                         compname + "</a>";
+                j++;
+            }
+            i++;
+            inner += "</div>";
+        }
+
+        // Update your lists
+        [list, list2, list3, list4].forEach(l => { if(l) l.innerHTML = inner; });
+    } else {
+        console.log("No data available");
+    }
+}).catch((error) => {
+    console.error(error);
+});
 }
 export async function getHomeTrack(uname)
 {
@@ -1179,42 +1174,50 @@ function setCompany(comp) {
         attachLinkListeners();
     } else {
     get(child(dbref, "pattern")).then((snapshot) => {
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            const keys = Object.keys(data);
-            inner = "";
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
-                const item = data[key];
-                for (let j = 0; j < item.length; j++) {
-                    let compname = item[j].companyname;
-                    let soon = item[j].soon;
+    if (snapshot.exists()) {
+        const data = snapshot.val();
+        const keys = Object.keys(data);
+        let featuredItems = [];
 
-                    if (comp == key && parseInt(soon) > 1) {
-                        // 1. Define the specific company image path
-                        // 2. Define the fallback category image path
-                        let companyImg = "png/" + compname.toLowerCase().replace(/\s+/g, '') + ".png";
-                        let categoryFallback = "png/" + comp.toLowerCase().replace(/\s+/g, '') + ".jpg";
-
-                        inner += "<div class='col-6 col-lg-2'>";
-                        inner +=   "<a href='category.html?category=" + compname + "&pattern=" + key + "' data-company-name='" + compname + "' class='card category-card text-center'>";
-                        
-                        // Use onerror to switch to the category image if company-specific png doesn't exist
-						inner += "<img src='" + companyImg + "' ";
-						inner += "onerror=\"this.onerror=null; this.src='" + categoryFallback + "';\" ";
-						// object-fit: fill forces the image to stretch to the exact dimensions
-						inner += "style='height: 150px; width: 100%; object-fit: fill;' "; 
-						inner += "class='card-img-top'>";                        
-                        inner +=     "<div class='card-body p-1'><h6 class='m-0'>" + compname + "</h6></div>";
-                        inner +=   "</a>";
-                        inner += "</div>";
+        keys.forEach(key => {
+            const items = data[key];
+            if (Array.isArray(items)) {
+                items.forEach(item => {
+                    // Filter: must match category and soon column > 1
+                    if (comp == key && parseInt(item.soon) > 1) {
+                        featuredItems.push({
+                            ...item,
+                            patternKey: key,
+                            sortRank: parseInt(item.rank) || 0 // Use 'rank' column for sorting
+                        });
                     }
-                }
+                });
             }
-            featured.innerHTML = inner;
-            attachLinkListeners();
-        }
-    }).catch((error) => console.error(error));
+        });
+
+        // Sort the results by the 'rank' column (0, 1, 2...)
+        featuredItems.sort((a, b) => a.sortRank - b.sortRank);
+
+        let inner = "";
+        featuredItems.forEach(item => {
+            let compname = item.companyname;
+            let companyImg = "png/" + compname.toLowerCase().replace(/\s+/g, '') + ".png";
+            let categoryFallback = "png/" + comp.toLowerCase().replace(/\s+/g, '') + ".jpg";
+
+            inner += "<div class='col-6 col-lg-2'>";
+            inner +=   "<a href='category.html?category=" + compname + "&pattern=" + item.patternKey + "' class='card category-card text-center'>";
+            inner +=     "<img src='" + companyImg + "' ";
+            inner +=     "onerror=\"this.onerror=null; this.src='" + categoryFallback + "';\" ";
+            inner +=     "style='height: 150px; width: 100%; object-fit: fill;' class='card-img-top'>";                        
+            inner +=     "<div class='card-body p-1'><h6 class='m-0'>" + compname + "</h6></div>";
+            inner +=   "</a>";
+            inner += "</div>";
+        });
+
+        featured.innerHTML = inner;
+        if (typeof attachLinkListeners === "function") attachLinkListeners();
+    }
+}).catch((error) => console.error(error));
 }
 
     if (back) back.style.display = (comp == "-1") ? "none" : "flex";
