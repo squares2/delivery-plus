@@ -1,70 +1,40 @@
-/* 1. LAYOUT CONTAINERS & Z-INDEX */
+/* 1. LAYOUT & STICKY POSITIONING */
 .navbar, .offcanvas, .announcement-bar {
   z-index: 2000 !important;
 }
 
 .category-sidebar {
   position: sticky;
-  top: 75px;
+  /* Uses JS variable for dynamic height, falls back to 0 */
+  top: var(--topbar-height, 0px); 
   width: 100%;
   background: var(--bg-cards) !important; 
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 1050 !important;
   border-bottom: 1px solid var(--border-color);
-  padding: 10px 0;
   display: flex;
   flex-direction: column;
+  padding: 0; /* Remove padding to touch the topbar flush */
+  margin: 0;
   transition: background 0.5s ease, border-color 0.5s ease;
 }
 
-.sub-nav-wrapper {
-  display: flex;
-  align-items: center;
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-}
-
-/* 2. FLIPPER (Title & Arrows) */
+/* 2. MAIN CATEGORY FLIPPER */
 .main-cat-flipper {
   display: grid;
-  grid-template-columns: 50px 220px 50px; 
+  grid-template-columns: 50px 1fr 50px; 
   justify-content: center; 
   align-items: center;
-  gap: 20px;               
-  padding: 0 15px;
-  margin-bottom: 10px;
-  margin-top: 10px;
+  gap: 15px;               
+  padding: 10px 15px;
+  margin: 0 !important; /* Zero margin to keep it tight to the top */
 }
 
-/* ARABIC FLIPPER OVERRIDE */
 [lang="ar"] .main-cat-flipper {
     direction: rtl !important;
-    grid-template-columns: 50px 1fr 50px; 
-    margin-bottom: 30px !important; /* Increased horizontal space between rows */
+    margin: 0 !important; /* Override the previous 30px gap */
 }
-
-.flip-arrow {
-  background: none;
-  border: none;
-  font-size: 1.8rem;
-  font-weight: 900;
-  color: #dc3545;
-  transition: transform 0.2s;
-  -webkit-text-stroke: 1.5px #dc3545; 
-  transform: scaleX(1.7);   
-  width: 100%;             
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-}
-
-[lang="ar"] .flip-arrow { transform: scaleX(-1.7) !important; }
-
-.flip-arrow:active { transform: scaleX(1.7) scale(0.9); }
-[lang="ar"] .flip-arrow:active { transform: scaleX(-1.7) scale(0.9) !important; }
 
 .current-main-cat {
   width: 100%;             
@@ -76,94 +46,99 @@
   border-radius: 10px;
   padding: 10px 5px;
   text-transform: uppercase;
-  letter-spacing: 1px;
   white-space: nowrap;     
   overflow: hidden;        
   text-overflow: ellipsis; 
-  display: block;
 }
 
 [lang="ar"].current-main-cat {
     font-family: 'Sakkal Majalla', sans-serif !important;
     font-size: 1.5rem !important; 
-    padding: 10px 5px !important; /* Slightly adjusted for card spacing */
-    text-transform: none !important;
-    letter-spacing: 0 !important;
     line-height: 1.1 !important;
-    height: auto !important;
 }
 
-/* Optional: Specifically scale the title if 1.5rem is too big for the grid */
-[lang="ar"] .pc-item-title {
-    font-size: 1.3rem !important;
-	font-family: 'Sakkal Majalla', sans-serif !important;
-    margin-bottom: 8px;
+/* 3. SUB-CATEGORY SLIDER (DRAGGABLE) */
+.sub-nav-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding-bottom: 10px; /* Space below chips */
 }
 
-/* 3. SUB-CATEGORY CHIPS */
 .sub-chip-container {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
-  scroll-behavior: smooth;
+  scroll-behavior: smooth; /* JS toggles this to 'auto' during drag */
   -webkit-overflow-scrolling: touch;
-  padding: 2px 10px !important;
+  padding: 5px 15px !important;
   gap: 8px;
   width: 100%;
   scrollbar-width: none;
-}
-
-[lang="ar"] .sub-chip-container {
-    direction: rtl !important;
-    gap: 15px !important; 
-    padding: 10px 15px !important;
+  /* Dragging styles */
+  cursor: grab;
+  user-select: none; 
 }
 
 .sub-chip-container::-webkit-scrollbar { display: none; }
+.sub-chip-container:active { cursor: grabbing; }
 
 .sub-chip {
+  flex: 0 0 auto; /* Prevent chips from shrinking during drag */
   background: var(--bg-inputs);
   color: var(--text-main);
   padding: 5px 15px;
   border-radius: 20px;
   font-size: 0.8rem;
-  font-weight:Bold;
+  font-weight: bold;
   white-space: nowrap;
   text-decoration: none;
   border: 1px solid var(--border-color);
-  transition: background 0.3s, color 0.3s, border-color 0.3s;
+  -webkit-user-drag: none; /* Prevent ghost image while dragging */
 }
 
-/* ARABIC SUB-CHIP OVERRIDE (Ultra Size) */
 [lang="ar"] .sub-chip {
     font-family: 'KhebratMusamim', sans-serif !important;
-    font-size: 1.6rem !important;
-    padding: 10px 22px !important;
-    line-height: 1.2 !important;
+    font-size: 1.4rem !important;
+    padding: 8px 20px !important;
 }
 
-.sub-chip:hover { background: #dc3545; color: white; border-color: #dc3545; }
+/* 4. BUTTONS & ARROWS - Updated for Adaptive Theming */
+.flip-arrow {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  /* Switched from #dc3545 to theme variable */
+  color: var(--text-main); 
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: color 0.5s ease, transform 0.2s;
+}
 
-/* 4. NAVIGATION BUTTONS */
+.flip-arrow:active {
+  transform: scale(0.9);
+}
+
 .nav-btn {
-  display: none;
+  display: none; /* Hidden unless .visible is added via JS */
   background: var(--bg-cards);
   border: none;
-  font-size: 1.2rem;
-  color: var(--text-muted);
+  /* Switched to theme variable */
+  color: var(--text-main);
   padding: 5px 10px;
   z-index: 5;
+  cursor: pointer;
+  transition: color 0.5s ease;
 }
 .nav-btn.visible { display: block; }
-[lang="ar"] .sub-nav-wrapper { direction: rtl !important; }
 
-
-/* Apply to these classes immediately, no matter what */
+/* 5. ARABIC FONTS */
 @font-face {
     font-family: 'KhebratMusamim';
     src: url('webfonts/Khebrat_Musamim_Bold.ttf') format('truetype');
-    font-weight: bold;
-    /* ONLY apply this font to the Arabic character set */
     unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFF;
 }
-

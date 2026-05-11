@@ -18,6 +18,7 @@
   <script src="javascript/bootstrap.bundle.min.js"></script>
   <script src="javascript/sidebar.js"></script>
   <script src="javascript/profileSidebar.js"></script>
+  <script src="javascript/draggable-cat.js" defer></script>
   <script type="module" src="javascript/database.js"></script> 
   <script src="javascript/themes.js"></script>
 <script type="module">
@@ -155,6 +156,7 @@
 	fetch('popup.html')
 		.then(response => response.text())
 		.then(data => { document.getElementById('popup').innerHTML = data; });
+		
 	</script> 
 
 <!-- Bottom Navigation Bar (Visible only on mobile/tablet) -->
@@ -192,11 +194,57 @@
         </div>
         <small id="company2">SHOP</small>
       </a>
-      <div class="dropdown-menu w-100 start-0 p-4 mega-menu theme-card">
-        <div id="categorieslist2" class="row g-3 dynamic-nav2" lang="ar">
-          <div class="col-6 col-lg-3"><h6 class="fw-semibold">Loading...</h6></div>
-        </div>
-      </div>
+	<div class="dropdown-menu w-100 start-0 p-4 mega-menu theme-card" 
+     data-bs-display="static" 
+     style="max-height: 80vh; overflow-y: auto;">
+  <div id="categorieslist2" class="row g-3 dynamic-nav2" lang="ar">
+    <div class="col-6 col-lg-3"><h6 class="fw-semibold">Loading...</h6></div>
+  </div>
+</div>
+<style>
+@media (max-width: 991px) {
+  /* This ensures the menu stays relative to the topbar and doesn't disappear */
+  .mega-menu {
+    position: absolute !important; 
+    top: 100% !important; /* Forces it to appear right below the "SHOP" button */
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    margin-top: 0 !important;
+    transform: none !important; /* Prevents Popper.js from moving it elsewhere */
+  }
+}
+.main-category-dark {
+  font-size: 1.1rem;
+}
+.sub-category-dark {
+  font-size: 0.95rem;
+}
+
+/* --- Mobile/Tablet Adjustment (Below 991px) --- */
+@media (max-width: 991px) {
+  /* Smaller Main Titles */
+  .main-category-dark {
+    font-size: 0.9rem !important; /* Adjust as needed */
+    margin-bottom: 5px;
+  }
+
+  /* Smaller Sub-category Links */
+  .sub-category-dark {
+    font-size: 0.8rem !important; /* Adjust as needed */
+    padding: 4px 0 !important;   /* Reduce vertical spacing */
+    line-height: 1.2;
+  }
+  
+  /* Arabic Specific Font Scaling (if needed) */
+  [lang="ar"] .main-category-dark {
+    font-size: 1.1rem !important; 
+  }
+  [lang="ar"] .sub-category-dark {
+    font-size: 1rem !important;
+  }
+}
+</style>
     </div>
 
     <!-- Cart -->

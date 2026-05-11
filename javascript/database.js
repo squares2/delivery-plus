@@ -1029,63 +1029,54 @@ function loadPersonals()
 	if(street!=null)street.value=localStorage.getItem('street');
 	checkForm(); 
 }
-export async function getCategories(companyname)
-{
-	const list = document.getElementById('categorieslist');
-	const list2 = document.getElementById('categorieslist2');
-	var inner="";
-	var val;
-	deliveryMenu=[];
-	let subs=[];
-	await get(child(dbref,"categories")).then((snapshot) => 
-	{
-		if (snapshot.exists()) 
-		{
-			snapshot.forEach((childSnapshot) => 
-			{
-				const key = childSnapshot.key;    
-				const item = childSnapshot.val(); 
-				if(key==companyname)
-				{
-					for (const [subKey, value] of Object.entries(item)) 
-					{
-						// 🌙 Main Category: Added 'main-category-dark' class
-						inner+="<div class='col-6 col-lg-3'><h6 class='fw-semibold main-category-dark'>"+subKey+"</h6>"
-						val=value.slice(0, -1);
-						subs=[];
-						const values = val.split(",");
-						for(let i=0;i<values.length;i++)
-						{
-							// 🌙 Sub-Category: Added 'dropdown-item-dark' and 'sub-category-dark' class
-							inner+="<a class='dropdown-item dropdown-item-dark sub-category-dark' href='#"+values[i]+"'>"+values[i]+"</a>"
-							subs.push(values[i]);
-						}
-						inner+="</div>";
-						let row={main:subKey,sectionId:subKey,subs:subs};
-						deliveryMenu.push(row);
-						updateCategoryUI();
-					}
-				}	
-			});
-			if(list!=null)
-			{
-				list.innerHTML=inner;
-				distribute2(companyname);
-			}	
-			if(list2!=null)
-			{
-				list2.innerHTML=inner;
-			}	
-		} 
-		else 
-		{
-			console.log("No data available");
-		}
-	}).catch((error) => 
-	{
-		console.error(error);
-	});
+export async function getCategories(companyname) {
+  const list = document.getElementById('categorieslist');
+  const list2 = document.getElementById('categorieslist2');
+  let inner = "";
+  deliveryMenu = [];
+
+  try {
+    const snapshot = await get(child(dbref, "categories"));
+    if (snapshot.exists()) {
+      snapshot.forEach((childSnapshot) => {
+        const key = childSnapshot.key;
+        const item = childSnapshot.val();
+
+        if (key === companyname) {
+          for (const [subKey, value] of Object.entries(item)) {
+            // Added 'mb-3' to ensure vertical spacing on mobile stacks
+            inner += `<div class='col-6 col-lg-3 mb-3'>
+                        <h6 class='fw-semibold main-category-dark'>${subKey}</h6>`;
+            
+            const val = value.slice(0, -1);
+            const values = val.split(",");
+            let subs = [];
+
+            for (let i = 0; i < values.length; i++) {
+              inner += `<a class='dropdown-item dropdown-item-dark sub-category-dark' href='#${values[i]}'>${values[i]}</a>`;
+              subs.push(values[i]);
+            }
+            inner += `</div>`;
+            deliveryMenu.push({ main: subKey, sectionId: subKey, subs: subs });
+          }
+        }
+      });
+
+      if (list) list.innerHTML = inner;
+      if (list2) list2.innerHTML = inner;
+
+      // Update UI after filling content
+      if (typeof updateCategoryUI === "function") updateCategoryUI();
+      if (typeof distribute2 === "function") distribute2(companyname);
+      
+    } else {
+      console.log("No data available");
+    }
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+  }
 }
+
 	export let products = [];
 export async function distribute(comp,cat)
 {
