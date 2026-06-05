@@ -1,0 +1,195 @@
+/* ============================================================
+   scripts/loader.js  v2
+   1. Loads dynamic HTML components
+   2. Inits all feature scripts
+   3. Dismisses the splash screen — with extended duration for PWA
+   ============================================================ */
+
+/* ── Detect launch context ───────────────────────────────────
+   isPWA = launched from home screen (standalone / fullscreen)
+   In PWA mode we hold the JS splash longer so the OS splash
+   (low-res) transitions directly into our HD splash, with no
+   visible flash of the main page in between.
+   ──────────────────────────────────────────────────────────── */
+const _isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+               window.matchMedia('(display-mode: fullscreen)').matches ||
+               window.navigator.standalone === true;
+
+/* How long to keep the HD splash visible after everything is ready */
+const SPLASH_HOLD_MS = _isPWA ? 2800 : 2000;
+
+/* ── Ensure the splash is visible from the very first paint ──
+   body starts as visibility:hidden (base.css).
+   We make the splash itself visible immediately so there is
+   zero gap between OS splash → JS splash.                    */
+(function () {
+    const splash = document.getElementById('delivo-splash');
+    if (splash) {
+        splash.style.opacity    = '1';
+        splash.style.visibility = 'visible';
+    }
+})();
+
+/* ── Component loader ────────────────────────────────────────*/
+async function loadComponent(slotId, file) {
+    try {
+        const res = await fetch(`components/${file}?v=${Date.now()}`);
+        if (!res.ok) throw new Error(`Failed: ${file} (${res.status})`);
+        const html = await res.text();
+        const slot = document.getElementById(slotId);
+        if (slot) slot.innerHTML = html;
+    } catch (err) {
+        console.warn(`[Delivo Loader] ${err.message}`);
+    }
+}
+
+/* ── Splash hide ─────────────────────────────────────────────*/
+function hideSplash() {
+    const splash = document.getElementById('delivo-splash');
+    if (!splash) return;
+    splash.classList.add('hiding');
+    setTimeout(() => splash.classList.add('hidden'), 520);
+}
+
+/* ── Main boot sequence ──────────────────────────────────────*/
+async function loadAll() {
+
+    /* Record when boot started so we can honour SPLASH_HOLD_MS
+       regardless of how fast or slow the network is.          */
+    const bootStart = Date.now();
+
+    /* Safety net: never leave user on a blank screen > 7s */
+    const slowNetTimer = setTimeout(hideSplash, 7000);
+
+    /* Fetch all components in parallel */
+    await Promise.all([
+        loadComponent('categories',   'categories.html'),
+        loadComponent('offers',       'offers.html'),
+        loadComponent('join-partner', 'join-partner.html'),
+        loadComponent('footer',       'footer.html'),
+    ]);
+
+    /* Init scripts — DOM is fully ready */
+    if (typeof initNavbar     === 'function') initNavbar();
+    if (typeof initModals     === 'function') initModals();
+    if (typeof initCart       === 'function') initCart();
+    if (typeof initModalAuth  === 'function') initModalAuth();
+    if (typeof initStores     === 'function') initStores();
+    if (typeof initCategories === 'function') initCategories();
+    if (typeof initStorePanel === 'function') initStorePanel();
+
+    /* Reveal the page content UNDER the splash (no flash —
+       splash is still covering everything at this point)     */
+    document.body.classList.add('loaded');
+    if (typeof initOnboarding === 'function') initOnboarding();
+    console.log('[Delivo] All components loaded ✓');
+
+    clearTimeout(slowNetTimer);
+
+    /* Wait at least SPLASH_HOLD_MS from boot start before hiding */
+    const elapsed   = Date.now() - bootStart;
+    const remaining = Math.max(0, SPLASH_HOLD_MS - elapsed);
+
+    setTimeout(() => {
+        /* One rAF to guarantee the page has painted under the splash */
+        requestAnimationFrame(() => hideSplash());
+    }, remaining);
+}
+
+document.addEventListener('DOMContentLoaded', loadAll);
+
+/* ── Splash: moto flies in with speed lines trailing behind ── */
+(function () {
+
+    /*
+      Strategy: inject the streaks SVG BEFORE launching the moto.
+      The SVG is positioned absolutely in the scene, left of the
+      moto landing zone. It animates with a slight delay after the
+      moto starts moving — so lines appear to trail behind the moto
+      as it crosses the screen, then fade out as it lands.
+
+      Each line:
+        - delay staggers so they appear mid-travel (~300ms in)
+        - duration chosen so they fade out right as moto arrives
+        - gradient: bright orange on RIGHT (moto side) → transparent LEFT
+        - lines draw right-to-left (scaleX from right origin)
+    */
+
+    /* Line definitions — 7 lines, tapered burst shape */
+    var LINES = [
+        /*  top%  width%  thick  appear(s)  dur(s) */
+        [ 14,   55,   1.5,   0.32,   0.55 ],
+        [ 26,   72,   2.2,   0.28,   0.60 ],
+        [ 38,   85,   3.0,   0.24,   0.65 ],   /* thickest - center */
+        [ 50,   78,   2.6,   0.26,   0.62 ],
+        [ 62,   68,   2.0,   0.30,   0.58 ],
+        [ 74,   50,   1.6,   0.34,   0.52 ],
+        [ 86,   38,   1.2,   0.38,   0.46 ],
+    ];
+
+    function _makeStreaks(scene) {
+        /* Container: covers the left portion of the scene
+           where the moto will have passed through          */
+        var wrap = document.createElement('div');
+        wrap.style.cssText = [
+            'position:absolute',
+            'top:25%',
+            'left:-14%',
+            'width:52%',       /* −14% to 38% → right edge just touches moto left */
+            'height:52%',
+            'z-index:3',
+            'pointer-events:none',
+            'overflow:visible',
+        ].join(';');
+
+        LINES.forEach(function(L, i) {
+            var top = L[0], wPct = L[1], thick = L[2], delay = L[3], dur = L[4];
+
+            var line = document.createElement('div');
+            line.style.cssText = [
+                'position:absolute',
+                'top:' + top + '%',
+                'right:0',                  /* anchored to RIGHT of wrap (moto side) */
+                'width:' + wPct + '%',
+                'height:' + thick + 'px',
+                'border-radius:' + (thick/2) + 'px',
+                /* Orange on right → transparent on left */
+                'background:linear-gradient(to left, #FF5C00 0%, #FF8000 30%, rgba(255,160,0,0.3) 70%, transparent 100%)',
+                'transform:scaleX(0)',
+                'transform-origin:right center',
+                'opacity:0',
+                /* Animate: scale in from right → hold → fade out */
+                'animation:sp-line-run ' + dur + 's ease-out ' + delay + 's both',
+            ].join(';');
+
+            wrap.appendChild(line);
+        });
+
+        /* Inject BEFORE moto so moto renders on top */
+        var moto = document.getElementById('splash-moto');
+        scene.insertBefore(wrap, moto);
+        return wrap;
+    }
+
+    function _launch() {
+        var moto  = document.getElementById('splash-moto');
+        var scene = document.getElementById('splash-scene');
+        if (!moto || !scene) return;
+
+        /* Build streaks first so they are in DOM before moto moves */
+        _makeStreaks(scene);
+
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                moto.classList.add('sp-moto-land');
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _launch);
+    } else {
+        _launch();
+    }
+
+})();

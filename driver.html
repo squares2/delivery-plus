@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Delivo — Driver</title>
+    <link rel="icon" href="assets/favicon-32.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
+
+    <style>
+    /* ═══════════════════════════════════════════════════════════
+       DRIVER PAGE — Delivo Design System
+    ═══════════════════════════════════════════════════════════ */
+    :root {
+        --clr-orange:       #FF5C00;
+        --clr-orange-dim:   #cc4a00;
+        --clr-orange-light: #fff3ed;
+        --clr-bg:           #0f0f0f;
+        --clr-surface:      #1a1a1a;
+        --clr-surface2:     #242424;
+        --clr-border:       #2e2e2e;
+        --clr-white:        #ffffff;
+        --clr-gray:         #9898a6;
+        --clr-gray-light:   #c8c8d0;
+        --clr-green:        #22c55e;
+        --clr-red:          #ef4444;
+        --clr-yellow:       #f59e0b;
+        --clr-blue:         #3b82f6;
+        --clr-purple:       #a855f7;
+        --radius-sm:  8px;
+        --radius-md:  12px;
+        --radius-lg:  16px;
+        --radius-xl:  20px;
+        --shadow-md:  0 6px 20px rgba(0,0,0,0.4);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+        height: 100%;
+        background: var(--clr-bg);
+        color: var(--clr-white);
+        font-family: 'Almarai', sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+    }
+
+    /* ── Navbar ──────────────────────────────────────────────── */
+    .drv-nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--clr-surface);
+        border-bottom: 1px solid var(--clr-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        gap: 10px;
+    }
+    .drv-nav__logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--clr-orange);
+        text-decoration: none;
+    }
+    .drv-nav__logo img { width: 32px; height: 32px; border-radius: 8px; }
+    .drv-nav__logo span { color: var(--clr-white); }
+
+    .drv-nav__right { display: flex; align-items: center; gap: 10px; }
+
+    .drv-status-dot {
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        background: var(--clr-red);
+        box-shadow: 0 0 0 3px rgba(239,68,68,0.25);
+        transition: background 0.3s, box-shadow 0.3s;
+        flex-shrink: 0;
+    }
+    .drv-status-dot.online {
+        background: var(--clr-green);
+        box-shadow: 0 0 0 3px rgba(34,197,94,0.25);
+        animation: pulse-green 2s infinite;
+    }
+    @keyframes pulse-green {
+        0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
+        50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.10); }
+    }
+
+    .drv-nav__driver-name {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--clr-gray-light);
+    }
+
+    .drv-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 8px 14px;
+        border: none; border-radius: var(--radius-md);
+        font-family: inherit; font-size: 0.78rem; font-weight: 700;
+        cursor: pointer; transition: opacity 0.18s, transform 0.15s;
+        white-space: nowrap;
+    }
+    .drv-btn:active { transform: scale(0.97); }
+    .drv-btn--orange { background: var(--clr-orange); color: #fff; }
+    .drv-btn--orange:hover { background: var(--clr-orange-dim); }
+    .drv-btn--ghost {
+        background: var(--clr-surface2);
+        color: var(--clr-gray-light);
+        border: 1px solid var(--clr-border);
+    }
+    .drv-btn--ghost:hover { color: var(--clr-white); border-color: var(--clr-gray); }
+    .drv-btn--red { background: var(--clr-red); color: #fff; }
+
+    /* ── Stats bar ───────────────────────────────────────────── */
+    .drv-stats {
+        display: flex;
+        gap: 8px;
+        padding: 10px 16px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        background: var(--clr-surface);
+        border-bottom: 1px solid var(--clr-border);
+    }
+    .drv-stats::-webkit-scrollbar { display: none; }
+    .drv-stat {
+        display: flex; flex-direction: column; align-items: center;
+        gap: 2px;
+        background: var(--clr-surface2);
+        border: 1px solid var(--clr-border);
+        border-radius: var(--radius-md);
+        padding: 7px 14px;
+        min-width: 72px;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: border-color 0.18s;
+    }
+    .drv-stat.active { border-color: var(--clr-orange); }
+    .drv-stat__val {
+        font-size: 1.1rem; font-weight: 800;
+        line-height: 1;
+    }
+    .drv-stat__label {
+        font-size: 0.62rem; font-weight: 700;
+        color: var(--clr-gray); text-align: center;
+        white-space: nowrap;
+    }
+    .drv-stat--all   .drv-stat__val { color: var(--clr-orange); }
+    .drv-stat--new   .drv-stat__val { color: #fff; }
+    .drv-stat--done  .drv-stat__val { color: var(--clr-green); }
+    .drv-stat--delay .drv-stat__val { color: var(--clr-yellow); }
+    .drv-stat--cancel .drv-stat__val { color: var(--clr-red); }
+    .drv-stat--pc    .drv-stat__val { color: var(--clr-purple); }
+
+    /* ── Filter tabs ─────────────────────────────────────────── */
+    .drv-filters {
+        display: flex; gap: 6px;
+        padding: 10px 16px;
+        overflow-x: auto; scrollbar-width: none;
+    }
+    .drv-filters::-webkit-scrollbar { display: none; }
+    .drv-filter-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 12px;
+        background: var(--clr-surface2);
+        border: 1.5px solid var(--clr-border);
+        border-radius: var(--radius-pill, 50px);
+        color: var(--clr-gray-light);
+        font-family: inherit; font-size: 0.73rem; font-weight: 700;
+        cursor: pointer; white-space: nowrap;
+        transition: border-color 0.18s, color 0.18s, background 0.18s;
+    }
+    .drv-filter-btn.active {
+        border-color: var(--clr-orange);
+        color: var(--clr-orange);
+        background: rgba(255,92,0,0.10);
+    }
+
+    /* ── Orders list ─────────────────────────────────────────── */
+    .drv-orders {
+        padding: 10px 16px 100px;
+        display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .drv-empty {
+        text-align: center; padding: 60px 20px;
+        color: var(--clr-gray);
+        display: none;
+        flex-direction: column; align-items: center; gap: 10px;
+    }
+    .drv-empty.visible { display: flex; }
+    .drv-empty__icon { font-size: 2.5rem; }
+    .drv-empty__text { font-size: 0.88rem; font-weight: 700; }
+
+    /* ── Order card ──────────────────────────────────────────── */
+    .drv-order {
+        background: var(--clr-surface);
+        border: 1px solid var(--clr-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        transition: border-color 0.18s;
+    }
+    .drv-order.expanded { border-color: var(--clr-orange); }
+
+    .drv-order__summary {
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 14px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+    }
+    .drv-order__toggle {
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        background: var(--clr-surface2);
+        border: 1.5px solid var(--clr-border);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem; font-weight: 800; color: var(--clr-orange);
+        flex-shrink: 0; transition: transform 0.22s, background 0.18s;
+    }
+    .drv-order.expanded .drv-order__toggle { transform: rotate(45deg); background: var(--clr-orange); color: #fff; }
+
+    .drv-order__id {
+        font-size: 0.72rem; font-weight: 800;
+        color: var(--clr-gray); flex-shrink: 0;
+    }
+    .drv-order__name {
+        flex: 1; font-size: 0.83rem; font-weight: 700;
+        color: var(--clr-white);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .drv-order__total {
+        font-size: 0.83rem; font-weight: 800;
+        color: var(--clr-orange); flex-shrink: 0;
+    }
+    .drv-state-badge {
+        padding: 3px 8px; border-radius: var(--radius-pill);
+        font-size: 0.62rem; font-weight: 800;
+        flex-shrink: 0; white-space: nowrap;
+    }
+    .drv-state-badge--0  { background: rgba(255,255,255,0.10); color: #ddd; }
+    .drv-state-badge--1  { background: rgba(34,197,94,0.15);  color: var(--clr-green); }
+    .drv-state-badge--2  { background: rgba(239,68,68,0.15);  color: var(--clr-red); }
+    .drv-state-badge--3  { background: rgba(245,158,11,0.15); color: var(--clr-yellow); }
+    .drv-state-badge--5  { background: rgba(168,85,247,0.15); color: var(--clr-purple); }
+
+    /* ── Order detail (expanded) ─────────────────────────────── */
+    .drv-order__detail {
+        display: none;
+        padding: 0 14px 14px;
+        border-top: 1px solid var(--clr-border);
+        flex-direction: column; gap: 10px;
+    }
+    .drv-order.expanded .drv-order__detail { display: flex; }
+
+    .drv-order__info-grid {
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 6px; margin-top: 10px;
+    }
+    .drv-info-cell {
+        background: var(--clr-surface2);
+        border-radius: var(--radius-sm);
+        padding: 7px 10px;
+    }
+    .drv-info-cell__label {
+        font-size: 0.60rem; font-weight: 700;
+        color: var(--clr-gray); margin-bottom: 2px;
+    }
+    .drv-info-cell__val {
+        font-size: 0.78rem; font-weight: 700;
+        color: var(--clr-white); word-break: break-all;
+    }
+    .drv-info-cell--full { grid-column: 1 / -1; }
+
+    /* Items list inside card */
+    .drv-order__items {
+        background: var(--clr-surface2);
+        border-radius: var(--radius-sm);
+        padding: 8px 10px;
+    }
+    .drv-order__items-title {
+        font-size: 0.68rem; font-weight: 800;
+        color: var(--clr-gray); margin-bottom: 6px;
+    }
+    .drv-item-row {
+        display: flex; justify-content: space-between;
+        padding: 4px 0; border-bottom: 1px solid var(--clr-border);
+        font-size: 0.75rem;
+    }
+    .drv-item-row:last-child { border-bottom: none; }
+    .drv-item-row__name { color: var(--clr-gray-light); flex: 1; }
+    .drv-item-row__qty  { color: var(--clr-gray); margin: 0 8px; }
+    .drv-item-row__price { color: var(--clr-orange); font-weight: 700; }
+
+    /* ── State action buttons ────────────────────────────────── */
+    .drv-order__actions {
+        display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .drv-state-btn {
+        flex: 1; min-width: 80px;
+        padding: 8px 6px;
+        border: 1.5px solid transparent;
+        border-radius: var(--radius-md);
+        font-family: inherit; font-size: 0.70rem; font-weight: 800;
+        cursor: pointer; text-align: center;
+        transition: opacity 0.15s, transform 0.12s, border-color 0.15s;
+        background: var(--clr-surface2);
+        color: var(--clr-gray-light);
+    }
+    .drv-state-btn:active { transform: scale(0.96); }
+    .drv-state-btn.active { color: #fff; }
+    .drv-state-btn[data-s="0"].active  { background: rgba(255,255,255,0.12); border-color: #888; }
+    .drv-state-btn[data-s="1"].active  { background: rgba(34,197,94,0.2);   border-color: var(--clr-green); color: var(--clr-green); }
+    .drv-state-btn[data-s="2"].active  { background: rgba(239,68,68,0.2);   border-color: var(--clr-red);   color: var(--clr-red); }
+    .drv-state-btn[data-s="3"].active  { background: rgba(245,158,11,0.2);  border-color: var(--clr-yellow); color: var(--clr-yellow); }
+    .drv-state-btn[data-s="5"].active  { background: rgba(168,85,247,0.2);  border-color: var(--clr-purple); color: var(--clr-purple); }
+
+    /* Track toggle button */
+    .drv-track-btn {
+        width: 100%;
+        padding: 9px;
+        border-radius: var(--radius-md);
+        border: 1.5px solid var(--clr-border);
+        background: var(--clr-surface2);
+        color: var(--clr-gray-light);
+        font-family: inherit; font-size: 0.75rem; font-weight: 800;
+        cursor: pointer; transition: all 0.18s;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .drv-track-btn.tracking {
+        border-color: var(--clr-green);
+        background: rgba(34,197,94,0.10);
+        color: var(--clr-green);
+    }
+
+    /* Phone / Map action links */
+    .drv-order__links {
+        display: flex; gap: 6px;
+    }
+    .drv-link-btn {
+        flex: 1; padding: 8px;
+        border-radius: var(--radius-md);
+        border: 1.5px solid var(--clr-border);
+        background: var(--clr-surface2);
+        color: var(--clr-gray-light);
+        font-family: inherit; font-size: 0.72rem; font-weight: 700;
+        cursor: pointer; text-decoration: none;
+        display: flex; align-items: center; justify-content: center; gap: 5px;
+        transition: border-color 0.18s, color 0.18s;
+    }
+    .drv-link-btn:hover { color: var(--clr-white); border-color: var(--clr-gray); }
+    .drv-link-btn--green { border-color: var(--clr-green); color: var(--clr-green); }
+    .drv-link-btn--blue  { border-color: var(--clr-blue);  color: var(--clr-blue); }
+
+    /* ── Login modal ─────────────────────────────────────────── */
+    .drv-modal-overlay {
+        position: fixed; inset: 0; z-index: 999;
+        background: rgba(0,0,0,0.85);
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+    }
+    .drv-modal {
+        background: var(--clr-surface);
+        border: 1px solid var(--clr-border);
+        border-radius: var(--radius-xl);
+        width: 100%; max-width: 360px;
+        padding: 28px 24px;
+        display: flex; flex-direction: column; gap: 20px;
+        box-shadow: var(--shadow-md);
+    }
+    .drv-modal__logo {
+        display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .drv-modal__logo img { width: 64px; height: 64px; border-radius: var(--radius-md); }
+    .drv-modal__logo-title {
+        font-size: 1.2rem; font-weight: 800; color: var(--clr-orange);
+    }
+    .drv-modal__logo-sub {
+        font-size: 0.78rem; color: var(--clr-gray); font-weight: 600;
+    }
+    .drv-field { display: flex; flex-direction: column; gap: 6px; }
+    .drv-field label { font-size: 0.78rem; font-weight: 700; color: var(--clr-gray-light); }
+    .drv-field input {
+        background: var(--clr-surface2);
+        border: 1.5px solid var(--clr-border);
+        border-radius: var(--radius-md);
+        color: var(--clr-white);
+        font-family: inherit; font-size: 0.9rem;
+        padding: 11px 14px;
+        outline: none; direction: ltr;
+        transition: border-color 0.18s;
+    }
+    .drv-field input:focus { border-color: var(--clr-orange); }
+    .drv-error {
+        background: rgba(239,68,68,0.12);
+        border: 1px solid rgba(239,68,68,0.3);
+        border-radius: var(--radius-sm);
+        color: #fca5a5; font-size: 0.75rem; font-weight: 700;
+        padding: 8px 12px; display: none;
+    }
+    .drv-error.visible { display: block; }
+
+    /* ── Toast ───────────────────────────────────────────────── */
+    .drv-toast {
+        position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+        background: var(--clr-surface2); border: 1px solid var(--clr-border);
+        border-radius: var(--radius-pill); padding: 10px 20px;
+        font-size: 0.80rem; font-weight: 700; color: var(--clr-white);
+        box-shadow: var(--shadow-md); z-index: 9999;
+        transition: transform 0.3s, opacity 0.3s; opacity: 0;
+        white-space: nowrap;
+    }
+    .drv-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* ── Loading spinner ─────────────────────────────────────── */
+    .drv-loading {
+        display: flex; flex-direction: column; align-items: center;
+        gap: 14px; padding: 60px 20px; color: var(--clr-gray);
+    }
+    .drv-spinner {
+        width: 36px; height: 36px;
+        border: 3px solid var(--clr-border);
+        border-top-color: var(--clr-orange);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Vault archive button ────────────────────────────────── */
+    .drv-archive-btn {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--radius-pill);
+        border: 1.5px solid var(--clr-border);
+        background: var(--clr-surface2); color: var(--clr-gray-light);
+        font-family: inherit; font-size: 0.72rem; font-weight: 700;
+        cursor: pointer; transition: border-color 0.18s, color 0.18s;
+    }
+    .drv-archive-btn.history-mode { border-color: var(--clr-yellow); color: var(--clr-yellow); }
+
+    /* ── Company state badges ────────────────────────────────── */
+    .drv-state-badge--6  { background: rgba(59,130,246,0.15);  color: var(--clr-blue); }
+    .drv-state-badge--7  { background: rgba(245,158,11,0.15);  color: var(--clr-yellow); }
+    .drv-state-badge--8  { background: rgba(34,197,94,0.15);   color: var(--clr-green); }
+
+    /* Prep countdown inside card */
+    .drv-prep-banner {
+        display: flex; align-items: center; gap: 8px;
+        background: rgba(245,158,11,0.08);
+        border: 1px solid rgba(245,158,11,0.25);
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+        font-size: 0.80rem; font-weight: 800; color: var(--clr-yellow);
+    }
+    .drv-prep-banner.ready {
+        background: rgba(34,197,94,0.08);
+        border-color: rgba(34,197,94,0.3);
+        color: var(--clr-green);
+    }
+    .drv-prep-countdown { font-family: monospace; font-size: 1rem; }
+
+    /* Lock overlay on actions/tracking when company not ready */
+    .drv-locked-note {
+        width: 100%; padding: 9px 12px;
+        background: rgba(255,92,0,0.06);
+        border: 1.5px dashed rgba(255,92,0,0.3);
+        border-radius: var(--radius-md);
+        color: var(--clr-orange);
+        font-size: 0.73rem; font-weight: 800;
+        text-align: center; opacity: .85;
+    }
+    .drv-state-btn:disabled, .drv-track-btn:disabled {
+        opacity: 0.35; cursor: not-allowed; pointer-events: none;
+    }
+
+    /* Notification bell */
+    .drv-notif-bell {
+        position: relative; cursor: pointer;
+        background: none; border: none;
+        font-size: 1.3rem; line-height: 1;
+        color: var(--clr-gray-light);
+    }
+    .drv-notif-badge {
+        position: absolute; top: -4px; left: -4px;
+        min-width: 16px; height: 16px;
+        background: var(--clr-orange); color: #fff;
+        border-radius: 50px; font-size: 0.58rem; font-weight: 900;
+        display: none; align-items: center; justify-content: center;
+        padding: 0 3px;
+    }
+    .drv-notif-badge.visible { display: flex; }
+
+    /* Notification popup */
+    .drv-notif-popup {
+        position: fixed; top: 62px; left: 12px; right: 12px; z-index: 500;
+        background: var(--clr-surface);
+        border: 1px solid var(--clr-border);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        max-height: 300px; overflow-y: auto;
+        display: none; flex-direction: column;
+    }
+    .drv-notif-popup.open { display: flex; }
+    .drv-notif-item {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--clr-border);
+        display: flex; flex-direction: column; gap: 3px;
+        cursor: pointer; transition: background .15s;
+    }
+    .drv-notif-item:last-child { border-bottom: none; }
+    .drv-notif-item:hover { background: var(--clr-surface2); }
+    .drv-notif-item.unread { border-right: 3px solid var(--clr-orange); }
+    .drv-notif-item__title { font-size: 0.80rem; font-weight: 800; color: var(--clr-white); }
+    .drv-notif-item__sub   { font-size: 0.70rem; color: var(--clr-gray); }
+    .drv-notif-empty { padding: 20px; text-align: center; color: var(--clr-gray); font-size: 0.80rem; }
+
+    </style>
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────────────────── -->
+<nav class="drv-nav" id="drv-nav" style="display:none">
+    <a class="drv-nav__logo" href="index.html">
+        <img src="assets/logo.png" alt="Delivo">
+        <span>Driver</span>
+    </a>
+    <div class="drv-nav__right">
+        <div class="drv-status-dot" id="drv-status-dot"></div>
+        <span class="drv-nav__driver-name" id="drv-name">—</span>
+        <button class="drv-archive-btn" id="drv-history-btn">📦 Archive</button>
+        <button class="drv-btn drv-btn--ghost" id="drv-logout-btn">تسجيل خروج</button>
+    </div>
+</nav>
+
+<!-- ── Stats bar ───────────────────────────────────────────── -->
+<div class="drv-stats" id="drv-stats" style="display:none">
+    <div class="drv-stat drv-stat--all active" data-filter="all">
+        <span class="drv-stat__val" id="cnt-all">0</span>
+        <span class="drv-stat__label">الكل</span>
+    </div>
+    <div class="drv-stat drv-stat--new" data-filter="0">
+        <span class="drv-stat__val" id="cnt-0">0</span>
+        <span class="drv-stat__label">جديد</span>
+    </div>
+    <div class="drv-stat drv-stat--done" data-filter="1">
+        <span class="drv-stat__val" id="cnt-1">0</span>
+        <span class="drv-stat__label">تم التوصيل</span>
+    </div>
+    <div class="drv-stat drv-stat--delay" data-filter="3">
+        <span class="drv-stat__val" id="cnt-3">0</span>
+        <span class="drv-stat__label">متأخر</span>
+    </div>
+    <div class="drv-stat drv-stat--cancel" data-filter="2">
+        <span class="drv-stat__val" id="cnt-2">0</span>
+        <span class="drv-stat__label">ملغي</span>
+    </div>
+    <div class="drv-stat drv-stat--pc" data-filter="5">
+        <span class="drv-stat__val" id="cnt-5">0</span>
+        <span class="drv-stat__label">ملغي/مدفوع</span>
+    </div>
+</div>
+
+<!-- ── Orders list ─────────────────────────────────────────── -->
+<div class="drv-orders" id="drv-orders">
+    <div class="drv-loading" id="drv-loading">
+        <div class="drv-spinner"></div>
+        <span>جاري التحميل…</span>
+    </div>
+    <div class="drv-empty" id="drv-empty">
+        <span class="drv-empty__icon">📭</span>
+        <span class="drv-empty__text">لا توجد طلبات</span>
+    </div>
+</div>
+
+<!-- ── Login modal ─────────────────────────────────────────── -->
+<div class="drv-modal-overlay" id="drv-login-modal">
+    <div class="drv-modal">
+        <div class="drv-modal__logo">
+            <img src="assets/logo.png" alt="Delivo">
+            <span class="drv-modal__logo-title">Delivo Driver</span>
+            <span class="drv-modal__logo-sub">تسجيل الدخول للسائق</span>
+        </div>
+        <div class="drv-field">
+            <label for="drv-login-user">اسم المستخدم</label>
+            <input type="text" id="drv-login-user" placeholder="username" autocomplete="username" dir="ltr">
+        </div>
+        <div class="drv-field">
+            <label for="drv-login-pass">كلمة المرور</label>
+            <input type="password" id="drv-login-pass" placeholder="••••••••" autocomplete="current-password" dir="ltr">
+        </div>
+        <div class="drv-error" id="drv-login-error">اسم المستخدم أو كلمة المرور غير صحيحة</div>
+        <button class="drv-btn drv-btn--orange" id="drv-login-btn" style="width:100%;justify-content:center;padding:12px">
+            تسجيل الدخول
+        </button>
+    </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────── -->
+<div class="drv-toast" id="drv-toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     FIREBASE SDK (compat — same as main app)
+══════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   DRIVER.JS — inline, single file, no modules required
+════════════════════════════════════════════════════════════ */
+
+// ── Firebase init ────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
+    authDomain:        "deliveryonline-300f7.firebaseapp.com",
+    databaseURL:       "https://deliveryonline-300f7-default-rtdb.firebaseio.com",
+    projectId:         "deliveryonline-300f7",
+    storageBucket:     "deliveryonline-300f7.firebasestorage.app",
+    messagingSenderId: "360058447266",
+    appId:             "1:360058447266:web:5ac25e3ad30f636bdd3efb"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
+
+// ── State ─────────────────────────────────────────────────────
+let driverData    = null;   // { id, username, owner }
+let currentFilter = 'all';
+let historyMode   = false;
+let ordersCache   = {};     // id → order obj
+let geoWatchId    = null;
+let wakeLock      = null;
+
+const STATE_MAP = {
+    "0": { label: "جديد",             short: "جديد",         company: false },
+    "1": { label: "تم التوصيل",       short: "وُصِّل",       company: false },
+    "2": { label: "ملغي",             short: "ملغي",         company: false },
+    "3": { label: "متأخر",            short: "متأخر",        company: false },
+    "5": { label: "ملغي/مدفوع",       short: "ملغي/م",       company: false },
+    "6": { label: "استُلم من العميل", short: "استُلم",       company: true  },
+    "7": { label: "قيد التحضير",      short: "قيد التحضير",  company: true  },
+    "8": { label: "جاهز للتسليم",     short: "جاهز ✓",       company: true  },
+};
+
+// Company has finished when state === '8'
+function isCompanyDone(order) { return (order.state || '0') === '8'; }
+// Order is still actionable by driver (new or in-progress, not yet delivered/cancelled)
+function isDriverActionable(order) { return ['0','3'].includes(order.state || '0'); }
+
+// ── Boot ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+    // Try restore session from localStorage
+    const saved = localStorage.getItem('delivoDriver');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            // Re-validate: fetch the exact driver record by stored ID and confirm
+            // username still matches — prevents stale sessions and wrong-user bugs
+            const snap = await db.ref(`drivers/${parsed.id}`).get();
+            if (snap.exists()) {
+                const d = snap.val();
+                if (d && d.username === parsed.username) {
+                    // Refresh owner name in case it changed in admin
+                    parsed.owner = d.owner || d.fullname || d.username;
+                    driverData = parsed;
+                    localStorage.setItem('delivoDriver', JSON.stringify(driverData));
+                    startDriverSession();
+                } else {
+                    // Stored ID no longer matches this username — clear and re-login
+                    localStorage.removeItem('delivoDriver');
+                    showLoginModal();
+                }
+            } else {
+                localStorage.removeItem('delivoDriver');
+                showLoginModal();
+            }
+        } catch(e) {
+            localStorage.removeItem('delivoDriver');
+            showLoginModal();
+        }
+    } else {
+        showLoginModal();
+    }
+
+    setupLoginForm();
+    setupLogout();
+    setupStats();
+    setupHistoryToggle();
+});
+
+// ── Login ─────────────────────────────────────────────────────
+function showLoginModal() {
+    document.getElementById('drv-login-modal').style.display = 'flex';
+    document.getElementById('drv-nav').style.display = 'none';
+    document.getElementById('drv-stats').style.display = 'none';
+    document.getElementById('drv-loading').style.display = 'none';
+    document.getElementById('drv-empty').classList.remove('visible');
+}
+
+function setupLoginForm() {
+    const loginBtn  = document.getElementById('drv-login-btn');
+    const userInput = document.getElementById('drv-login-user');
+    const passInput = document.getElementById('drv-login-pass');
+    const errorEl   = document.getElementById('drv-login-error');
+
+    async function doLogin() {
+        const username = userInput.value.toLowerCase().trim();
+        const password = passInput.value.trim();
+        if (!username || !password) return;
+
+        loginBtn.disabled   = true;
+        loginBtn.textContent = '…';
+        errorEl.classList.remove('visible');
+
+        try {
+            const snap = await db.ref('drivers').get();
+            if (!snap.exists()) throw new Error('no drivers');
+
+            let found = null;
+            snap.forEach(child => {
+                if (found) return; // stop at first match
+                const d = child.val();
+                if (d && d.username === username && d.password === password) {
+                    // Use child.key as the unique Firebase key — never an index guess
+                    found = {
+                        id:       child.key,
+                        username: d.username,
+                        owner:    d.owner || d.fullname || d.username,
+                    };
+                }
+            });
+
+            if (found) {
+                driverData = found;
+                localStorage.setItem('delivoDriver', JSON.stringify(driverData));
+                document.getElementById('drv-login-modal').style.display = 'none';
+                startDriverSession();
+            } else {
+                errorEl.classList.add('visible');
+            }
+        } catch(e) {
+            errorEl.textContent = 'خطأ في الاتصال، حاول مجدداً';
+            errorEl.classList.add('visible');
+        } finally {
+            loginBtn.disabled    = false;
+            loginBtn.textContent = 'تسجيل الدخول';
+        }
+    }
+
+    loginBtn.addEventListener('click', doLogin);
+    passInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+}
+
+// ── Session start ─────────────────────────────────────────────
+function startDriverSession() {
+    // Show UI
+    document.getElementById('drv-nav').style.display   = 'flex';
+    document.getElementById('drv-stats').style.display = 'flex';
+    document.getElementById('drv-login-modal').style.display = 'none';
+    document.getElementById('drv-name').textContent = driverData.owner;
+
+    // Set driver online — stamp username so admin map always shows correct identity
+    const driverRef = db.ref(`drivers/${driverData.id}`);
+    driverRef.child('status').onDisconnect().set('offline');
+    driverRef.update({
+        status:      'online',
+        _activeUser: driverData.owner,   // owner display name for admin map label
+    });
+    document.getElementById('drv-status-dot').classList.add('online');
+
+    // Notify Android bridge if available
+    if (window.AndroidBridge && window.AndroidBridge.onDriverLoggedIn) {
+        window.AndroidBridge.onDriverLoggedIn(driverData.id);
+    }
+
+    // Start GPS tracking
+    startTracking();
+
+    // Anti-sleep wake lock
+    requestWakeLock();
+    // Re-acquire on visibility change (Android WebView locks screen)
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+            await requestWakeLock();
+            // Re-start GPS if it dropped
+            if (!geoWatchId) startTracking();
+        }
+    });
+
+    // Live listener on requests
+    listenOrders();
+}
+
+// ── Logout ────────────────────────────────────────────────────
+function setupLogout() {
+    document.getElementById('drv-logout-btn').addEventListener('click', async () => {
+        if (!driverData) return;
+        // Stop GPS first so no stale location writes happen after status clears
+        if (geoWatchId !== null) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+        // Stop Android background service BEFORE clearing driverData
+        if (window.AndroidBridge && window.AndroidBridge.stopBackgroundTracking) {
+            window.AndroidBridge.stopBackgroundTracking();
+        }
+        // Set offline and clear active-user stamp
+        await db.ref(`drivers/${driverData.id}`).update({
+            status:      'offline',
+            _activeUser: null,
+        });
+        // Release wake lock
+        if (wakeLock) { try { await wakeLock.release(); } catch(e){} wakeLock = null; }
+        // Clear session
+        driverData = null;
+        localStorage.removeItem('delivoDriver');
+        ordersCache = {};
+        // Reset UI
+        document.getElementById('drv-orders').innerHTML =
+            '<div class="drv-loading" id="drv-loading" style="display:none"></div>' +
+            '<div class="drv-empty" id="drv-empty"><span class="drv-empty__icon">📭</span><span class="drv-empty__text">لا توجد طلبات</span></div>';
+        document.getElementById('drv-status-dot').classList.remove('online');
+        showLoginModal();
+    });
+}
+
+// ── GPS Tracking ──────────────────────────────────────────────
+function startTracking() {
+    if (!navigator.geolocation || !driverData) return;
+
+    geoWatchId = navigator.geolocation.watchPosition(
+        (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+
+            // Update driver location in RTDB
+            db.ref(`drivers/${driverData.id}/location`).update({
+                lat, lng, timestamp: Date.now()
+            });
+
+            // Also send to Android bridge (it can write from background service)
+            if (window.AndroidBridge && window.AndroidBridge.updateFirebaseLocation) {
+                window.AndroidBridge.updateFirebaseLocation(driverData.id, lat, lng);
+            }
+        },
+        (err) => console.warn('[Driver GPS]', err),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
+}
+
+// Android Bridge — called by WebView when it gets a background location update
+window.appUpdateLocation = function(lat, lng) {
+    if (!driverData) return;
+    db.ref(`drivers/${driverData.id}/location`).update({
+        lat: parseFloat(lat), lng: parseFloat(lng), timestamp: Date.now()
+    });
+};
+
+// ── Wake Lock ─────────────────────────────────────────────────
+async function requestWakeLock() {
+    if ('wakeLock' in navigator) {
+        try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+    }
+}
+
+// ── Live orders listener ──────────────────────────────────────
+function listenOrders() {
+    const requestsRef = db.ref('requests');
+
+    requestsRef.on('value', (snap) => {
+        ordersCache = {};
+        if (snap.exists()) {
+            snap.forEach(child => {
+                const order = child.val();
+                if (!order) return;
+                // Primary: match by Firebase key (set at order creation)
+                // Fallback: match by owner name for legacy orders that predate driverid
+                const keyMatch  = order.driverid && order.driverid === driverData.id;
+                const nameMatch = !order.driverid && order.driver === driverData.owner;
+                if (keyMatch || nameMatch) {
+                    const vaultMatch = historyMode
+                        ? (order.vault === '1' || order.vault === 1)
+                        : (order.vault === '0' || order.vault === 0 || !order.vault);
+                    if (vaultMatch) ordersCache[child.key] = order;
+                }
+            });
+        }
+        renderOrders();
+    });
+}
+
+// ── Driver notifications ─────────────────────────────────────
+function listenNotifications() {
+    if (!driverData) return;
+    db.ref('driverNotifications/' + driverData.owner).on('value', snap => {
+        const prev = Object.keys(notifCache).length;
+        notifCache = {};
+        if (snap.exists()) {
+            snap.forEach(child => {
+                notifCache[child.key] = child.val();
+            });
+        }
+        const unread = Object.values(notifCache).filter(n => n.read === '0').length;
+        notifUnread = unread;
+        updateNotifBadge();
+
+        // Show toast for brand-new notifications
+        const total = Object.keys(notifCache).length;
+        if (total > prev && prev >= 0) {
+            // Find newest unread
+            const newest = Object.entries(notifCache)
+                .filter(([,n]) => n.read === '0')
+                .sort(([,a],[,b]) => (b.sentAt||0)-(a.sentAt||0))[0];
+            if (newest) {
+                const [, n] = newest;
+                const msg = n.type === 'ready'
+                    ? `✅ طلب #${n.orderId?.replace('id_','')} جاهز للتسليم من ${n.store}`
+                    : `⏳ طلب #${n.orderId?.replace('id_','')} — وقت التجهيز: ${n.prepMins} دقيقة`;
+                showToast(msg);
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            }
+        }
+        if (notifOpen) renderNotifPopup();
+    });
+}
+
+function updateNotifBadge() {
+    const badge = document.getElementById('drv-notif-badge');
+    if (!badge) return;
+    badge.textContent = notifUnread > 9 ? '9+' : notifUnread;
+    badge.classList.toggle('visible', notifUnread > 0);
+}
+
+function toggleNotifPopup() {
+    notifOpen = !notifOpen;
+    const popup = document.getElementById('drv-notif-popup');
+    popup.classList.toggle('open', notifOpen);
+    if (notifOpen) {
+        renderNotifPopup();
+        // Mark all as read
+        Object.entries(notifCache).forEach(([orderId, n]) => {
+            if (n.read === '0') {
+                db.ref('driverNotifications/' + driverData.owner + '/' + orderId + '/read').set('1');
+                notifCache[orderId].read = '1';
+            }
+        });
+        notifUnread = 0;
+        updateNotifBadge();
+    }
+}
+function closeNotifPopup() {
+    notifOpen = false;
+    document.getElementById('drv-notif-popup').classList.remove('open');
+}
+
+function renderNotifPopup() {
+    const popup   = document.getElementById('drv-notif-popup');
+    const emptyEl = document.getElementById('drv-notif-empty');
+    popup.querySelectorAll('.drv-notif-item').forEach(el => el.remove());
+
+    const entries = Object.entries(notifCache)
+        .sort(([,a],[,b]) => (b.sentAt||0)-(a.sentAt||0));
+
+    emptyEl.style.display = entries.length ? 'none' : '';
+
+    entries.forEach(([orderId, n]) => {
+        const el  = document.createElement('div');
+        el.className = 'drv-notif-item' + (n.read === '0' ? ' unread' : '');
+        const readyTime = n.readyAt ? new Date(n.readyAt).toLocaleTimeString('ar-LB',{hour:'2-digit',minute:'2-digit'}) : '';
+        el.innerHTML = `
+            <div class="drv-notif-item__title">
+                ${n.type === 'ready' ? '✅ جاهز للاستلام' : '⏳ قيد التحضير'}
+                — ${n.store || ''}
+            </div>
+            <div class="drv-notif-item__sub">
+                طلب #${orderId.replace('id_','')}
+                ${n.type === 'standby' ? '· ' + n.prepMins + ' دقيقة · موعد الجاهزية: ' + readyTime : '· جاهز الآن'}
+            </div>`;
+        el.addEventListener('click', () => {
+            closeNotifPopup();
+            // Scroll to / expand the matching card
+            const card = document.querySelector(`.drv-order[data-id="${orderId}"]`);
+            if (card) { card.classList.add('expanded'); card.scrollIntoView({behavior:'smooth',block:'center'}); }
+        });
+        popup.appendChild(el);
+    });
+}
+
+// ── Render orders ─────────────────────────────────────────────
+function renderOrders() {
+    const container = document.getElementById('drv-orders');
+    const emptyEl   = document.getElementById('drv-empty');
+
+    // Count by state
+    const counts = { all: 0, "0": 0, "1": 0, "2": 0, "3": 0, "5": 0 };
+    Object.values(ordersCache).forEach(o => {
+        counts.all++;
+        if (counts[o.state] !== undefined) counts[o.state]++;
+        else counts["0"]++;
+    });
+
+    // Update stat badges
+    document.getElementById('cnt-all').textContent = counts.all;
+    ['0','1','2','3','5'].forEach(s => {
+        const el = document.getElementById(`cnt-${s}`);
+        if (el) el.textContent = counts[s] || 0;
+    });
+
+    // Filter + sort
+    const filtered = Object.entries(ordersCache)
+        .filter(([, o]) => currentFilter === 'all' || o.state === currentFilter)
+        .sort(([a], [b]) => {
+            const na = parseInt(a.split('_')[1]) || 0;
+            const nb = parseInt(b.split('_')[1]) || 0;
+            return nb - na;
+        });
+
+    if (document.getElementById('drv-loading'))
+        document.getElementById('drv-loading').style.display = 'none';
+
+    if (filtered.length === 0) {
+        container.querySelectorAll('.drv-order').forEach(el => el.remove());
+        emptyEl.classList.add('visible');
+        return;
+    }
+    emptyEl.classList.remove('visible');
+
+    // ── Smart diff: preserve expanded state, only rebuild changed cards ──
+    const newKeys = new Set(filtered.map(([k]) => k));
+
+    // Remove cards no longer in filtered list
+    container.querySelectorAll('.drv-order[data-id]').forEach(el => {
+        if (!newKeys.has(el.dataset.id)) el.remove();
+    });
+
+    filtered.forEach(([key, order]) => {
+        const existing    = container.querySelector(`.drv-order[data-id="${key}"]`);
+        const wasExpanded = existing ? existing.classList.contains('expanded') : false;
+
+        // Rebuild card with latest data, restore expanded state
+        const newCard = buildOrderCard(key, order);
+        if (wasExpanded) newCard.classList.add('expanded');
+
+        if (existing) {
+            existing.replaceWith(newCard);
+        } else {
+            // New card — insert at correct sorted position
+            const allCards = [...container.querySelectorAll('.drv-order[data-id]')];
+            const nextCard = allCards.find(el => {
+                const n = parseInt(el.dataset.id.split('_')[1]) || 0;
+                const m = parseInt(key.split('_')[1]) || 0;
+                return n < m;
+            });
+            if (nextCard) container.insertBefore(newCard, nextCard);
+            else container.appendChild(newCard);
+        }
+    });
+}
+
+// ── Build order card ──────────────────────────────────────────
+function buildOrderCard(key, order) {
+    const state     = order.state || '0';
+    const stateInfo = STATE_MAP[state] || STATE_MAP["0"];
+    const tracking  = order.trackorder === '1' || order.trackorder === 1;
+    const compDone  = isCompanyDone(order);           // state === '8'
+    const drvActok  = isDriverActionable(order);      // state 0 or 3
+    const isCompState = STATE_MAP[state]?.company;    // company-managed state (6,7,8)
+    const isFinalState = ['1','2','5'].includes(state); // delivered / cancelled
+    const etaMs     = order.standbyUntil ? (order.standbyUntil - Date.now()) : null;
+    const etaMins   = etaMs !== null ? Math.ceil(etaMs / 60000) : null;
+
+    // Parse cart items: "qty:name:price:store,..."
+    const items = [];
+    (order.cart || '').split(',').filter(Boolean).forEach(seg => {
+        const p = seg.split(':');
+        if (p.length >= 3) items.push({ qty: p[0], name: p[1], price: p[2], store: p[3] || '', notes: p[4] || '' });
+    });
+
+    const card = document.createElement('div');
+    card.className = 'drv-order';
+    card.dataset.id = key;
+
+    const hasLocation = order.lat && order.lng && order.lat !== '' && order.lng !== '';
+    const mapsUrl = hasLocation
+        ? `https://www.google.com/maps?q=${order.lat},${order.lng}`
+        : `https://www.google.com/maps/search/${encodeURIComponent((order.city || '') + ' ' + (order.street || ''))}`;
+
+    card.innerHTML = `
+        <!-- Summary row (always visible) -->
+        <div class="drv-order__summary">
+            <div class="drv-order__toggle">+</div>
+            <span class="drv-order__id">#${key.replace('id_','')}</span>
+            <span class="drv-order__name">${order.fullname || '—'}</span>
+            <span class="drv-order__total">${order.total || '0'}$</span>
+            <span class="drv-state-badge drv-state-badge--${state}">${stateInfo.short}</span>
+        </div>
+
+        <!-- Expanded detail -->
+        <div class="drv-order__detail">
+            <div class="drv-order__info-grid">
+                <div class="drv-info-cell">
+                    <div class="drv-info-cell__label">الاسم</div>
+                    <div class="drv-info-cell__val">${order.fullname || '—'}</div>
+                </div>
+                <div class="drv-info-cell">
+                    <div class="drv-info-cell__label">الهاتف</div>
+                    <div class="drv-info-cell__val">${order.phone || '—'}</div>
+                </div>
+                <div class="drv-info-cell">
+                    <div class="drv-info-cell__label">المدينة / الشارع</div>
+                    <div class="drv-info-cell__val">${order.city || ''}${order.street ? ' / ' + order.street : ''}</div>
+                </div>
+                <div class="drv-info-cell">
+                    <div class="drv-info-cell__label">التاريخ</div>
+                    <div class="drv-info-cell__val">${order.date || '—'}</div>
+                </div>
+                <div class="drv-info-cell">
+                    <div class="drv-info-cell__label">المتجر</div>
+                    <div class="drv-info-cell__val">${order.store || items[0]?.store || '—'}</div>
+                </div>
+                <div class="drv-info-cell">
+                    <div class="drv-info-cell__label">الإجمالي</div>
+                    <div class="drv-info-cell__val" style="color:var(--clr-orange)">${order.total || '0'}$</div>
+                </div>
+                ${order.xnote ? `
+                <div class="drv-info-cell drv-info-cell--full">
+                    <div class="drv-info-cell__label">ملاحظة</div>
+                    <div class="drv-info-cell__val">${order.xnote}</div>
+                </div>` : ''}
+            </div>
+
+            <!-- Items -->
+            ${items.length > 0 ? `
+            <div class="drv-order__items">
+                <div class="drv-order__items-title">🛍 المنتجات</div>
+                ${items.map(i => `
+                    <div class="drv-item-row">
+                        <span class="drv-item-row__name">
+                            ${i.name}
+                            ${i.notes ? `<span style="display:block;font-size:0.68rem;font-weight:700;color:var(--clr-orange);margin-top:3px;">📝 ${i.notes}</span>` : ''}
+                        </span>
+                        <span class="drv-item-row__qty">×${i.qty}</span>
+                        <span class="drv-item-row__price">${i.price}$</span>
+                    </div>
+                `).join('')}
+            </div>` : ''}
+
+            <!-- Phone / Map links -->
+            <div class="drv-order__links">
+                ${order.phone ? `
+                <a class="drv-link-btn drv-link-btn--green" href="tel:${order.phone}">
+                    📞 اتصال
+                </a>` : ''}
+                <a class="drv-link-btn drv-link-btn--blue" href="${mapsUrl}" target="_blank">
+                    🗺 الموقع
+                </a>
+                ${order.phone ? `
+                <a class="drv-link-btn" href="https://wa.me/${order.phone.replace(/\D/g,'')}" target="_blank">
+                    💬 واتساب
+                </a>` : ''}
+            </div>
+
+            <!-- Prep countdown banner (shown for company states 6,7,8) -->
+            ${isCompState ? `
+            <div class="drv-prep-banner ${compDone ? 'ready' : ''}" id="prep-${key}">
+                ${compDone
+                    ? '✅ الطلب جاهز — يمكنك الانطلاق لاستلامه'
+                    : state === '7' && etaMins !== null
+                        ? `⏳ الشركة تحضّر الطلب — متبقي: <span class="drv-prep-countdown" data-until="${order.standbyUntil}">
+                             ${etaMins > 0 ? etaMins + ' د' : 'انتهى وقت التحضير'}</span>`
+                        : '📋 تم استلام الطلب من العميل — جارٍ التحضير'
+                }
+            </div>` : ''}
+
+            <!-- State buttons:
+                 - Locked ONLY during active company states (6,7) — company is processing
+                 - Always available for driver states (0,1,2,3,5) and when ready (8) -->
+            ${isCompState && !compDone ? `
+            <div class="drv-locked-note">
+                🔒 بانتظار إنهاء الشركة تحضير الطلب
+            </div>
+            <div class="drv-order__actions" style="opacity:.3;pointer-events:none;">
+                ${['0','1','3','2','5'].map(s => `
+                    <button class="drv-state-btn ${state === s ? 'active' : ''}" disabled data-s="${s}">
+                        ${STATE_MAP[s].label}
+                    </button>`).join('')}
+            </div>` : `
+            <div class="drv-order__actions">
+                ${['0','1','3','2','5'].map(s => `
+                    <button class="drv-state-btn ${state === s ? 'active' : ''}"
+                            data-id="${key}" data-uid="${order.delivryplusid || ''}" data-s="${s}">
+                        ${STATE_MAP[s].label}
+                    </button>`).join('')}
+            </div>`}
+
+            <!-- Tracking toggle:
+                 - Available when order is ready (state 8) OR active driver state (0,3)
+                 - Locked during company processing (6,7)
+                 - Disabled on final states (1,2,5) — shown greyed out so driver knows why -->
+            ${isCompState && !compDone ? `
+            <div class="drv-locked-note" style="margin-top:0;">
+                📍 التتبع متاح فقط بعد جاهزية الطلب
+            </div>` : isFinalState ? `
+            <div class="drv-locked-note" style="margin-top:0;">
+                📍 الطلب منتهٍ — التتبع غير متاح
+            </div>` : `
+            <button class="drv-track-btn ${tracking ? 'tracking' : ''}"
+                    data-id="${key}" data-uid="${order.delivryplusid || ''}">
+                🛵 ${tracking ? 'إيقاف التتبع المباشر' : 'تفعيل التتبع المباشر للزبون'}
+            </button>`}
+        </div>
+    `;
+
+    // Toggle expand/collapse
+    card.querySelector('.drv-order__summary').addEventListener('click', () => {
+        const isOpen = card.classList.contains('expanded');
+        // Collapse all others
+        document.querySelectorAll('.drv-order.expanded').forEach(c => c.classList.remove('expanded'));
+        if (!isOpen) card.classList.add('expanded');
+    });
+
+    // State buttons
+    card.querySelectorAll('.drv-state-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const id      = btn.dataset.id;
+            const uid     = btn.dataset.uid;
+            const newState = btn.dataset.s;
+
+            // Optimistic UI
+            card.querySelectorAll('.drv-state-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            card.querySelector('.drv-state-badge').className = `drv-state-badge drv-state-badge--${newState}`;
+            card.querySelector('.drv-state-badge').textContent = STATE_MAP[newState].short;
+
+            const updates = {};
+            updates[`/requests/${id}/state`] = newState;
+            // Also update historyRequests for customer
+            if (uid && uid !== 'undefined' && uid !== '') {
+                updates[`/historyRequests/${uid}/${id}/state`] = newState;
+            }
+            try {
+                await db.ref().update(updates);
+                showToast(`✅ تم تحديث الحالة: ${STATE_MAP[newState].label}`);
+
+                // Auto-disable tracking on final states (delivered/cancelled)
+                // Keep tracking alive for state 8 (ready) and re-allow for state 0 (new/reset)
+                if (['1','2','5'].includes(newState)) {
+                    const curTrack = ordersCache[id]?.trackorder;
+                    if (curTrack === '1' || curTrack === 1) {
+                        const tUpdates = {};
+                        tUpdates[`/requests/${id}/trackorder`] = '0';
+                        tUpdates[`/requests/${id}/driverid`]   = null;
+                        const tuid = ordersCache[id]?.delivryplusid || '';
+                        if (tuid && tuid !== 'undefined' && tuid !== '') {
+                            tUpdates[`/historyRequests/${tuid}/${id}/trackorder`] = '0';
+                            tUpdates[`/historyRequests/${tuid}/${id}/driverid`]   = null;
+                        }
+                        await db.ref().update(tUpdates);
+                        if (ordersCache[id]) ordersCache[id].trackorder = '0';
+                        const tBtn = card.querySelector('.drv-track-btn');
+                        if (tBtn) {
+                            tBtn.classList.remove('tracking');
+                            tBtn.textContent = '🛵 تفعيل التتبع المباشر للزبون';
+                        }
+                        showToast('📍 تم إيقاف التتبع تلقائياً');
+                    }
+                }
+                // When state resets to 0 (new), swap locked-note back to track button if needed
+                if (newState === '0') {
+                    const lockedNote = card.querySelector('.drv-locked-note');
+                    if (lockedNote && lockedNote.style.marginTop === '0px') {
+                        lockedNote.outerHTML = `<button class="drv-track-btn" data-id="${id}" data-uid="${card.querySelector('[data-uid]')?.dataset.uid || ''}">🛵 تفعيل التتبع المباشر للزبون</button>`;
+                        card.querySelector('.drv-track-btn')?.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            const btn2 = e.currentTarget;
+                            const ord2 = ordersCache[btn2.dataset.id] || {};
+                            const s2 = ord2.state || '0';
+                            if (['1','2','5'].includes(s2)) { showToast('⏹ الطلب منتهٍ'); return; }
+                            if (['6','7'].includes(s2))     { showToast('🔒 لم يجهّز المتجر بعد'); return; }
+                            const newT = (ord2.trackorder === '1' || ord2.trackorder === 1) ? '0' : '1';
+                            const upd  = { [`/requests/${btn2.dataset.id}/trackorder`]: newT, [`/requests/${btn2.dataset.id}/driverid`]: newT === '1' ? driverData.id : null };
+                            await db.ref().update(upd);
+                            btn2.classList.toggle('tracking', newT === '1');
+                            btn2.textContent = newT === '1' ? '🛵 إيقاف التتبع المباشر' : '🛵 تفعيل التتبع المباشر للزبون';
+                            showToast(newT === '1' ? '📍 التتبع المباشر مفعّل' : '⏹ التتبع موقوف');
+                            if (ordersCache[btn2.dataset.id]) ordersCache[btn2.dataset.id].trackorder = newT;
+                        });
+                    }
+                }
+            } catch(err) {
+                showToast('❌ خطأ في التحديث');
+            }
+        });
+    });
+
+    // Track button
+    card.querySelector('.drv-track-btn')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const btn      = e.currentTarget;
+        if (btn.disabled) return;
+        const id       = btn.dataset.id;
+        const uid      = btn.dataset.uid;
+        const ord      = ordersCache[id] || {};
+        // Guard: block tracking only on final states (delivered/cancelled) or mid-company-processing
+        const ordState = ord.state || '0';
+        if (['1','2','5'].includes(ordState)) { showToast('⏹ الطلب منتهٍ — التتبع غير متاح'); return; }
+        if (['6','7'].includes(ordState))     { showToast('🔒 الطلب لم يجهّزه المتجر بعد'); return; }
+        const current  = ord.trackorder;
+        const newTrack = (current === '1' || current === 1) ? '0' : '1';
+
+        const updates = {};
+        updates[`/requests/${id}/trackorder`] = newTrack;
+        // When enabling tracking, store the driver's ID so the customer map can look up the live location
+        updates[`/requests/${id}/driverid`] = newTrack === '1' ? driverData.id : null;
+        if (uid && uid !== 'undefined' && uid !== '') {
+            updates[`/historyRequests/${uid}/${id}/trackorder`] = newTrack;
+            updates[`/historyRequests/${uid}/${id}/driverid`]   = newTrack === '1' ? driverData.id : null;
+        }
+        try {
+            await db.ref().update(updates);
+            btn.classList.toggle('tracking', newTrack === '1');
+            btn.textContent = newTrack === '1'
+                ? '🛵 إيقاف التتبع المباشر'
+                : '🛵 تفعيل التتبع المباشر للزبون';
+            showToast(newTrack === '1' ? '📍 التتبع المباشر مفعّل' : '⏹ التتبع موقوف');
+        } catch(err) {
+            showToast('❌ خطأ في التحديث');
+        }
+    });
+
+    return card;
+}
+
+// ── Stats filter tabs ─────────────────────────────────────────
+function setupStats() {
+    document.querySelectorAll('.drv-stat').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.drv-stat').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            renderOrders();
+        });
+    });
+}
+
+// ── History / archive toggle ──────────────────────────────────
+function setupHistoryToggle() {
+    document.getElementById('drv-history-btn').addEventListener('click', () => {
+        historyMode = !historyMode;
+        const btn = document.getElementById('drv-history-btn');
+        btn.classList.toggle('history-mode', historyMode);
+        btn.textContent = historyMode ? '📋 Active' : '📦 Archive';
+        ordersCache = {};
+        renderOrders();
+        if (driverData) listenOrders();
+    });
+}
+
+// ── Prep countdown ticker (state 7 cards) ───────────────────
+setInterval(() => {
+    document.querySelectorAll('.drv-prep-countdown[data-until]').forEach(el => {
+        const until   = parseInt(el.dataset.until);
+        const diffSec = Math.ceil((until - Date.now()) / 1000);
+        if (diffSec <= 0) {
+            el.textContent = 'انتهى وقت التحضير';
+            el.closest('.drv-prep-banner')?.classList.add('ready');
+        } else {
+            const m = Math.floor(diffSec / 60);
+            const s = diffSec % 60;
+            el.textContent = m + ':' + String(s).padStart(2,'0') + ' دقيقة';
+        }
+    });
+}, 1000);
+
+// ── Toast ─────────────────────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg) {
+    const t = document.getElementById('drv-toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>

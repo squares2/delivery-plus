@@ -1,0 +1,709 @@
+/* ============================================================
+   styles/base.css
+   Global variables, reset, fonts, shared utilities.
+   Mobile-first PWA design system.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+
+/* ── Design Tokens ────────────────────────────────────────── */
+:root {
+    /* Brand Colors */
+    --clr-orange:        #FF5C00;
+    --clr-orange-dim:    #cc4a00;
+    --clr-orange-light:  #fff3ed;
+    --clr-orange-glow:   rgba(255,92,0,0.14);
+    --clr-black:         #0f0f0f;
+    --clr-surface:       #1a1a1a;
+    --clr-white:         #ffffff;
+    --clr-gray-50:       #f7f7f8;
+    --clr-gray-100:      #f0f0f2;
+    --clr-gray-200:      #e2e2e6;
+    --clr-gray-400:      #9898a6;
+    --clr-gray-500:      #65657a;
+    --clr-green:         #16a34a;
+
+    /* Typography — fluid, mobile-first */
+    --fs-hero:   clamp(1.3rem,  5.5vw, 2.5rem);
+    --fs-h2:     clamp(0.88rem, 2.6vw, 1.25rem);
+    --fs-body:   clamp(0.78rem, 2vw,   0.92rem);
+    --fs-small:  clamp(0.68rem, 1.8vw, 0.80rem);
+    --fs-tiny:   clamp(0.60rem, 1.5vw, 0.72rem);
+    --fs-micro:  clamp(0.50rem, 1.2vw, 0.60rem);
+
+    /* Border radius */
+    --radius-xs:  4px;
+    --radius-sm:  8px;
+    --radius-md:  12px;
+    --radius-lg:  16px;
+    --radius-xl:  20px;
+    --radius-2xl: 26px;
+    --radius-pill: 50px;
+
+    /* Shadows */
+    --shadow-xs:     0 1px 3px rgba(0,0,0,0.07);
+    --shadow-sm:     0 2px 8px rgba(0,0,0,0.09);
+    --shadow-md:     0 6px 20px rgba(0,0,0,0.11);
+    --shadow-lg:     0 12px 36px rgba(0,0,0,0.14);
+    --shadow-orange: 0 4px 16px rgba(255,92,0,0.28);
+
+    /* Layout */
+    --container-max: 1400px;
+    --container-pad: clamp(12px, 4vw, 3rem);
+
+    /* Section spacing — TIGHT on mobile */
+    --section-py:  clamp(10px, 2.2vh, 18px);
+    --section-gap: clamp(6px,  1.8vw, 12px);
+
+    /* Touch targets */
+    --touch-min: 44px;
+
+    /* Transitions */
+    --transition:      all 0.2s ease;
+    --transition-slow: all 0.32s ease;
+}
+
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    font-family: 'Almarai', sans-serif;
+    background: var(--clr-white);
+    color: var(--clr-black);
+    direction: rtl;
+    text-align: right;
+    line-height: 1.55;
+    overflow-x: hidden;
+    font-size: var(--fs-body);
+    min-width: 320px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+img  { display: block; max-width: 100%; height: auto; }
+a    { text-decoration: none; color: inherit; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+ul, ol { list-style: none; }
+
+/* ── Layout ───────────────────────────────────────────────── */
+.container {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 0 var(--container-pad);
+    width: 100%;
+}
+
+.section       { padding: var(--section-py) 0; }
+.section--gray { background: var(--clr-gray-50); }
+
+/* ── Scrollbar hide ───────────────────────────────────────── */
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Section title ────────────────────────────────────────── */
+.section-title {
+    font-size: var(--fs-h2);
+    font-weight: 800;
+    padding-right: 9px;
+    border-right: 3px solid var(--clr-orange);
+    margin-bottom: clamp(8px, 1.8vw, 14px);
+    line-height: 1.2;
+    color: var(--clr-black);
+}
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--clr-orange);
+    color: var(--clr-white);
+    font-family: inherit;
+    font-weight: 800;
+    border-radius: var(--radius-md);
+    padding: clamp(7px, 1.8vw, 10px) clamp(14px, 3.5vw, 24px);
+    font-size: var(--fs-small);
+    min-height: var(--touch-min);
+    transition: var(--transition);
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: var(--shadow-orange);
+}
+.btn-primary:hover  { background: var(--clr-orange-dim); transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+
+.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.09);
+    color: var(--clr-white);
+    font-family: inherit;
+    font-weight: 800;
+    border-radius: var(--radius-md);
+    padding: clamp(7px, 1.8vw, 10px) clamp(14px, 3.5vw, 24px);
+    font-size: var(--fs-small);
+    min-height: var(--touch-min);
+    border: 1px solid rgba(255,255,255,0.18);
+    cursor: pointer;
+    transition: var(--transition);
+    backdrop-filter: blur(10px);
+    white-space: nowrap;
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.16); }
+
+/* ── Store thumb (bg-image) ───────────────────────────────── */
+.store-thumb {
+    background-color: var(--clr-gray-100);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+}
+
+/* ── Section hairline divider ─────────────────────────────── */
+.section-divider {
+    height: 1px;
+    background: var(--clr-gray-100);
+    margin: 0 var(--container-pad);
+}
+
+/* ── Modal open body lock ─────────────────────────────────── */
+body.modal-open { overflow: hidden; max-width: 100vw; }
+
+/* ── FOUC guard ───────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════
+   SPLASH — two-layer cinematic animation  v5
+   splash-bg.png  : arc + wordmark + marker  (512×512)
+   splash-moto.png: moto + rider, transparent (167×143)
+   
+   Sequence:
+   0.0s  bg fades in (arc + wordmark + marker)
+   0.12s moto launches from left off-screen
+   0.12→1.17s moto travels with decel, lands at x=46% y=49%
+   0.75s SVG speed streaks burst in moto's wake (left side)
+   streaks draw + fade over ~0.5s
+═══════════════════════════════════════════════════════════ */
+
+#delivo-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: opacity 0.7s ease, visibility 0.7s ease;
+}
+#delivo-splash.hiding {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+#delivo-splash.hidden { display: none; }
+
+/* ── Scene — square matching splash-bg.png ─────────────── */
+.splash__scene {
+    position: relative;
+    width:  clamp(240px, 72vw, 290px);
+    height: clamp(240px, 72vw, 290px);
+}
+
+/* ── Background: arc ring + wordmark + marker ───────────── */
+/* Builds up in 3 layers: arc spins → marker drops → wordmark rises */
+.splash__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: auto;
+
+    /* Clip the bg into 3 horizontal regions using clip-path
+       Each region gets its own entrance — JS adds .sp-bg-ready */
+    opacity: 0;
+}
+
+/* Simple fade-in for the whole bg — 
+   We animate regions via pseudo-layering in JS approach below */
+.splash__bg.sp-bg-ready {
+    animation: sp-bg-fade 0.4s ease 0s both;
+}
+@keyframes sp-bg-fade {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Logo layers — single image, no clipping ───────────── */
+/* All three classes now share the same full-image fade+scale animation.
+   The old clip-path approach caused visible cut lines on the logo.    */
+.splash__arc-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    animation: sp-logo-in 0.7s cubic-bezier(0.22,1,0.36,1) 0.08s both;
+}
+/* Second and third layers are hidden — the full logo shows on the first */
+.splash__marker-layer,
+.splash__word-layer {
+    display: none;
+}
+@keyframes sp-logo-in {
+    0%   { opacity:0; transform: scale(0.82); }
+    60%  { opacity:1; }
+    100% { opacity:1; transform: scale(1);    }
+}
+
+/* ── Moto ────────────────────────────────────────────────── */
+/*
+  Rider centre from full logo analysis: x=46%, y=49%
+  Moto 167×143 rendered at 38% scene width → 106×91px in 280px scene
+  top  = 49% − (91/280/2)  = 49% − 16.3% = 32.7%
+  left = 46% − (106/280/2) = 46% − 18.9% = 27.0%
+*/
+.splash__moto {
+    position: absolute;
+    width:  32%;          /* measured from target: 53.7% of scene */
+    height: auto;
+    image-rendering: auto;
+    z-index: 4;
+    top:  30.5%;            /* down: +4% from previous 28% */
+    left: 33.8%;            /* back (right): centre x=49.4% − width/2 */
+    /* start far left off-screen, slight forward tilt */
+    transform: translateX(-130vw) rotate(-6deg);
+    opacity: 0;
+    transition:
+        transform 1.05s cubic-bezier(0.18, 1, 0.32, 1) 0.12s,
+        opacity   0.14s ease                            0.12s;
+    will-change: transform, opacity;
+}
+.splash__moto.sp-moto-land {
+    transform: translateX(0) rotate(0deg);
+    opacity: 1;
+}
+
+/* ── Speed streaks SVG (injected by JS) ─────────────────── */
+/*
+  Zone: left of moto, same vertical band
+  top=33%, left=-10%, width=39% (−10% → 27% moto left edge)
+  height=32% (matches moto height)
+*/
+/* ── Speed lines — div-based, trail behind moving moto ────── */
+/*
+  Lines are div elements with gradient background.
+  Each scales in from the RIGHT (moto side) using scaleX,
+  holds briefly, then fades out as the moto lands.
+  Total animation fits within the moto's 1.05s travel time.
+*/
+@keyframes sp-line-run {
+    0%   { transform: scaleX(0); opacity: 0;   }
+    15%  { opacity: 1;           }
+    55%  { transform: scaleX(1); opacity: 0.85; }
+    100% { transform: scaleX(1); opacity: 0;    }
+}
+
+.splash__spinner { display: none; }
+body        { visibility: hidden; }
+body.loaded { visibility: visible; }
+/* ── PWA Install Banner ───────────────────────────────────── */
+.install-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 998;
+    background: var(--clr-white);
+    border-top: 1px solid var(--clr-gray-100);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+    padding: 12px var(--container-pad);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.34, 1.2, 0.64, 1);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.install-banner--visible {
+    transform: translateY(0);
+}
+.install-banner__content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+.install-banner__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--clr-orange);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.install-banner__icon img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+.install-banner__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.install-banner__text strong {
+    font-size: clamp(0.78rem, 2vw, 0.88rem);
+    font-weight: 800;
+    color: var(--clr-black);
+}
+.install-banner__text span {
+    font-size: clamp(0.62rem, 1.5vw, 0.72rem);
+    color: var(--clr-gray-400);
+    margin-top: 1px;
+}
+.install-banner__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.install-banner__install {
+    background: var(--clr-orange);
+    color: var(--clr-white);
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: clamp(0.70rem, 1.8vw, 0.80rem);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.18s;
+    white-space: nowrap;
+}
+.install-banner__install:hover { background: var(--clr-orange-dim); }
+.install-banner__dismiss {
+    background: none;
+    border: none;
+    color: var(--clr-gray-400);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    transition: background 0.18s;
+    line-height: 1;
+}
+.install-banner__dismiss:hover { background: var(--clr-gray-100); }
+
+/* ── iOS "Add to Home Screen" — bottom sheet ─────────────── */
+.ios-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    pointer-events: none;
+}
+.ios-hint--visible {
+    pointer-events: auto;
+}
+.ios-hint__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0);
+    transition: background 0.3s ease;
+}
+.ios-hint--visible .ios-hint__backdrop {
+    background: rgba(0,0,0,0.5);
+}
+.ios-hint__sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--clr-white);
+    border-radius: 24px 24px 0 0;
+    padding: 12px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.34, 1.1, 0.64, 1);
+    max-width: 480px;
+    margin: 0 auto;
+}
+.ios-hint--visible .ios-hint__sheet {
+    transform: translateY(0);
+}
+.ios-hint__handle {
+    width: 36px;
+    height: 4px;
+    background: var(--clr-gray-100, #e5e7eb);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+    flex-shrink: 0;
+}
+.ios-hint__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.ios-hint__logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: var(--clr-orange);
+    padding: 4px;
+}
+.ios-hint__header-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.ios-hint__header-text strong {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--clr-black);
+}
+.ios-hint__header-text span {
+    font-size: 0.72rem;
+    color: var(--clr-gray-400);
+    font-weight: 600;
+}
+.ios-hint__close {
+    background: var(--clr-gray-100, #f3f4f6);
+    border: none;
+    color: var(--clr-gray-400);
+    font-size: 13px;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.18s;
+}
+.ios-hint__close:hover { background: #e5e7eb; }
+.ios-hint__steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 20px;
+    border: 1.5px solid var(--clr-gray-100, #f3f4f6);
+    border-radius: 16px;
+    overflow: hidden;
+}
+.ios-hint__step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--clr-gray-100, #f3f4f6);
+}
+.ios-hint__step:last-child { border-bottom: none; }
+.ios-hint__step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--clr-orange);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ios-hint__step-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.ios-hint__step-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--clr-black);
+}
+.ios-hint__step-sub {
+    font-size: 0.68rem;
+    color: var(--clr-gray-400);
+    font-weight: 600;
+}
+.ios-hint__step-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+}
+.ios-hint__got-it {
+    width: 100%;
+    padding: 14px;
+    background: var(--clr-orange);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-pill);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.12s;
+}
+.ios-hint__got-it:hover { background: var(--clr-orange-dim); }
+.ios-hint__got-it:active { transform: scale(0.98); }
+/* ── Exit confirm dialog ──────────────────────────────────── */
+.exit-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    transition: background 0.28s ease;
+    pointer-events: none;
+}
+.exit-confirm-overlay--visible {
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: auto;
+}
+.exit-confirm-box {
+    background: var(--clr-white);
+    border-radius: 24px 24px 0 0;
+    padding: 28px 24px calc(24px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.34, 1.1, 0.64, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+.exit-confirm-overlay--visible .exit-confirm-box {
+    transform: translateY(0);
+}
+.exit-confirm-icon {
+    font-size: 2.2rem;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.exit-confirm-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--clr-black);
+    margin: 0;
+}
+.exit-confirm-msg {
+    font-size: 0.85rem;
+    color: var(--clr-gray-400);
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.5;
+}
+.exit-confirm-actions {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    margin-top: 8px;
+}
+.exit-confirm-btn {
+    flex: 1;
+    padding: 13px 0;
+    border: none;
+    border-radius: var(--radius-pill);
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.12s;
+}
+.exit-confirm-btn:active { transform: scale(0.97); }
+.exit-confirm-btn--cancel {
+    background: var(--clr-gray-100, #f3f4f6);
+    color: var(--clr-black);
+}
+.exit-confirm-btn--exit {
+    background: var(--clr-orange);
+    color: #fff;
+}
+.exit-confirm-btn--exit:hover { background: var(--clr-orange-dim); }
+
+/* ── iOS one-line install tip banner ─────────────────────── */
+#ios-top-banner {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 9998;
+    background: #1a1a1a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 14px 8px;
+    font-family: inherit;
+    font-size: clamp(0.72rem, 2.2vw, 0.82rem);
+    font-weight: 700;
+    text-align: center;
+    transform: translateY(-110%);
+    transition: transform 0.38s cubic-bezier(0.34, 1.1, 0.64, 1);
+    box-shadow: 0 3px 16px rgba(0,0,0,0.35);
+}
+#ios-top-banner.ios-top-banner--visible {
+    transform: translateY(0);
+}
+.ios-top-banner__text {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
+    line-height: 1.4;
+}
+.ios-top-banner__share {
+    width: 15px;
+    height: 15px;
+    stroke: #FF5C00;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+.ios-top-banner__close {
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: rgba(255,255,255,0.7);
+    font-size: 11px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: auto;    /* push to left edge in RTL */
+    transition: background 0.18s;
+}
+.ios-top-banner__close:hover { background: rgba(255,255,255,0.22); }

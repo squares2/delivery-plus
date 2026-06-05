@@ -1,0 +1,162 @@
+// ============================================================
+//  firestore.rules  —  Delivo
+//  Deploy: Firebase Console → Firestore → Rules tab
+// ============================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuth() && request.auth.token.admin == true;
+    }
+
+    function isSizeOk() {
+      return request.resource.data.size() < 50;
+    }
+
+    function isCleanString(val) {
+      return val is string
+          && val.size() <= 500
+          && !val.matches('.*<script.*')
+          && !val.matches('.*javascript:.*')
+          && !val.matches('.*on\\w+=.*');
+    }
+
+    // Check if the current user is blocked
+    // Reads blocked field from their user document
+    function isBlocked() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.blocked == true;
+    }
+
+    // ── /stores ───────────────────────────────────────────────
+    match /stores/{storeId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+
+      match /menu/{itemId} {
+        allow read:  if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // ── /categories ───────────────────────────────────────────
+    match /categories/{categoryId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // ── /offers ───────────────────────────────────────────────
+    match /offers/{offerId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // ── /users/{userId} ───────────────────────────────────────
+    match /users/{userId} {
+      allow read:   if isOwner(userId) || isAdmin();
+
+      allow create: if isOwner(userId)
+                    && isSizeOk()
+                    && isCleanString(request.resource.data.username)
+                    && isCleanString(request.resource.data.displayName);
+
+      // User can update own profile but NEVER touch blocked, role, admin, uid
+      allow update: if isOwner(userId)
+                    && isSizeOk()
+                    && !('blocked' in request.resource.data)
+                    && !('role'    in request.resource.data)
+                    && !('admin'   in request.resource.data)
+                    && !('uid'     in request.resource.data);
+
+      // Only admin can delete or set blocked field
+      allow delete: if isAdmin();
+    }
+
+    // ── /orders/{orderId} ─────────────────────────────────────
+    match /orders/{orderId} {
+      allow read: if isAuth()
+                  && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Blocked users cannot place orders at the database level
+      allow create: if isAuth()
+                    && !isBlocked()
+                    && isSizeOk()
+                    && request.resource.data.userId == request.auth.uid
+                    && 'items'     in request.resource.data
+                    && 'total'     in request.resource.data
+                    && 'createdAt' in request.resource.data
+                    && request.resource.data.total is number
+                    && request.resource.data.total > 0
+                    && request.resource.data.status == 'pending';
+
+      allow update: if isAdmin();
+
+      // Orders are permanent — no deletion
+      allow delete: if false;
+    }
+
+    // ── /settings ─────────────────────────────────────────────
+    match /settings/{doc} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── /usernames — username reservation ─────────────────────
+    // Anyone can read (to check availability), only auth can write
+    match /usernames/{username} {
+      allow read:   if true;
+      allow create: if isAuth()
+                    && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── /devices — UUID device tracking ─────────────────────────
+    // read: public — needed BEFORE auth exists (during registration check)
+    // write: public — needed to create/increment before auth exists
+    // update is restricted to only safe fields and max count of 3
+    match /devices/{uuid} {
+      allow read:   if true;
+      allow create: if true;
+      allow update: if request.resource.data.keys().hasOnly(['accountCount','lastUsed'])
+                    && request.resource.data.accountCount is int
+                    && request.resource.data.accountCount <= 3;
+      allow delete: if isAdmin();
+    }
+
+    // ── /device_fingerprints — fingerprint → UUID mapping ──────
+    // Fully public — needed before auth exists during registration
+    match /device_fingerprints/{fp} {
+      allow read:   if true;
+      allow create: if true;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ── /whitelisted_devices — owner devices with no account limit ─
+    // read: public — checked during registration before auth exists
+    // write: admin only — only you can add/remove whitelisted devices
+    match /whitelisted_devices/{uuid} {
+      allow read:   if true;
+      allow write:  if isAdmin();
+    }
+
+    // ── Catch-all deny ────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

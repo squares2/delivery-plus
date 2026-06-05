@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ffffff">
+    <title>Delivo - كل شي بيوصلك لباب البيت</title>
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32"  href="assets/favicon-32.png">
+    <link rel="shortcut icon"                         href="assets/favicon-32.png">
+
+    <!-- Apple touch icons (iOS "Add to Home Screen") -->
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="assets/icon-152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="assets/icon-144.png">
+    <link rel="apple-touch-icon" sizes="1024x1024" href="assets/icon-1024.png">
+    <!-- iOS splash screens — white bg, icon centered -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-startup-image" href="assets/icon-1024.png">
+
+    <!-- Theme color for browser chrome -->
+    <meta name="theme-color" content="#FF5C00">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Delivo">
+    <link rel="stylesheet" href="styles/base.css?v=16">
+    <link rel="stylesheet" href="styles/navbar.css?v=7">
+    <link rel="stylesheet" href="styles/hero.css?v=7">
+    <link rel="stylesheet" href="styles/cards.css?v=7">
+    <link rel="stylesheet" href="styles/modals.css?v=23">
+    <link rel="stylesheet" href="styles/store-panel.css?v=2">
+    <link rel="stylesheet" href="styles/cart.css?v=5">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="styles/footer.css?v=7">
+</head>
+<body>
+
+    <!-- ── iOS install tip banner (shown once on first visit) ── -->
+    <div id="ios-top-banner" style="display:none;" aria-live="polite">
+        <span class="ios-top-banner__text">
+            💡 ثبّت Delivo: اضغط
+            <svg class="ios-top-banner__share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+            ثم «إضافة للشاشة»
+        </span>
+        <button class="ios-top-banner__close" id="ios-top-banner-close" aria-label="إغلاق">✕</button>
+    </div>
+
+    <!-- SPLASH SCREEN — cinematic multi-layer animation -->
+    <div id="delivo-splash" aria-hidden="true">
+        <div class="splash__scene" id="splash-scene">
+
+            <!-- Layer 1: arc ring — spins in from top -->
+            <img class="splash__arc-layer"
+                 src="assets/splash-bg.png" alt=""
+                 fetchpriority="high" decoding="sync" draggable="false">
+
+            <!-- Layer 2: marker pin — drops from above -->
+            <img class="splash__marker-layer"
+                 src="assets/splash-bg.png" alt=""
+                 decoding="async" draggable="false">
+
+            <!-- Layer 3: wordmark — rises from below -->
+            <img class="splash__word-layer"
+                 src="assets/splash-bg.png" alt=""
+                 decoding="async" draggable="false">
+
+            <!-- SVG speed streaks injected by JS -->
+
+            <!-- Moto: flies in from left, lands in marker gap -->
+            <img class="splash__moto"
+                 id="splash-moto"
+                 src="assets/splash-moto.png" alt=""
+                 fetchpriority="high" decoding="sync" draggable="false">
+
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         NAVBAR — inlined, no fetch dependency
+    ═══════════════════════════════════════════════════════ -->
+    <nav class="navbar">
+        <div class="navbar__inner">
+
+            <!-- Hamburger: first in HTML, floated to visual-right via CSS -->
+            <button id="mobile-menu-btn" class="navbar__hamburger"
+                    aria-expanded="false" aria-label="القائمة">
+                <span></span><span></span><span></span>
+            </button>
+
+            <div class="navbar__logo">
+                <img src="assets/logo.png" alt="Delivo">
+                <span class="navbar__brand">Delivo</span>
+            </div>
+
+            <div class="navbar__links" id="navbar-links">
+                <a href="#" class="nav-link active">الرئيسية</a>
+                <a href="#" class="nav-link">المتاجر</a>
+                <a href="#" class="nav-link">العروض</a>
+                <a href="#" class="nav-link" id="nav-track-link">تتبع الطلب</a>
+            </div>
+
+            <div class="navbar__controls">
+
+                <!-- Single circle account button — no pill, no label -->
+                <button class="navbar__account" id="account-btn" aria-label="حسابي">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              stroke="currentColor" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4" stroke="currentColor"
+                                stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                    </svg>
+                </button>
+
+                <div class="navbar__cart" id="cart-icon">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              stroke="currentColor"
+                              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                    <span id="cart-badge">0</span>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="navbar__mobile" id="mobile-menu">
+            <a href="#" class="nav-link active">الرئيسية</a>
+            <a href="#" class="nav-link">المتاجر</a>
+            <a href="#" class="nav-link">العروض</a>
+            <a href="#" class="nav-link" id="mobile-track-link">تتبع الطلب</a>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MAIN CONTENT
+    ═══════════════════════════════════════════════════════ -->
+    <main id="main-content">
+
+        <!-- HERO -->
+        <section class="hero" id="hero-section">
+
+            <!-- Background -->
+            <img class="hero__bg" src="assets/hero-bg2.png" alt="">
+
+            <!-- Online counter widget -->
+            <div class="hero__online" id="hero-online-count" title="الزوار المتصلون الآن">
+                <span class="online-dot"></span>
+                <span class="online-num">–</span>
+                <span class="online-lbl">متصل الآن</span>
+            </div>
+
+            <!-- Carousel / Desktop layout -->
+            <div class="hero__carousel">
+
+                <div class="hero__slides-wrap">
+                    <div class="hero__slides" id="hero-slides">
+
+                        <!-- Step 1 -->
+                        <div class="hero__slide active">
+                            <div class="hero__slide-text">
+                                <div class="hero__slide-num">1</div>
+                                <div class="hero__slide-title">اختر المتجر</div>
+                                <div class="hero__slide-sub">اختر من أفضل المطاعم والمتاجر القريبة منك</div>
+                            </div>
+                            <img class="hero__phone" src="assets/hero-mobile1.png" alt="اختر المتجر">
+                        </div>
+
+                        <!-- Step 2 -->
+                        <div class="hero__slide">
+                            <div class="hero__slide-text">
+                                <div class="hero__slide-num">2</div>
+                                <div class="hero__slide-title">اطلب بسهولة</div>
+                                <div class="hero__slide-sub">اختر طلبك وأضفه للسلة وأكمل بخطوات سهلة</div>
+                            </div>
+                            <img class="hero__phone" src="assets/hero-mobile2.png" alt="اطلب بسهولة">
+                        </div>
+
+                        <!-- Step 3 -->
+                        <div class="hero__slide">
+                            <div class="hero__slide-text">
+                                <div class="hero__slide-num">3</div>
+                                <div class="hero__slide-title">تابع السائق</div>
+                                <div class="hero__slide-sub">تابع السائق لحظة بلحظة حتى يصل طلبك</div>
+                            </div>
+                            <img class="hero__phone" src="assets/hero-mobile3.png" alt="تابع السائق">
+                        </div>
+
+                        <!-- Step 4 -->
+                        <div class="hero__slide">
+                            <div class="hero__slide-text">
+                                <div class="hero__slide-num">4</div>
+                                <div class="hero__slide-title">استلم الطلب</div>
+                                <div class="hero__slide-sub">استلم طلبك بسرعة واستمتع بوجبتك</div>
+                            </div>
+                            <img class="hero__phone" src="assets/hero-mobile4.png" alt="استلم الطلب">
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Step bar (mobile only) -->
+                <div class="hero__stepbar" id="hero-stepbar">
+                    <button class="hero__step-btn active" data-idx="0">
+                        <span class="hero__step-btn-num">1</span>
+                        <span class="hero__step-btn-label">اختر المتجر</span>
+                    </button>
+                    <button class="hero__step-btn" data-idx="1">
+                        <span class="hero__step-btn-num">2</span>
+                        <span class="hero__step-btn-label">اطلب بسهولة</span>
+                    </button>
+                    <button class="hero__step-btn" data-idx="2">
+                        <span class="hero__step-btn-num">3</span>
+                        <span class="hero__step-btn-label">تابع السائق</span>
+                    </button>
+                    <button class="hero__step-btn" data-idx="3">
+                        <span class="hero__step-btn-num">4</span>
+                        <span class="hero__step-btn-label">استلم الطلب</span>
+                    </button>
+                </div>
+
+                <!-- Progress bar -->
+                <div class="hero__progress" id="hero-progress"></div>
+
+            </div>
+
+            <!-- Bottom badges strip -->
+            <div class="hero__badges">
+                <div class="hero__badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/>
+                    </svg>
+                    <span>دعم 24/7</span>
+                </div>
+                <div class="hero__badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    <span>توصيل سريع</span>
+                </div>
+            </div>
+
+        </section>
+
+        <script>
+        /* ── Hero Carousel (mobile only, pauses on desktop) ─── */
+        (function () {
+            const DURATION = 3400;
+            const slides   = document.querySelectorAll('.hero__slide');
+            const btns     = document.querySelectorAll('.hero__step-btn');
+            const track    = document.getElementById('hero-slides');
+            const progress = document.getElementById('hero-progress');
+            const total    = slides.length;
+            let   current  = 0;
+            let   timer    = null;
+
+            function goTo(idx) {
+                slides[current].classList.remove('active');
+                btns[current].classList.remove('active');
+                current = (idx + total) % total;
+                slides[current].classList.add('active');
+                btns[current].classList.add('active');
+                // LTR transform — slides are laid out left to right in DOM
+                track.style.transform = `translateX(-${current * 25}%)`;
+                // progress bar restart
+                progress.style.transition = 'none';
+                progress.style.width = '0%';
+                void progress.offsetWidth;
+                progress.style.transition = `width ${DURATION}ms linear`;
+                progress.style.width = '100%';
+                clearTimeout(timer);
+                timer = setTimeout(() => goTo(current + 1), DURATION);
+            }
+
+            // step bar clicks
+            btns.forEach(b => b.addEventListener('click', () => goTo(+b.dataset.idx)));
+
+            // swipe support
+            let tx = 0;
+            const wrap = document.querySelector('.hero__slides-wrap');
+            wrap.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+            wrap.addEventListener('touchend',   e => {
+                const d = tx - e.changedTouches[0].clientX;
+                if (Math.abs(d) > 40) goTo(d > 0 ? current + 1 : current - 1);
+            });
+
+            // start at step 1
+            goTo(0);
+        })();
+        </script>
+
+        <div id="categories"></div>
+        <div id="cat-stores-dropdown" class="cat-stores-dropdown">
+            <div class="cat-stores-dropdown__inner">
+                <div class="cat-stores-dropdown__header">
+                    <div class="cat-stores-dropdown__title">
+                        <span id="cat-dd-emoji"></span>
+                        <span id="cat-dd-title"></span>
+                    </div>
+                    <span class="cat-stores-dropdown__count" id="cat-dd-count"></span>
+                </div>
+                <div class="cat-stores-dropdown__scroll" id="cat-dropdown-scroll"></div>
+            </div>
+        </div>
+        <div id="offers"></div>
+
+        <section class="stores" id="stores-section">
+            <div class="stores__header">
+                <h2 class="section-title">المتاجر الأكثر طلباً</h2>
+                <span class="stores__stat-total"></span>
+            </div>
+            <div class="stores__scroll hide-scrollbar" id="stores-scroll">
+                <!-- Populated dynamically by stores.js -->
+            </div>
+        </section>
+
+        <section class="why section">
+            <div class="container">
+                <h2 class="section-title">لماذا Delivo؟</h2>
+                <div class="why__grid">
+                    <div class="why-card">
+                        <div class="why-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="#FF5C00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+                        <div class="why-card__body"><p class="why-card__title">توصيل سريع</p><p class="why-card__desc">خلال 30 دقيقة</p></div>
+                    </div>
+                    <div class="why-card">
+                        <div class="why-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="#FF5C00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="9" y1="15" x2="15" y2="9"/><circle cx="9.5" cy="9.5" r="1" fill="#FF5C00" stroke="none"/><circle cx="14.5" cy="14.5" r="1" fill="#FF5C00" stroke="none"/></svg></div>
+                        <div class="why-card__body"><p class="why-card__title">أفضل الأسعار</p><p class="why-card__desc">عروض يومية حصرية</p></div>
+                    </div>
+                    <div class="why-card">
+                        <div class="why-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="#FF5C00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+                        <div class="why-card__body"><p class="why-card__title">تجربة متنوعة</p><p class="why-card__desc">+50 متجر مميز</p></div>
+                    </div>
+                    <div class="why-card">
+                        <div class="why-card__icon"><svg viewBox="0 0 24 24" fill="none" stroke="#FF5C00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+                        <div class="why-card__body"><p class="why-card__title">تغطية واسعة</p><p class="why-card__desc">بعلبك ومحيطها</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="app-download section">
+            <div class="container">
+                <div class="app-download__card">
+
+                    <!-- Decorative glows -->
+                    <div class="app-download__glow app-download__glow--1"></div>
+                    <div class="app-download__glow app-download__glow--2"></div>
+
+                    <!-- Phone — overflows left edge (LTR left = RTL right visual) -->
+                    <div class="app-download__phone">
+                        <img src="assets/app-phone.png" alt="Delivo App"
+                             class="app-download__phone-img">
+                    </div>
+
+                    <!-- Content column: title → tagline → desc → buttons → qr -->
+                    <div class="app-download__content">
+                        <div class="app-download__badge">📱 حمل التطبيق الآن</div>
+                        <h2 class="app-download__title">
+                            حمل تطبيق <span>Delivo</span>
+                        </h2>
+                        <p class="app-download__tagline">تجربة أسهل، أسرع وأفضل!</p>
+                        <p class="app-download__desc">
+                            حمل التطبيق الآن واستمتع بتجربة طلب مميزة
+                        </p>
+
+                        <!-- Store buttons row -->
+                        <div class="app-download__btns">
+                            <a href="#" class="store-btn">
+                                <span class="store-btn__icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                                        <path d="M3.18 23.76c.3.17.64.24.98.24.4 0 .8-.11 1.15-.32L18.4 16.4l-3.26-3.26-11.96 10.62zM.5 1.4C.19 1.83 0 2.4 0 3.1v17.8c0 .7.19 1.27.5 1.7l.09.08 9.97-9.97v-.24L.59 1.32.5 1.4zM22.55 10.4l-3.01-1.71-3.38 3.38 3.38 3.38 3.03-1.72c.87-.49.87-1.3 0-1.79l-.02-.54zM4.11.32L18.18 8.6l-3.26 3.26L3.09.56C3.4.35 3.8.13 4.11.32z"/>
+                                    </svg>
+                                </span>
+                                <span class="store-btn__label">
+                                    <span class="store-btn__small">GET IT ON</span>
+                                    <span class="store-btn__name">Google Play</span>
+                                </span>
+                            </a>
+                            <a href="#" class="store-btn">
+                                <span class="store-btn__icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.15-2.18 1.27-2.16 3.8.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.37 2.78M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                                    </svg>
+                                </span>
+                                <span class="store-btn__label">
+                                    <span class="store-btn__small">Download on the</span>
+                                    <span class="store-btn__name">App Store</span>
+                                </span>
+                            </a>
+                        </div>
+
+                        <!-- QR row -->
+                        <div class="app-download__qr-row">
+                            <div class="app-download__qr-wrap">
+                                <img src="assets/qr-code.png" alt="QR Code" class="app-download__qr-img">
+                            </div>
+                            <span class="app-download__qr-label">امسح للتحميل المباشر</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div id="join-partner"></div>
+    </main>
+
+    <div id="footer"></div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODALS — inlined, no fetch dependency
+    ═══════════════════════════════════════════════════════ -->
+
+    <!-- Login modal -->
+    <div class="modal-overlay" id="modal-login">
+        <div class="modal-box">
+            <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+            <h2 class="modal-title">تسجيل الدخول</h2>
+            <p class="modal-subtitle">أدخل بياناتك للمتابعة</p>
+            <p id="login-error" class="modal-error" style="display:none;"></p>
+            <div class="modal-field">
+                <label for="login-username">اسم المستخدم</label>
+                <input type="text" id="login-username" placeholder="username" dir="ltr"
+                       autocomplete="username" autocapitalize="none">
+            </div>
+            <div class="modal-field">
+                <label for="login-password">كلمة المرور</label>
+                <div class="password-input-row">
+                    <input type="password" id="login-password" placeholder="••••••••"
+                           autocomplete="current-password">
+                    <button type="button" class="password-toggle" data-target="login-password" aria-label="إظهار كلمة المرور">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <button id="login-submit" class="btn-primary"
+                    style="width:100%;justify-content:center;padding:12px;">دخول</button>
+            <p class="modal-footer-text">
+                ما عندك حساب؟ <a href="#" data-modal="modal-subscribe" data-close>سجّل الآن</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Register modal -->
+    <div class="modal-overlay" id="modal-subscribe">
+        <div class="modal-box">
+            <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+            <h2 class="modal-title">إنشاء حساب</h2>
+            <p class="modal-subtitle">انضم إلى Delivo واطلب في ثوانٍ</p>
+            <p id="reg-error" class="modal-error" style="display:none;"></p>
+
+            <div class="modal-field">
+                <label for="reg-username">اسم المستخدم</label>
+                <input type="text" id="reg-username" placeholder="مثال: ahmad_baalbek"
+                       dir="ltr" autocomplete="username" autocapitalize="none" maxlength="30">
+                <span class="field-hint">أحرف إنجليزية، أرقام، _ فقط</span>
+            </div>
+
+            <div class="modal-field">
+                <label for="reg-displayname">الاسم الظاهر</label>
+                <input type="text" id="reg-displayname" placeholder="أحمد علي" autocomplete="name">
+            </div>
+
+            <div class="modal-field">
+                <label for="reg-password">كلمة المرور</label>
+                <div class="password-input-row">
+                    <input type="password" id="reg-password" placeholder="8 أحرف على الأقل"
+                           autocomplete="new-password">
+                    <button type="button" class="password-toggle" data-target="reg-password" aria-label="إظهار كلمة المرور">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Phone (required) — Lebanon number -->
+            <div class="modal-field">
+                <label for="reg-phone">رقم الهاتف <span class="field-required">*</span></label>
+                <div class="phone-input-row">
+                    <span class="phone-prefix">🇱🇧 +961</span>
+                    <input type="tel" id="reg-phone"
+                           placeholder="03 123 456"
+                           dir="ltr"
+                           autocomplete="tel"
+                           maxlength="10"
+                           inputmode="numeric">
+                </div>
+                <span class="field-hint">مثال: 03 123 456 أو 71 123 456</span>
+            </div>
+
+            <!-- Location (optional) — GPS or Map picker -->
+            <div class="modal-field">
+                <label>موقعك <span style="color:var(--clr-gray-400)">(اختياري - لتوصيل أسرع)</span></label>
+
+                <!-- Two option buttons -->
+                <div class="location-options">
+                    <button type="button" class="location-opt-btn" id="reg-location-gps">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                        </svg>
+                        موقعي الحالي
+                    </button>
+                    <button type="button" class="location-opt-btn" id="reg-location-map">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+                        </svg>
+                        اختر على الخريطة
+                    </button>
+                </div>
+
+                <!-- Status line -->
+                <p class="location-status" id="reg-location-status" style="display:none;"></p>
+
+                <!-- Map container (hidden until user clicks map option) -->
+                <div class="location-map-wrap" id="reg-map-wrap" style="display:none;">
+                    <div id="reg-map" class="location-map"></div>
+                    <p class="location-map-hint">📍 اسحب الدبوس أو انقر • اضغط 🗺/🛰 لتغيير نوع الخريطة</p>
+                </div>
+
+                <input type="hidden" id="reg-lat">
+                <input type="hidden" id="reg-lng">
+            </div>
+
+            <button id="reg-submit" class="btn-primary"
+                    style="width:100%;justify-content:center;padding:12px;margin-top:4px;">
+                إنشاء الحساب
+            </button>
+            <p class="modal-footer-text">
+                عندك حساب؟ <a href="#" data-modal="modal-login" data-close>سجّل الدخول</a>
+            </p>
+        </div>
+    </div>
+
+        <!-- Account modal -->
+    <div class="modal-overlay" id="modal-account">
+        <div class="modal-box modal-box--account">
+            <div class="acct-header">
+                <span class="acct-header__title">حسابي</span>
+                <button class="modal-close" data-close aria-label="Close">✕</button>
+            </div>
+            <!-- Guest state -->
+            <div class="acct-guest" id="acct-guest">
+                <div class="acct-guest__hero">
+                    <div class="acct-guest__icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--clr-gray-400)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <h2 class="acct-guest__title">أنت غير مسجّل</h2>
+                    <p class="acct-guest__sub">سجّل دخولك لتتابع طلباتك وتدير حسابك وتستمتع بتجربة طلب أسرع.</p>
+                </div>
+                <div class="acct-guest__btns">
+                    <button class="acct-btn-signin">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+                        </svg>
+                        تسجيل الدخول
+                    </button>
+                    <button class="acct-btn-register">إنشاء حساب مجاني</button>
+                </div>
+                <div class="acct-perks">
+                    <div class="acct-perk">
+                        <div class="acct-perk__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--clr-orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H5a2 2 0 0 0-2 2"/><path d="M9 3H5a2 2 0 0 0-2 2v14"/><rect x="9" y="3" width="12" height="18" rx="2"/></svg></div>
+                        <span class="acct-perk__label">تتبع الطلبات</span>
+                    </div>
+                    <div class="acct-perk">
+                        <div class="acct-perk__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--clr-orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                        <span class="acct-perk__label">دفع أسرع</span>
+                    </div>
+                    <div class="acct-perk">
+                        <div class="acct-perk__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--clr-orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+                        <span class="acct-perk__label">عروض حصرية</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Logged-in state -->
+            <div class="acct-user" id="acct-user" style="display:none;">
+                <div class="acct-profile">
+                    <div class="acct-avatar" id="acct-avatar">U</div>
+                    <div class="acct-profile__info">
+                        <div class="acct-profile__name" id="acct-name"></div>
+                        <div class="acct-profile__email" id="acct-email"></div>
+                        <button class="acct-edit-chip" id="acct-edit-btn">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--clr-orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            تعديل الملف
+                        </button>
+                    </div>
+                </div>
+                <!-- Points balance card -->
+                <div class="acct-points-card" id="acct-points-card" onclick="openLoyaltyModal()" style="cursor:pointer;">
+                    <div class="acct-points-card__left">
+                        <span class="acct-points-card__icon">⭐</span>
+                        <div>
+                            <div class="acct-points-card__label">رصيد نقاطك</div>
+                            <div class="acct-points-card__val"><span id="acct-points-balance">0</span> نقطة</div>
+                        </div>
+                    </div>
+                    <div class="acct-points-card__right">
+                        <span class="acct-points-card__hint">كل طلب = 10 نقاط 🎁</span>
+                        <span class="acct-points-card__cta">عرض السلم ›</span>
+                    </div>
+                </div>
+
+                <p class="acct-sec-label">الحساب</p>
+                <div class="acct-menu">
+                    <button class="acct-row" id="acct-orders-btn">
+                        <div class="acct-row__icon acct-row__icon--blue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B6FD8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H5a2 2 0 0 0-2 2"/><path d="M9 3H5a2 2 0 0 0-2 2v14"/><rect x="9" y="3" width="12" height="18" rx="2"/></svg></div>
+                        <div class="acct-row__body"><span class="acct-row__title">طلباتي</span><span class="acct-row__sub">تتبع وعرض سجل الطلبات</span></div>
+                        <div class="acct-row__end"><span class="acct-badge" id="acct-orders-badge" style="display:none;">0</span><span class="acct-chevron">›</span></div>
+                    </button>
+                </div>
+                <p class="acct-sec-label">الإعدادات</p>
+                <div class="acct-menu">
+                    <button class="acct-row" id="acct-pwa-btn">
+                        <div class="acct-row__icon acct-row__icon--green">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                                <circle cx="12" cy="9" r="2.5"/>
+                            </svg>
+                        </div>
+                        <div class="acct-row__body">
+                            <span class="acct-row__title" id="acct-pwa-title">تثبيت التطبيق</span>
+                            <span class="acct-row__sub"  id="acct-pwa-sub">أضف Delivo لشاشتك الرئيسية</span>
+                        </div>
+                        <div class="acct-row__end">
+                            <span class="acct-pwa-badge" id="acct-pwa-badge" style="display:none;">✓ مثبّت</span>
+                            <span class="acct-chevron" id="acct-pwa-chevron">›</span>
+                        </div>
+                    </button>
+                </div>
+                <div class="acct-menu">
+                    <button class="acct-row" id="acct-profile-btn">
+                        <div class="acct-row__icon acct-row__icon--orange"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--clr-orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                        <div class="acct-row__body"><span class="acct-row__title">المعلومات الشخصية</span><span class="acct-row__sub">الاسم، الهاتف والتفاصيل</span></div>
+                        <div class="acct-row__end"><span class="acct-chevron">›</span></div>
+                    </button>
+                    <button class="acct-row" id="acct-password-btn">
+                        <div class="acct-row__icon acct-row__icon--orange"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--clr-orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+                        <div class="acct-row__body"><span class="acct-row__title">تغيير كلمة المرور</span><span class="acct-row__sub">تحديث بيانات الدخول</span></div>
+                        <div class="acct-row__end"><span class="acct-chevron">›</span></div>
+                    </button>
+                </div>
+                <div class="acct-signout-wrap">
+                    <button class="acct-signout-btn" id="acct-signout-btn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        تسجيل الخروج
+                    </button>
+                </div>
+                <p class="acct-version">Delivo v1.0</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Profile modal -->
+    <div class="modal-overlay" id="modal-edit-profile">
+        <div class="modal-box">
+            <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+            <h2 class="modal-title">تعديل الملف الشخصي</h2>
+            <p class="modal-subtitle">عدّل معلوماتك الشخصية</p>
+            <p id="edit-error" class="modal-error" style="display:none;"></p>
+            <p id="edit-success" class="modal-success" style="display:none;"></p>
+
+            <div class="modal-field">
+                <label for="edit-displayname">الاسم الظاهر</label>
+                <input type="text" id="edit-displayname" placeholder="أحمد علي" autocomplete="name">
+            </div>
+
+            <div class="modal-field">
+                <label for="edit-phone">رقم الهاتف <span style="color:var(--clr-gray-400)">(اختياري)</span></label>
+                <div class="phone-input-row">
+                    <span class="phone-prefix">🇱🇧 +961</span>
+                    <input type="tel" id="edit-phone" placeholder="03 123 456"
+                           dir="ltr" autocomplete="tel" maxlength="10">
+                </div>
+            </div>
+
+            <!-- Location section -->
+            <div class="modal-field">
+                <label>موقعك <span style="color:var(--clr-gray-400)">(اختياري - لتوصيل أسرع)</span></label>
+                <div class="location-options">
+                    <button type="button" class="location-opt-btn" id="edit-location-gps">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                        </svg>
+                        موقعي الحالي
+                    </button>
+                    <button type="button" class="location-opt-btn" id="edit-location-map">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+                        </svg>
+                        اختر على الخريطة
+                    </button>
+                </div>
+                <p class="location-status" id="edit-location-status" style="display:none;"></p>
+                <div class="location-map-wrap" id="edit-map-wrap" style="display:none;">
+                    <div id="edit-map" class="location-map"></div>
+                    <p class="location-map-hint">📍 اسحب الدبوس أو انقر • اضغط 🗺/🛰 لتغيير نوع الخريطة</p>
+                </div>
+                <input type="hidden" id="edit-lat">
+                <input type="hidden" id="edit-lng">
+            </div>
+
+            <button id="edit-submit" class="btn-primary"
+                    style="width:100%;justify-content:center;padding:12px;">
+                حفظ التغييرات
+            </button>
+
+            <!-- Divider -->
+            <div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px;">
+                <div style="flex:1;height:1px;background:var(--clr-gray-100);"></div>
+                <span style="font-size:0.72rem;color:var(--clr-gray-400);font-weight:600;">تغيير كلمة المرور</span>
+                <div style="flex:1;height:1px;background:var(--clr-gray-100);"></div>
+            </div>
+
+            <div class="modal-field">
+                <label for="edit-current-password">كلمة المرور الحالية</label>
+                <div class="password-input-row">
+                    <input type="password" id="edit-current-password" placeholder="••••••••"
+                           autocomplete="current-password">
+                    <button type="button" class="password-toggle" data-target="edit-current-password">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="modal-field">
+                <label for="edit-new-password">كلمة المرور الجديدة</label>
+                <div class="password-input-row">
+                    <input type="password" id="edit-new-password" placeholder="8 أحرف على الأقل"
+                           autocomplete="new-password">
+                    <button type="button" class="password-toggle" data-target="edit-new-password">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <button id="edit-password-submit" class="btn-secondary"
+                    style="width:100%;justify-content:center;padding:12px;">
+                تغيير كلمة المرور
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         STORE PANEL — full-screen slide-up menu
+    ═══════════════════════════════════════════════════════ -->
+    <div class="store-panel-overlay" id="store-panel-overlay"></div>
+    <div class="store-panel" id="store-panel" role="dialog" aria-modal="true" aria-label="قائمة المتجر">
+
+        <!-- Hero -->
+        <div class="sp-hero">
+            <!-- Blurred background (same image as circle logo, stretched + blurred) -->
+            <div class="sp-hero__bg-fallback" id="sp-hero-fallback">🏪</div>
+            <img class="sp-hero__bg" id="sp-hero-bg" src="" alt="" style="display:none">
+            <div class="sp-hero__gradient"></div>
+
+            <!-- Back button -->
+            <button class="sp-hero__back" id="sp-back-btn" aria-label="رجوع">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+
+            <!-- Store name + badges (above circle) -->
+            <div class="sp-hero__info">
+                <div class="sp-hero__name" id="sp-hero-name">المتجر</div>
+                <div class="sp-hero__meta" id="sp-hero-meta"></div>
+            </div>
+
+            <!-- Circle logo badge — overlaps below hero into tabs area -->
+            <div class="sp-hero__logo-circle" id="sp-hero-logo-circle">
+                <img class="sp-hero__logo" id="sp-hero-logo" src="" alt=""
+                     style="display:none"
+                     onerror="this.style.display='none';document.getElementById('sp-hero-logo-emoji').style.display='flex'">
+                <div class="sp-hero__logo-emoji" id="sp-hero-logo-emoji" style="display:none">🏪</div>
+            </div>
+        </div>
+
+        <!-- Category tabs -->
+        <nav class="sp-tabs" aria-label="أقسام المنتجات">
+            <div class="sp-tabs__inner" id="sp-tabs-inner"></div>
+        </nav>
+
+        <!-- Sub-category chips — glued directly under main tabs -->
+        <div class="sp-subcat-wrap" id="sp-subcat-wrap" style="display:none"></div>
+
+        <!-- Scrollable body -->
+        <div class="sp-body" id="sp-body"></div>
+
+        <!-- Sticky cart bar -->
+        <div class="sp-cart-bar" id="sp-cart-bar">
+            <button class="sp-cart-bar__btn" id="sp-cart-bar-btn">
+                <span class="sp-cart-bar__count" id="sp-cart-count">0 منتج</span>
+                <span>عرض السلة</span>
+                <span class="sp-cart-bar__total" id="sp-cart-total"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         CART SIDEBAR
+    ═══════════════════════════════════════════════════════ -->
+    <div class="cart-overlay" id="cart-overlay"></div>
+    <div class="cart-sidebar" id="cart-sidebar" role="dialog" aria-modal="true" aria-label="سلة التسوق">
+
+        <!-- Swipe handle (mobile) -->
+        <div class="cart-drag-handle" id="cart-drag-handle"></div>
+
+        <!-- Header -->
+        <div class="cart-header">
+            <div class="cart-header__title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+                سلة التسوق
+                <span class="cart-header__count" id="cart-header-count" style="display:none">0</span>
+            </div>
+            <button class="cart-header__close" id="cart-close-btn" aria-label="إغلاق">✕</button>
+        </div>
+
+        <!-- Store label -->
+        <div class="cart-store-label" id="cart-store-label" style="display:none"></div>
+
+        <!-- Dynamic body (items or empty state) -->
+        <div id="cart-body" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>
+
+        <!-- Footer (totals + checkout) -->
+        <div class="cart-footer" id="cart-footer" style="display:none;">
+
+            <!-- First-order free delivery banner (shown only for new users) -->
+            <div id="cart-free-delivery-banner" style="display:none;align-items:center;gap:10px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid #6ee7b7;border-radius:12px;padding:10px 14px;margin-bottom:10px;">
+                <span style="font-size:1.5rem;line-height:1;">🎁</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:800;color:#065f46;font-size:0.88rem;">طلبك الأول — توصيل مجاني!</div>
+                    <div style="color:#047857;font-size:0.76rem;margin-top:2px;">رسوم التوصيل مخفضة تلقائياً لهذا الطلب</div>
+                </div>
+            </div>
+
+            <div class="cart-totals">
+                <div class="cart-total-row">
+                    <span class="cart-total-label">المجموع الفرعي</span>
+                    <span class="cart-total-val" id="cart-subtotal"></span>
+                </div>
+                <div class="cart-total-row">
+                    <span class="cart-total-label">رسوم التوصيل</span>
+                    <span class="cart-total-val" id="cart-delivery">مجاناً</span>
+                </div>
+                <div class="cart-total-row cart-total-row--main">
+                    <span class="cart-total-label">الإجمالي</span>
+                    <span class="cart-total-val" id="cart-grandtotal"></span>
+                </div>
+            </div>
+
+            <!-- Compact extras toggle -->
+            <button class="cart-extras-toggle" id="cart-extras-toggle" type="button">
+                <span class="cart-extras-toggle__icons">
+                    <span id="cart-extras-loc-dot" class="cart-extras-dot" style="display:none">📍</span>
+                </span>
+                <span class="cart-extras-toggle__label">موقع التوصيل</span>
+                <svg class="cart-extras-toggle__arrow" width="14" height="14" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
+
+            <!-- Collapsible extras panel -->
+            <div class="cart-extras-panel" id="cart-extras-panel">
+
+                <div class="cart-location">
+                    <div class="cart-location__header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.2"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        <span>موقع التوصيل</span>
+                        <span class="cart-location__optional">(اختياري)</span>
+                    </div>
+                    <div class="cart-location__status" id="cart-loc-status">
+                        <span class="cart-location__status-text" id="cart-loc-status-text">لم يتم تحديد الموقع</span>
+                        <button class="cart-location__clear" id="cart-loc-clear" style="display:none" aria-label="مسح الموقع">✕</button>
+                    </div>
+                    <div class="cart-location__btns">
+                        <button type="button" class="cart-loc-btn" id="cart-loc-gps">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                            </svg>
+                            موقعي الحالي
+                        </button>
+                        <button type="button" class="cart-loc-btn" id="cart-loc-map">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                                <line x1="8" y1="2" x2="8" y2="18"/>
+                                <line x1="16" y1="6" x2="16" y2="22"/>
+                            </svg>
+                            اختر على الخريطة
+                        </button>
+                    </div>
+                    <input type="hidden" id="cart-loc-lat">
+                    <input type="hidden" id="cart-loc-lng">
+                </div>
+            </div>
+
+            <button class="cart-checkout-btn" id="cart-checkout-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+                إتمام الطلب
+            </button>
+            <button class="cart-clear-btn" id="cart-clear-btn">مسح السلة</button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SCRIPTS
+    ═══════════════════════════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════════
+         PWA INSTALL BANNER (Android / Desktop)
+    ═══════════════════════════════════════════════ -->
+    <div id="install-banner" class="install-banner" style="display:none;">
+        <div class="install-banner__content">
+            <div class="install-banner__icon">
+                <img src="assets/logo.png" alt="Delivo" onerror="this.style.display='none'">
+            </div>
+            <div class="install-banner__text">
+                <strong>Delivo</strong>
+                <span>حمّل التطبيق للوصول السريع</span>
+            </div>
+        </div>
+        <div class="install-banner__actions">
+            <button class="install-banner__dismiss" id="install-dismiss" aria-label="إغلاق">✕</button>
+            <button class="install-banner__install" id="install-btn">تثبيت</button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         iOS "Add to Home Screen" HINT
+    ═══════════════════════════════════════════════ -->
+    <div id="ios-hint" class="ios-hint" style="display:none;" role="dialog" aria-modal="true" aria-label="أضف للشاشة الرئيسية">
+        <div class="ios-hint__backdrop" id="ios-hint-backdrop"></div>
+        <div class="ios-hint__sheet">
+            <div class="ios-hint__handle"></div>
+            <div class="ios-hint__header">
+                <img src="assets/logo.png" alt="Delivo" class="ios-hint__logo">
+                <div class="ios-hint__header-text">
+                    <strong>ثبّت Delivo على هاتفك</strong>
+                    <span>مجاني — بدون App Store</span>
+                </div>
+                <button class="ios-hint__close" id="ios-hint-close" aria-label="إغلاق">✕</button>
+            </div>
+            <div class="ios-hint__steps">
+                <div class="ios-hint__step">
+                    <div class="ios-hint__step-num">١</div>
+                    <div class="ios-hint__step-body">
+                        <span class="ios-hint__step-label">اضغط على زر المشاركة</span>
+                        <span class="ios-hint__step-sub">الزر الموجود في شريط Safari في الأسفل</span>
+                    </div>
+                    <svg class="ios-hint__step-icon" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+                    </svg>
+                </div>
+                <div class="ios-hint__step">
+                    <div class="ios-hint__step-num">٢</div>
+                    <div class="ios-hint__step-body">
+                        <span class="ios-hint__step-label">اختر «إضافة إلى الشاشة الرئيسية»</span>
+                        <span class="ios-hint__step-sub">مرّر القائمة للأسفل إذا لم تجده</span>
+                    </div>
+                    <svg class="ios-hint__step-icon" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                </div>
+                <div class="ios-hint__step">
+                    <div class="ios-hint__step-num">٣</div>
+                    <div class="ios-hint__step-body">
+                        <span class="ios-hint__step-label">اضغط «إضافة» في الأعلى</span>
+                        <span class="ios-hint__step-sub">سيظهر أيقونة Delivo على شاشتك</span>
+                    </div>
+                    <svg class="ios-hint__step-icon" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </div>
+            </div>
+            <button class="ios-hint__got-it" id="ios-hint-got-it">فهمت، شكراً!</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="scripts/navbar.js?v=7"></script>
+    <script src="scripts/firebase-init.js?v=7"></script>
+    <script src="scripts/modal-auth.js?v=25"></script>
+    <script src="scripts/onboarding.js?v=1"></script>
+
+    <script src="scripts/loader.js?v=13"></script>
+    <script src="scripts/modals.js?v=7"></script>
+    <script src="scripts/stores.js?v=7"></script>
+    <script src="scripts/categories.js?v=3"></script>
+    <script src="scripts/cart.js?v=13"></script>
+    <script src="scripts/store-panel.js?v=6"></script>
+    <script src="scripts/store-status-listener.js?v=1"></script>
+    <script src="scripts/pwa.js?v=8"></script>
+    <script src="scripts/presence.js?v=1"></script>
+    <script src="scripts/back-handler.js?v=1"></script>
+    <script>
+    // ── Wire "تتبع الطلب" nav links ──────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        function openTrackFlow(e) {
+            e.preventDefault();
+            const user = window.DelivoUser;
+            if (!user) {
+                if (typeof openModal === 'function') openModal('modal-login');
+            } else {
+                if (typeof openOrdersModal === 'function') openOrdersModal();
+            }
+        }
+        const navTrack    = document.getElementById('nav-track-link');
+        const mobileTrack = document.getElementById('mobile-track-link');
+        if (navTrack)    navTrack.addEventListener('click',    openTrackFlow);
+        if (mobileTrack) mobileTrack.addEventListener('click', openTrackFlow);
+    });
+    </script>
+
+<!-- ══════════════════════════════════════════════════════════
+     ORDERS HISTORY MODAL
+══════════════════════════════════════════════════════════ -->
+<!-- Orders History — full screen sheet -->
+<div id="orders-sheet-overlay" class="oh-sheet-overlay"></div>
+<div id="orders-sheet" class="oh-sheet">
+
+    <!-- Drag handle -->
+    <div class="oh-sheet__handle"></div>
+
+    <!-- Header -->
+    <div class="oh-sheet__header">
+        <button id="orders-back-btn" class="oh-sheet__back">‹</button>
+        <span class="oh-sheet__title">طلباتي</span>
+        <button id="orders-close-btn" class="oh-sheet__close">✕</button>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="oh-filter-bar">
+        <button class="oh-filter active" data-filter="all">الكل</button>
+        <button class="oh-filter" data-filter="0">🔵 جديد</button>
+        <button class="oh-filter" data-filter="1">🟢 وُصِّل</button>
+        <button class="oh-filter" data-filter="3">🟡 متأخر</button>
+        <button class="oh-filter" data-filter="2">🔴 ملغي</button>
+        <button class="oh-filter" data-filter="5">🟣 ملغي/م</button>
+    </div>
+
+    <!-- Scrollable list -->
+    <div id="orders-list" class="oh-sheet__list">
+        <div id="orders-loading" class="oh-sheet__loading">
+            <div class="oh-spinner"></div>
+            <p>جاري التحميل…</p>
+        </div>
+        <div id="orders-empty" class="oh-sheet__empty" style="display:none;">
+            <div class="oh-sheet__empty-icon">📭</div>
+            <p>لا توجد طلبات بعد</p>
+            <small>ابدأ بطلب شيء لذيذ!</small>
+        </div>
+    </div>
+</div>
+
+<!-- ── Cart Map Modal — outside sidebar so Leaflet can measure it ── -->
+<div id="cart-map-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;">
+    <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid #f0f0f0;">
+            <span style="font-size:1rem;font-weight:800;color:#111;">📍 اختر موقع التوصيل</span>
+            <button id="cart-map-modal-close" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#888;padding:4px 8px;">✕</button>
+        </div>
+        <div id="cart-map-modal-map" style="width:100%;height:60vh;min-height:280px;"></div>
+        <p style="text-align:center;font-size:0.75rem;color:#aaa;margin:6px 0;font-weight:600;">اسحب الدبوس أو انقر لتحديد الموقع</p>
+        <div style="padding:10px 16px 20px;">
+            <button id="cart-map-modal-confirm" style="width:100%;background:#FF5C00;color:#fff;border:none;border-radius:12px;padding:13px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;">✔ تأكيد الموقع</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     LOYALTY MODAL — Points ladder
+══════════════════════════════════════════════════════════ -->
+<div id="loyalty-overlay" class="loyalty-overlay" onclick="closeLoyaltyModal()"></div>
+<div id="loyalty-sheet" class="loyalty-sheet" role="dialog" aria-modal="true" aria-label="برنامج النقاط">
+
+    <!-- Handle -->
+    <div class="loyalty-sheet__handle"></div>
+
+    <!-- Rewards ladder — top (highest reward at very top, scroll up to reach) -->
+    <div class="loyalty-ladder" id="loyalty-ladder">
+        <!-- Rendered by JS — highest pts first -->
+    </div>
+
+    <!-- How to earn -->
+    <div class="loyalty-howto">
+        <div class="loyalty-howto__title">كيف تجمع نقاط؟</div>
+        <div class="loyalty-howto__steps">
+            <div class="loyalty-howto__step"><span class="loyalty-howto__num">1</span><span>أتمم طلبًا من أي متجر</span></div>
+            <div class="loyalty-howto__step"><span class="loyalty-howto__num">2</span><span>ينتظر حتى يُوصَّل الطلب ✅</span></div>
+            <div class="loyalty-howto__step"><span class="loyalty-howto__num">3</span><span>تُضاف <strong>10 نقاط</strong> تلقائياً لحسابك</span></div>
+        </div>
+    </div>
+
+    <!-- Header — above balance -->
+    <div class="loyalty-sheet__header">
+        <div class="loyalty-sheet__header-left">
+            <span class="loyalty-sheet__icon">⭐</span>
+            <div>
+                <div class="loyalty-sheet__title">برنامج النقاط</div>
+                <div class="loyalty-sheet__subtitle">اسحب لأعلى لرؤية كل الجوائز ↑</div>
+            </div>
+        </div>
+        <button class="loyalty-sheet__close" onclick="closeLoyaltyModal()" aria-label="إغلاق">✕</button>
+    </div>
+
+    <!-- Points balance hero — very bottom -->
+    <div class="loyalty-balance-hero" id="loyalty-balance-hero">
+        <div class="loyalty-balance-hero__ring" id="loyalty-ring-wrap">
+            <svg class="loyalty-ring-svg" viewBox="0 0 120 120">
+                <circle class="loyalty-ring-bg"  cx="60" cy="60" r="52" />
+                <circle class="loyalty-ring-fill" cx="60" cy="60" r="52" id="loyalty-ring-fill"/>
+            </svg>
+            <div class="loyalty-ring-center">
+                <span class="loyalty-ring-num" id="loyalty-modal-points">0</span>
+                <span class="loyalty-ring-lbl">نقطة</span>
+            </div>
+        </div>
+        <div class="loyalty-balance-hero__info">
+            <div class="loyalty-balance-hero__next" id="loyalty-next-msg">اطلب وابدأ بجمع نقاطك!</div>
+            <div class="loyalty-balance-hero__hint">🛵 كل طلب موصَّل = <strong>10 نقاط</strong></div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+/* ── Loyalty Modal Styles ─────────────────────────────────── */
+.loyalty-overlay {
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+}
+.loyalty-overlay.active { opacity: 1; pointer-events: all; }
+
+.loyalty-sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 3001;
+    background: #fff;
+    border-radius: 24px 24px 0 0;
+    max-height: 92vh;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.38s cubic-bezier(0.32,0.72,0,1);
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+    -webkit-overflow-scrolling: touch;
+}
+.loyalty-sheet.active { transform: translateY(0); }
+
+.loyalty-sheet__handle {
+    width: 40px; height: 4px;
+    background: #e5e7eb; border-radius: 99px;
+    margin: 10px auto 0; flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
+.loyalty-sheet__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-top: 1px solid #f3f4f6;
+    background: #fff;
+}
+.loyalty-sheet__header-left { display: flex; align-items: center; gap: 12px; }
+.loyalty-sheet__icon { font-size: 2rem; line-height: 1; }
+.loyalty-sheet__title { font-size: 1.1rem; font-weight: 800; color: #111; }
+.loyalty-sheet__subtitle { font-size: 0.78rem; color: #888; margin-top: 2px; }
+.loyalty-sheet__close {
+    background: #f3f4f6; border: none; border-radius: 50%;
+    width: 32px; height: 32px; font-size: 1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; color: #555;
+    flex-shrink: 0;
+}
+
+/* Balance hero */
+.loyalty-balance-hero {
+    display: flex; align-items: center; gap: 20px;
+    padding: 20px 20px 16px;
+    background: linear-gradient(135deg, #fff7ed, #fff3e0);
+    border-top: 1px solid #ffe8cc;
+    position: sticky; bottom: 0; z-index: 2;
+}
+.loyalty-balance-hero__ring { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+.loyalty-ring-svg { width: 110px; height: 110px; transform: rotate(-90deg); }
+.loyalty-ring-bg {
+    fill: none; stroke: #f3f4f6; stroke-width: 10;
+}
+.loyalty-ring-fill {
+    fill: none; stroke: #FF5C00; stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 326.7; stroke-dashoffset: 326.7;
+    transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1);
+}
+.loyalty-ring-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.loyalty-ring-num {
+    font-size: 1.7rem; font-weight: 900; color: #FF5C00; line-height: 1;
+}
+.loyalty-ring-lbl { font-size: 0.7rem; color: #888; font-weight: 600; }
+
+.loyalty-balance-hero__info { flex: 1; min-width: 0; }
+.loyalty-balance-hero__next {
+    font-size: 0.9rem; font-weight: 700; color: #1a1a1a; line-height: 1.4;
+    margin-bottom: 8px;
+}
+.loyalty-balance-hero__hint {
+    font-size: 0.8rem; color: #555;
+    background: #fff; border-radius: 10px;
+    padding: 6px 10px; display: inline-block;
+    border: 1px solid #ffe0c0;
+}
+
+/* How to earn */
+.loyalty-howto {
+    padding: 16px 20px 8px;
+    border-bottom: 1px solid #f3f4f6;
+}
+.loyalty-howto__title { font-size: 0.82rem; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.loyalty-howto__steps { display: flex; flex-direction: column; gap: 8px; }
+.loyalty-howto__step {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.88rem; color: #333;
+}
+.loyalty-howto__num {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #FF5C00; color: #fff;
+    font-size: 0.72rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Ladder */
+.loyalty-ladder { padding: 16px 20px 24px; }
+.loyalty-ladder__title { font-size: 0.82rem; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+
+.loyalty-step {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    margin-bottom: 6px;
+    background: #fafafa;
+    border: 1.5px solid #f0f0f0;
+    position: relative;
+    transition: all 0.2s;
+}
+.loyalty-step--reached {
+    background: linear-gradient(135deg,#fff7ed,#fff3e0);
+    border-color: #ffcc99;
+}
+.loyalty-step--current {
+    background: linear-gradient(135deg,#fff3e0,#ffe8cc);
+    border-color: #FF5C00;
+    box-shadow: 0 2px 12px rgba(255,92,0,0.13);
+}
+.loyalty-step--locked { opacity: 0.5; }
+
+.loyalty-step__pts-col {
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 52px;
+}
+.loyalty-step__pts {
+    font-size: 1.05rem; font-weight: 900; color: #FF5C00; line-height: 1;
+}
+.loyalty-step__pts-lbl { font-size: 0.62rem; color: #aaa; font-weight: 600; }
+
+.loyalty-step__connector {
+    position: absolute; right: 39px; bottom: -14px;
+    width: 2px; height: 14px;
+    background: linear-gradient(#f0f0f0, #f0f0f0);
+    z-index: 0;
+}
+.loyalty-step--reached .loyalty-step__connector { background: #FF5C00; }
+
+.loyalty-step__icon { font-size: 1.8rem; flex-shrink: 0; line-height: 1; }
+
+.loyalty-step__body { flex: 1; min-width: 0; }
+.loyalty-step__reward { font-size: 0.92rem; font-weight: 700; color: #1a1a1a; }
+.loyalty-step__desc { font-size: 0.76rem; color: #777; margin-top: 2px; }
+
+.loyalty-step__badge {
+    font-size: 0.65rem; font-weight: 800;
+    padding: 3px 8px; border-radius: 99px;
+    flex-shrink: 0;
+}
+.loyalty-step__badge--done  { background:#dcfce7; color:#15803d; }
+.loyalty-step__badge--now   { background:#FF5C00; color:#fff; }
+.loyalty-step__badge--lock  { background:#f3f4f6; color:#999; }
+
+.loyalty-step__progress-bar {
+    position: absolute; bottom: 0; left: 0;
+    height: 3px; border-radius: 0 0 12px 12px;
+    background: linear-gradient(90deg,#FF5C00,#ff9c00);
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Guest placeholder */
+.loyalty-guest {
+    text-align: center; padding: 30px 20px;
+    color: #888; font-size: 0.9rem;
+}
+.loyalty-guest__icon { font-size: 3rem; margin-bottom: 10px; }
+.loyalty-guest__title { font-size: 1.05rem; font-weight: 800; color: #333; margin-bottom: 6px; }
+
+/* Points card in profile */
+.acct-points-card {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg,#fff7ed,#fff3e0);
+    border: 1.5px solid #ffcc99;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin: 12px 0 6px;
+    gap: 10px;
+}
+.acct-points-card__left  { display: flex; align-items: center; gap: 10px; }
+.acct-points-card__icon  { font-size: 1.6rem; line-height: 1; }
+.acct-points-card__label { font-size: 0.72rem; color: #888; font-weight: 600; }
+.acct-points-card__val   { font-size: 1.15rem; font-weight: 900; color: #FF5C00; }
+.acct-points-card__right { text-align: left; }
+.acct-points-card__hint  { display: block; font-size: 0.70rem; color: #888; }
+.acct-points-card__cta   { display: block; font-size: 0.75rem; font-weight: 700; color: #FF5C00; margin-top: 3px; }
+
+/* Offer card loyalty stacked title */
+.offer-card__loyalty-title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 2px;
+    width: 100%;
+}
+.loyalty-title-line {
+    display: block;
+    font-weight: 900;
+    line-height: 1.25;
+    color: #fff;
+}
+.loyalty-title-line--top { font-size: clamp(0.82rem, 4vw, 1.05rem); opacity: 0.8; }
+.loyalty-title-line--mid { font-size: clamp(1rem,   5vw, 1.3rem);  letter-spacing: -0.01em; }
+.loyalty-title-line--bot { font-size: clamp(0.88rem, 4.2vw, 1.1rem); opacity: 0.9; }
+
+/* Center content for loyalty card only */
+.offer-card--loyalty .offer-card__content {
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+}
+.offer-card--loyalty .offer-card__sub {
+    text-align: center;
+}
+
+/* Offer card loyalty glow */
+.offer-card--loyalty { overflow: hidden; }
+.offer-card__loyalty-glow {
+    position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.18) 50%, transparent 80%);
+    background-size: 200% 100%;
+    animation: loyalty-shimmer 2.4s infinite;
+}
+@keyframes loyalty-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+</style>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   LOYALTY — Points ladder system
+   RTDB path: /users/{uid}/points  (integer, incremented on delivery)
+   Rewards defined in LOYALTY_REWARDS below.
+═══════════════════════════════════════════════════════════ */
+
+const LOYALTY_RTDB   = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+const POINTS_PER_ORDER = 10;
+
+const LOYALTY_REWARDS = [
+    { pts: 50,   icon: '☕', reward: 'قهوة مجانية',              desc: 'قهوة إسبريسو من متجر شريك' },
+    { pts: 100,  icon: '🍕', reward: 'خصم $1 على طلبك',         desc: 'خصم دولار واحد على أي طلب' },
+    { pts: 150,  icon: '🛵', reward: 'توصيل مجاني',              desc: 'طلب واحد بتوصيل مجاني' },
+    { pts: 200,  icon: '🎁', reward: 'هدية مفاجئة',              desc: 'هدية خاصة من Delivo' },
+    { pts: 300,  icon: '🍔', reward: 'وجبة مجانية',              desc: 'وجبة مجانية من متجر مختار' },
+    { pts: 400,  icon: '💳', reward: 'رصيد $5 في حسابك',         desc: 'رصيد دائم قابل للاستخدام' },
+    { pts: 500,  icon: '🏅', reward: 'عضوية VIP شهر',            desc: 'تخفيضات وأولوية دائمة لمدة شهر' },
+    { pts: 700,  icon: '🎟️', reward: 'خصم 10% لمدة أسبوع',      desc: 'على جميع طلباتك لمدة 7 أيام' },
+    { pts: 1000, icon: '👑', reward: 'عضوية Gold سنة كاملة',     desc: 'أعلى مرتبة — مزايا حصرية للأبد' },
+];
+
+let _loyaltyOpen = false;
+
+function openLoyaltyModal() {
+    const user = window.DelivoUser;
+    const overlay = document.getElementById('loyalty-overlay');
+    const sheet   = document.getElementById('loyalty-sheet');
+    if (!overlay || !sheet) return;
+    overlay.classList.add('active');
+    sheet.classList.add('active');
+    document.body.classList.add('modal-open');
+    _loyaltyOpen = true;
+    _renderLoyaltyModal().then(() => {
+        // After render, scroll sheet to bottom so balance hero is visible first
+        sheet.scrollTop = sheet.scrollHeight;
+    });
+}
+
+function closeLoyaltyModal() {
+    const overlay = document.getElementById('loyalty-overlay');
+    const sheet   = document.getElementById('loyalty-sheet');
+    if (!overlay || !sheet) return;
+    overlay.classList.remove('active');
+    sheet.classList.remove('active');
+    document.body.classList.remove('modal-open');
+    _loyaltyOpen = false;
+}
+
+async function _getLoyaltyPoints() {
+    const user = window.DelivoUser;
+    if (!user) return 0;
+    try {
+        const r = await fetch(`${LOYALTY_RTDB}/users/${user.uid}/points.json`);
+        const v = await r.json();
+        return parseInt(v) || 0;
+    } catch (_) { return 0; }
+}
+
+async function _renderLoyaltyModal() {    const user    = window.DelivoUser;
+    const ladder  = document.getElementById('loyalty-ladder');
+    const ringFill = document.getElementById('loyalty-ring-fill');
+    const ringNum  = document.getElementById('loyalty-modal-points');
+    const nextMsg  = document.getElementById('loyalty-next-msg');
+    if (!ladder) return;
+
+    if (!user) {
+        ladder.innerHTML = `
+            <div class="loyalty-guest">
+                <div class="loyalty-guest__icon">🔒</div>
+                <div class="loyalty-guest__title">سجّل دخولك لرؤية نقاطك</div>
+                <p>اشترك مجاناً وابدأ بجمع النقاط مع كل طلب!</p>
+            </div>`;
+        if (ringNum) ringNum.textContent = '0';
+        if (nextMsg) nextMsg.textContent = 'سجّل دخولك لتبدأ!';
+        return;
+    }
+
+    // Show skeleton while loading
+    ladder.innerHTML = `<div class="loyalty-ladder__title">سلم المكافآت</div>` +
+        Array(5).fill(`<div class="loyalty-step" style="opacity:0.4;"><div style="width:52px;height:48px;background:#f0f0f0;border-radius:10px;"></div><div style="flex:1;height:36px;background:#f0f0f0;border-radius:8px;"></div></div>`).join('');
+
+    const pts = await _getLoyaltyPoints();
+
+    // Update profile badge
+    const balEl = document.getElementById('acct-points-balance');
+    if (balEl) balEl.textContent = pts;
+
+    // Animate ring
+    const maxPts = LOYALTY_REWARDS[LOYALTY_REWARDS.length - 1].pts;
+    const nextReward = LOYALTY_REWARDS.find(r => r.pts > pts);
+    const prevReward = [...LOYALTY_REWARDS].reverse().find(r => r.pts <= pts);
+    const segStart   = prevReward ? prevReward.pts : 0;
+    const segEnd     = nextReward ? nextReward.pts : maxPts;
+    const segProgress = (pts - segStart) / (segEnd - segStart);
+    const circumference = 2 * Math.PI * 52; // r=52
+
+    if (ringFill) {
+        setTimeout(() => {
+            ringFill.style.strokeDashoffset = circumference * (1 - Math.min(segProgress, 1));
+        }, 80);
+    }
+    if (ringNum) ringNum.textContent = pts;
+
+    if (nextMsg) {
+        if (!nextReward) {
+            nextMsg.innerHTML = `🏆 وصلت للقمة! أنت <strong>Gold Member</strong>`;
+        } else {
+            const needed = nextReward.pts - pts;
+            nextMsg.innerHTML = `${nextReward.icon} ${needed} نقطة تفصلك عن <strong>${nextReward.reward}</strong>`;
+        }
+    }
+
+    // Build ladder
+    let html = `<div class="loyalty-ladder__title">سلم المكافآت</div>`;
+    [...LOYALTY_REWARDS].reverse().forEach((step, i) => {
+        const reached  = pts >= step.pts;
+        const isCurrent = nextReward && nextReward.pts === step.pts;
+        const cls = reached ? 'loyalty-step--reached' : isCurrent ? 'loyalty-step--current' : 'loyalty-step--locked';
+        const badgeTxt = reached ? '✓ تم' : isCurrent ? 'الهدف' : 'مقفل';
+        const badgeCls = reached ? 'loyalty-step__badge--done' : isCurrent ? 'loyalty-step__badge--now' : 'loyalty-step__badge--lock';
+        const isLast   = i === LOYALTY_REWARDS.length - 1; // last in reversed = lowest (50pts) = bottom
+
+        // Progress bar inside current step
+        let progressBar = '';
+        if (isCurrent) {
+            const pct = Math.round(((pts - segStart) / (segEnd - segStart)) * 100);
+            progressBar = `<div class="loyalty-step__progress-bar" id="lsp-bar" style="width:0%"></div>`;
+            setTimeout(() => {
+                const b = document.getElementById('lsp-bar');
+                if (b) b.style.width = pct + '%';
+            }, 200);
+        }
+
+        html += `
+        <div class="loyalty-step ${cls}" style="position:relative;overflow:hidden;">
+            <div class="loyalty-step__pts-col">
+                <span class="loyalty-step__pts">${step.pts}</span>
+                <span class="loyalty-step__pts-lbl">نقطة</span>
+            </div>
+            <span class="loyalty-step__icon">${step.icon}</span>
+            <div class="loyalty-step__body">
+                <div class="loyalty-step__reward">${step.reward}</div>
+                <div class="loyalty-step__desc">${step.desc}</div>
+            </div>
+            <span class="loyalty-step__badge ${badgeCls}">${badgeTxt}</span>
+            ${progressBar}
+            ${!isLast ? `<div class="loyalty-step__connector"></div>` : ''}
+        </div>`;
+    });
+
+    ladder.innerHTML = html;
+}
+
+/* ── Wire loyalty card click — event delegation (card is injected dynamically) ── */
+document.addEventListener('click', (e) => {
+    const card = e.target.closest('#loyalty-card');
+    if (card) openLoyaltyModal();
+});
+document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#loyalty-card')) openLoyaltyModal();
+});
+
+/* ── Refresh points balance when account modal opens ─────── */
+async function _refreshLoyaltyBalance() {
+    const user = window.DelivoUser;
+    if (!user) return;
+    try {
+        const r = await fetch(`${LOYALTY_RTDB}/users/${user.uid}/points.json`);
+        const v = await r.json();
+        const pts = parseInt(v) || 0;
+        const balEl = document.getElementById('acct-points-balance');
+        if (balEl) balEl.textContent = pts;
+    } catch (_) {}
+}
+
+// Hook into account modal open
+const _origAcctBtn = document.getElementById('account-btn');
+if (_origAcctBtn) {
+    _origAcctBtn.addEventListener('click', () => setTimeout(_refreshLoyaltyBalance, 300));
+}
+</script>
+
+</body>
+</html>
