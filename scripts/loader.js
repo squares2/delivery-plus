@@ -77,6 +77,7 @@ async function loadAll() {
     if (typeof initStores     === 'function') initStores();
     if (typeof initCategories === 'function') initCategories();
     if (typeof initStorePanel === 'function') initStorePanel();
+    if (typeof window.initMealtime === 'function') window.initMealtime();
 
     /* Reveal the page content UNDER the splash (no flash —
        splash is still covering everything at this point)     */

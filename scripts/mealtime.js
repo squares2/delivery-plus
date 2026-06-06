@@ -169,19 +169,45 @@
         </div>`;
     }
 
-    /* ── Wire drag-scroll ──────────────────────────────────── */
+    /* ── Wire drag-scroll (mouse + touch, RTL-aware) ──────── */
     function _initDrag(el) {
-        let isDown = false, startX, scrollLeft;
+        let isDown = false, startX, startScroll;
+        const isRTL = document.documentElement.dir === 'rtl';
+
+        function dragStart(x) {
+            isDown = true;
+            startX = x;
+            startScroll = el.scrollLeft;
+            el.classList.add('dragging');
+        }
+        function dragMove(x) {
+            if (!isDown) return;
+            const delta = x - startX;
+            // RTL: scrollLeft is negative in some browsers, flip delta direction
+            el.scrollLeft = startScroll - (isRTL ? -delta : delta);
+        }
+        function dragEnd() {
+            isDown = false;
+            el.classList.remove('dragging');
+        }
+
+        /* Mouse — listen on document so mouseleave doesn't cancel mid-drag */
         el.addEventListener('mousedown', e => {
-            isDown = true; el.classList.add('dragging');
-            startX = e.pageX - el.offsetLeft; scrollLeft = el.scrollLeft;
+            e.preventDefault();
+            dragStart(e.pageX);
         });
-        el.addEventListener('mouseleave', () => { isDown = false; el.classList.remove('dragging'); });
-        el.addEventListener('mouseup',    () => { isDown = false; el.classList.remove('dragging'); });
-        el.addEventListener('mousemove',  e => {
-            if (!isDown) return; e.preventDefault();
-            el.scrollLeft = scrollLeft - (e.pageX - el.offsetLeft - startX);
-        });
+        document.addEventListener('mousemove', e => { if (isDown) dragMove(e.pageX); });
+        document.addEventListener('mouseup',   () => { if (isDown) dragEnd(); });
+
+        /* Touch */
+        el.addEventListener('touchstart', e => {
+            dragStart(e.touches[0].pageX);
+        }, { passive: true });
+        el.addEventListener('touchmove', e => {
+            if (!isDown) return;
+            dragMove(e.touches[0].pageX);
+        }, { passive: true });
+        el.addEventListener('touchend', dragEnd);
     }
 
     /* ── Main init ─────────────────────────────────────────── */
