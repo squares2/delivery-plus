@@ -627,6 +627,140 @@ input, select, textarea { font-family: var(--font); }
 }
 .cp-grid::-webkit-scrollbar { width:5px; }
 .cp-grid::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ── Company portal tabs ───────────────────────────────────── */
+.cp-tabs {
+    display:flex; gap:0; border-bottom:1px solid var(--border);
+    background:var(--surface); flex-shrink:0; padding:0 16px;
+}
+.cp-tab {
+    display:flex; align-items:center; gap:7px;
+    padding:11px 20px; background:none; border:none;
+    border-bottom:2px solid transparent;
+    font-family:var(--font); font-size:0.8rem; font-weight:700;
+    color:var(--gray); cursor:pointer; position:relative;
+    transition:color 0.15s, border-color 0.15s;
+}
+.cp-tab:hover { color:var(--white); }
+.cp-tab.active { color:var(--orange); border-bottom-color:var(--orange); }
+.cp-tab-badge {
+    background:var(--orange); color:#fff;
+    font-size:0.58rem; font-weight:900;
+    padding:1px 5px; border-radius:50px; min-width:16px; text-align:center;
+}
+
+/* ── cp-view: fills remaining space, manages its own scroll ── */
+.cp-view {
+    display:flex; flex-direction:column;
+    flex:1; min-height:0; overflow:hidden;
+}
+
+/* ── Items toolbar ─────────────────────────────────────────── */
+.cp-items-toolbar {
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px; padding:10px 16px;
+    border-bottom:1px solid var(--border);
+    background:var(--surface); flex-shrink:0; flex-wrap:wrap;
+}
+.cp-items-toolbar__left { flex:1; min-width:0; }
+.cp-items-toolbar__right {
+    display:flex; align-items:center; gap:8px; flex-shrink:0;
+}
+.cpi-cats-bar {
+    display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;
+}
+.cpi-cats-bar::-webkit-scrollbar { height:3px; }
+.cpi-cats-bar::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ── Items grid ────────────────────────────────────────────── */
+.cpi-grid {
+    flex:1; min-height:0; overflow-y:auto; overflow-x:hidden;
+    padding:16px; display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(180px,1fr));
+    grid-auto-rows:max-content;
+    gap:12px; align-content:start;
+}
+.cpi-grid::-webkit-scrollbar { width:5px; }
+.cpi-grid::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ── Item card ─────────────────────────────────────────────── */
+.cpi-card {
+    background:var(--surface); border:1.5px solid var(--surface3);
+    border-radius:12px; overflow:hidden;
+    display:flex; flex-direction:column;
+    transition:border-color .18s, box-shadow .18s;
+}
+.cpi-card:hover { border-color:var(--orange); box-shadow:0 4px 18px rgba(255,92,0,0.15); }
+.cpi-card__thumb {
+    height:115px; background:var(--surface3);
+    display:flex; align-items:center; justify-content:center;
+    position:relative; overflow:hidden; flex-shrink:0;
+}
+.cpi-card__thumb img { width:100%;height:100%;object-fit:cover; }
+.cpi-card__no-img {
+    width:100%;height:100%;display:flex;align-items:center;
+    justify-content:center;font-size:2.2rem;
+}
+.cpi-card__badge-sale {
+    position:absolute;top:6px;right:6px;
+    background:var(--orange);color:#fff;
+    font-size:0.6rem;font-weight:900;padding:2px 7px;border-radius:8px;
+}
+.cpi-card__badge-noimg {
+    position:absolute;bottom:5px;left:5px;
+    background:rgba(239,68,68,0.85);color:#fff;
+    font-size:0.58rem;padding:2px 5px;border-radius:6px;
+}
+.cpi-card__body {
+    padding:10px 10px 6px; flex:1; display:flex; flex-direction:column; gap:3px;
+}
+.cpi-card__name {
+    font-size:0.8rem;font-weight:700;color:var(--white);line-height:1.3;
+}
+.cpi-card__cat { font-size:0.64rem;color:var(--gray); }
+.cpi-card__price-row {
+    margin-top:auto;padding-top:6px;
+    display:flex;align-items:center;gap:6px;
+}
+.cpi-card__price { font-size:0.82rem;font-weight:800;color:var(--orange); }
+.cpi-card__price-orig { font-size:0.68rem;color:var(--gray);text-decoration:line-through; }
+.cpi-card__id { font-size:0.58rem;color:var(--gray);font-family:monospace;margin-top:2px; }
+.cpi-card__actions {
+    display:flex;border-top:1px solid var(--surface3);
+}
+.cpi-card__btn {
+    flex:1;padding:8px 4px;background:none;border:none;cursor:pointer;
+    font-family:var(--font);font-size:0.72rem;font-weight:700;
+    transition:background .15s;
+}
+.cpi-card__btn:hover { background:var(--surface2); }
+.cpi-card__btn--edit  { color:var(--orange);border-left:1px solid var(--surface3); }
+.cpi-card__btn--del   { color:var(--red); }
+
+/* ── Empty / loading states ────────────────────────────────── */
+.cpi-empty {
+    grid-column:1/-1;text-align:center;padding:60px 20px;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    color:var(--gray);
+}
+.cpi-empty__icon { font-size:3rem; }
+.cpi-empty__title { font-size:0.88rem;font-weight:700;color:var(--gray-light); }
+.cpi-empty__sub   { font-size:0.72rem; }
+.cpi-skeleton {
+    background:var(--surface);border:1.5px solid var(--surface3);
+    border-radius:12px;overflow:hidden;
+}
+.cpi-skeleton__thumb {
+    height:115px;background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%);
+    background-size:200% 100%;animation:skeleton-shimmer 1.4s infinite;
+}
+.cpi-skeleton__body { padding:10px;display:flex;flex-direction:column;gap:7px; }
+.cpi-skeleton__line {
+    height:10px;border-radius:6px;
+    background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%);
+    background-size:200% 100%;animation:skeleton-shimmer 1.4s infinite;
+}
+@keyframes skeleton-shimmer { to { background-position:-200% 0; } }
 /* Company order card */
 .coc {
     background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius);
@@ -942,12 +1076,15 @@ input, select, textarea { font-family: var(--font); }
     padding: 16px 20px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-auto-rows: max-content;
     gap: 12px;
     overflow-y: auto;
-    align-content: start;
+    overflow-x: hidden;
     flex: 1;
     min-height: 0;
 }
+.stores-grid::-webkit-scrollbar { width: 5px; }
+.stores-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .store-card-admin {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -956,7 +1093,6 @@ input, select, textarea { font-family: var(--font); }
     transition: border-color 0.2s;
     display: flex;
     flex-direction: column;
-    min-height: 175px;   /* thumb 80 + body ~55 + button ~40 */
 }
 .store-card-admin:hover { border-color: var(--orange); }
 
@@ -1147,7 +1283,27 @@ input, select, textarea { font-family: var(--font); }
 .ec-btn.danger:hover { border-color: var(--red); color: var(--red); }
 
 /* ─── SETTINGS PANEL ────────────────────────────────────────── */
-.settings-scroll { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; max-width: 600px; }
+.settings-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    align-content: start;
+}
+/* Two-column layout when panel is wide enough */
+@media (min-width: 900px) {
+    .settings-scroll {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+    }
+    /* Delivery and Keywords sections span full width — they have complex sub-content */
+    #delivery-settings-section,
+    .settings-scroll .settings-section:has(.setting-row--col) {
+        grid-column: 1 / -1;
+    }
+}
 .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: visible; }
 .settings-section-title { padding: 12px 16px; font-size: 0.72rem; font-weight: 800; color: var(--gray); letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
 .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); gap: 12px; }
@@ -1612,7 +1768,7 @@ input, select, textarea { font-family: var(--font); }
                         تحديث
                     </button>
                 </div>
-                <div class="orders-toolbar" style="flex-shrink:0;flex-wrap:wrap;" id="stores-filter-bar">
+                <div class="orders-toolbar" style="flex-shrink:0;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;" id="stores-filter-bar">
                     <button class="filter-pill active" data-store-filter="all">الكل</button>
                     <button class="filter-pill" data-store-filter="Restaurants">🍔 مطاعم</button>
                     <button class="filter-pill" data-store-filter="ButcherShops">🥩 ملاحم</button>
@@ -1771,18 +1927,59 @@ input, select, textarea { font-family: var(--font); }
         </button>
         <button class="cp-logout" id="cp-logout-btn">خروج</button>
     </div>
-    <div class="cp-toolbar">
-        <button class="filter-pill active" data-cp-filter="active">🟠 نشطة</button>
-        <button class="filter-pill" data-cp-filter="ready">✅ جاهزة</button>
-        <button class="filter-pill" data-cp-filter="done">📦 مكتملة</button>
-        <button class="filter-pill" data-cp-filter="all">الكل</button>
-        <input type="text" id="cp-search" class="search-box"
-               placeholder="🔍 رقم الطلب…"
-               style="width:130px;padding:5px 10px;font-size:var(--fs-xs);">
-        <button class="cp-refresh" id="cp-refresh-btn">🔄 تحديث</button>
-        <span class="cp-count" id="cp-count-label" style="margin-right:auto;"></span>
+
+    <!-- ── Tab bar ─────────────────────────────────────────── -->
+    <div class="cp-tabs">
+        <button class="cp-tab active" id="cp-tab-orders" onclick="cpSwitchTab('orders')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+            الطلبات
+            <span class="cp-tab-badge" id="cp-tab-orders-badge" style="display:none;"></span>
+        </button>
+        <button class="cp-tab" id="cp-tab-items" onclick="cpSwitchTab('items')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            منتجاتي
+        </button>
     </div>
-    <div class="cp-grid" id="cp-grid"></div>
+
+    <!-- ── Orders view ────────────────────────────────────── -->
+    <div id="cp-view-orders" class="cp-view">
+        <div class="cp-toolbar">
+            <button class="filter-pill active" data-cp-filter="active">🟠 نشطة</button>
+            <button class="filter-pill" data-cp-filter="ready">✅ جاهزة</button>
+            <button class="filter-pill" data-cp-filter="done">📦 مكتملة</button>
+            <button class="filter-pill" data-cp-filter="all">الكل</button>
+            <input type="text" id="cp-search" class="search-box"
+                   placeholder="🔍 رقم الطلب…"
+                   style="width:130px;padding:5px 10px;font-size:var(--fs-xs);">
+            <button class="cp-refresh" id="cp-refresh-btn">🔄 تحديث</button>
+            <span class="cp-count" id="cp-count-label" style="margin-right:auto;"></span>
+        </div>
+        <div class="cp-grid" id="cp-grid"></div>
+    </div>
+
+    <!-- ── Items view ─────────────────────────────────────── -->
+    <div id="cp-view-items" class="cp-view" style="display:none;">
+        <!-- Items toolbar -->
+        <div class="cp-items-toolbar">
+            <div class="cp-items-toolbar__left">
+                <div id="cpi-cats-bar" class="cpi-cats-bar"></div>
+            </div>
+            <div class="cp-items-toolbar__right">
+                <input type="text" id="cpi-search" class="search-box"
+                       placeholder="🔍 بحث في المنتجات…"
+                       style="width:150px;padding:5px 10px;font-size:var(--fs-xs);"
+                       oninput="cpiSearch(this.value)">
+                <button class="ph-btn ph-btn--primary" onclick="cpOpenItemModal(null)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    إضافة منتج
+                </button>
+                <button class="cp-refresh" onclick="cpLoadItems()">🔄</button>
+                <span class="cp-count" id="cpi-count-label"></span>
+            </div>
+        </div>
+        <!-- Items grid -->
+        <div class="cpi-grid" id="cpi-grid"></div>
+    </div>
 </div>
 
 <!-- ══ STANDBY TIME MODAL ═══════════════════════════════════════ -->
@@ -5232,6 +5429,31 @@ function renderSettings() {
     const el = document.getElementById('settings-content');
     el.innerHTML = `
         <div class="settings-section">
+            <div class="settings-section-title">🧪 وضع التجربة</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label" style="display:flex;align-items:center;gap:8px;">
+                        تفعيل وضع التجربة
+                        <span id="test-mode-badge" style="display:none;font-size:0.62rem;font-weight:800;background:rgba(234,179,8,0.15);color:#eab308;border-radius:50px;padding:2px 8px;">مفعّل</span>
+                    </div>
+                    <div class="setting-sub">يعرض للعملاء شريطاً تنبيهياً يوضح أن الموقع في طور التجربة وليس جاهزاً للخدمة الفعلية بعد</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-test-mode" onchange="setTestMode(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div id="test-mode-preview" style="display:none;margin:0 16px 14px;border-radius:10px;overflow:hidden;border:1px solid rgba(234,179,8,0.3);">
+                <div style="background:linear-gradient(90deg,#78350f,#92400e);padding:10px 14px;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:1.1rem;">🧪</span>
+                    <div>
+                        <div style="font-size:0.78rem;font-weight:800;color:#fef3c7;">هذا الموقع قيد التجربة حالياً</div>
+                        <div style="font-size:0.68rem;color:#fde68a;margin-top:2px;">لا يتم قبول طلبات حقيقية في الوقت الحالي — سيُعلَن عن الإطلاق الرسمي قريباً</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="settings-section">
             <div class="settings-section-title">وضع الصيانة</div>
             <div class="setting-row">
                 <div>
@@ -5420,11 +5642,21 @@ function renderSettings() {
             </div>
         </div>
     `;
-    // Load current maintenance state
-    fbGet('maintenance').then(data => {
-        const isOn = Array.isArray(data) ? (data[1]?.state === true) : (data?.state === true);
+    // Load current maintenance state — reads from settings/maintenance (same path setMaintenance writes to)
+    fbGet('settings/maintenance').then(val => {
+        const isOn = val === true || val === 'true';
         const toggle = document.getElementById('toggle-maintenance');
         if (toggle) toggle.checked = isOn;
+    }).catch(() => {});
+    // Load test mode state  ← FIX: was never loaded after DOM injection
+    fbGet('settings/testMode').then(val => {
+        const isTest  = val === true || val === 'true';
+        const toggle  = document.getElementById('toggle-test-mode');
+        const badge   = document.getElementById('test-mode-badge');
+        const preview = document.getElementById('test-mode-preview');
+        if (toggle)  toggle.checked        = isTest;
+        if (badge)   badge.style.display   = isTest ? 'inline-block' : 'none';
+        if (preview) preview.style.display = isTest ? 'block' : 'none';
     }).catch(() => {});
     // Load max orders
     fbGet('settings/orders/maxPerDay').then(val => {
@@ -5505,13 +5737,6 @@ window.kwAddChip    = kwAddChip;
 window.kwRemoveChip = kwRemoveChip;
 window.kwSave       = kwSave;
 
-window.setMaintenance = async function(on) {
-    try {
-        await fbSet('maintenance/1/state', on);
-        toast(on ? '🔧 وضع الصيانة مفعّل' : '✅ الموقع متاح للعملاء');
-    } catch(e) { toast('خطأ', true); }
-};
-
 window.setDeliveryFee = async function(val) {
     try {
         await fbSet('settings/deliveryFee', parseFloat(val) || 2);
@@ -5542,6 +5767,14 @@ async function loadSettings() {
         if (!s) return;
         const maint = document.getElementById('toggle-maintenance');
         if (maint) maint.checked = s.maintenance === true || s.maintenance === 'true';
+        // Test mode
+        const testToggle = document.getElementById('toggle-test-mode');
+        const testBadge  = document.getElementById('test-mode-badge');
+        const testPreview= document.getElementById('test-mode-preview');
+        const isTest     = s.testMode === true || s.testMode === 'true';
+        if (testToggle)  testToggle.checked       = isTest;
+        if (testBadge)   testBadge.style.display  = isTest ? 'inline-block' : 'none';
+        if (testPreview) testPreview.style.display = isTest ? 'block' : 'none';
         const fee = document.getElementById('delivery-fee-input');
         if (fee && s.deliveryFee) fee.value = s.deliveryFee;
         const max = document.getElementById('max-orders-input');
@@ -5554,6 +5787,17 @@ async function setMaintenance(val) {
         await fbSet('settings/maintenance', val);
         toast(val ? '🔧 وضع الصيانة مفعّل' : '✅ الموقع يعمل بشكل طبيعي');
     } catch(e) { toast('فشل تحديث وضع الصيانة', true); }
+}
+
+async function setTestMode(val) {
+    try {
+        await fbSet('settings/testMode', val);
+        const badge   = document.getElementById('test-mode-badge');
+        const preview = document.getElementById('test-mode-preview');
+        if (badge)   badge.style.display   = val ? 'inline-block' : 'none';
+        if (preview) preview.style.display = val ? 'block' : 'none';
+        toast(val ? '🧪 وضع التجربة مفعّل — العملاء يرون الشريط التنبيهي' : '✅ وضع التجربة أُوقف — الموقع جاهز للخدمة');
+    } catch(e) { toast('فشل تحديث وضع التجربة', true); }
 }
 
 async function setDeliveryFee(val) {
@@ -5857,6 +6101,13 @@ async function startCompanyPortal() {
     document.getElementById('company-portal').classList.add('visible');
     sessionStorage.setItem('delivoAdmin', JSON.stringify(currentAdmin));
 
+    // Reset items state for fresh session
+    _cpiAllItems  = {};
+    _cpiFilter    = null;
+    _cpiSearchQ   = '';
+    _cpiStoreType = '';
+    cpSwitchTab('orders'); // always start on orders tab
+
     const store    = currentAdmin.linkedStore || '';
     const uname    = currentAdmin.fullname || currentAdmin.username || '';
     const initial  = uname[0]?.toUpperCase() || '?';
@@ -6037,6 +6288,12 @@ function cpRender() {
     badge.textContent = newCount + ' جديد';
     badge.style.display = newCount > 0 ? '' : 'none';
     countEl.textContent = filtered.length + ' طلب';
+    // Sync tab badge
+    const tabBadge = document.getElementById('cp-tab-orders-badge');
+    if (tabBadge) {
+        tabBadge.textContent     = newCount;
+        tabBadge.style.display   = newCount > 0 ? 'inline-block' : 'none';
+    }
 
     // ── Snapshot expanded keys BEFORE any DOM changes ──────────
     const expandedKeys = new Set(
@@ -6282,6 +6539,332 @@ document.getElementById('standby-cancel-btn')?.addEventListener('click', () => {
     document.getElementById('modal-standby').classList.remove('open');
     standbyPending = null;
 });
+
+// ═══════════════════════════════════════════════════════════════
+// COMPANY PORTAL — ITEMS MANAGEMENT (منتجاتي)
+// ═══════════════════════════════════════════════════════════════
+
+let _cpiAllItems    = {};   // itemId → item object
+let _cpiFilter      = null; // active catmain filter
+let _cpiSearchQ     = '';
+let _cpiStoreType   = '';
+
+/* ── Tab switching ─────────────────────────────────────────── */
+function cpSwitchTab(tab) {
+    document.getElementById('cp-view-orders').style.display = tab === 'orders' ? 'flex' : 'none';
+    document.getElementById('cp-view-items').style.display  = tab === 'items'  ? 'flex' : 'none';
+    document.getElementById('cp-tab-orders').classList.toggle('active', tab === 'orders');
+    document.getElementById('cp-tab-items').classList.toggle('active',  tab === 'items');
+    if (tab === 'items' && !Object.keys(_cpiAllItems).length) cpLoadItems();
+}
+
+/* ── Load items for this company's store ───────────────────── */
+async function cpLoadItems() {
+    const storeName = currentAdmin?.linkedStore || '';
+    if (!storeName) return;
+    _cpiFilter = null;
+    _cpiSearchQ = '';
+    document.getElementById('cpi-search').value = '';
+    document.getElementById('cpi-grid').innerHTML = _cpiSkeleton(8);
+
+    try {
+        // Get store type from pattern
+        const patternAll = await fbGet('pattern').catch(() => null);
+        if (patternAll) {
+            outer: for (const [type, list] of Object.entries(patternAll)) {
+                const arr = typeof list === 'object' ? Object.values(list) : [];
+                for (const s of arr) {
+                    if (s && s.companyname === storeName) { _cpiStoreType = type; break outer; }
+                }
+            }
+        }
+        const raw = await fbGet(`items/${storeName}`);
+        _cpiAllItems = raw || {};
+    } catch(e) {
+        document.getElementById('cpi-grid').innerHTML =
+            `<div class="cpi-empty"><div class="cpi-empty__icon">⚠️</div><div class="cpi-empty__title">خطأ في التحميل</div><div class="cpi-empty__sub">${e.message}</div></div>`;
+        return;
+    }
+    cpiRender();
+}
+
+/* ── Render ────────────────────────────────────────────────── */
+function cpiRender() {
+    const grid = document.getElementById('cpi-grid');
+    const bar  = document.getElementById('cpi-cats-bar');
+    const items = Object.values(_cpiAllItems).filter(Boolean);
+
+    // Category filter bar
+    const mains = [...new Set(items.map(i => i.catmain || 'عام'))].sort();
+    bar.innerHTML = [null, ...mains].map(m => {
+        const isActive = _cpiFilter === m;
+        const label    = m === null ? `الكل (${items.length})` : m;
+        return `<button onclick="cpiSetFilter(${m===null?'null':`'${m.replace(/'/g,"\\'")}' `})"
+            style="flex-shrink:0;padding:5px 13px;border-radius:20px;border:none;cursor:pointer;
+                   font-size:0.72rem;font-weight:700;font-family:var(--font);
+                   background:${isActive?'var(--orange)':'var(--surface3)'};
+                   color:${isActive?'#fff':'var(--gray-light)'};">${label}</button>`;
+    }).join('');
+
+    // Filter + search
+    let filtered = _cpiFilter ? items.filter(i => (i.catmain||'عام') === _cpiFilter) : items;
+    if (_cpiSearchQ) {
+        const q = _cpiSearchQ.toLowerCase();
+        filtered = filtered.filter(i =>
+            (i.name||'').toLowerCase().includes(q) ||
+            (i.ID||i.id||'').toLowerCase().includes(q) ||
+            (i.catmain||'').toLowerCase().includes(q)
+        );
+    }
+
+    document.getElementById('cpi-count-label').textContent =
+        `${filtered.length} منتج${filtered.length !== items.length ? ` من ${items.length}` : ''}`;
+
+    if (!filtered.length) {
+        grid.innerHTML = `<div class="cpi-empty">
+            <div class="cpi-empty__icon">${items.length ? '🔍' : '🛍️'}</div>
+            <div class="cpi-empty__title">${items.length ? 'لا توجد نتائج' : 'لا توجد منتجات بعد'}</div>
+            <div class="cpi-empty__sub">${items.length ? 'جرب كلمة بحث مختلفة' : 'اضغط «إضافة منتج» لإضافة أول منتج'}</div>
+        </div>`;
+        return;
+    }
+
+    grid.innerHTML = filtered.map(item => {
+        const id      = item.ID || item.id || '';
+        const price   = parseFloat(item.price) || 0;
+        const sale    = parseFloat(item.sale)  || 0;
+        const hasSale = sale > 0 && sale < price;
+        const hasPng  = item.pngExist === '1' || item.pngExist === 1;
+        const imgSrc  = `items/${String(id).toLowerCase()}.png`;
+        const emoji   = _catTypeEmoji(_cpiStoreType);
+        const safeItem = JSON.stringify(item).replace(/"/g,'&quot;');
+        return `
+        <div class="cpi-card">
+            <div class="cpi-card__thumb">
+                ${hasPng
+                    ? `<img src="${imgSrc}" alt="${item.name||''}"
+                           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                       <div class="cpi-card__no-img" style="display:none;">${emoji}</div>`
+                    : `<div class="cpi-card__no-img">${emoji}</div>
+                       <div class="cpi-card__badge-noimg">بدون صورة</div>`
+                }
+                ${hasSale ? `<div class="cpi-card__badge-sale">خصم</div>` : ''}
+            </div>
+            <div class="cpi-card__body">
+                <div class="cpi-card__name">${item.name||'—'}</div>
+                <div class="cpi-card__cat">${item.catmain||''}${item.cat&&item.cat!==item.catmain?' › '+item.cat:''}</div>
+                <div class="cpi-card__price-row">
+                    <span class="cpi-card__price">${_catFmtPrice(hasSale?sale:price)}</span>
+                    ${hasSale?`<span class="cpi-card__price-orig">${_catFmtPrice(price)}</span>`:''}
+                </div>
+                <div class="cpi-card__id">ID: ${id}</div>
+            </div>
+            <div class="cpi-card__actions">
+                <button class="cpi-card__btn cpi-card__btn--edit" onclick="cpOpenItemModal(${safeItem})">✏️ تعديل</button>
+                <button class="cpi-card__btn cpi-card__btn--del"  onclick="cpiDeleteItem('${String(id)}')">🗑️ حذف</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function cpiSetFilter(main) { _cpiFilter = main; cpiRender(); }
+function cpiSearch(q)       { _cpiSearchQ = q.trim(); cpiRender(); }
+
+/* ── Add / Edit modal ──────────────────────────────────────── */
+function cpOpenItemModal(item) {
+    // Reuse the same logic as admin catalog but bound to company store
+    // Temporarily set _catCurrentStore and _catAllItems so saveCatalogItem works
+    const storeName = currentAdmin?.linkedStore || '';
+    _catCurrentStore = { name: storeName, type: _cpiStoreType };
+    _catAllItems     = _cpiAllItems;
+
+    // Build same modal as admin catalog
+    document.getElementById('cat-item-modal')?.remove();
+    const isNew = !item;
+    const id    = item ? (item.ID || item.id || '') : '';
+    const modal = document.createElement('div');
+    modal.id = 'cat-item-modal';
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;`;
+    modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:460px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--surface3);display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:16px 16px 0 0;">
+            <span style="font-size:1rem;">📦</span>
+            <span style="font-size:0.9rem;font-weight:800;color:var(--white);">${isNew?'إضافة منتج جديد':'تعديل المنتج'}</span>
+            <button onclick="document.getElementById('cat-item-modal').remove()"
+                    style="margin-right:auto;background:var(--surface3);border:none;cursor:pointer;color:var(--gray-light);
+                           width:28px;height:28px;border-radius:50%;font-size:1rem;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+            <div style="text-align:center;margin-bottom:2px;">
+                <div style="width:80px;height:80px;border-radius:12px;overflow:hidden;background:var(--surface3);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;" id="cat-modal-img-wrap">
+                    ${(!isNew && (item.pngExist==='1'||item.pngExist===1))
+                        ? `<img src="items/${String(id).toLowerCase()}.png" style="width:100%;height:100%;object-fit:cover;"
+                               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                           <div style="display:none;font-size:2rem;width:100%;height:100%;align-items:center;justify-content:center;">📷</div>`
+                        : `<span style="font-size:2rem;">📷</span>`
+                    }
+                </div>
+                <div style="font-size:0.68rem;color:var(--gray);line-height:1.5;">
+                    ضع صورة المنتج في مجلد <code style="color:var(--orange)">items/</code>
+                    باسم: <code style="color:var(--orange)" id="cat-modal-img-name">${id ? id.toLowerCase()+'.png' : 'ID.png'}</code>
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>اسم المنتج <span style="color:var(--orange)">*</span></label>
+                <input type="text" id="cim-name" value="${item?.name||''}" placeholder="مثال: شاورما دجاج" style="width:100%;">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="modal-field">
+                    <label>السعر (ل.ل أو $)</label>
+                    <input type="number" id="cim-price" value="${item?.price||''}" placeholder="75000" step="any" style="width:100%;">
+                </div>
+                <div class="modal-field">
+                    <label>سعر بعد الخصم</label>
+                    <input type="number" id="cim-sale" value="${item?.sale||''}" placeholder="0 = بدون" step="any" style="width:100%;">
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>القسم الرئيسي <span style="color:var(--orange)">*</span></label>
+                <div style="display:flex;gap:6px;">
+                    <select id="cim-catmain-sel" onchange="cimCatmainChanged()"
+                            style="flex:1;background:var(--surface3);border:1px solid #3a3a3a;border-radius:8px;color:var(--white);padding:7px 10px;font-size:0.8rem;outline:none;cursor:pointer;">
+                        ${[...new Set(Object.values(_cpiAllItems).filter(Boolean).map(i=>i.catmain).filter(Boolean))].sort()
+                            .map(c=>`<option value="${c}" ${(item?.catmain||'')=== c ?'selected':''}>${c}</option>`).join('')}
+                        <option value="__new__">➕ إضافة جديد…</option>
+                    </select>
+                </div>
+                <input type="text" id="cim-catmain" value="${item?.catmain||''}"
+                       placeholder="اكتب قسم رئيسي جديد…" style="width:100%;margin-top:6px;display:${
+                           (!item?.catmain || Object.values(_cpiAllItems).filter(Boolean).some(i=>i.catmain===item?.catmain)) ? 'none' : 'block'
+                       };">
+            </div>
+            <div class="modal-field">
+                <label>القسم الفرعي</label>
+                <div style="display:flex;gap:6px;">
+                    <select id="cim-cat-sel" onchange="cimCatChanged()"
+                            style="flex:1;background:var(--surface3);border:1px solid #3a3a3a;border-radius:8px;color:var(--white);padding:7px 10px;font-size:0.8rem;outline:none;cursor:pointer;">
+                        ${_cimCatOptions(item?.catmain, item?.cat)}
+                    </select>
+                </div>
+                <input type="text" id="cim-cat" value="${item?.cat||''}"
+                       placeholder="اكتب قسم فرعي جديد…" style="width:100%;margin-top:6px;display:none;">
+            </div>
+            <div class="modal-field">
+                <label>الوصف</label>
+                <textarea id="cim-desc" rows="2" placeholder="وصف اختياري" style="width:100%;resize:vertical;">${item?.unitdesc||''}</textarea>
+            </div>
+            <div class="modal-field">
+                <label>الـ ID <span style="color:var(--orange)">*</span> <small style="color:var(--gray)">(اسم ملف الصورة = ID.png)</small></label>
+                <input type="text" id="cim-id" value="${id}" placeholder="مثال: sha001" dir="ltr" style="width:100%;font-family:monospace;"
+                       oninput="document.getElementById('cat-modal-img-name').textContent=this.value.toLowerCase()+'.png'">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;background:var(--surface3);padding:10px 12px;border-radius:8px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
+                    <input type="checkbox" id="cim-pngexist" ${(item?.pngExist==='1'||item?.pngExist===1)?'checked':''}>
+                    <span style="font-size:0.78rem;color:var(--gray-light);">صورة موجودة (pngExist = 1)</span>
+                </label>
+            </div>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid var(--surface3);display:flex;gap:8px;">
+            <button onclick="cpiSaveItem(${isNew})" id="cim-save-btn"
+                    style="flex:1;padding:11px;background:var(--orange);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.84rem;font-weight:800;">
+                ${isNew ? '✅ إضافة المنتج' : '💾 حفظ التغييرات'}
+            </button>
+            <button onclick="document.getElementById('cat-item-modal').remove()"
+                    style="padding:11px 18px;background:var(--surface3);color:var(--gray-light);border:none;border-radius:10px;cursor:pointer;font-size:0.84rem;">
+                إلغاء
+            </button>
+        </div>
+    </div>`;
+    modal._itemKey  = isNew ? null : (item._fbKey || id);
+    modal._origItem = item;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.getElementById('cim-name').focus();
+    const cmSel = document.getElementById('cim-catmain-sel');
+    const cSel  = document.getElementById('cim-cat-sel');
+    const cmIn  = document.getElementById('cim-catmain');
+    const cIn   = document.getElementById('cim-cat');
+    if (cmSel && cmSel.value !== '__new__' && cmIn) cmIn.value = cmSel.value;
+    if (cSel  && cSel.value  !== '__new__' && cIn)  cIn.value  = cSel.value;
+}
+
+/* ── Save item (company portal version) ────────────────────── */
+async function cpiSaveItem(isNew) {
+    const storeName = currentAdmin?.linkedStore || '';
+    if (!storeName) return;
+
+    const name     = document.getElementById('cim-name').value.trim();
+    const price    = document.getElementById('cim-price').value.trim();
+    const sale     = document.getElementById('cim-sale').value.trim();
+    const catmain  = document.getElementById('cim-catmain').value.trim();
+    const cat      = document.getElementById('cim-cat').value.trim();
+    const desc     = document.getElementById('cim-desc').value.trim();
+    const itemId   = document.getElementById('cim-id').value.trim();
+    const pngExist = document.getElementById('cim-pngexist').checked ? '1' : '0';
+
+    if (!name || !itemId) { showNotif('بيانات ناقصة', 'الاسم والـ ID إلزاميان', 'error'); return; }
+
+    const payload = {
+        ID: itemId, name,
+        price:    price || '0',
+        sale:     sale  || '0',
+        catmain:  catmain || 'عام',
+        cat:      cat    || catmain || 'عام',
+        unitdesc: desc,
+        pngExist,
+        companytype: _cpiStoreType,
+    };
+
+    const btn = document.getElementById('cim-save-btn');
+    btn.disabled = true; btn.textContent = '⏳ جاري الحفظ…';
+
+    try {
+        await fbSet(`items/${storeName}/${itemId}`, payload);
+        _cpiAllItems[itemId] = payload;
+        showNotif(isNew ? '✅ تمت الإضافة' : '💾 تم الحفظ', name, 'success');
+        document.getElementById('cat-item-modal').remove();
+        cpiRender();
+    } catch(e) {
+        showNotif('خطأ في الحفظ', e.message, 'error');
+        btn.disabled = false;
+        btn.textContent = isNew ? '✅ إضافة المنتج' : '💾 حفظ التغييرات';
+    }
+}
+
+/* ── Delete item ───────────────────────────────────────────── */
+async function cpiDeleteItem(itemId) {
+    const storeName = currentAdmin?.linkedStore || '';
+    if (!storeName) return;
+    const item = _cpiAllItems[itemId];
+    const name = item?.name || itemId;
+    const confirmed = await showConfirm({
+        title: 'حذف المنتج', msg: `هل تريد حذف «${name}» نهائياً؟`,
+        type: 'error', okLabel: 'حذف', icon: '🗑️'
+    });
+    if (!confirmed) return;
+    try {
+        await fbSet(`items/${storeName}/${itemId}`, null);
+        delete _cpiAllItems[itemId];
+        showNotif('تم الحذف', name, 'success');
+        cpiRender();
+    } catch(e) { showNotif('خطأ', e.message, 'error'); }
+}
+
+/* ── Skeleton loader ───────────────────────────────────────── */
+function _cpiSkeleton(n) {
+    return Array(n).fill(0).map(() => `
+        <div class="cpi-skeleton">
+            <div class="cpi-skeleton__thumb"></div>
+            <div class="cpi-skeleton__body">
+                <div class="cpi-skeleton__line" style="width:80%;"></div>
+                <div class="cpi-skeleton__line" style="width:55%;"></div>
+                <div class="cpi-skeleton__line" style="width:40%;margin-top:4px;"></div>
+            </div>
+        </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
 
 // Filter pills inside company portal
 document.addEventListener('click', e => {

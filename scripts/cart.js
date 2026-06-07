@@ -692,6 +692,33 @@ function initCart() {
             // Invalidate first-order cache so it never applies again this session
             _resetFirstOrderCache();
 
+            // ── WhatsApp admin notification ───────────────────────────────
+            // Reads settings/adminPhone from Firebase (e.g. "96176123456")
+            // Opens a wa.me deep link in a background tab so the customer
+            // doesn't have to do anything — admin is notified immediately.
+            try {
+                const adminPhoneResp = await fetch(`${RTDB_CART_URL}/settings/adminPhone.json`);
+                if (adminPhoneResp.ok) {
+                    const adminPhone = await adminPhoneResp.json();
+                    if (adminPhone) {
+                        const userProfile = window.DelivoUser || {};
+                        const phone       = (userProfile.phone || '').replace(/\D/g,'');
+                        const name        = userProfile.displayName || userProfile.username || 'مجهول';
+                        const storeList   = stores.join(' + ');
+                        const msgLines    = [
+                            `🔔 *طلب جديد على Delivo*`,
+                            `👤 ${name}  📞 +961${phone}`,
+                            `🏪 ${storeList}`,
+                            `📍 https://maps.google.com/?q=${orderLat},${orderLng}`,
+                        ];
+                        const waMsg  = encodeURIComponent(msgLines.join('\n'));
+                        const waLink = `https://wa.me/${adminPhone}?text=${waMsg}`;
+                        window.open(waLink, '_blank', 'noopener,noreferrer');
+                    }
+                }
+            } catch (_) { /* non-critical — order is already saved */ }
+            // ─────────────────────────────────────────────────────────────
+
             cart.clear();
             closeCartSidebar();
 

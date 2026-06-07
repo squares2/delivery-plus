@@ -38,7 +38,7 @@
             "purpose": "any"
         },
         {
-            "src": "assets/splash-icon-192.png",
+            "src": "assets/icon-taskbar.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "maskable"

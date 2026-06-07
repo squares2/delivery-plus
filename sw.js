@@ -9,7 +9,7 @@
    Replace BUILD_TIMESTAMP with your deploy script, or just
    change this number whenever you upload new files.
    Even changing it by 1 is enough to bust all caches.        */
-const BUILD_TS    = '20260605233045';   // replaced at deploy time
+const BUILD_TS    = '__BUILD_TS__';   // replaced by deploy.bat at deploy time
 const CACHE_NAME  = `delivo-${BUILD_TS}`;
 
 /* ── Assets to pre-cache on install ──────────────────────────
@@ -35,9 +35,14 @@ const PRECACHE = [
     './scripts/stores.js',
     './scripts/categories.js',
     './scripts/store-panel.js',
+    './scripts/store-status-listener.js',
+    './scripts/mealtime.js',
     './scripts/cart.js',
     './scripts/pwa.js',
-    './assets/splash-logo.png',
+    './scripts/back-handler.js',
+    './scripts/onboarding.js',
+    './scripts/presence.js',
+    './assets/splash-logo.webp',
     './assets/logo.png',
     './assets/hero_temple_bg.jpg',
 ];

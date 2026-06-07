@@ -85,6 +85,14 @@ async function loadAll() {
     if (typeof initOnboarding === 'function') initOnboarding();
     console.log('[Delivo] All components loaded ✓');
 
+    /* ── Real-time settings stream ───────────────────────────
+       Opens a Firebase SSE stream on /settings.json so any
+       change the admin makes (testMode, maintenance, etc.)
+       is reflected on the customer page instantly — no refresh.
+       Reconnects automatically on network drop.               */
+    _startSettingsStream();
+    /* ─────────────────────────────────────────────────────── */
+
     clearTimeout(slowNetTimer);
 
     /* Wait at least SPLASH_HOLD_MS from boot start before hiding */
@@ -193,4 +201,103 @@ document.addEventListener('DOMContentLoaded', loadAll);
         _launch();
     }
 
+})();
+/* ============================================================
+   Real-time settings stream
+   Uses Firebase SSE (EventSource) on /settings.json so the
+   page reacts instantly when admin toggles any setting.
+   Handles: testMode, maintenance
+   Reconnects automatically with exponential backoff.
+   ============================================================ */
+(function () {
+    const RTDB     = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+    const URL      = `${RTDB}/settings.json`;
+    let   _sse     = null;
+    let   _retryMs = 2000;
+    const MAX_RETRY = 30000;
+
+    /* ── Apply settings object to the page ─────────────────── */
+    function _applySettings(settings) {
+        if (!settings || typeof settings !== 'object') return;
+
+        /* testMode */
+        const isTest   = settings.testMode === true || settings.testMode === 'true';
+        const banner   = document.getElementById('test-mode-banner');
+        if (banner) banner.style.display = isTest ? 'block' : 'none';
+
+        /* maintenance */
+        const isMaint  = settings.maintenance === true || settings.maintenance === 'true';
+        const overlay  = document.getElementById('maintenance-overlay');
+        if (overlay) {
+            overlay.style.display = isMaint ? 'flex' : 'none';
+            // Block body scroll when in maintenance
+            document.body.style.overflow = isMaint ? 'hidden' : '';
+        }
+    }
+
+    /* ── Open SSE connection ────────────────────────────────── */
+    function _connect() {
+        if (_sse) { _sse.close(); _sse = null; }
+
+        try {
+            _sse = new EventSource(URL);
+
+            _sse.addEventListener('put', e => {
+                try {
+                    const msg  = JSON.parse(e.data);
+                    // Root put gives full settings object; nested put gives partial
+                    const data = (msg.path === '/') ? msg.data : _buildPartial(msg.path, msg.data);
+                    if (data) _applySettings(data);
+                    // Also store latest for partial merges
+                    if (msg.path === '/') _latest = msg.data || {};
+                    else if (_latest && msg.path) {
+                        const key = msg.path.replace('/', '');
+                        _latest[key] = msg.data;
+                        _applySettings(_latest);
+                    }
+                } catch (_) {}
+                _retryMs = 2000; // reset backoff on success
+            });
+
+            _sse.addEventListener('patch', e => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    if (_latest && msg.data) {
+                        Object.assign(_latest, msg.data);
+                        _applySettings(_latest);
+                    }
+                } catch (_) {}
+            });
+
+            _sse.onerror = () => {
+                _sse.close(); _sse = null;
+                setTimeout(_connect, _retryMs);
+                _retryMs = Math.min(_retryMs * 2, MAX_RETRY);
+            };
+        } catch (_) {
+            // EventSource not supported or blocked — fall back to polling
+            _pollFallback();
+        }
+    }
+
+    /* ── Fallback: poll every 30s if SSE unavailable ──────── */
+    function _pollFallback() {
+        fetch(`${URL}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data) _applySettings(data); })
+            .catch(() => {})
+            .finally(() => setTimeout(_pollFallback, 30000));
+    }
+
+    /* ── Build partial object from SSE path ─────────────────── */
+    function _buildPartial(path, data) {
+        const key = (path || '').replace(/^\//, '').split('/')[0];
+        if (!key) return null;
+        return { [key]: data };
+    }
+
+    let _latest = {};
+
+    /* ── Public entry point called by loadAll() ─────────────── */
+    window._startSettingsStream = _connect;
 })();

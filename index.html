@@ -25,8 +25,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Delivo">
-    <link rel="stylesheet" href="styles/base.css?v=16">
-    <link rel="stylesheet" href="styles/navbar.css?v=7">
+    <link rel="stylesheet" href="styles/base.css?v=18">
+    <link rel="stylesheet" href="styles/navbar.css?v=8">
     <link rel="stylesheet" href="styles/hero.css?v=7">
     <link rel="stylesheet" href="styles/cards.css?v=7">
     <link rel="stylesheet" href="styles/modals.css?v=23">
@@ -47,6 +47,27 @@
             ثم «إضافة للشاشة»
         </span>
         <button class="ios-top-banner__close" id="ios-top-banner-close" aria-label="إغلاق">✕</button>
+    </div>
+
+    <!-- ── Test Mode Banner — shown when settings/testMode = true ── -->
+    <div id="test-mode-banner" style="display:none;" role="alert" aria-live="polite">
+        <div class="tmb__inner">
+            <span class="tmb__icon">🧪</span>
+            <div class="tmb__text">
+                <strong class="tmb__title">الموقع قيد التجربة حالياً</strong>
+                <span class="tmb__sub">لا يتم قبول طلبات حقيقية — سيُعلَن عن الإطلاق الرسمي قريباً</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Maintenance Overlay — shown when settings/maintenance = true ── -->
+    <div id="maintenance-overlay" style="display:none;" role="alert" aria-live="assertive">
+        <div class="mnt__card">
+            <div class="mnt__icon">🔧</div>
+            <div class="mnt__title">الموقع تحت الصيانة</div>
+            <div class="mnt__sub">نعمل على تحسين خدمتنا — سنعود قريباً بشكل أفضل</div>
+            <img src="assets/logo.png" alt="Delivo" class="mnt__logo">
+        </div>
     </div>
 
     <!-- SPLASH SCREEN — cinematic multi-layer animation -->
@@ -144,7 +165,7 @@
         <section class="hero" id="hero-section">
 
             <!-- Background -->
-            <img class="hero__bg" src="assets/hero-bg2.png" alt="">
+            <img class="hero__bg" src="assets/hero-bg2.webp" alt="">
 
             <!-- Online counter widget -->
             <div class="hero__online" id="hero-online-count" title="الزوار المتصلون الآن">
@@ -166,7 +187,7 @@
                                 <div class="hero__slide-title">اختر المتجر</div>
                                 <div class="hero__slide-sub">اختر من أفضل المطاعم والمتاجر القريبة منك</div>
                             </div>
-                            <img class="hero__phone" src="assets/hero-mobile1.png" alt="اختر المتجر">
+                            <img class="hero__phone" src="assets/hero-mobile1.webp" alt="اختر المتجر">
                         </div>
 
                         <!-- Step 2 -->
@@ -196,7 +217,7 @@
                                 <div class="hero__slide-title">استلم الطلب</div>
                                 <div class="hero__slide-sub">استلم طلبك بسرعة واستمتع بوجبتك</div>
                             </div>
-                            <img class="hero__phone" src="assets/hero-mobile4.png" alt="استلم الطلب">
+                            <img class="hero__phone" src="assets/hero-mobile4.webp" alt="استلم الطلب">
                         </div>
 
                     </div>
@@ -353,7 +374,7 @@
 
                     <!-- Phone — overflows left edge (LTR left = RTL right visual) -->
                     <div class="app-download__phone">
-                        <img src="assets/app-phone.png" alt="Delivo App"
+                        <img src="assets/app-phone.webp" alt="Delivo App"
                              class="app-download__phone-img">
                     </div>
 
@@ -1014,14 +1035,14 @@
     <script src="scripts/modal-auth.js?v=25"></script>
     <script src="scripts/onboarding.js?v=1"></script>
 
-    <script src="scripts/loader.js?v=13"></script>
+    <script src="scripts/loader.js?v=15"></script>
     <script src="scripts/modals.js?v=7"></script>
     <script src="scripts/stores.js?v=7"></script>
     <script src="scripts/categories.js?v=3"></script>
-    <script src="scripts/cart.js?v=13"></script>
-    <script src="scripts/store-panel.js?v=6"></script>
+    <script src="scripts/cart.js?v=14"></script>
+    <script src="scripts/store-panel.js?v=7"></script>
     <script src="scripts/store-status-listener.js?v=1"></script>
-    <script src="scripts/mealtime.js?v=2"></script>
+    <script src="scripts/mealtime.js?v=3"></script>
     <script src="scripts/pwa.js?v=8"></script>
     <script src="scripts/presence.js?v=1"></script>
     <script src="scripts/back-handler.js?v=1"></script>

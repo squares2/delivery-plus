@@ -39,7 +39,7 @@ function initNavbar() {
             <button class="bb-logo-btn" id="bb-logo-btn" aria-label="الرئيسية">
                 <div class="bb-logo-btn__circle">
                     <span class="bb-logo-state" id="bb-state-logo">
-                        <img src="assets/icon-192.png" alt="Delivo">
+                        <img src="assets/icon-taskbar.png" alt="Delivo">
                     </span>
                     <span class="bb-logo-state bb-logo-state--hidden" id="bb-state-track">
                         <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">

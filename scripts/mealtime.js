@@ -132,7 +132,15 @@
     /* ── Build store card HTML ─────────────────────────────── */
     function _cardHTML(store, mealLabel) {
         const name  = store.companyname;
-        const img   = `assets/${name.toLowerCase()}.png`;
+        // Use explicit assetName field if set, otherwise slugify to Latin-safe filename
+        const slug  = store.assetName
+            ? store.assetName.toLowerCase()
+            : name.toLowerCase()
+                  .replace(/\s+/g, '-')          // spaces → dash
+                  .replace(/[^\x00-\x7F]/g, '')  // strip non-ASCII (Arabic chars)
+                  .replace(/-+/g, '-')            // collapse double dashes
+                  .replace(/^-|-$/g, '');         // trim leading/trailing dashes
+        const img   = `assets/${slug || 'store'}.png`;
         const tags  = store.tags || store.storeType || '';
         const typeMap = {
             Restaurants:'مطعم', BakeryShops:'مخبز', ButcherShops:'ملحمة',
@@ -154,7 +162,8 @@
         return `
         <div class="mt-card"
              data-store-name="${name}"
-             data-store-type="${store._type}">
+             data-store-type="${store._type}"
+             data-store-id="${slug}">
             <div class="mt-card__thumb">
                 <img src="${img}" alt="${name}"
                      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -245,10 +254,11 @@
             card.addEventListener('click', () => {
                 const name = card.dataset.storeName;
                 const type = card.dataset.storeType;
-                // Build a slug id matching stores.js convention
-                const id   = name.toLowerCase().replace(/\s+/g, '-');
-                if (typeof openStorePanel === 'function') {
-                    openStorePanel(id, name, type);
+                // Use storeId stored on card, or fall back to slug
+                const id   = card.dataset.storeId || name.toLowerCase().replace(/\s+/g, '-');
+                // Use window.openStorePanel — set by store-panel.js after initStorePanel()
+                if (typeof window.openStorePanel === 'function') {
+                    window.openStorePanel(id, name, type);
                 }
             });
         });
@@ -264,13 +274,19 @@
         });
     }
 
-    // Run after page is interactive
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    /* ── Guard against double-init ──────────────────────────
+       loader.js calls window.initMealtime() after all scripts
+       and initStorePanel() are ready. We must NOT self-fire
+       here, or the section builds before openStorePanel exists
+       and then builds a second time when loader calls us.
+       ──────────────────────────────────────────────────────── */
+    let _initialized = false;
+    const _guardedInit = async function () {
+        if (_initialized) return;
+        _initialized = true;
+        await init();
+    };
 
-    // Expose so admin can call it for live preview
-    window.initMealtime = init;
+    // Expose so loader.js and admin panel can call it
+    window.initMealtime = _guardedInit;
 })();
