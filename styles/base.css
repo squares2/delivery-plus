@@ -709,8 +709,10 @@ body.loaded { visibility: visible; }
 .ios-top-banner__close:hover { background: rgba(255,255,255,0.22); }
 /* ── Test Mode Banner ───────────────────────────────────────── */
 #test-mode-banner {
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 1200;
     background: linear-gradient(90deg, #78350f 0%, #92400e 100%);
     border-bottom: 2px solid #f59e0b;
@@ -753,6 +755,36 @@ body.loaded { visibility: visible; }
 @media (max-width: 480px) {
     .tmb__title { font-size: 0.76rem; }
     .tmb__sub   { font-size: 0.65rem; }
+}
+
+/* ── When test banner is active, offset everything that anchors to top:0 ── */
+body.tmb-active {
+    padding-top: var(--tmb-h, 0px);
+}
+/* fixed panels must shift down by banner height */
+body.tmb-active .store-panel,
+body.tmb-active .store-panel-header,
+body.tmb-active .cart-sidebar,
+body.tmb-active .cart-sidebar-header,
+body.tmb-active .bb-nav,
+body.tmb-active .modal,
+body.tmb-active .delivo-modal,
+body.tmb-active .oh-sheet {
+    top: var(--tmb-h, 0px) !important;
+}
+/* oh-sheet anchors bottom:0 and uses height:100vh — shrink it to fit below banner */
+body.tmb-active .oh-sheet {
+    height: calc(100vh - var(--tmb-h, 0px)) !important;
+}
+/* modal-overlay is inset:0 — keep it full screen but pad top so content isn't under banner */
+body.tmb-active .modal-overlay {
+    padding-top: calc(var(--tmb-h, 0px) + clamp(16px, 4vw, 24px)) !important;
+}
+/* overlays stay inset:0 so they still cover full screen incl. banner area */
+body.tmb-active .store-panel-overlay,
+body.tmb-active .cart-overlay,
+body.tmb-active .oh-sheet-overlay {
+    top: 0 !important;
 }
 
 /* ── Maintenance Overlay ────────────────────────────────────── */

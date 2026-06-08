@@ -223,7 +223,13 @@ document.addEventListener('DOMContentLoaded', loadAll);
         /* testMode */
         const isTest   = settings.testMode === true || settings.testMode === 'true';
         const banner   = document.getElementById('test-mode-banner');
-        if (banner) banner.style.display = isTest ? 'block' : 'none';
+        if (banner) {
+            banner.style.display = isTest ? 'block' : 'none';
+            // Measure actual banner height after display so CSS var is exact
+            const h = isTest ? (banner.offsetHeight || 44) : 0;
+            document.documentElement.style.setProperty('--tmb-h', h + 'px');
+            document.body.classList.toggle('tmb-active', isTest);
+        }
 
         /* maintenance */
         const isMaint  = settings.maintenance === true || settings.maintenance === 'true';
