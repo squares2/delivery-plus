@@ -342,6 +342,7 @@ const SP_NAME_MAP = {
     'foodigo'         : 'Foodigo',
     'hellani-kitchen' : 'Hellani-Kitchen',
     'minini'          : 'Minini',
+    'pan-corner'      : 'Pan-Corner',
 };
 const SP_TYPE_MAP = {
     restaurants  : 'Restaurants',

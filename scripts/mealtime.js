@@ -140,7 +140,8 @@
                   .replace(/[^\x00-\x7F]/g, '')  // strip non-ASCII (Arabic chars)
                   .replace(/-+/g, '-')            // collapse double dashes
                   .replace(/^-|-$/g, '');         // trim leading/trailing dashes
-        const img   = `assets/${slug || 'store'}.png`;
+        const imgBase = `assets/${slug || 'store'}`;
+        const img     = `${imgBase}.webp`;
         const tags  = store.tags || store.storeType || '';
         const typeMap = {
             Restaurants:'مطعم', BakeryShops:'مخبز', ButcherShops:'ملحمة',
@@ -166,7 +167,7 @@
              data-store-id="${slug}">
             <div class="mt-card__thumb">
                 <img src="${img}" alt="${name}"
-                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                     onerror="if(this.src.includes('.webp')){this.src=this.src.replace('.webp','.png');return;}this.style.display='none';this.nextElementSibling.style.display='flex'">
                 <div style="display:none;width:100%;height:100%;align-items:center;
                             justify-content:center;font-size:2rem;">${emoji}</div>
                 <span class="mt-card__meal-tag">${mealLabel}</span>

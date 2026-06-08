@@ -97,11 +97,15 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     if (rank) { ratingVal.textContent = rank.toFixed(1); ratingEl.style.display = 'flex'; }
     else       { ratingEl.style.display = 'none'; }
 
-    const logoPath = `assets/${storeId}.png`;
+    const logoPath    = `assets/${storeId}.webp`;
+    const logoPngPath = `assets/${storeId}.png`;
     logoImg.style.display  = 'none';
     logoEmoji.style.display = 'none';
     logoImg.onload  = () => { logoImg.style.display = 'block'; logoEmoji.style.display = 'none'; };
-    logoImg.onerror = () => { logoImg.style.display = 'none'; logoEmoji.textContent = _typeEmoji(storeType) || '🏪'; logoEmoji.style.display = 'block'; };
+    logoImg.onerror = function() {
+        if (this.src.includes('.webp')) { this.src = logoPngPath; return; }
+        logoImg.style.display = 'none'; logoEmoji.textContent = _typeEmoji(storeType) || '🏪'; logoEmoji.style.display = 'block';
+    };
     logoImg.src = logoPath;
 
     card.classList.remove('exit');
@@ -192,8 +196,9 @@ function _openStorePanelNow(storeId, storeName, storeType) {
     const logoEmoji  = document.getElementById('sp-hero-logo-emoji');
     const bgImg      = document.getElementById('sp-hero-bg');
     const fallbackEl = document.getElementById('sp-hero-fallback');
-    const logoPath   = `assets/${storeId}.png`;
-    const emojiDef   = _typeEmoji(storeType) || '🏪';
+    const logoPath    = `assets/${storeId}.webp`;
+    const logoPngPath = `assets/${storeId}.png`;
+    const emojiDef    = _typeEmoji(storeType) || '🏪';
 
     if (logoImg)   { logoImg.style.display = 'none'; logoImg.src = ''; }
     if (logoEmoji) { logoEmoji.style.display = 'none'; logoEmoji.textContent = emojiDef; }
@@ -204,10 +209,11 @@ function _openStorePanelNow(storeId, storeName, storeType) {
         logoImg.onload = () => {
             logoImg.style.display = 'block';
             if (logoEmoji) logoEmoji.style.display = 'none';
-            if (bgImg) { bgImg.src = logoPath; bgImg.style.display = 'block'; }
+            if (bgImg) { bgImg.src = logoImg.src; bgImg.style.display = 'block'; }
             if (fallbackEl) fallbackEl.style.display = 'none';
         };
-        logoImg.onerror = () => {
+        logoImg.onerror = function() {
+            if (this.src.includes('.webp')) { this.src = logoPngPath; return; }
             logoImg.style.display = 'none';
             if (logoEmoji) { logoEmoji.textContent = emojiDef; logoEmoji.style.display = 'flex'; }
             if (fallbackEl){ fallbackEl.textContent = emojiDef; fallbackEl.style.display = 'flex'; }
@@ -350,7 +356,9 @@ async function _loadStorePanel(storeName, storeType) {
             }
         }
 
-        const items = await rtdbGet(`items/${storeName}`);
+        let items = await rtdbGet(`items/${storeName}`);
+        // Fallback: try lowercase key in case Firebase key doesn't match case
+        if (!items) items = await rtdbGet(`items/${storeName.toLowerCase()}`).catch(() => null);
         if (!items) {
             body.innerHTML = `<div class="sp-empty">
                 <div class="sp-empty__icon">🛍️</div>

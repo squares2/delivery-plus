@@ -120,7 +120,8 @@ function _storeCardHTML(store, catKey, fbType) {
     const rank     = store.rank ? parseFloat(store.rank).toFixed(1) : null;
     const isSoon   = store.soon == '1' || store.soon === 1;
     const isClosed = !!store._closed;
-    const imgUrl   = `${STORE_IMG}/${encodeURIComponent(name.toLowerCase())}.png`;
+    const imgBase  = `${STORE_IMG}/${encodeURIComponent(name.toLowerCase())}`;
+    const imgUrl   = `${imgBase}.webp`;
     const id       = name.toLowerCase().replace(/\s+/g, '-');
 
     // Resolve "opens at" human string
@@ -163,7 +164,7 @@ function _storeCardHTML(store, catKey, fbType) {
         <div class="store-card__thumb" style="position:relative;">
             <img src="${imgUrl}" alt="${name}"
                  style="width:100%;height:100%;object-fit:cover;display:block;"
-                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                 onerror="if(this.src.includes('.webp')){this.src=this.src.replace('.webp','.png');return;}this.style.display='none';this.nextElementSibling.style.display='flex'">
             <div style="display:none;width:100%;height:100%;align-items:center;
                         justify-content:center;font-size:2rem;background:var(--clr-gray-100);">
                 ${_catEmoji(catKey)}</div>
