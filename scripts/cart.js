@@ -399,7 +399,7 @@ function initCart() {
         const baseItemId  = item.id.replace(/__i\d+$/, '');
         const idParts     = baseItemId.split('__');
         const rawId       = idParts[idParts.length - 1];
-        const imgUrl      = `./items/${rawId.toLowerCase()}.png`;
+        const imgUrl      = `./items2/${rawId.toLowerCase()}.webp`;
         const uniqueKey   = `${item.storeName}__${item.id}`;
         const isInstance  = item.id.includes('__i');
 

@@ -7,7 +7,7 @@
    ============================================================ */
 
 const RTDB_URL  = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-const GH_IMAGES = './items';
+const GH_IMAGES = './items2';
 
 /* Store types that show description input inside item popup */
 const CUSTOMIZABLE_TYPES = ['Restaurants', 'BakeryShops'];
@@ -412,7 +412,7 @@ function renderItem(item, storeName) {
     const hasSale   = sale > 0 && sale < price;
     const dispPrice = hasSale ? sale : price;
     const pngExist  = item.pngExist === '1' || item.pngExist === 1;
-    const imgUrl    = pngExist ? `${GH_IMAGES}/${String(id).toLowerCase()}.png` : '';
+    const imgUrl    = pngExist ? `${GH_IMAGES}/${String(id).toLowerCase()}.webp` : '';
     const cartQty   = _getBaseItemQty(`${storeName}__${id}`, storeName);
     const uniqueId  = `${storeName}__${id}`;
     const sType     = _currentStore ? _currentStore.type : '';
@@ -898,7 +898,7 @@ async function openItemPopup(item, storeName) {
     const disp     = hasSale ? sale : price;
     const id       = item.ID || item.id || '';
     const pngExist = item.pngExist === '1' || item.pngExist === 1;
-    const imgUrl   = pngExist ? `${GH_IMAGES}/${String(id).toLowerCase()}.png` : '';
+    const imgUrl   = pngExist ? `${GH_IMAGES}/${String(id).toLowerCase()}.webp` : '';
     const desc     = (item.unitdesc || '').trim();
     const sType    = _currentStore ? _currentStore.type : '';
 

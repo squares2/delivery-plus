@@ -1745,7 +1745,7 @@ input, select, textarea { font-family: var(--font); }
                 <div class="users-table-wrap">
                     <table class="users-table">
                         <thead><tr>
-                            <th>العميل</th><th>اسم المستخدم</th><th>الهاتف</th><th>النقاط</th><th>الطلبات</th><th>الحالة</th><th>آخر نشاط</th><th>إجراءات</th>
+                            <th>العميل</th><th>اسم المستخدم</th><th>الهاتف</th><th>النقاط</th><th>الطلبات</th><th>الحالة</th><th>آخر نشاط</th><th>الموقع</th><th>إجراءات</th>
                         </tr></thead>
                         <tbody id="customers-tbody"></tbody>
                     </table>
@@ -2600,7 +2600,7 @@ function switchPanel(id) {
    Firebase RTDB paths:
      pattern/{StoreType}           → store list (companyname, rank, soon)
      items/{companyname}/{itemID}  → items { name, price, sale, catmain, cat, catar, unitdesc, pngExist, ID }
-   Images: ./items/{ID}.png  (served as static files)
+   Images: ./items2/{ID}.webp  (served as static files)
 ================================================================ */
 
 let _catCurrentStore  = null;  // { name, type }
@@ -2716,7 +2716,7 @@ function _renderCatalogItems() {
         const sale    = parseFloat(item.sale)  || 0;
         const hasSale = sale > 0 && sale < price;
         const png     = item.pngExist === '1' || item.pngExist === 1;
-        const imgSrc  = png ? `items/${String(id).toLowerCase()}.png` : '';
+        const imgSrc  = png ? `items2/${String(id).toLowerCase()}.webp` : '';
         return `
         <div style="background:var(--surface);border-radius:12px;overflow:hidden;border:1.5px solid var(--surface3);display:flex;flex-direction:column;min-height:220px;">
             <!-- image -->
@@ -2836,7 +2836,7 @@ function openCatalogItemModal(item) {
                     }
                 </div>
                 <div style="font-size:0.68rem;color:var(--gray);line-height:1.4;">
-                    ضع صورة المنتج في مجلد <code style="color:var(--orange)">items/</code><br>
+                    ضع صورة المنتج في مجلد <code style="color:var(--orange)">items2/</code><br>
                     باسم: <code style="color:var(--orange)" id="cat-modal-img-name">${id ? id.toLowerCase()+'.png' : 'ID.png'}</code>
                 </div>
             </div>
@@ -2886,7 +2886,7 @@ function openCatalogItemModal(item) {
                 <textarea id="cim-desc" rows="2" placeholder="وصف اختياري للمنتج" style="width:100%;resize:vertical;">${item?.unitdesc||''}</textarea>
             </div>
             <div class="modal-field">
-                <label>الـ ID <span style="color:var(--orange)">*</span> <small style="color:var(--gray)">(اسم ملف الصورة = ID.png)</small></label>
+                <label>الـ ID <span style="color:var(--orange)">*</span> <small style="color:var(--gray)">(اسم ملف الصورة = ID.webp)</small></label>
                 <input type="text" id="cim-id" value="${id}" placeholder="مثال: sha001" dir="ltr" style="width:100%;font-family:monospace;"
                        oninput="document.getElementById('cat-modal-img-name').textContent=this.value.toLowerCase()+'.png'">
             </div>
@@ -4634,6 +4634,13 @@ function renderCustomers() {
                     <td style="font-family:var(--mono);font-size:0.72rem;color:var(--gray-light);">${ordCount}</td>
                     <td><span class="ut-status ${pBlocked?'blocked':(isActive?'active':'offline')}">${pBlocked?'\u26d4 \u0645\u062d\u0638\u0648\u0631':(isActive?'\u0646\u0634\u0637':'\u063a\u064a\u0631 \u0646\u0634\u0637')}</span></td>
                     <td style="font-size:0.7rem;color:var(--gray);">${ts}</td>
+                    <td>${(()=>{
+                        const _loc2=p.location;
+                        const _lat2=parseFloat(_loc2?.lat??_loc2?.latitude??p.lat??p.latitude??NaN);
+                        const _lng2=parseFloat(_loc2?.lng??_loc2?.longitude??p.lng??p.longitude??NaN);
+                        if(!_lat2||!_lng2||isNaN(_lat2)||isNaN(_lng2)) return '<span style="font-size:0.7rem;color:var(--gray);">—</span>';
+                        return `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat2}" data-lng="${_lng2}" data-cname="${p.displayName||p.username||''}">📍 خريطة</button>`;
+                    })()}</td>
                     <td>
                         <button class="uuid-bl-btn ${bl[p._id]?'unblock':''}"
                             data-uid="${p._id}" data-name="${p.displayName||p.username||''}"
@@ -4641,6 +4648,10 @@ function renderCustomers() {
                             ${bl[p._id] ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
                         </button>
                     </td>`;
+                tr2.querySelectorAll('.cust-map-btn').forEach(b => b.addEventListener('click', e => {
+                    e.stopPropagation();
+                    _flyToCustomer(parseFloat(b.dataset.lat), parseFloat(b.dataset.lng), b.dataset.cname);
+                }));
                 return tr2;
             });
 
@@ -4701,6 +4712,13 @@ function renderCustomers() {
                 <td style="font-family:var(--mono);font-size:0.72rem;color:var(--gray-light);">${ordCount}</td>
                 <td><span class="ut-status ${isBlocked?'blocked':(isActive?'active':'offline')}">${isBlocked?'\u26d4 \u0645\u062d\u0638\u0648\u0631':(isActive?'\u0646\u0634\u0637':'\u063a\u064a\u0631 \u0646\u0634\u0637')}</span></td>
                 <td style="font-size:0.7rem;color:var(--gray);">${ts}</td>
+                <td id="cust-loc-cell-${uid}">${(()=>{
+                    const _loc=u.location;
+                    const _lat=parseFloat(_loc?.lat??_loc?.latitude??u.lat??u.latitude??NaN);
+                    const _lng=parseFloat(_loc?.lng??_loc?.longitude??u.lng??u.longitude??NaN);
+                    if(!_lat||!_lng||isNaN(_lat)||isNaN(_lng)) return '<span style="font-size:0.7rem;color:var(--gray);">—</span>';
+                    return `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat}" data-lng="${_lng}" data-cname="${u.displayName||u.username||''}">📍 خريطة</button>`;
+                })()}</td>
                 <td>
                     <button class="uuid-bl-btn ${isBlocked?'unblock':''}"
                         data-uid="${uid}" data-name="${u.displayName||u.username||''}"
@@ -4712,9 +4730,24 @@ function renderCustomers() {
                 e.stopPropagation();
                 handleBlacklistAction(tr.querySelector('[data-action]'));
             });
+            const _mapBtn = tr.querySelector('.cust-map-btn');
+            if (_mapBtn) _mapBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                _flyToCustomer(parseFloat(_mapBtn.dataset.lat), parseFloat(_mapBtn.dataset.lng), _mapBtn.dataset.cname);
+            });
             tbody.appendChild(tr);
         }
     });
+}
+
+// ── Customer map fly-to helper ───────────────────────────────────────────
+function _flyToCustomer(lat, lng, name) {
+    switchPanel('map');
+    setTimeout(() => {
+        if (!adminMap) return;
+        adminMap.invalidateSize();
+        adminMap.flyTo([lat, lng], 17, { animate: true, duration: 1.2 });
+    }, 320);
 }
 
 // STORES PANEL
@@ -6635,7 +6668,7 @@ function cpiRender() {
         const sale    = parseFloat(item.sale)  || 0;
         const hasSale = sale > 0 && sale < price;
         const hasPng  = item.pngExist === '1' || item.pngExist === 1;
-        const imgSrc  = `items/${String(id).toLowerCase()}.png`;
+        const imgSrc  = `items2/${String(id).toLowerCase()}.webp`;
         const emoji   = _catTypeEmoji(_cpiStoreType);
         const safeItem = JSON.stringify(item).replace(/"/g,'&quot;');
         return `
@@ -6705,7 +6738,7 @@ function cpOpenItemModal(item) {
                     }
                 </div>
                 <div style="font-size:0.68rem;color:var(--gray);line-height:1.5;">
-                    ضع صورة المنتج في مجلد <code style="color:var(--orange)">items/</code>
+                    ضع صورة المنتج في مجلد <code style="color:var(--orange)">items2/</code>
                     باسم: <code style="color:var(--orange)" id="cat-modal-img-name">${id ? id.toLowerCase()+'.png' : 'ID.png'}</code>
                 </div>
             </div>
@@ -6754,7 +6787,7 @@ function cpOpenItemModal(item) {
                 <textarea id="cim-desc" rows="2" placeholder="وصف اختياري" style="width:100%;resize:vertical;">${item?.unitdesc||''}</textarea>
             </div>
             <div class="modal-field">
-                <label>الـ ID <span style="color:var(--orange)">*</span> <small style="color:var(--gray)">(اسم ملف الصورة = ID.png)</small></label>
+                <label>الـ ID <span style="color:var(--orange)">*</span> <small style="color:var(--gray)">(اسم ملف الصورة = ID.webp)</small></label>
                 <input type="text" id="cim-id" value="${id}" placeholder="مثال: sha001" dir="ltr" style="width:100%;font-family:monospace;"
                        oninput="document.getElementById('cat-modal-img-name').textContent=this.value.toLowerCase()+'.png'">
             </div>
