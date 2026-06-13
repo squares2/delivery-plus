@@ -3085,12 +3085,18 @@ async function loadAllData() {
                 arr.filter(s => s && s.companyname).forEach(s => {
                     const st = storeStatusAll && storeStatusAll[s.companyname];
                     const cl = st && (st.closed === true || st.closed === '1' || st.closed === 1);
-                    allStores[s.companyname] = {
-                        ...s, type,
-                        _closed:        cl || false,
-                        _closedReason:  cl ? (st.reason  || '') : '',
-                        _opensAt:       cl ? (st.opensAt || '') : '',
-                    };
+                    if (allStores[s.companyname]) {
+                        if (!allStores[s.companyname].allTypes.includes(type))
+                            allStores[s.companyname].allTypes.push(type);
+                    } else {
+                        allStores[s.companyname] = {
+                            ...s, type,
+                            allTypes:      [type],
+                            _closed:        cl || false,
+                            _closedReason:  cl ? (st.reason  || '') : '',
+                            _opensAt:       cl ? (st.opensAt || '') : '',
+                        };
+                    }
                 });
             });
         }
@@ -4906,7 +4912,7 @@ function renderStores() {
 
     // Type filter
     if (storeFilter !== 'all') {
-        stores = stores.filter(([, s]) => s.type === storeFilter);
+        stores = stores.filter(([, s]) => (s.allTypes || [s.type]).includes(storeFilter));
     }
     // Search
     if (storeSearch) {
@@ -4945,7 +4951,7 @@ function renderStores() {
             <div class="sc-thumb">
                 ${imgPicture}
                 <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:2rem;">${emoji}</div>
-                <div class="sc-type-badge">${typeLabel}</div>
+                <div class="sc-type-badge">${(s.allTypes||[s.type]).map(t=>TYPE_EMOJI[t]||'🏪').join(' ')}</div>
                 ${newOrders > 0 ? `<div style="position:absolute;top:6px;left:6px;background:var(--orange);color:#fff;font-size:0.6rem;font-weight:800;padding:2px 7px;border-radius:50px;">🔴 ${newOrders} جديد</div>` : ''}
                 ${isClosed   ? `<div class="sc-closed-overlay"><span>🔒</span><span class="sc-closed-lbl">مغلق</span></div>` : ''}
                 ${isDisabled && !isClosed ? `<div class="sc-closed-overlay" style="background:rgba(30,30,30,0.72);"><span>🚫</span><span class="sc-closed-lbl" style="background:rgba(120,120,120,0.8);">معطّل</span></div>` : ''}
@@ -5003,6 +5009,9 @@ function renderStores() {
                 </button>
                 <button class="sc-disable-btn ${isDisabled ? 'sc-disable-btn--on' : ''}" style="flex:1.5;" title="${isDisabled ? 'إعادة التفعيل' : 'تعطيل المتجر'}">
                     ${isDisabled ? '✅ تفعيل' : '🚫 تعطيل'}
+                </button>
+                <button class="sc-type-edit-btn" style="flex:1;" title="تغيير نوع المتجر">
+                    🏷
                 </button>
                 <button class="sc-locate-set-btn" style="flex:1;" title="تحديد موقع المتجر على الخريطة">
                     📍
@@ -5063,6 +5072,12 @@ function renderStores() {
             const currentLat = s.lat ? parseFloat(s.lat) : null;
             const currentLng = s.lng ? parseFloat(s.lng) : null;
             openStoreLocationModal(name, s.type, currentLat, currentLng);
+        });
+
+        // Type editor button
+        card.querySelector('.sc-type-edit-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openStoreTypeModal(name, s.allTypes || [s.type]);
         });
 
         grid.appendChild(card);
@@ -5407,6 +5422,137 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
     setTimeout(() => slMap.invalidateSize(), 120);
 }
 
+// ══ STORE TYPE EDITOR MODAL ════════════════════════════════════
+async function openStoreTypeModal(storeName, currentTypes) {
+    const stale = document.getElementById('stype-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'stype-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const ALL_T = [
+        { key:'Restaurants',  label:'مطعم',       emoji:'🍔' },
+        { key:'ButcherShops', label:'ملحمة',       emoji:'🥩' },
+        { key:'BakeryShops',  label:'مخبز',        emoji:'🥖' },
+        { key:'Markets',      label:'سوبرماركت',   emoji:'🛒' },
+        { key:'GroceryShops', label:'بقالة',       emoji:'🧺' },
+        { key:'SweetsShops',  label:'حلويات',      emoji:'🍰' },
+        { key:'FishShops',    label:'أسماك',       emoji:'🐟' },
+        { key:'CoffeeShops',  label:'قهوة',        emoji:'☕' },
+        { key:'ChickenShops', label:'دجاج',        emoji:'🍗' },
+        { key:'DairyShops',   label:'ألبان',       emoji:'🥛' },
+        { key:'FlowerShops',  label:'زهور',        emoji:'💐' },
+        { key:'TobaccoShops', label:'تبغ',         emoji:'🚬' },
+        { key:'ToysShops',    label:'ألعاب',       emoji:'🧸' },
+        { key:'Taxi',         label:'تاكسي',       emoji:'🚕' },
+    ];
+
+    const checkboxes = ALL_T.map(t => {
+        const checked = currentTypes.includes(t.key) ? 'checked' : '';
+        return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;background:${checked?'rgba(255,92,0,0.1)':'transparent'};border:1.5px solid ${checked?'var(--orange)':'var(--border)'};transition:all .15s;" class="stype-lbl">
+            <input type="checkbox" class="stype-cb" data-key="${t.key}" ${checked} style="accent-color:var(--orange);width:16px;height:16px;cursor:pointer;">
+            <span style="font-size:1.1rem;">${t.emoji}</span>
+            <span style="font-size:0.85rem;font-weight:700;color:var(--white);">${t.label}</span>
+        </label>`;
+    }).join('');
+
+    overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:440px;font-family:var(--font);direction:rtl;max-height:90vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <h3 style="font-size:1rem;font-weight:800;color:var(--white);margin:0;">🏷 نوع المتجر — ${storeName}</h3>
+            <button id="stype-close" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size:0.75rem;color:var(--gray);margin-bottom:16px;">اختر نوعاً واحداً أو أكثر — المتجر سيظهر في كل قسم محدد</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;" id="stype-grid">
+            ${checkboxes}
+        </div>
+        <div id="stype-err" style="color:var(--red);font-size:0.78rem;margin-bottom:10px;display:none;">يجب اختيار نوع واحد على الأقل</div>
+        <div style="display:flex;gap:10px;">
+            <button id="stype-cancel" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:11px;color:var(--white);font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            <button id="stype-save" style="flex:2;background:var(--orange);border:none;border-radius:12px;padding:11px;color:#fff;font-family:inherit;font-size:0.88rem;font-weight:800;cursor:pointer;">💾 حفظ الأنواع</button>
+        </div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+
+    // Live highlight checkboxes
+    overlay.querySelectorAll('.stype-lbl').forEach(lbl => {
+        lbl.querySelector('input').addEventListener('change', function() {
+            lbl.style.background = this.checked ? 'rgba(255,92,0,0.1)' : 'transparent';
+            lbl.style.borderColor = this.checked ? 'var(--orange)' : 'var(--border)';
+        });
+    });
+
+    const close = () => overlay.remove();
+    document.getElementById('stype-close').onclick  = close;
+    document.getElementById('stype-cancel').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    document.getElementById('stype-save').onclick = async () => {
+        const btn = document.getElementById('stype-save');
+        const errEl = document.getElementById('stype-err');
+        const selected = [...overlay.querySelectorAll('.stype-cb:checked')].map(cb => cb.dataset.key);
+
+        if (!selected.length) { errEl.style.display='block'; return; }
+        errEl.style.display = 'none';
+        btn.disabled = true; btn.textContent = '…';
+
+        try {
+            // Fetch current full pattern once
+            const pattern = await fbGet('pattern') || {};
+
+            // Normalize to objects keyed by index
+            const normalized = {};
+            Object.entries(pattern).forEach(([type, list]) => {
+                const arr = Array.isArray(list) ? list : Object.values(list);
+                normalized[type] = arr.filter(Boolean);
+            });
+
+            // Get the store's current data from any of its existing types
+            let storeData = null;
+            const typesToRemove = [];
+            Object.entries(normalized).forEach(([type, arr]) => {
+                const idx = arr.findIndex(s => s && s.companyname === storeName);
+                if (idx !== -1) {
+                    if (!storeData) storeData = { ...arr[idx] };
+                    if (!selected.includes(type)) typesToRemove.push({ type, idx });
+                }
+            });
+
+            if (!storeData) { toast('لم يُعثر على بيانات المتجر', true); return; }
+
+            const writes = [];
+
+            // Remove from unselected types
+            typesToRemove.forEach(({ type, idx }) => {
+                const arr = normalized[type].filter((_, i) => i !== idx);
+                const obj = Object.fromEntries(arr.map((v, i) => [i, v]));
+                writes.push(fbSet(`pattern/${type}`, arr.length ? obj : null));
+            });
+
+            // Add to newly selected types (if not already there)
+            selected.forEach(type => {
+                const existing = normalized[type] || [];
+                const alreadyIn = existing.some(s => s && s.companyname === storeName);
+                if (!alreadyIn) {
+                    const newArr = [...existing, { ...storeData }];
+                    const obj = Object.fromEntries(newArr.map((v, i) => [i, v]));
+                    writes.push(fbSet(`pattern/${type}`, obj));
+                }
+            });
+
+            await Promise.all(writes);
+            toast(`✅ تم تحديث أنواع ${storeName}`);
+            close();
+            await _refreshStoresData();
+        } catch(e) {
+            toast('فشل الحفظ: ' + e.message, true);
+            btn.disabled = false; btn.textContent = '💾 حفظ الأنواع';
+        }
+    };
+}
+
 // ── Add Store Modal ──────────────────────────────────────────
 const ALL_TYPES = [
     { key:'Restaurants',  label:'مطعم',       emoji:'🍔' },
@@ -5573,12 +5719,18 @@ async function _refreshStoresData() {
             arr.filter(s => s && s.companyname).forEach(s => {
                 const st = storeStatusAll && storeStatusAll[s.companyname];
                 const cl = st && (st.closed === true || st.closed === '1' || st.closed === 1);
-                allStores[s.companyname] = {
-                    ...s, type,
-                    _closed:       cl || false,
-                    _closedReason: cl ? (st.reason  || '') : '',
-                    _opensAt:      cl ? (st.opensAt || '') : '',
-                };
+                if (allStores[s.companyname]) {
+                    if (!allStores[s.companyname].allTypes.includes(type))
+                        allStores[s.companyname].allTypes.push(type);
+                } else {
+                    allStores[s.companyname] = {
+                        ...s, type,
+                        allTypes:      [type],
+                        _closed:       cl || false,
+                        _closedReason: cl ? (st.reason  || '') : '',
+                        _opensAt:      cl ? (st.opensAt || '') : '',
+                    };
+                }
             });
         });
     }

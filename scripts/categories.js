@@ -122,7 +122,14 @@ function _renderStores(stores, catKey, catMeta) {
             const track = document.getElementById('cat-marquee-track');
             if (!track) return;
             const overflow = track.scrollWidth - scrollEl.offsetWidth;
-            if (overflow <= 0) return;
+            if (overflow <= 0) {
+                // All cards fit — disable animation, switch to plain drag-scroll
+                scrollEl.classList.remove('cat-stores-marquee');
+                scrollEl.style.cssText = 'overflow-x:auto;overflow-y:hidden;padding:clamp(8px,2vw,12px) 0 clamp(10px,2.5vw,16px);direction:ltr;';
+                track.style.animation = 'none';
+                _initDragScroll(scrollEl);
+                return;
+            }
             track.style.setProperty('--marquee-end', `-${overflow}px`);
             const dur = Math.round(overflow / 80);
             track.style.animationDuration = `${Math.max(3, dur)}s`;
