@@ -1103,31 +1103,6 @@
     user-select: none;
 }
 
-/* ── Category stores marquee ─────────────────────────────── */
-.cat-stores-marquee {
-    overflow: hidden;
-    padding: clamp(8px, 2vw, 12px) 0 clamp(10px, 2.5vw, 16px);
-}
-.cat-stores-marquee-track {
-    display: flex;
-    gap: clamp(8px, 2vw, 14px);
-    width: max-content;
-    /* alternate: plays forward (right→left) then backward (left→right), loops */
-    animation: cat-marquee 6s linear infinite alternate;
-    cursor: pointer;
-    direction: ltr;
-}
-.cat-stores-marquee:hover .cat-stores-marquee-track,
-.cat-stores-marquee.paused .cat-stores-marquee-track {
-    animation-play-state: paused;
-}
-/* LTR track ping-pong: first (priority) store visible at left,
-   sweeps right→left to last store, reverses back. Linear, sharp turns. */
-@keyframes cat-marquee {
-    from { transform: translateX(var(--marquee-end, -300px)); }
-    to   { transform: translateX(0); }
-}
-
 /* Skeleton shimmer cards shown while fetching */
 .cat-skeleton-card {
     flex: 0 0 clamp(100px, 25vw, 140px);
@@ -1373,7 +1348,6 @@
     padding: 4px var(--container-pad, 1rem) 14px;
     scroll-snap-type: x proximity;   /* proximity = snaps but doesn't fight drag */
     -webkit-overflow-scrolling: touch;
-    cursor: grab;
     user-select: none;
     -webkit-user-select: none;
     /* always show scrollbar track so user knows it scrolls */
@@ -1383,8 +1357,7 @@
 .mt-scroll::-webkit-scrollbar        { height: 4px; }
 .mt-scroll::-webkit-scrollbar-track  { background: transparent; }
 .mt-scroll::-webkit-scrollbar-thumb  { background: rgba(0,0,0,0.18); border-radius: 4px; }
-.mt-scroll.dragging { cursor: grabbing; }
-.mt-scroll.dragging .mt-card { pointer-events: none; } /* prevent accidental clicks during drag */
+
 
 /* Store card — smaller, portrait-ish */
 .mt-card {

@@ -220,16 +220,13 @@ document.addEventListener('DOMContentLoaded', loadAll);
     function _applySettings(settings) {
         if (!settings || typeof settings !== 'object') return;
 
-        /* testMode */
+        /* testMode — show launch popup once, keep permanent banner hidden */
         const isTest   = settings.testMode === true || settings.testMode === 'true';
         const banner   = document.getElementById('test-mode-banner');
-        if (banner) {
-            banner.style.display = isTest ? 'block' : 'none';
-            // Measure actual banner height after display so CSS var is exact
-            const h = isTest ? (banner.offsetHeight || 44) : 0;
-            document.documentElement.style.setProperty('--tmb-h', h + 'px');
-            document.body.classList.toggle('tmb-active', isTest);
-        }
+        if (banner) banner.style.display = 'none';
+        document.documentElement.style.setProperty('--tmb-h', '0px');
+        document.body.classList.remove('tmb-active');
+        if (isTest) _showTestPopup();
 
         /* maintenance */
         const isMaint  = settings.maintenance === true || settings.maintenance === 'true';
@@ -303,6 +300,66 @@ document.addEventListener('DOMContentLoaded', loadAll);
     }
 
     let _latest = {};
+    let _testPopupShown = false;
+
+    /* ── Test-mode launch popup (shows once on load, auto-dismisses) ── */
+    function _showTestPopup() {
+        if (_testPopupShown) return;
+        _testPopupShown = true;
+
+        const el = document.createElement('div');
+        el.id = 'test-mode-popup';
+        el.setAttribute('role', 'alertdialog');
+        el.setAttribute('aria-modal', 'false');
+        el.style.cssText = [
+            'position:fixed',
+            'top:50%',
+            'left:50%',
+            'transform:translate(-50%,-50%) scale(0.85)',
+            'z-index:9999',
+            'background:linear-gradient(135deg,#e64d00 0%,#FF5C00 100%)',
+            'color:#fff',
+            'border-radius:20px',
+            'padding:28px 32px',
+            'box-shadow:0 20px 60px rgba(255,92,0,0.45),0 0 0 1px rgba(255,255,255,0.12)',
+            'text-align:center',
+            'max-width:300px',
+            'width:calc(100vw - 48px)',
+            'opacity:0',
+            'transition:opacity 0.35s ease,transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+            'pointer-events:none',
+            'direction:rtl',
+            'font-family:inherit',
+        ].join(';');
+
+        el.innerHTML = `
+            <div style="font-size:2.4rem;margin-bottom:12px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3))">🧪</div>
+            <div style="font-size:1.05rem;font-weight:800;letter-spacing:0.01em;margin-bottom:6px">الموقع قيد التجربة</div>
+            <div style="font-size:0.78rem;opacity:0.88;line-height:1.5">لا يتم قبول طلبات حقيقية<br>سيُعلَن عن الإطلاق الرسمي قريباً</div>
+            <div id="tmp-bar" style="margin-top:18px;height:3px;background:rgba(255,255,255,0.25);border-radius:99px;overflow:hidden">
+                <div id="tmp-fill" style="height:100%;width:100%;background:rgba(255,255,255,0.7);transform-origin:left;transform:scaleX(1);transition:transform 3.6s linear"></div>
+            </div>`;
+
+        document.body.appendChild(el);
+
+        /* Animate in */
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            el.style.opacity = '1';
+            el.style.transform = 'translate(-50%,-50%) scale(1)';
+            /* Start progress bar drain after paint */
+            requestAnimationFrame(() => {
+                const fill = document.getElementById('tmp-fill');
+                if (fill) fill.style.transform = 'scaleX(0)';
+            });
+        }));
+
+        /* Auto-dismiss after 4s */
+        setTimeout(() => {
+            el.style.opacity = '0';
+            el.style.transform = 'translate(-50%,-50%) scale(0.9)';
+            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 380);
+        }, 4000);
+    }
 
     /* ── Public entry point called by loadAll() ─────────────── */
     window._startSettingsStream = _connect;

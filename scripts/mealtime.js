@@ -106,8 +106,13 @@
                     if (st && (st.closed === true || st.closed === '1' || st.closed === 1)) return;
                     const store = { ...s, _type: type };
                     allStores.push(store);
-                    const tags = s.mealTags || s.mealtags || [];
-                    if (Array.isArray(tags) && tags.includes(mealKey)) tagged.push(store);
+                    // Firebase RTDB may return arrays as objects with numeric keys {0:'lunch',1:'dinner'}
+                    // Normalize to a real JS array regardless of storage format
+                    const rawTags = s.mealTags || s.mealtags || [];
+                    const tags = Array.isArray(rawTags)
+                        ? rawTags
+                        : Object.values(rawTags);
+                    if (tags.includes(mealKey)) tagged.push(store);
                 });
             });
 
@@ -179,45 +184,42 @@
         </div>`;
     }
 
-    /* ── Wire drag-scroll (mouse + touch, RTL-aware) ──────── */
+    /* ── Wire drag-scroll (mouse + touch) ─────────────────── */
     function _initDrag(el) {
-        let isDown = false, startX, startScroll;
-        const isRTL = document.documentElement.dir === 'rtl';
+        let isDown = false, startX, startScroll, hasDragged = false;
 
-        function dragStart(x) {
-            isDown = true;
-            startX = x;
-            startScroll = el.scrollLeft;
-            el.classList.add('dragging');
-        }
-        function dragMove(x) {
-            if (!isDown) return;
-            const delta = x - startX;
-            // RTL: scrollLeft is negative in some browsers, flip delta direction
-            el.scrollLeft = startScroll - (isRTL ? -delta : delta);
-        }
-        function dragEnd() {
-            isDown = false;
-            el.classList.remove('dragging');
-        }
-
-        /* Mouse — listen on document so mouseleave doesn't cancel mid-drag */
         el.addEventListener('mousedown', e => {
-            e.preventDefault();
-            dragStart(e.pageX);
+            isDown = true; hasDragged = false;
+            el.classList.add('dragging');
+            startX = e.pageX - el.offsetLeft;
+            startScroll = el.scrollLeft;
         });
-        document.addEventListener('mousemove', e => { if (isDown) dragMove(e.pageX); });
-        document.addEventListener('mouseup',   () => { if (isDown) dragEnd(); });
+        el.addEventListener('mouseleave', () => { isDown = false; hasDragged = false; el.classList.remove('dragging'); });
+        el.addEventListener('mouseup',    () => { isDown = false; el.classList.remove('dragging'); });
+        el.addEventListener('mousemove', e => {
+            if (!isDown) return;
+            const x = e.pageX - el.offsetLeft;
+            if (Math.abs(x - startX) > 5) {
+                hasDragged = true;
+                e.preventDefault();
+                el.scrollLeft = startScroll - (x - startX) * 1.5;
+            }
+        });
+        /* Suppress click only when actual dragging occurred */
+        el.addEventListener('click', e => {
+            if (hasDragged) { e.preventDefault(); e.stopPropagation(); hasDragged = false; }
+        }, true);
 
         /* Touch */
+        let touchStartX, touchScrollLeft;
         el.addEventListener('touchstart', e => {
-            dragStart(e.touches[0].pageX);
+            touchStartX = e.touches[0].pageX - el.offsetLeft;
+            touchScrollLeft = el.scrollLeft;
         }, { passive: true });
         el.addEventListener('touchmove', e => {
-            if (!isDown) return;
-            dragMove(e.touches[0].pageX);
+            const x = e.touches[0].pageX - el.offsetLeft;
+            el.scrollLeft = touchScrollLeft - (x - touchStartX) * 1.5;
         }, { passive: true });
-        el.addEventListener('touchend', dragEnd);
     }
 
     /* ── Main init ─────────────────────────────────────────── */
@@ -255,9 +257,7 @@
             card.addEventListener('click', () => {
                 const name = card.dataset.storeName;
                 const type = card.dataset.storeType;
-                // Use storeId stored on card, or fall back to slug
-                const id   = card.dataset.storeId || name.toLowerCase().replace(/\s+/g, '-');
-                // Use window.openStorePanel — set by store-panel.js after initStorePanel()
+                const id   = card.dataset.storeId || name;
                 if (typeof window.openStorePanel === 'function') {
                     window.openStorePanel(id, name, type);
                 }
