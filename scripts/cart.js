@@ -5,8 +5,9 @@
    Checkout writes one request per store to Firebase.
    ============================================================ */
 
-const RTDB_CART_URL = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+const RTDB_CART_URL    = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 let DELIVERY_FEE_PER_STORE = 2; // $2 default — overwritten by settings/deliveryFee on load
+const POINTS_PER_ORDER = 10;    // loyalty points awarded per store order
 
 /* ── Load flat delivery fee from Firebase settings once per session ─── */
 (async function _initFlatFee() {
@@ -719,6 +720,25 @@ function initCart() {
             } catch (_) { /* non-critical — order is already saved */ }
             // ─────────────────────────────────────────────────────────────
 
+            // ── Loyalty points — increment in RTDB ───────────────────────
+            // Done after orders are written so a checkout failure doesn't award points.
+            // Non-critical: a failure here does NOT roll back the order.
+            try {
+                const pointsEarned = stores.length * POINTS_PER_ORDER;
+                const ptsResp = await fetch(`${RTDB_CART_URL}/users/${user.uid}/points.json`);
+                const ptsNow  = parseInt((await ptsResp.json()) || 0);
+                const ptsNew  = ptsNow + pointsEarned;
+                await fetch(`${RTDB_CART_URL}/users/${user.uid}/points.json`, {
+                    method:  'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify(ptsNew),
+                });
+                // Sync local UI badge if account modal is already open
+                const balEl = document.getElementById('acct-points-balance');
+                if (balEl) balEl.textContent = ptsNew;
+            } catch (_) { /* non-critical */ }
+            // ─────────────────────────────────────────────────────────────
+
             cart.clear();
             closeCartSidebar();
 
@@ -726,6 +746,9 @@ function initCart() {
                 ? `🎉 مبروك! طلبك الأول وصل مجاناً — بدون رسوم توصيل!`
                 : `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
             _showToast(successMsg, 'success');
+
+            // Refresh the store counts section so the total reflects the new order
+            if (typeof window.refreshStoreCounts === 'function') window.refreshStoreCounts();
 
         } catch (err) {
             console.error('[Cart] Checkout error:', err);

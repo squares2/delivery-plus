@@ -1174,6 +1174,13 @@ input, select, textarea { font-family: var(--font); }
     border:1.5px solid rgba(239,68,68,0.25); cursor:pointer; transition:background 0.15s;
 }
 .sc-delete-btn:hover { background:rgba(239,68,68,0.22); }
+.sc-locate-set-btn {
+    display:flex; align-items:center; justify-content:center;
+    border:1.5px solid rgba(255,92,0,0.3); border-radius:10px; padding:8px;
+    background:rgba(255,92,0,0.08); color:var(--orange);
+    cursor:pointer; transition:background 0.15s; font-size:0.85rem;
+}
+.sc-locate-set-btn:hover { background:rgba(255,92,0,0.2); }
 .sc-closed-lbl {
     font-size:0.6rem; font-weight:900; color:#fff; letter-spacing:0.8px;
     background:rgba(239,68,68,0.85); border-radius:50px; padding:2px 7px;
@@ -3748,6 +3755,128 @@ function renderMap() {
         adminMap.closePopup();
         renderMap(); // refresh markers
     };
+
+    // ── Driver ↔ Order connection lines ──────────────────────
+    // Draw after all markers so lines sit below them visually.
+    // Each online driver gets a unique color; lines pulse via CSS animation.
+
+    // Remove any previous connection layers
+    if (window._driverLines) {
+        window._driverLines.forEach(l => adminMap.removeLayer(l));
+    }
+    window._driverLines = [];
+
+    // Inject pulse keyframes once
+    if (!document.getElementById('drv-line-style')) {
+        const s = document.createElement('style');
+        s.id = 'drv-line-style';
+        s.textContent = `
+            @keyframes drvPulse {
+                0%,100% { opacity: 0.85; }
+                50%      { opacity: 0.25; }
+            }
+            .drv-connection-line path {
+                animation: drvPulse 1.6s ease-in-out infinite;
+            }
+            .drv-mid-badge {
+                background: rgba(10,10,20,0.88);
+                border-radius: 50px;
+                padding: 2px 7px;
+                font-size: 9px;
+                font-weight: 800;
+                white-space: nowrap;
+                font-family: 'Almarai', sans-serif;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+                border: 1.5px solid;
+                pointer-events: none;
+            }
+        `;
+        document.head.appendChild(s);
+    }
+
+    // Palette — one distinct color per driver slot
+    const LINE_PALETTE = [
+        '#22c55e', '#3b82f6', '#a855f7', '#f59e0b',
+        '#ec4899', '#06b6d4', '#84cc16', '#f97316',
+    ];
+
+    // Build driver → location map (online only)
+    const driverLocMap = {};
+    allDrivers.forEach((d, idx) => {
+        if (!d || !d.location?.lat || d.status !== 'online') return;
+        const name = (d._activeUser) ? d._activeUser : (d.owner || d.username || '');
+        if (!name) return;
+        driverLocMap[name] = {
+            lat:   d.location.lat,
+            lng:   d.location.lng,
+            color: LINE_PALETTE[idx % LINE_PALETTE.length],
+            name,
+        };
+    });
+
+    // Group active (non-vaulted, non-final) orders by assigned driver
+    const driverOrders = {}; // driverName → [{ lat, lng, key, o }]
+    Object.entries(allOrders).forEach(([key, o]) => {
+        if (!o.driver || o.driver === '0') return;
+        if (o.vault == 1) return;
+        if (['1','2','5'].includes(o.state || '0')) return;
+        if (!o.lat || !o.lng) return;
+        const lat = parseFloat(o.lat), lng = parseFloat(o.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+        if (!driverOrders[o.driver]) driverOrders[o.driver] = [];
+        driverOrders[o.driver].push({ lat, lng, key, o });
+    });
+
+    // Draw lines
+    Object.entries(driverOrders).forEach(([driverName, orders]) => {
+        const drv = driverLocMap[driverName];
+        if (!drv) return; // driver offline or no location
+
+        orders.forEach(({ lat, lng, key, o }) => {
+            // Dashed polyline driver → order
+            const line = L.polyline(
+                [[drv.lat, drv.lng], [lat, lng]],
+                {
+                    color:     drv.color,
+                    weight:    2.5,
+                    opacity:   0.85,
+                    dashArray: '7, 7',
+                    className: 'drv-connection-line',
+                }
+            ).addTo(adminMap);
+            window._driverLines.push(line);
+
+            // Midpoint badge: driver name + order id
+            const midLat  = (drv.lat + lat) / 2;
+            const midLng  = (drv.lng + lng) / 2;
+            const badgeIcon = L.divIcon({
+                className: '',
+                html: `<div class="drv-mid-badge" style="color:${drv.color};border-color:${drv.color}33;">
+                           🛵 ${drv.name} → #${key.replace('id_','')}
+                       </div>`,
+                iconSize:   null,
+                iconAnchor: [0, 10],
+            });
+            const badge = L.marker([midLat, midLng], { icon: badgeIcon, interactive: false })
+                .addTo(adminMap);
+            window._driverLines.push(badge);
+
+            // Glowing dot at the order pin to match driver color
+            const dotIcon = L.divIcon({
+                className: '',
+                html: `<div style="width:10px;height:10px;border-radius:50%;
+                                   background:${drv.color};
+                                   box-shadow:0 0 0 3px ${drv.color}44,0 0 8px ${drv.color}88;
+                                   animation:drvPulse 1.6s ease-in-out infinite;">
+                       </div>`,
+                iconSize:   [10, 10],
+                iconAnchor: [5, 5],
+            });
+            const dot = L.marker([lat, lng], { icon: dotIcon, interactive: false, zIndexOffset: -10 })
+                .addTo(adminMap);
+            window._driverLines.push(dot);
+        });
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3860,6 +3989,9 @@ function buildOrderCard(key, order) {
                 <span class="oc-meta-chip ${driverAssigned ? 'has' : ''}" style="${driverAssigned ? 'border-color:rgba(34,197,94,0.3);color:var(--green);background:var(--green-glow);' : ''}">
                     🛵 ${driverAssigned ? order.driver : 'غير معين'}
                 </span>
+                ${order.claimStatus === 'claimed' ? `<span class="oc-meta-chip" style="color:#3b82f6;border-color:rgba(59,130,246,0.35);background:rgba(59,130,246,0.08);font-size:0.68rem;">🙋 استلم تلقائياً</span>` : ''}
+                ${order.claimStatus === 'assigned' ? `<span class="oc-meta-chip" style="color:var(--orange);border-color:rgba(255,92,0,0.35);background:rgba(255,92,0,0.08);font-size:0.68rem;">👤 عيّنه الإدارة</span>` : ''}
+                ${!driverAssigned && !order.claimStatus ? `<span class="oc-meta-chip" style="color:var(--red);border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.07);font-size:0.68rem;">⏳ بانتظار سائق</span>` : ''}
                 ${order.vault && order.vault !== '0' ? `<span class="oc-meta-chip" style="color:var(--yellow);border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);">💰 دفع نقدي: $${order.vault}</span>` : ''}
                 ${order.trackorder==1 ? `<span class="oc-meta-chip" style="color:var(--blue);">📡 تتبع نشط</span>` : ''}
                 ${order.xnote ? `<span class="oc-meta-chip" style="flex-basis:100%;">💬 ${order.xnote}</span>` : ''}
@@ -4007,11 +4139,21 @@ function parseCart(cartStr) {
 async function assignDriver(orderId, driverName) {
     try {
         const uid = allOrders[orderId]?.delivryplusid;
+        const driverObj = allDrivers.find(d => d && (d.owner === driverName || d.username === driverName));
+        const driverId  = driverObj?._key || driverObj?.id || null;
         const updates = {};
-        updates[`/requests/${orderId}/driver`] = driverName;
-        if (uid) updates[`/historyRequests/${uid}/${orderId}/driver`] = driverName;
+        updates[`/requests/${orderId}/driver`]      = driverName;
+        updates[`/requests/${orderId}/claimStatus`] = 'assigned';
+        if (driverId) updates[`/requests/${orderId}/driverid`] = driverId;
+        if (uid) {
+            updates[`/historyRequests/${uid}/${orderId}/driver`]      = driverName;
+            updates[`/historyRequests/${uid}/${orderId}/claimStatus`] = 'assigned';
+            if (driverId) updates[`/historyRequests/${uid}/${orderId}/driverid`] = driverId;
+        }
         await fbUpdate('', updates);
-        allOrders[orderId].driver = driverName;
+        allOrders[orderId].driver      = driverName;
+        allOrders[orderId].claimStatus = 'assigned';
+        if (driverId) allOrders[orderId].driverid = driverId;
         toast(`✅ تم تعيين ${driverName} للطلب #${orderId.replace('id_','')}`);
         renderOrders();
     } catch(e) { toast('خطأ في التعيين', true); }
@@ -4782,7 +4924,8 @@ function renderStores() {
     stores.forEach(([name, s]) => {
         const emoji     = TYPE_EMOJI[s.type] || '🏪';
         const typeLabel = TYPE_LABELS[s.type] || s.type;
-        const imgPath   = `assets/${name.toLowerCase()}.png`;
+        const imgSlug    = name.toLowerCase();
+        const imgPicture = `<picture style="width:100%;height:100%;display:block;"><source srcset="assets/${imgSlug}.webp" type="image/webp"><img src="assets/${imgSlug}.png" alt="${name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.closest('picture').style.display='none';this.closest('picture').nextElementSibling.style.display='flex'"></picture>`;
         const ordCount  = Object.values(allOrders).filter(o => o.store === name).length;
         const newOrders = Object.values(allOrders).filter(o => o.store === name && (o.state||'0') === '0').length;
 
@@ -4800,7 +4943,7 @@ function renderStores() {
         card.style.cursor = 'default';
         card.innerHTML = `
             <div class="sc-thumb">
-                <img src="${imgPath}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                ${imgPicture}
                 <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:2rem;">${emoji}</div>
                 <div class="sc-type-badge">${typeLabel}</div>
                 ${newOrders > 0 ? `<div style="position:absolute;top:6px;left:6px;background:var(--orange);color:#fff;font-size:0.6rem;font-weight:800;padding:2px 7px;border-radius:50px;">🔴 ${newOrders} جديد</div>` : ''}
@@ -4827,11 +4970,21 @@ function renderStores() {
                 </div>
                 <!-- Meal tags row -->
                 <div class="sc-meal-row">
-                    <span class="sc-priority-label" style="margin-bottom:5px;display:flex;">🍽 وجبات</span>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+                        <span class="sc-priority-label" style="display:flex;">🍽 وجبات</span>
+                    </div>
                     <div class="sc-meal-checks">
                         ${['breakfast','lunch','snack','dinner'].map(m => {
                             const mLabel = {breakfast:'فطور',lunch:'غداء',snack:'سناك',dinner:'عشاء'}[m];
-                            const checked = (s.mealTags||[]).includes(m) ? 'checked' : '';
+                            const MEAL_FALLBACK = {
+                                breakfast: ['BakeryShops','CoffeeShops','DairyShops','SweetsShops'],
+                                lunch:     ['Restaurants','ButcherShops','FishShops','ChickenShops'],
+                                snack:     ['CoffeeShops','SweetsShops','BakeryShops','GroceryShops'],
+                                dinner:    ['Restaurants','ButcherShops','ChickenShops','FishShops'],
+                            };
+                            const hasExplicit = (s.mealTags || []).includes(m);
+                            const hasFallback = !s.mealTags?.length && (MEAL_FALLBACK[m] || []).includes(s.type);
+                            const checked     = hasExplicit || hasFallback ? 'checked' : '';
                             return `<label class="sc-meal-check">
                                 <input type="checkbox" class="sc-meal-cb" data-meal="${m}" ${checked}>
                                 <span>${mLabel}</span>
@@ -4850,6 +5003,9 @@ function renderStores() {
                 </button>
                 <button class="sc-disable-btn ${isDisabled ? 'sc-disable-btn--on' : ''}" style="flex:1.5;" title="${isDisabled ? 'إعادة التفعيل' : 'تعطيل المتجر'}">
                     ${isDisabled ? '✅ تفعيل' : '🚫 تعطيل'}
+                </button>
+                <button class="sc-locate-set-btn" style="flex:1;" title="تحديد موقع المتجر على الخريطة">
+                    📍
                 </button>
                 <button class="sc-delete-btn" style="flex:0.8;" title="حذف المتجر">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -4899,6 +5055,14 @@ function renderStores() {
             await _storeDelete(name, s.type);
             toast(`🗑 تم حذف ${name}`);
             await _refreshStoresData();
+        });
+
+        // Location picker button
+        card.querySelector('.sc-locate-set-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const currentLat = s.lat ? parseFloat(s.lat) : null;
+            const currentLng = s.lng ? parseFloat(s.lng) : null;
+            openStoreLocationModal(name, s.type, currentLat, currentLng);
         });
 
         grid.appendChild(card);
@@ -5070,6 +5234,177 @@ async function _storeDelete(storeName, type) {
     await fbSet(`pattern/${type}/${key}`, null);
     delete allStores[storeName];
     await fbSet(`storeStatus/${storeName}`, null); // clean up status too
+}
+
+// ══ STORE LOCATION PICKER MODAL ════════════════════════════════
+function openStoreLocationModal(storeName, storeType, initLat, initLng) {
+    const stale = document.getElementById('sl-modal-overlay');
+    if (stale) stale.remove();
+
+    // Default center: Zahlé, Lebanon
+    const DEFAULT_LAT = 33.8469;
+    const DEFAULT_LNG = 35.9017;
+    const startLat = initLat || DEFAULT_LAT;
+    const startLng = initLng || DEFAULT_LNG;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'sl-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    overlay.innerHTML = `
+    <div id="sl-box" style="background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:560px;font-family:var(--font);direction:rtl;display:flex;flex-direction:column;max-height:90vh;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+            <div>
+                <h3 style="font-size:1rem;font-weight:800;color:var(--white);margin:0 0 2px;">📍 تحديد موقع المتجر</h3>
+                <div style="font-size:0.75rem;color:var(--gray);">${storeName}</div>
+            </div>
+            <button id="sl-close-x" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;padding:4px;">✕</button>
+        </div>
+
+        <div style="padding:14px 20px 10px;flex-shrink:0;">
+            <div style="font-size:0.72rem;color:var(--gray);margin-bottom:8px;">انقر على الخريطة لتحديد الموقع، أو أدخل الإحداثيات يدوياً</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;">
+                <div>
+                    <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:3px;">خط العرض (Lat)</label>
+                    <input id="sl-lat" type="number" step="0.000001" placeholder="33.846900"
+                        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;"
+                        onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+                <div>
+                    <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:3px;">خط الطول (Lng)</label>
+                    <input id="sl-lng" type="number" step="0.000001" placeholder="35.901700"
+                        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;"
+                        onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+                <button id="sl-jump-btn" style="margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--white);font-size:0.78rem;font-family:inherit;cursor:pointer;white-space:nowrap;" title="انتقل إلى الإحداثيات">↗ انتقل</button>
+            </div>
+            ${initLat ? `<div id="sl-current-loc" style="margin-top:8px;font-size:0.7rem;color:var(--gray);">الموقع الحالي: <span style="color:var(--orange);font-family:var(--mono);">${initLat.toFixed(6)}, ${initLng.toFixed(6)}</span></div>` : '<div id="sl-current-loc" style="margin-top:8px;font-size:0.7rem;color:rgba(239,68,68,0.8);">⚠ لا يوجد موقع محدد لهذا المتجر</div>'}
+        </div>
+
+        <div id="sl-map-container" style="flex:1;min-height:280px;position:relative;">
+            <div id="sl-map" style="width:100%;height:100%;min-height:280px;"></div>
+            <div id="sl-pin-hint" style="position:absolute;bottom:10px;right:50%;transform:translateX(50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:5px 12px;border-radius:50px;pointer-events:none;z-index:999;white-space:nowrap;">انقر لتحديد الموقع</div>
+        </div>
+
+        <div style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);flex-shrink:0;">
+            <button id="sl-clear-btn" style="background:var(--surface2);border:1px solid rgba(239,68,68,0.4);border-radius:12px;padding:10px 14px;color:#ef4444;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;">🗑 مسح الموقع</button>
+            <button id="sl-cancel-btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--white);font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            <button id="sl-save-btn" style="flex:2;background:var(--orange);border:none;border-radius:12px;padding:10px;color:#fff;font-family:inherit;font-size:0.88rem;font-weight:800;cursor:pointer;">💾 حفظ الموقع</button>
+        </div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+
+    // ── Init Leaflet map ───────────────────────────────────────
+    const slMap = L.map('sl-map', { zoomControl: true }).setView([startLat, startLng], initLat ? 16 : 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19,
+    }).addTo(slMap);
+
+    // Custom orange pin icon
+    const pinIcon = L.divIcon({
+        className: '',
+        html: `<div style="width:32px;height:32px;background:var(--orange,#FF5C00);border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+    });
+
+    let slMarker = null;
+    let selectedLat = initLat;
+    let selectedLng = initLng;
+
+    // Place initial marker if coordinates exist
+    if (initLat && initLng) {
+        slMarker = L.marker([initLat, initLng], { icon: pinIcon, draggable: true }).addTo(slMap);
+        _slBindMarkerDrag(slMarker);
+        document.getElementById('sl-lat').value = initLat.toFixed(6);
+        document.getElementById('sl-lng').value = initLng.toFixed(6);
+    }
+
+    function _slBindMarkerDrag(marker) {
+        marker.on('dragend', () => {
+            const pos = marker.getLatLng();
+            selectedLat = pos.lat;
+            selectedLng = pos.lng;
+            document.getElementById('sl-lat').value = pos.lat.toFixed(6);
+            document.getElementById('sl-lng').value = pos.lng.toFixed(6);
+        });
+    }
+
+    function _slSetMarker(lat, lng) {
+        selectedLat = lat;
+        selectedLng = lng;
+        document.getElementById('sl-lat').value = lat.toFixed(6);
+        document.getElementById('sl-lng').value = lng.toFixed(6);
+        if (slMarker) {
+            slMarker.setLatLng([lat, lng]);
+        } else {
+            slMarker = L.marker([lat, lng], { icon: pinIcon, draggable: true }).addTo(slMap);
+            _slBindMarkerDrag(slMarker);
+        }
+        document.getElementById('sl-pin-hint').style.display = 'none';
+    }
+
+    // Click on map → place/move marker
+    slMap.on('click', (e) => {
+        _slSetMarker(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Jump button — pan map to manually typed coords
+    document.getElementById('sl-jump-btn').addEventListener('click', () => {
+        const lat = parseFloat(document.getElementById('sl-lat').value);
+        const lng = parseFloat(document.getElementById('sl-lng').value);
+        if (isNaN(lat) || isNaN(lng)) { toast('أدخل إحداثيات صحيحة', true); return; }
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) { toast('الإحداثيات خارج النطاق', true); return; }
+        _slSetMarker(lat, lng);
+        slMap.setView([lat, lng], 16);
+    });
+
+    // Close helpers
+    const close = () => { slMap.remove(); overlay.remove(); };
+    document.getElementById('sl-close-x').addEventListener('click', close);
+    document.getElementById('sl-cancel-btn').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+    // Clear location
+    document.getElementById('sl-clear-btn').addEventListener('click', async () => {
+        if (!confirm(`مسح موقع "${storeName}" من قاعدة البيانات؟`)) return;
+        const btn = document.getElementById('sl-clear-btn');
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            await _storeSetField(storeName, storeType, 'lat', null);
+            await _storeSetField(storeName, storeType, 'lng', null);
+            toast(`🗑 تم مسح موقع ${storeName}`);
+            await _refreshStoresData();
+            close();
+        } catch(e) {
+            toast('فشل المسح: ' + e.message, true);
+            btn.disabled = false; btn.textContent = '🗑 مسح الموقع';
+        }
+    });
+
+    // Save location
+    document.getElementById('sl-save-btn').addEventListener('click', async () => {
+        if (selectedLat === null || selectedLng === null) {
+            toast('انقر على الخريطة لتحديد الموقع أولاً', true); return;
+        }
+        const btn = document.getElementById('sl-save-btn');
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            await _storeSetField(storeName, storeType, 'lat', parseFloat(selectedLat.toFixed(6)));
+            await _storeSetField(storeName, storeType, 'lng', parseFloat(selectedLng.toFixed(6)));
+            toast(`✅ تم حفظ موقع ${storeName}`);
+            await _refreshStoresData();
+            close();
+        } catch(e) {
+            toast('فشل الحفظ: ' + e.message, true);
+            btn.disabled = false; btn.textContent = '💾 حفظ الموقع';
+        }
+    });
+
+    // Fix Leaflet tile sizing after modal animation
+    setTimeout(() => slMap.invalidateSize(), 120);
 }
 
 // ── Add Store Modal ──────────────────────────────────────────

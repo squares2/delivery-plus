@@ -521,6 +521,62 @@
     .drv-notif-item__sub   { font-size: 0.70rem; color: var(--clr-gray); }
     .drv-notif-empty { padding: 20px; text-align: center; color: var(--clr-gray); font-size: 0.80rem; }
 
+    /* ── Available orders pool ───────────────────────────────── */
+    .drv-tabs {
+        display: flex; gap: 0;
+        border-bottom: 1px solid var(--clr-border);
+        background: var(--clr-surface);
+        flex-shrink: 0;
+        padding: 0 12px;
+    }
+    .drv-tab {
+        flex: 1; padding: 11px 6px;
+        font-family: inherit; font-size: 0.78rem; font-weight: 800;
+        color: var(--clr-gray); background: none; border: none;
+        border-bottom: 2.5px solid transparent;
+        cursor: pointer; transition: color 0.18s, border-color 0.18s;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .drv-tab.active { color: var(--clr-orange); border-bottom-color: var(--clr-orange); }
+    .drv-tab-badge {
+        background: var(--clr-orange); color: #fff;
+        border-radius: 50px; font-size: 0.58rem; font-weight: 900;
+        min-width: 17px; height: 17px; padding: 0 4px;
+        display: none; align-items: center; justify-content: center;
+    }
+    .drv-tab-badge.visible { display: flex; }
+
+    .drv-pool-card {
+        background: var(--clr-surface);
+        border: 1.5px solid rgba(255,92,0,0.3);
+        border-radius: var(--radius-lg);
+        padding: 14px;
+        display: flex; flex-direction: column; gap: 10px;
+        animation: fadeIn .25s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    .drv-pool-card__header {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .drv-pool-card__id { font-size: 0.72rem; font-weight: 800; color: var(--clr-orange); }
+    .drv-pool-card__store { font-size: 0.85rem; font-weight: 800; color: var(--clr-white); }
+    .drv-pool-card__total { font-size: 0.85rem; font-weight: 800; color: var(--clr-orange); }
+    .drv-pool-card__meta {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .drv-pool-card__cell { font-size: 0.72rem; color: var(--clr-gray); }
+    .drv-pool-card__cell span { color: var(--clr-gray-light); font-weight: 700; }
+    .drv-claim-btn {
+        width: 100%; padding: 11px;
+        border: none; border-radius: var(--radius-md);
+        background: var(--clr-orange); color: #fff;
+        font-family: inherit; font-size: 0.88rem; font-weight: 800;
+        cursor: pointer; transition: opacity .15s, transform .12s;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .drv-claim-btn:active { transform: scale(0.97); }
+    .drv-claim-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
     </style>
 </head>
 <body>
@@ -567,7 +623,18 @@
     </div>
 </div>
 
-<!-- ── Orders list ─────────────────────────────────────────── -->
+<!-- ── View tabs (My Orders / Available Pool) ──────────────── -->
+<div class="drv-tabs" id="drv-tabs" style="display:none">
+    <button class="drv-tab active" id="tab-mine">
+        📦 طلباتي
+    </button>
+    <button class="drv-tab" id="tab-pool">
+        📋 متاح للاستلام
+        <span class="drv-tab-badge" id="pool-badge">0</span>
+    </button>
+</div>
+
+<!-- ── My Orders list ──────────────────────────────────────── -->
 <div class="drv-orders" id="drv-orders">
     <div class="drv-loading" id="drv-loading">
         <div class="drv-spinner"></div>
@@ -576,6 +643,14 @@
     <div class="drv-empty" id="drv-empty">
         <span class="drv-empty__icon">📭</span>
         <span class="drv-empty__text">لا توجد طلبات</span>
+    </div>
+</div>
+
+<!-- ── Available pool orders ───────────────────────────────── -->
+<div class="drv-orders" id="drv-pool" style="display:none">
+    <div class="drv-empty" id="drv-pool-empty">
+        <span class="drv-empty__icon">✅</span>
+        <span class="drv-empty__text">لا توجد طلبات متاحة حالياً</span>
     </div>
 </div>
 
@@ -763,6 +838,7 @@ function startDriverSession() {
     // Show UI
     document.getElementById('drv-nav').style.display   = 'flex';
     document.getElementById('drv-stats').style.display = 'flex';
+    document.getElementById('drv-tabs').style.display  = 'flex';
     document.getElementById('drv-login-modal').style.display = 'none';
     document.getElementById('drv-name').textContent = driverData.owner;
 
@@ -796,6 +872,8 @@ function startDriverSession() {
 
     // Live listener on requests
     listenOrders();
+    listenPool();
+    setupTabs();
 }
 
 // ── Logout ────────────────────────────────────────────────────
@@ -824,6 +902,7 @@ function setupLogout() {
             '<div class="drv-loading" id="drv-loading" style="display:none"></div>' +
             '<div class="drv-empty" id="drv-empty"><span class="drv-empty__icon">📭</span><span class="drv-empty__text">لا توجد طلبات</span></div>';
         document.getElementById('drv-status-dot').classList.remove('online');
+        document.getElementById('drv-tabs').style.display = 'none';
         showLoginModal();
     });
 }
@@ -988,6 +1067,135 @@ function renderNotifPopup() {
         });
         popup.appendChild(el);
     });
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+let activeTab = 'mine'; // 'mine' | 'pool'
+
+function setupTabs() {
+    document.getElementById('tab-mine').addEventListener('click', () => switchTab('mine'));
+    document.getElementById('tab-pool').addEventListener('click', () => switchTab('pool'));
+}
+
+function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-mine').classList.toggle('active', tab === 'mine');
+    document.getElementById('tab-pool').classList.toggle('active', tab === 'pool');
+    document.getElementById('drv-orders').style.display = tab === 'mine' ? '' : 'none';
+    document.getElementById('drv-stats').style.display  = tab === 'mine' ? 'flex' : 'none';
+    document.getElementById('drv-pool').style.display   = tab === 'pool' ? '' : 'none';
+}
+
+// ── Available orders pool listener ────────────────────────────
+let poolCache = {}; // id → order
+
+function listenPool() {
+    db.ref('requests').on('value', (snap) => {
+        poolCache = {};
+        if (snap.exists()) {
+            snap.forEach(child => {
+                const order = child.val();
+                if (!order) return;
+                // Unclaimed = no driver assigned AND not in vault AND not final state
+                const noDriver   = !order.driver || order.driver === '0' || order.driver === '';
+                const notVaulted = !order.vault || order.vault === '0' || order.vault === 0;
+                const notFinal   = !['1','2','5'].includes(order.state || '0');
+                if (noDriver && notVaulted && notFinal) {
+                    poolCache[child.key] = order;
+                }
+            });
+        }
+        renderPool();
+    });
+}
+
+function renderPool() {
+    const container = document.getElementById('drv-pool');
+    const emptyEl   = document.getElementById('drv-pool-empty');
+    const badge     = document.getElementById('pool-badge');
+
+    // Update badge
+    const count = Object.keys(poolCache).length;
+    badge.textContent = count > 9 ? '9+' : count;
+    badge.classList.toggle('visible', count > 0);
+
+    // Remove old cards (keep empty state div)
+    container.querySelectorAll('.drv-pool-card').forEach(c => c.remove());
+    emptyEl.style.display = count === 0 ? '' : 'none';
+
+    const sorted = Object.entries(poolCache)
+        .sort(([, a], [, b]) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    sorted.forEach(([key, order]) => {
+        const card = document.createElement('div');
+        card.className = 'drv-pool-card';
+        card.dataset.id = key;
+
+        const shortId = key.replace('id_', '');
+        const items = [];
+        (order.cart || '').split(',').filter(Boolean).forEach(seg => {
+            const p = seg.split(':');
+            if (p.length >= 2) items.push(p[1]);
+        });
+        const itemsPreview = items.slice(0, 3).join('، ') + (items.length > 3 ? '…' : '');
+
+        card.innerHTML = `
+            <div class="drv-pool-card__header">
+                <span class="drv-pool-card__id">#${shortId}</span>
+                <span class="drv-pool-card__store">🏪 ${order.store || '—'}</span>
+                <span class="drv-pool-card__total">${order.total || '0'}$</span>
+            </div>
+            <div class="drv-pool-card__meta">
+                <div class="drv-pool-card__cell">👤 <span>${order.fullname || '—'}</span></div>
+                <div class="drv-pool-card__cell">📍 <span>${order.city || ''}${order.street ? ' / ' + order.street : ''}</span></div>
+                <div class="drv-pool-card__cell">📅 <span>${order.date || '—'}</span></div>
+                <div class="drv-pool-card__cell">🛍 <span>${itemsPreview || '—'}</span></div>
+            </div>
+            <button class="drv-claim-btn" data-id="${key}">
+                🛵 استلام الطلب
+            </button>`;
+
+        card.querySelector('.drv-claim-btn').addEventListener('click', () => claimOrder(key));
+        container.appendChild(card);
+    });
+}
+
+async function claimOrder(orderId) {
+    if (!driverData) return;
+    const btn = document.querySelector(`.drv-pool-card[data-id="${orderId}"] .drv-claim-btn`);
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+    try {
+        // Re-fetch to make sure it's still unclaimed (race condition guard)
+        const snap = await db.ref(`requests/${orderId}/driver`).get();
+        const current = snap.val();
+        if (current && current !== '0' && current !== '') {
+            showToast('⚠ تم استلام هذا الطلب من قِبل سائق آخر');
+            if (btn) { btn.disabled = false; btn.textContent = '🛵 استلام الطلب'; }
+            return;
+        }
+
+        const uid = poolCache[orderId]?.delivryplusid || null;
+        const updates = {};
+        updates[`/requests/${orderId}/driver`]       = driverData.owner;
+        updates[`/requests/${orderId}/driverid`]     = driverData.id;
+        updates[`/requests/${orderId}/claimStatus`]  = 'claimed';
+        if (uid) {
+            updates[`/historyRequests/${uid}/${orderId}/driver`]      = driverData.owner;
+            updates[`/historyRequests/${uid}/${orderId}/driverid`]    = driverData.id;
+            updates[`/historyRequests/${uid}/${orderId}/claimStatus`] = 'claimed';
+        }
+        await db.ref().update(updates);
+
+        showToast(`✅ تم استلام الطلب #${orderId.replace('id_', '')}`);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+        // Switch to my orders tab so driver sees it immediately
+        switchTab('mine');
+    } catch(e) {
+        showToast('❌ فشل الاستلام — حاول مجدداً');
+        if (btn) { btn.disabled = false; btn.textContent = '🛵 استلام الطلب'; }
+    }
 }
 
 // ── Render orders ─────────────────────────────────────────────

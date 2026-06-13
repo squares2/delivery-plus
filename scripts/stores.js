@@ -138,22 +138,30 @@ const RANK_META = [
 /* ── Fetch /requests and aggregate counts ──────────────────── */
 async function fetchStoreCounts() {
     try {
-        const res  = await fetch(`${STORES_RTDB_URL}/requests.json?shallow=false`);
+        // Read from historyRequests (permanent archive) instead of /requests
+        // which gets cleared periodically.
+        // Shape: { uid1: { id_200: { store,.. }, id_201: {..} }, uid2: {..} }
+        const res  = await fetch(`${STORES_RTDB_URL}/historyRequests.json?shallow=false`);
         const data = await res.json();
         if (!data) return {};
 
         const counts = {};
-        Object.values(data).forEach(req => {
-            const s = (req.store || '').trim();
-            if (s) {
-                // Normalise to lowercase for matching
-                const key = s.toLowerCase();
-                counts[key] = (counts[key] || 0) + 1;
-            }
+        // One extra unwrap level compared to /requests (keyed by uid first)
+        Object.values(data).forEach(userOrders => {
+            if (!userOrders || typeof userOrders !== 'object') return;
+            Object.values(userOrders).forEach(req => {
+                // Only count delivered orders (state === '1')
+                if (String(req.state) !== '1') return;
+                const s = (req.store || '').trim();
+                if (s) {
+                    const key = s.toLowerCase();
+                    counts[key] = (counts[key] || 0) + 1;
+                }
+            });
         });
         return counts;
     } catch (e) {
-        console.warn('[Stores] Could not fetch requests:', e);
+        console.warn('[Stores] Could not fetch historyRequests:', e);
         return {};
     }
 }
@@ -433,6 +441,8 @@ function initStores() {
     initCategoryFilter();
     renderTopStores();
     initOffersCarousel();
+    // Expose so cart.js can refresh the count after a successful checkout
+    window.refreshStoreCounts = renderTopStores;
 }
 
 /* ── Offers carousel (unchanged) ──────────────────────────── */

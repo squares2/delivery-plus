@@ -143,6 +143,32 @@
     user-select: none;
 }
 
+/* ── Marquee wrapper ─────────────────────────────────────── */
+.stores__marquee {
+    overflow: hidden;
+    padding: clamp(4px, 1vw, 6px) 0 clamp(6px, 1.5vw, 10px);
+    mask-image: linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%);
+}
+.stores__marquee-track {
+    display: flex;
+    gap: clamp(8px, 2vw, 14px);
+    width: max-content;
+    animation: stores-marquee 28s linear infinite;
+    cursor: pointer;
+}
+.stores__marquee:hover .stores__marquee-track,
+.stores__marquee.paused  .stores__marquee-track {
+    animation-play-state: paused;
+}
+@keyframes stores-marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+/* Add left/right padding to first/last clone set */
+.stores__marquee-track > .store-card:first-child { margin-right: var(--container-pad, 16px); }
+.stores__marquee-track > .store-card:last-child  { margin-left:  var(--container-pad, 16px); }
+
 /* Store card — compact PWA style */
 .store-card {
     flex: 0 0 clamp(100px, 25vw, 140px);
@@ -229,6 +255,7 @@
     display: flex;
     flex-direction: column;
     flex: 1;
+    text-align: center;
 }
 
 .store-card__name {
@@ -255,6 +282,7 @@
     padding-top: clamp(4px, 1vw, 6px);
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 1px;
     margin-top: auto;
 }
@@ -1073,6 +1101,31 @@
 .cat-stores-dropdown__scroll.dragging {
     cursor: grabbing;
     user-select: none;
+}
+
+/* ── Category stores marquee ─────────────────────────────── */
+.cat-stores-marquee {
+    overflow: hidden;
+    padding: clamp(8px, 2vw, 12px) 0 clamp(10px, 2.5vw, 16px);
+}
+.cat-stores-marquee-track {
+    display: flex;
+    gap: clamp(8px, 2vw, 14px);
+    width: max-content;
+    /* alternate: plays forward (right→left) then backward (left→right), loops */
+    animation: cat-marquee 6s linear infinite alternate;
+    cursor: pointer;
+    direction: ltr;
+}
+.cat-stores-marquee:hover .cat-stores-marquee-track,
+.cat-stores-marquee.paused .cat-stores-marquee-track {
+    animation-play-state: paused;
+}
+/* LTR track ping-pong: first (priority) store visible at left,
+   sweeps right→left to last store, reverses back. Linear, sharp turns. */
+@keyframes cat-marquee {
+    from { transform: translateX(var(--marquee-end, -300px)); }
+    to   { transform: translateX(0); }
 }
 
 /* Skeleton shimmer cards shown while fetching */

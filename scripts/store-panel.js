@@ -195,6 +195,7 @@ function _openStorePanelNow(storeId, storeName, storeType) {
     const logoImg    = document.getElementById('sp-hero-logo');
     const logoEmoji  = document.getElementById('sp-hero-logo-emoji');
     const bgImg      = document.getElementById('sp-hero-bg');
+    const videoEl    = document.getElementById('sp-hero-video');
     const fallbackEl = document.getElementById('sp-hero-fallback');
     const logoPath    = `assets/${storeId}.webp`;
     const logoPngPath = `assets/${storeId}.png`;
@@ -204,6 +205,42 @@ function _openStorePanelNow(storeId, storeName, storeType) {
     if (logoEmoji) { logoEmoji.style.display = 'none'; logoEmoji.textContent = emojiDef; }
     if (bgImg)     { bgImg.style.display = 'none'; bgImg.src = ''; }
     if (fallbackEl){ fallbackEl.style.display = 'none'; }
+
+    /* ── Hero video: try assets/videos/{storeId}.webm → .mp4 → fallback to image ── */
+    if (videoEl) {
+        videoEl.style.display = 'none';
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+        videoEl.load();
+
+        const tryVideo = (src) => new Promise(resolve => {
+            videoEl.src = src;
+            videoEl.oncanplay  = () => resolve(true);
+            videoEl.onerror    = () => resolve(false);
+            videoEl.load();
+        });
+
+        (async () => {
+            const webm = await tryVideo(`assets/videos/${storeId}.webm`);
+            if (webm) {
+                videoEl.style.display = 'block';
+                videoEl.play().catch(() => {});
+                if (bgImg)     { bgImg.style.display = 'none'; }
+                if (fallbackEl){ fallbackEl.style.display = 'none'; }
+                return;
+            }
+            const mp4 = await tryVideo(`assets/videos/${storeId}.mp4`);
+            if (mp4) {
+                videoEl.style.display = 'block';
+                videoEl.play().catch(() => {});
+                if (bgImg)     { bgImg.style.display = 'none'; }
+                if (fallbackEl){ fallbackEl.style.display = 'none'; }
+                return;
+            }
+            /* No video found — fall through to blurred image below */
+            videoEl.style.display = 'none';
+        })();
+    }
 
     if (logoImg) {
         logoImg.onload = () => {
@@ -237,6 +274,14 @@ function closeStorePanel() {
     window._currentStore = null;
     const wrap = document.getElementById('sp-subcat-wrap');
     if (wrap) { wrap.style.display = 'none'; wrap.innerHTML = ''; }
+    /* Stop & reset hero video */
+    const videoEl = document.getElementById('sp-hero-video');
+    if (videoEl) {
+        videoEl.pause();
+        videoEl.style.display = 'none';
+        videoEl.removeAttribute('src');
+        videoEl.load();
+    }
     _currentStore = null;
     _activeTab    = null;
 }
@@ -386,6 +431,9 @@ async function _loadStorePanel(storeName, storeType) {
                     onclick="spSelectMain('${main}')">
                 ${main}
             </button>`).join('');
+        /* Wire drag-scroll on the main tabs row */
+        const tabsRow = document.querySelector('.sp-tabs');
+        if (tabsRow) _initDragScroll(tabsRow);
 
         window._spTree      = tree;
         window._spStoreName = storeName;
@@ -581,6 +629,42 @@ function spSelectSub(slug) {
     }));
 }
 
+/* ── Drag-scroll for a horizontal scrollable row ──────────── */
+function _initDragScroll(el) {
+    if (!el || el._dragBound) return;
+    el._dragBound = true;
+    let isDown = false, startX, scrollLeft, hasDragged = false;
+    el.addEventListener('mousedown', e => {
+        isDown = true; hasDragged = false;
+        el.classList.add('dragging');
+        startX     = e.pageX - el.offsetLeft;
+        scrollLeft = el.scrollLeft;
+    });
+    el.addEventListener('mouseleave', () => { isDown = false; hasDragged = false; el.classList.remove('dragging'); });
+    el.addEventListener('mouseup',    () => { isDown = false; el.classList.remove('dragging'); });
+    el.addEventListener('mousemove', e => {
+        if (!isDown) return;
+        const x = e.pageX - el.offsetLeft;
+        if (Math.abs(x - startX) > 5) {
+            hasDragged = true;
+            e.preventDefault();
+            el.scrollLeft = scrollLeft - (x - startX) * 1.5;
+        }
+    });
+    el.addEventListener('click', e => {
+        if (hasDragged) { e.preventDefault(); e.stopPropagation(); hasDragged = false; }
+    }, true);
+    let touchStartX, touchScrollLeft;
+    el.addEventListener('touchstart', e => {
+        touchStartX     = e.touches[0].pageX - el.offsetLeft;
+        touchScrollLeft = el.scrollLeft;
+    }, { passive: true });
+    el.addEventListener('touchmove', e => {
+        const x = e.touches[0].pageX - el.offsetLeft;
+        el.scrollLeft = touchScrollLeft - (x - touchStartX) * 1.5;
+    }, { passive: true });
+}
+
 function _renderMainSection(main, tree, storeName, body) {
     const subs     = Object.keys(tree[main]).sort();
     const multiSub = subs.length > 1;
@@ -598,6 +682,9 @@ function _renderMainSection(main, tree, storeName, body) {
                             ${sub}
                         </button>`).join('')}
                 </div>`;
+            /* Wire drag-scroll on the freshly rendered bar */
+            const bar = document.getElementById('sp-subcat-bar');
+            if (bar) _initDragScroll(bar);
         } else {
             wrap.style.display = 'none';
             wrap.innerHTML = '';

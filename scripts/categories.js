@@ -103,26 +103,91 @@ function _renderStores(stores, catKey, catMeta) {
         return;
     }
     countEl.textContent = stores.length + ' متجر';
-    scrollEl.innerHTML  = stores.map(s => _storeCardHTML(s, catKey, catMeta.fbKey)).join('');
-    scrollEl.querySelectorAll('.store-card[data-store-name]').forEach(card => {
-        if (card.classList.contains('store-card--soon'))   return;
-        if (card.classList.contains('store-card--closed')) return;
-        card.addEventListener('click', () => {
-            if (typeof openStorePanel === 'function')
-                openStorePanel(card.dataset.storeId, card.dataset.storeName, card.dataset.fbType);
+
+    const cardsHTML = stores.map(s => _storeCardHTML(s, catKey, catMeta.fbKey)).join('');
+
+    /* Use marquee when 3+ stores, plain scroll otherwise */
+    if (stores.length >= 3) {
+        scrollEl.innerHTML = '';
+        scrollEl.classList.add('cat-stores-marquee');
+        scrollEl.style.cssText = 'overflow:hidden;padding:clamp(8px,2vw,12px) 0 clamp(10px,2.5vw,16px);direction:ltr;';
+        /* Single set of cards — no duplication needed for ping-pong */
+        scrollEl.innerHTML = `
+            <div class="cat-stores-marquee-track" id="cat-marquee-track" style="direction:ltr;">
+                ${cardsHTML}
+            </div>`;
+
+        /* Compute exact overflow after dropdown finishes opening */
+        setTimeout(() => {
+            const track = document.getElementById('cat-marquee-track');
+            if (!track) return;
+            const overflow = track.scrollWidth - scrollEl.offsetWidth;
+            if (overflow <= 0) return;
+            track.style.setProperty('--marquee-end', `-${overflow}px`);
+            const dur = Math.round(overflow / 80);
+            track.style.animationDuration = `${Math.max(3, dur)}s`;
+        }, 350);
+
+        /* Pause on touch */
+        scrollEl.addEventListener('touchstart', () => scrollEl.classList.add('paused'),    { passive: true });
+        scrollEl.addEventListener('touchend',   () => scrollEl.classList.remove('paused'), { passive: true });
+
+        /* Wire clicks — all cards are real (no clones) */
+        scrollEl.querySelectorAll('.store-card[data-store-name]').forEach(card => {
+            if (card.classList.contains('store-card--soon'))   return;
+            if (card.classList.contains('store-card--closed')) return;
+            card.addEventListener('click', () => {
+                if (typeof openStorePanel === 'function')
+                    openStorePanel(card.dataset.storeId, card.dataset.storeName, card.dataset.fbType);
+            });
         });
-    });
-    _initDragScroll(scrollEl);
+    } else {
+        /* Plain drag-scroll for small lists */
+        scrollEl.innerHTML = cardsHTML;
+        scrollEl.classList.remove('cat-stores-marquee');
+        scrollEl.style.cssText = '';
+        scrollEl.querySelectorAll('.store-card[data-store-name]').forEach(card => {
+            if (card.classList.contains('store-card--soon'))   return;
+            if (card.classList.contains('store-card--closed')) return;
+            card.addEventListener('click', () => {
+                if (typeof openStorePanel === 'function')
+                    openStorePanel(card.dataset.storeId, card.dataset.storeName, card.dataset.fbType);
+            });
+        });
+        _initDragScroll(scrollEl);
+    }
 }
 
+/* ── Arabic display names — keyed by Firebase companyname ─── */
+const STORE_NAME_AR = {
+    'Classic-Food'    : 'كلاسيك فود',
+    'King-Pizza'      : 'كينغ بيتزا',
+    'Zahret-Lobnan'   : 'زهرة لبنان',
+    'Al-Amana'        : 'الأمانة',
+    'Hellani-Kitchen' : 'حلاني كيتشن',
+    'Bhalib'          : 'بحليب',
+    'AL-Beik'         : 'البيك',
+    'AL-Fajr'         : 'الفجر',
+    'Assaf-Grocery'   : 'بقالة عساف',
+    'Foodigo'         : 'فوديغو',
+    'Minini'          : 'ميني ني',
+    'Pan-Corner'      : 'بان كورنر',
+    'Cesar'           : 'سيزار',
+    'Al-Kanater'      : 'القناطر',
+    'Shams-Pool'      : 'شمس بول',
+    'Shams Pool'      : 'شمس بول',
+    'Al Kanater'      : 'القناطر',
+};
+
 function _storeCardHTML(store, catKey, fbType) {
-    const name     = store.companyname;
+    const rawName  = store.companyname;
+    const name     = STORE_NAME_AR[rawName] || rawName;
     const rank     = store.rank ? parseFloat(store.rank).toFixed(1) : null;
     const isSoon   = store.soon == '1' || store.soon === 1;
     const isClosed = !!store._closed;
-    const imgBase  = `${STORE_IMG}/${encodeURIComponent(name.toLowerCase())}`;
+    const imgBase  = `${STORE_IMG}/${encodeURIComponent(rawName.toLowerCase())}`;
     const imgUrl   = `${imgBase}.webp`;
-    const id       = name.toLowerCase().replace(/\s+/g, '-');
+    const id       = rawName.toLowerCase().replace(/\s+/g, '-');
 
     // Resolve "opens at" human string
     let opensChip = '';
@@ -159,7 +224,7 @@ function _storeCardHTML(store, catKey, fbType) {
 
     return `
     <div class="store-card ${stateClass}"
-         data-store-name="${name}" data-store-id="${id}" data-fb-type="${fbType}"
+         data-store-name="${rawName}" data-store-id="${id}" data-fb-type="${fbType}"
          style="${stateStyle}flex-shrink:0;">
         <div class="store-card__thumb" style="position:relative;">
             <img src="${imgUrl}" alt="${name}"

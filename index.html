@@ -25,12 +25,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Delivo">
-    <link rel="stylesheet" href="styles/base.css?v=20">
+    <link rel="stylesheet" href="styles/base.css?v=21">
     <link rel="stylesheet" href="styles/navbar.css?v=8">
     <link rel="stylesheet" href="styles/hero.css?v=7">
-    <link rel="stylesheet" href="styles/cards.css?v=7">
+    <link rel="stylesheet" href="styles/cards.css?v=8">
     <link rel="stylesheet" href="styles/modals.css?v=23">
-    <link rel="stylesheet" href="styles/store-panel.css?v=2">
+    <link rel="stylesheet" href="styles/store-panel.css?v=3">
     <link rel="stylesheet" href="styles/cart.css?v=5">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="styles/footer.css?v=7">
@@ -785,6 +785,12 @@
             <!-- Blurred background (same image as circle logo, stretched + blurred) -->
             <div class="sp-hero__bg-fallback" id="sp-hero-fallback">🏪</div>
             <img class="sp-hero__bg" id="sp-hero-bg" src="" alt="" style="display:none">
+            <!-- Store hero video (optional — place assets/videos/{storeId}.webm) -->
+            <video class="sp-hero__video" id="sp-hero-video"
+                   autoplay muted loop playsinline
+                   style="display:none"
+                   aria-hidden="true">
+            </video>
             <div class="sp-hero__gradient"></div>
 
             <!-- Back button -->
@@ -1037,10 +1043,10 @@
 
     <script src="scripts/loader.js?v=16"></script>
     <script src="scripts/modals.js?v=7"></script>
-    <script src="scripts/stores.js?v=8"></script>
-    <script src="scripts/categories.js?v=4"></script>
-    <script src="scripts/cart.js?v=14"></script>
-    <script src="scripts/store-panel.js?v=9"></script>
+    <script src="scripts/stores.js?v=13"></script>
+    <script src="scripts/categories.js?v=5"></script>
+    <script src="scripts/cart.js?v=16"></script>
+    <script src="scripts/store-panel.js?v=11"></script>
     <script src="scripts/store-status-listener.js?v=1"></script>
     <script src="scripts/mealtime.js?v=4"></script>
     <script src="scripts/pwa.js?v=8"></script>
@@ -1107,7 +1113,7 @@
 </div>
 
 <!-- ── Cart Map Modal — outside sidebar so Leaflet can measure it ── -->
-<div id="cart-map-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;">
+<div id="cart-map-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:flex-end;justify-content:center;">
     <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid #f0f0f0;">
             <span style="font-size:1rem;font-weight:800;color:#111;">📍 اختر موقع التوصيل</span>
@@ -1426,7 +1432,7 @@
 ═══════════════════════════════════════════════════════════ */
 
 const LOYALTY_RTDB   = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-const POINTS_PER_ORDER = 10;
+// POINTS_PER_ORDER is defined in cart.js
 
 const LOYALTY_REWARDS = [
     { pts: 50,   icon: '☕', reward: 'قهوة مجانية',              desc: 'قهوة إسبريسو من متجر شريك' },
@@ -1477,7 +1483,8 @@ async function _getLoyaltyPoints() {
     } catch (_) { return 0; }
 }
 
-async function _renderLoyaltyModal() {    const user    = window.DelivoUser;
+async function _renderLoyaltyModal() {
+    const user    = window.DelivoUser;
     const ladder  = document.getElementById('loyalty-ladder');
     const ringFill = document.getElementById('loyalty-ring-fill');
     const ringNum  = document.getElementById('loyalty-modal-points');
