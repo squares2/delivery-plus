@@ -65,10 +65,37 @@
     box-shadow: var(--shadow-orange);
 }
 .category-item__circle img {
-    width: 76%;
-    height: 76%;
+    width: 72%;
+    height: 72%;
+    object-fit: contain;
+    border-radius: 0;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+}
+
+/* Photo-based categories (JPEGs): fill the circle like a cropped portrait */
+.category-item--photo .category-item__circle {
+    background: var(--clr-gray-200, #e5e5e5);
+    position: relative;
+    overflow: hidden;
+}
+.category-item--photo .category-item__circle img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     border-radius: 50%;
+    /* Subtle warm vignette so the circle edge looks intentional */
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06);
+}
+/* Soft orange tint on hover/active for photo circles */
+.category-item--photo:hover .category-item__circle::after,
+.category-item--photo.active .category-item__circle::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(255, 92, 0, 0.12);
+    pointer-events: none;
 }
 
 .category-item__label {
@@ -1183,6 +1210,9 @@
     height: 100%;
     object-fit: cover;
     display: block;
+    image-rendering: auto;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
 }
 /* ══════════════════════════════════════════════════════════════
    CLOSED STORE — cards.css addition
@@ -1386,6 +1416,9 @@
     height: 100%;
     object-fit: cover;
     display: block;
+    image-rendering: auto;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
 }
 .mt-card__meal-tag {
     position: absolute;

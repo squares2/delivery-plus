@@ -87,9 +87,9 @@
 /* ── Circle logo badge — floats centered, overlaps into content below ── */
 .sp-hero__logo-circle {
     position: absolute;
-    bottom: clamp(-32px, -7vw, -44px); /* half-overlaps below hero */
+    bottom: clamp(-32px, -7vw, -44px);
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateZ(0);
     width: clamp(76px, 18vw, 100px);
     height: clamp(76px, 18vw, 100px);
     border-radius: 50%;
@@ -101,6 +101,9 @@
         0 0 0 6px var(--clr-orange, #FF5C00),
         0 8px 28px rgba(0,0,0,0.35);
     flex-shrink: 0;
+    -webkit-backface-visibility: hidden;
+    /* Force GPU layer for smooth circular clip */
+    will-change: transform;
 }
 .sp-hero__logo {
     width: 100%;
@@ -109,6 +112,8 @@
     object-position: center;
     border-radius: 50%;
     display: block;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
 }
 .sp-hero__logo-emoji {
     width: 100%;
@@ -296,7 +301,7 @@
 .sp-item__img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     transition: transform 0.22s;
 }
 .sp-item:hover .sp-item__img { transform: scale(1.04); }
@@ -911,7 +916,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    /* double ring: white inner border + orange outer glow ring */
     box-shadow:
         0 0 0 4px #fff,
         0 0 0 8px var(--clr-orange, #FF5C00),
@@ -919,6 +923,8 @@
     animation: si-logo-bounce 0.5s cubic-bezier(0.34,1.4,0.64,1) 0.18s both;
     overflow: hidden;
     flex-shrink: 0;
+    -webkit-backface-visibility: hidden;
+    will-change: transform;
 }
 @keyframes si-logo-bounce {
     from { transform: scale(0.55); opacity: 0; }
@@ -930,7 +936,9 @@
     object-fit: cover;
     object-position: center;
     display: block;
-    border-radius: 50%;
+    border-radius: 0;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
 }
 .store-intro__logo-emoji {
     font-size: clamp(2.8rem, 8vw, 3.8rem);

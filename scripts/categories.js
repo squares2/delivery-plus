@@ -1,6 +1,16 @@
 /* ============================================================
    scripts/categories.js
    Category buttons → Firebase fetch → dropdown.
+
+   PRIORITY MODEL:
+   Each store entry lives under its own category path in Firebase,
+   e.g. pattern/Restaurants/xxx  and  pattern/BakeryShops/yyy.
+   Each path carries its OWN priority field independently, so a
+   multi-category store (e.g. Al-Kanater) can have:
+     pattern/Restaurants/xxx   → priority: 2
+     pattern/BakeryShops/yyy   → priority: 1
+   The sort simply uses whatever priority is on the path being
+   fetched — no cross-category override, no global map.
    ============================================================ */
 
 const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
@@ -67,29 +77,51 @@ function _closeDropdown() {
 
 async function _fetchStores(fbKey) {
     if (_cache[fbKey]) return _cache[fbKey];
+
     const [patternRes, statusRes] = await Promise.all([
         fetch(`${RTDB_BASE}/pattern/${fbKey}.json`),
         fetch(`${RTDB_BASE}/storeStatus.json`).catch(() => null),
     ]);
+
     if (!patternRes.ok) throw new Error(`Firebase ${patternRes.status}`);
     const data   = await patternRes.json();
     const status = statusRes && statusRes.ok ? await statusRes.json().catch(() => null) : null;
     if (!data) { _cache[fbKey] = []; return []; }
-    const arr = Object.values(data)
-        .filter(s => s && s.companyname && !s.disabled && s.disabled !== '1' && s.disabled !== 1)
+
+    // Flatten — guard against non-object/null entries
+    const raw = Object.values(data)
+        .filter(s => s && typeof s === 'object' && s.companyname
+                  && s.disabled !== '1' && s.disabled !== 1 && s.disabled !== true);
+
+    // Deduplicate by companyname within the same path (shouldn't normally
+    // happen, but safe guard). When duplicates exist, keep the one with
+    // the LOWEST priority so the intended position is preserved.
+    const seen = {};
+    raw.forEach(s => {
+        const key = s.companyname;
+        // Parse this path's own priority — no cross-category override
+        const p   = (s.priority !== undefined && s.priority !== null && s.priority !== '')
+                    ? parseInt(s.priority) : 9999;
+        if (!seen[key] || p < seen[key]._priority) {
+            seen[key] = { ...s, _priority: p };
+        }
+    });
+
+    const arr = Object.values(seen)
         .sort((a, b) => {
-            // 1st: priority (lower number = higher position; undefined = last)
-            const pa = a.priority !== undefined ? parseInt(a.priority) : 9999;
-            const pb = b.priority !== undefined ? parseInt(b.priority) : 9999;
-            if (pa !== pb) return pa - pb;
-            // 2nd: rank (higher rating first)
+            // 1st: this category's own priority (lower = earlier; missing = last)
+            if (a._priority !== b._priority) return a._priority - b._priority;
+            // 2nd: rank as tiebreaker (higher rating first)
             return (parseFloat(b.rank) || 0) - (parseFloat(a.rank) || 0);
         })
         .map(s => {
             const st     = status && status[s.companyname];
             const closed = st && (st.closed === true || st.closed === '1' || st.closed === 1);
-            return closed ? { ...s, _closed: true, _closedReason: st.reason || '', _opensAt: st.opensAt || '' } : s;
+            return closed
+                ? { ...s, _closed: true, _closedReason: st.reason || '', _opensAt: st.opensAt || '' }
+                : s;
         });
+
     _cache[fbKey] = arr;
     return arr;
 }
@@ -104,12 +136,10 @@ function _renderStores(stores, catKey, catMeta) {
     }
     countEl.textContent = stores.length + ' متجر';
 
-    const cardsHTML = stores.map(s => _storeCardHTML(s, catKey, catMeta.fbKey)).join('');
-
-    /* Plain drag-scroll for all store counts */
-    scrollEl.innerHTML = cardsHTML;
+    scrollEl.innerHTML = stores.map(s => _storeCardHTML(s, catKey, catMeta.fbKey)).join('');
     scrollEl.classList.remove('cat-stores-marquee');
     scrollEl.style.cssText = '';
+
     scrollEl.querySelectorAll('.store-card[data-store-name]').forEach(card => {
         if (card.classList.contains('store-card--soon'))   return;
         if (card.classList.contains('store-card--closed')) return;
@@ -148,32 +178,27 @@ function _storeCardHTML(store, catKey, fbType) {
     const rank     = store.rank ? parseFloat(store.rank).toFixed(1) : null;
     const isSoon   = store.soon == '1' || store.soon === 1;
     const isClosed = !!store._closed;
-    const imgBase  = `${STORE_IMG}/${encodeURIComponent(rawName.toLowerCase())}`;
-    const imgUrl   = `${imgBase}.webp`;
+    const imgUrl   = `${STORE_IMG}/${encodeURIComponent(rawName.toLowerCase())}.webp`;
     const id       = rawName.toLowerCase().replace(/\s+/g, '-');
 
-    // Resolve "opens at" human string
     let opensChip = '';
     if (isClosed && store._opensAt) {
         const dt = new Date(store._opensAt);
         let opensStr = store._opensAt;
         if (!isNaN(dt) && dt > new Date()) {
-            const now2       = new Date();
-            const nowDate2   = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate());
-            const dtDate2    = new Date(dt.getFullYear(),  dt.getMonth(),  dt.getDate());
-            const dayDiff2   = Math.round((dtDate2 - nowDate2) / 86400000);
-            const t          = dt.toLocaleTimeString('ar-LB', { hour:'2-digit', minute:'2-digit', hour12:true });
-            const days       = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-            const months     = ['كانون الثاني','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
-            const sameYear2  = dt.getFullYear() === now2.getFullYear();
+            const now2      = new Date();
+            const dayDiff2  = Math.round((new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()) - new Date(now2.getFullYear(), now2.getMonth(), now2.getDate())) / 86400000);
+            const t         = dt.toLocaleTimeString('ar-LB', { hour:'2-digit', minute:'2-digit', hour12:true });
+            const days      = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+            const months    = ['كانون الثاني','شباط','آذار','نيسان','أيار','حزيران','تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
             if (dayDiff2 === 0)      opensStr = `اليوم ${t}`;
             else if (dayDiff2 === 1) opensStr = `غداً ${t}`;
             else if (dayDiff2 < 7)  opensStr = `${days[dt.getDay()]} ${t}`;
             else {
-                const datePart2 = sameYear2
+                const dp = dt.getFullYear() === now2.getFullYear()
                     ? `${dt.getDate()} ${months[dt.getMonth()]}`
                     : `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
-                opensStr = `${days[dt.getDay()]} ${datePart2} ${t}`;
+                opensStr = `${days[dt.getDay()]} ${dp} ${t}`;
             }
         }
         opensChip = `<div class="store-card__opens-chip">
@@ -182,8 +207,8 @@ function _storeCardHTML(store, catKey, fbType) {
         </div>`;
     }
 
-    const stateClass  = isClosed ? 'store-card--closed' : isSoon ? 'store-card--soon' : '';
-    const stateStyle  = (isClosed || isSoon) ? 'cursor:default;pointer-events:none;' : 'cursor:pointer;';
+    const stateClass = isClosed ? 'store-card--closed' : isSoon ? 'store-card--soon' : '';
+    const stateStyle = (isClosed || isSoon) ? 'cursor:default;pointer-events:none;' : 'cursor:pointer;';
 
     return `
     <div class="store-card ${stateClass}"
@@ -207,9 +232,11 @@ function _storeCardHTML(store, catKey, fbType) {
             <p class="store-card__tags">${_catLabel(catKey)}</p>
             ${isClosed && store._closedReason ? `<p class="store-card__closed-reason">${store._closedReason}</p>` : ''}
             <div class="store-card__footer">
-                ${isClosed ? opensChip || '<span class="store-card__min-label" style="color:#9898a6;">مغلق مؤقتاً</span>'
-                           : isSoon ? '<span class="store-card__min-label">قريباً</span>'
-                           : '<span class="store-card__min-label">اضغط للطلب</span>'}
+                ${isClosed
+                    ? opensChip || '<span class="store-card__min-label" style="color:#9898a6;">مغلق مؤقتاً</span>'
+                    : isSoon
+                    ? '<span class="store-card__min-label">قريباً</span>'
+                    : '<span class="store-card__min-label">اضغط للطلب</span>'}
             </div>
         </div>
     </div>`;
@@ -242,24 +269,18 @@ function _initDragScroll(row) {
 }
 
 function _catEmoji(cat) {
-    return {
-        restaurants:'🍔', meat:'🥩',      bakery:'🥖',     supermarket:'🛒',
-        sweets:'🍰',      fish:'🐟',       coffee:'☕',     chickenshop:'🍗',
-        dairyshop:'🥛',   groceries:'🧺',  flowershop:'💐', taxi:'🚕',
-        tobacco:'🚬',     toys:'🧸'
-    }[cat] || '🏪';
+    return { restaurants:'🍔', meat:'🥩', bakery:'🥖', supermarket:'🛒', sweets:'🍰',
+             fish:'🐟', coffee:'☕', chickenshop:'🍗', dairyshop:'🥛', groceries:'🧺',
+             flowershop:'💐', taxi:'🚕', tobacco:'🚬', toys:'🧸' }[cat] || '🏪';
 }
 
 function _catLabel(cat) {
-    return {
-        restaurants:'مطعم',    meat:'ملحمة',      bakery:'مخبز',     supermarket:'سوبرماركت',
-        sweets:'حلويات',       fish:'أسماك',       coffee:'قهوة',     chickenshop:'دجاج',
-        dairyshop:'ألبان',     groceries:'بقالة',  flowershop:'زهور', taxi:'تاكسي',
-        tobacco:'تبغ',         toys:'ألعاب'
-    }[cat] || '';
+    return { restaurants:'مطعم', meat:'ملحمة', bakery:'مخبز', supermarket:'سوبرماركت',
+             sweets:'حلويات', fish:'أسماك', coffee:'قهوة', chickenshop:'دجاج',
+             dairyshop:'ألبان', groceries:'بقالة', flowershop:'زهور', taxi:'تاكسي',
+             tobacco:'تبغ', toys:'ألعاب' }[cat] || '';
 }
 
 window.initCategories   = initCategories;
 window.closeCatDropdown = _closeDropdown;
-// Allow the realtime listener to bust the cache so next open re-fetches
 window._invalidateCategoriesCache = function() { _cache = {}; };

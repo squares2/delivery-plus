@@ -3085,13 +3085,18 @@ async function loadAllData() {
                 arr.filter(s => s && s.companyname).forEach(s => {
                     const st = storeStatusAll && storeStatusAll[s.companyname];
                     const cl = st && (st.closed === true || st.closed === '1' || st.closed === 1);
+                    const p  = (s.priority !== undefined && s.priority !== null && s.priority !== '')
+                               ? parseInt(s.priority) : null;
                     if (allStores[s.companyname]) {
                         if (!allStores[s.companyname].allTypes.includes(type))
                             allStores[s.companyname].allTypes.push(type);
+                        // Store per-type priority
+                        if (p !== null) allStores[s.companyname].priorities[type] = p;
                     } else {
                         allStores[s.companyname] = {
                             ...s, type,
                             allTypes:      [type],
+                            priorities:    p !== null ? { [type]: p } : {},
                             _closed:        cl || false,
                             _closedReason:  cl ? (st.reason  || '') : '',
                             _opensAt:       cl ? (st.opensAt || '') : '',
@@ -3987,7 +3992,7 @@ function buildOrderCard(key, order) {
             </div>
             <div class="oc-meta-row">
                 <span class="oc-meta-chip">📅 ${order.date || '—'}</span>
-                <span class="oc-meta-chip">📞 ${order.phone || '—'}</span>
+                <span class="oc-meta-chip" style="direction:ltr;">📞 ${formatPhone(order.phone)}</span>
                 <span class="oc-meta-chip">👤 ${order.username || '—'}</span>
                 <span class="oc-meta-chip">🏙 ${order.city || '—'}</span>
                 ${order.street ? `<span class="oc-meta-chip">🛣 ${order.street}</span>` : ''}
@@ -4943,7 +4948,6 @@ function renderStores() {
         const opensAt      = s._opensAt      || '';
 
         const isDisabled = s.disabled === true || s.disabled === '1' || s.disabled === 1;
-        const priority   = s.priority !== undefined ? parseInt(s.priority) : '';
 
         card.className = 'store-card-admin' + (isClosed ? ' sc-closed' : '') + (isDisabled ? ' sc-disabled' : '');
         card.style.cursor = 'default';
@@ -4964,15 +4968,23 @@ function renderStores() {
                 </div>
                 ${isClosed ? `<div class="sc-closed-reason">${closedReason || 'مغلق مؤقتاً'}</div>` : ''}
                 ${isClosed && opensAt ? `<div class="sc-opens-at">${_fmtOpensAt(opensAt)}</div>` : ''}
-                <!-- Priority row -->
-                <div class="sc-priority-row">
-                    <span class="sc-priority-label">
+                <!-- Priority row — one input per store type -->
+                <div class="sc-priority-row" style="flex-direction:column;align-items:stretch;gap:5px;">
+                    <span class="sc-priority-label" style="margin-bottom:2px;">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                         الأولوية
                     </span>
-                    <input type="number" class="sc-priority-input" value="${priority}" min="1" max="99" placeholder="—"
-                           title="1 = الأعلى أولوية">
-                    <button class="sc-priority-save" title="حفظ الأولوية">✓</button>
+                    ${(s.allTypes || [s.type]).map(t => {
+                        const tp = (s.priorities && s.priorities[t] !== undefined) ? s.priorities[t] : '';
+                        return `<div style="display:flex;align-items:center;gap:6px;">
+                            <span style="font-size:0.72rem;color:var(--gray-light);min-width:20px;text-align:center;">${TYPE_EMOJI[t]||'🏪'}</span>
+                            <input type="number" class="sc-priority-input" data-ptype="${t}"
+                                   value="${tp}" min="1" max="99" placeholder="—"
+                                   title="${TYPE_LABELS[t]||t} — 1 = الأعلى أولوية"
+                                   style="flex:1;">
+                            <button class="sc-priority-save" data-ptype="${t}" title="حفظ أولوية ${TYPE_LABELS[t]||t}">✓</button>
+                        </div>`;
+                    }).join('')}
                 </div>
                 <!-- Meal tags row -->
                 <div class="sc-meal-row">
@@ -5044,17 +5056,20 @@ function renderStores() {
             toast(`🍽 وجبات ${name}: ${tags.length ? tags.join('،') : 'لا شيء'}`);
         });
 
-        // Priority save
-        card.querySelector('.sc-priority-save:not(.sc-meal-save)').addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const inp = card.querySelector('.sc-priority-input');
-            const val = inp.value === '' ? null : parseInt(inp.value);
-            await _storeSetField(name, s.type, 'priority', val);
-            toast(`📶 أولوية ${name}: ${val ?? 'افتراضي'}`);
-            await _refreshStoresData();
-        });
-        card.querySelector('.sc-priority-input').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') card.querySelector('.sc-priority-save').click();
+        // Priority save — one handler per type button
+        card.querySelectorAll('.sc-priority-save[data-ptype]').forEach(btn => {
+            const ptype = btn.dataset.ptype;
+            const inp   = card.querySelector(`.sc-priority-input[data-ptype="${ptype}"]`);
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const val = inp.value === '' ? null : parseInt(inp.value);
+                await _storeSetField(name, ptype, 'priority', val);
+                toast(`📶 أولوية ${name} (${TYPE_LABELS[ptype]||ptype}): ${val ?? 'افتراضي'}`);
+                await _refreshStoresData();
+            });
+            inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') btn.click();
+            });
         });
 
         // Delete button
@@ -5719,13 +5734,17 @@ async function _refreshStoresData() {
             arr.filter(s => s && s.companyname).forEach(s => {
                 const st = storeStatusAll && storeStatusAll[s.companyname];
                 const cl = st && (st.closed === true || st.closed === '1' || st.closed === 1);
+                const p  = (s.priority !== undefined && s.priority !== null && s.priority !== '')
+                           ? parseInt(s.priority) : null;
                 if (allStores[s.companyname]) {
                     if (!allStores[s.companyname].allTypes.includes(type))
                         allStores[s.companyname].allTypes.push(type);
+                    if (p !== null) allStores[s.companyname].priorities[type] = p;
                 } else {
                     allStores[s.companyname] = {
                         ...s, type,
                         allTypes:      [type],
+                        priorities:    p !== null ? { [type]: p } : {},
                         _closed:       cl || false,
                         _closedReason: cl ? (st.reason  || '') : '',
                         _opensAt:      cl ? (st.opensAt || '') : '',
@@ -7492,6 +7511,25 @@ function formatMoney(val) {
     return val >= 1000 ? (val/1000).toFixed(2) + 'k ل.ل' : '$' + parseFloat(val).toFixed(2);
 }
 
+/* Format Lebanese phone numbers stored as "96170714152+" (or with the
+   "+" anywhere, or already with "+961" prefix) into the standard
+   "+961 70 714 152" form — "+" first, country code, then grouped digits. */
+function formatPhone(raw) {
+    if (!raw) return '—';
+    // Keep only digits
+    let digits = String(raw).replace(/\D/g, '');
+    // Strip leading country code "961" if present
+    if (digits.startsWith('961') && digits.length > 8) digits = digits.slice(3);
+    if (!digits) return '—';
+    // Group: 2 digits (operator prefix) + remaining in 3-3
+    const part1 = digits.slice(0, 2);
+    const rest  = digits.slice(2);
+    const grouped = rest.length > 3
+        ? `${rest.slice(0, 3)} ${rest.slice(3)}`
+        : rest;
+    return `+961 ${part1}${grouped ? ' ' + grouped : ''}`.trim();
+}
+
 function orStateLabel(state) {
     const map = { '0':'جديد', '1':'وُصِّل', '2':'ملغى', '3':'متأخر', '5':'مرفوض', '6':'استُلم', '7':'قيد التحضير', '8':'جاهز للتسليم' };
     return map[state] || state;
@@ -7626,7 +7664,7 @@ async function renderOnlineRequests() {
                 <div style="font-weight:700;">${o.fullname || o.username || '—'}</div>
                 ${o.username && o.fullname ? `<div class="or-customer">@${o.username}</div>` : ''}
             </td>
-            <td><span class="or-phone">${o.phone || '—'}</span></td>
+            <td><span class="or-phone">${formatPhone(o.phone)}</span></td>
             <td><span class="or-city">${o.city || '—'}${o.street ? ' · '+o.street : ''}</span></td>
             <td><span class="or-price">${formatMoney(orderPrice)}</span></td>
             <td><span class="${profit !== null ? 'or-profit' : 'or-profit-loading'}">${profit !== null ? formatMoney(profit) : '—'}</span></td>

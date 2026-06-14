@@ -184,43 +184,7 @@
         </div>`;
     }
 
-    /* ── Wire drag-scroll (mouse + touch) ─────────────────── */
-    function _initDrag(el) {
-        let isDown = false, startX, startScroll, hasDragged = false;
 
-        el.addEventListener('mousedown', e => {
-            isDown = true; hasDragged = false;
-            el.classList.add('dragging');
-            startX = e.pageX - el.offsetLeft;
-            startScroll = el.scrollLeft;
-        });
-        el.addEventListener('mouseleave', () => { isDown = false; hasDragged = false; el.classList.remove('dragging'); });
-        el.addEventListener('mouseup',    () => { isDown = false; el.classList.remove('dragging'); });
-        el.addEventListener('mousemove', e => {
-            if (!isDown) return;
-            const x = e.pageX - el.offsetLeft;
-            if (Math.abs(x - startX) > 5) {
-                hasDragged = true;
-                e.preventDefault();
-                el.scrollLeft = startScroll - (x - startX) * 1.5;
-            }
-        });
-        /* Suppress click only when actual dragging occurred */
-        el.addEventListener('click', e => {
-            if (hasDragged) { e.preventDefault(); e.stopPropagation(); hasDragged = false; }
-        }, true);
-
-        /* Touch */
-        let touchStartX, touchScrollLeft;
-        el.addEventListener('touchstart', e => {
-            touchStartX = e.touches[0].pageX - el.offsetLeft;
-            touchScrollLeft = el.scrollLeft;
-        }, { passive: true });
-        el.addEventListener('touchmove', e => {
-            const x = e.touches[0].pageX - el.offsetLeft;
-            el.scrollLeft = touchScrollLeft - (x - touchStartX) * 1.5;
-        }, { passive: true });
-    }
 
     /* ── Main init ─────────────────────────────────────────── */
     async function init() {
@@ -264,7 +228,6 @@
             });
         });
 
-        _initDrag(document.getElementById('mt-scroll'));
 
         // Show section with a smooth fade-in
         section.style.display = 'block';
