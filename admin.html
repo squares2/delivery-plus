@@ -1953,7 +1953,7 @@ input, select, textarea { font-family: var(--font); }
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     <h2>المنتجات</h2>
                     <span class="panel-header-sub" id="catalog-count-label">اختر متجراً</span>
-                    <a href="items/manage.html" target="_blank"
+                    <a href="items2/manage.html" target="_blank"
                        style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
                               border-radius:8px;background:var(--surface3);color:var(--gray-light);
                               font-size:0.75rem;font-weight:700;text-decoration:none;border:1px solid var(--border);
@@ -2246,6 +2246,13 @@ input, select, textarea { font-family: var(--font); }
    DELIVO ADMIN — Core
 ═══════════════════════════════════════════════════════════════ */
 const RTDB        = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+// GitHub config — used for direct item-image uploads from "منتجاتي" (company portal)
+const ITEM_GH_OWNER  = 'squares2';
+const ITEM_GH_REPO   = 'delivery-plus';
+const ITEM_GH_BRANCH = 'main';
+const ITEM_GH_FOLDER = 'items2';
+const ITEM_GH_TOKEN  = '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';
 
     /* Load admin presence monitor after DOM ready */
     window.addEventListener('load', () => {
@@ -7952,18 +7959,66 @@ function cpiRender() {
 function cpiSetFilter(main) { _cpiFilter = main; cpiRender(); }
 function cpiSearch(q)       { _cpiSearchQ = q.trim(); cpiRender(); }
 
+/* ── Auto-generate a globally-unique numeric item ID ─────────────
+   Scans /items across ALL stores in Firebase, collects every purely-
+   numeric ID found, and returns (max + 1) as a string. This guarantees
+   the new ID never collides with any existing item, in this store or
+   any other. ── */
+async function cpiGenerateNextId() {
+    try {
+        const allItems = await fbGet('items').catch(() => null);
+        let maxNum = 0;
+        if (allItems && typeof allItems === 'object') {
+            for (const storeItems of Object.values(allItems)) {
+                if (!storeItems || typeof storeItems !== 'object') continue;
+                for (const item of Object.values(storeItems)) {
+                    if (!item || typeof item !== 'object') continue;
+                    const id = String(item.ID ?? item.id ?? '').trim();
+                    if (/^\d+$/.test(id)) {
+                        const n = parseInt(id, 10);
+                        if (n > maxNum) maxNum = n;
+                    }
+                }
+            }
+        }
+        return String(maxNum + 1);
+    } catch (e) {
+        // Fallback: timestamp-based ID (still extremely unlikely to collide)
+        return String(Date.now()).slice(-6);
+    }
+}
+
+/* Regenerate a fresh auto-ID into the open modal's ID field */
+async function cpiRegenerateId(btn) {
+    btn.disabled = true;
+    const newId = await cpiGenerateNextId();
+    const input = document.getElementById('cim-id');
+    if (input) {
+        input.value = newId;
+        document.getElementById('cat-modal-img-name').textContent = newId.toLowerCase() + '.webp';
+    }
+    btn.disabled = false;
+}
+
 /* ── Add / Edit modal ──────────────────────────────────────── */
-function cpOpenItemModal(item) {
+async function cpOpenItemModal(item) {
     // Reuse the same logic as admin catalog but bound to company store
     // Temporarily set _catCurrentStore and _catAllItems so saveCatalogItem works
     const storeName = currentAdmin?.linkedStore || '';
     _catCurrentStore = { name: storeName, type: _cpiStoreType };
     _catAllItems     = _cpiAllItems;
+    _cpiPendingImageFile = null; // clear any stale staged image from a previous session
+
+    // For new items, pre-generate a globally-unique numeric ID
+    let autoId = '';
+    if (!item) {
+        autoId = await cpiGenerateNextId();
+    }
 
     // Build same modal as admin catalog
     document.getElementById('cat-item-modal')?.remove();
     const isNew = !item;
-    const id    = item ? (item.ID || item.id || '') : '';
+    const id    = item ? (item.ID || item.id || '') : autoId;
     const modal = document.createElement('div');
     modal.id = 'cat-item-modal';
     modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;`;
@@ -7978,18 +8033,25 @@ function cpOpenItemModal(item) {
         </div>
         <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
             <div style="text-align:center;margin-bottom:2px;">
-                <div style="width:80px;height:80px;border-radius:12px;overflow:hidden;background:var(--surface3);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;" id="cat-modal-img-wrap">
+                <div onclick="document.getElementById('cim-img-file').click()"
+                     style="width:90px;height:90px;border-radius:12px;overflow:hidden;background:var(--surface3);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px dashed var(--border);position:relative;transition:border-color .15s;"
+                     onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'"
+                     id="cat-modal-img-wrap">
                     ${(!isNew && (item.pngExist==='1'||item.pngExist===1))
-                        ? `<img src="items/${String(id).toLowerCase()}.png" style="width:100%;height:100%;object-fit:cover;"
+                        ? `<img src="items2/${String(id).toLowerCase()}.webp?_t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" id="cim-img-preview"
                                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-                           <div style="display:none;font-size:2rem;width:100%;height:100%;align-items:center;justify-content:center;">📷</div>`
-                        : `<span style="font-size:2rem;">📷</span>`
+                           <div style="display:none;font-size:2rem;width:100%;height:100%;align-items:center;justify-content:center;" id="cim-img-placeholder">📷</div>`
+                        : `<span style="font-size:2rem;" id="cim-img-placeholder">📷</span>
+                           <img src="" style="width:100%;height:100%;object-fit:cover;display:none;" id="cim-img-preview">`
                     }
+                    <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#fff;font-size:0.62rem;font-weight:700;padding:3px 0;text-align:center;">📤 رفع / تغيير</div>
                 </div>
+                <input type="file" id="cim-img-file" accept="image/*" style="display:none;" onchange="cpiPreviewImage(this)">
                 <div style="font-size:0.68rem;color:var(--gray);line-height:1.5;">
-                    ضع صورة المنتج في مجلد <code style="color:var(--orange)">items2/</code>
-                    باسم: <code style="color:var(--orange)" id="cat-modal-img-name">${id ? id.toLowerCase()+'.png' : 'ID.png'}</code>
+                    اضغط على الصورة لرفع صورة المنتج مباشرة — سيتم حفظها كـ
+                    <code style="color:var(--orange)" id="cat-modal-img-name">${id ? id.toLowerCase()+'.webp' : 'ID.webp'}</code>
                 </div>
+                <div id="cim-img-status" style="font-size:0.66rem;color:var(--gray);margin-top:2px;"></div>
             </div>
             <div class="modal-field">
                 <label>اسم المنتج <span style="color:var(--orange)">*</span></label>
@@ -8037,8 +8099,16 @@ function cpOpenItemModal(item) {
             </div>
             <div class="modal-field">
                 <label>الـ ID <span style="color:var(--orange)">*</span> <small style="color:var(--gray)">(اسم ملف الصورة = ID.webp)</small></label>
-                <input type="text" id="cim-id" value="${id}" placeholder="مثال: sha001" dir="ltr" style="width:100%;font-family:monospace;"
-                       oninput="document.getElementById('cat-modal-img-name').textContent=this.value.toLowerCase()+'.png'">
+                <div style="display:flex;gap:6px;">
+                    <input type="text" id="cim-id" value="${id}" placeholder="مثال: sha001" dir="ltr" style="flex:1;font-family:monospace;"
+                           oninput="document.getElementById('cat-modal-img-name').textContent=(this.value.toLowerCase()||'id')+'.webp'">
+                    ${isNew ? `
+                    <button type="button" onclick="cpiRegenerateId(this)" title="توليد رقم جديد"
+                            style="padding:0 12px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:var(--gray-light);cursor:pointer;font-size:0.9rem;flex-shrink:0;">
+                        🔄
+                    </button>` : ''}
+                </div>
+                ${isNew ? `<div style="font-size:0.66rem;color:var(--green);margin-top:4px;">✓ تم توليد رقم تعريف فريد تلقائياً — يمكنك تغييره إن أردت</div>` : ''}
             </div>
             <div style="display:flex;align-items:center;gap:10px;background:var(--surface3);padding:10px 12px;border-radius:8px;">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
@@ -8071,6 +8141,106 @@ function cpOpenItemModal(item) {
     if (cSel  && cSel.value  !== '__new__' && cIn)  cIn.value  = cSel.value;
 }
 
+/* ── Direct image upload (from منتجاتي, no manage.html needed) ──── */
+let _cpiPendingImageFile = null; // File selected but not yet uploaded (uploads on save)
+
+function cpiPreviewImage(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 6 * 1024 * 1024) {
+        showNotif('الملف كبير جداً', 'الحد الأقصى 6MB', 'error');
+        input.value = '';
+        return;
+    }
+    _cpiPendingImageFile = file;
+
+    const preview     = document.getElementById('cim-img-preview');
+    const placeholder = document.getElementById('cim-img-placeholder');
+    const status       = document.getElementById('cim-img-status');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        if (preview) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+    if (status) status.innerHTML = `<span style="color:var(--orange);">📤 سيتم رفع "${file.name}" عند الحفظ</span>`;
+
+    // Auto-check the "صورة موجودة" box since an image is now staged
+    const pngExistCb = document.getElementById('cim-pngexist');
+    if (pngExistCb) pngExistCb.checked = true;
+}
+
+/* Convert any image file to WebP via canvas (skips if already webp) */
+async function _cpiConvertToWebp(file) {
+    if (file.type === 'image/webp') return file;
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            c.toBlob(b => b ? resolve(b) : reject(new Error('تعذّر تحويل الصورة')), 'image/webp', 0.92);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('تعذّر تحميل الصورة')); };
+        img.src = url;
+    });
+}
+
+function _cpiBlobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+/* Upload (or replace) the item's image on GitHub as items2/{id}.webp */
+async function cpiUploadItemImage(file, itemId) {
+    const targetName = itemId.toLowerCase() + '.webp';
+    const path        = `${ITEM_GH_FOLDER}/${targetName}`;
+    const apiUrl      = `https://api.github.com/repos/${ITEM_GH_OWNER}/${ITEM_GH_REPO}/contents/${path}`;
+
+    const blob   = await _cpiConvertToWebp(file);
+    const base64 = await _cpiBlobToBase64(blob);
+
+    // Check if file already exists (need its SHA to overwrite)
+    let sha = null;
+    try {
+        const check = await fetch(apiUrl, {
+            headers: { Authorization: `Bearer ${ITEM_GH_TOKEN}`, Accept: 'application/vnd.github+json' }
+        });
+        if (check.ok) sha = (await check.json()).sha;
+    } catch (_) {}
+
+    const body = {
+        message: `Update item image: ${targetName}`,
+        content: base64,
+        branch:  ITEM_GH_BRANCH,
+    };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(apiUrl, {
+        method:  'PUT',
+        headers: {
+            Authorization:  `Bearer ${ITEM_GH_TOKEN}`,
+            Accept:         'application/vnd.github+json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `GitHub error ${res.status}`);
+    }
+}
+
 /* ── Save item (company portal version) ────────────────────── */
 async function cpiSaveItem(isNew) {
     const storeName = currentAdmin?.linkedStore || '';
@@ -8087,6 +8257,28 @@ async function cpiSaveItem(isNew) {
 
     if (!name || !itemId) { showNotif('بيانات ناقصة', 'الاسم والـ ID إلزاميان', 'error'); return; }
 
+    const btn = document.getElementById('cim-save-btn');
+    btn.disabled = true; btn.textContent = '⏳ جاري الحفظ…';
+
+    // For new items, do a final global collision check (covers the rare race
+    // where two employees generated the same suggested ID at once)
+    if (isNew) {
+        try {
+            const allItems = await fbGet('items').catch(() => null);
+            if (allItems && typeof allItems === 'object') {
+                for (const storeItems of Object.values(allItems)) {
+                    if (!storeItems || typeof storeItems !== 'object') continue;
+                    if (Object.prototype.hasOwnProperty.call(storeItems, itemId)) {
+                        showNotif('رقم تعريف مستخدم', `الـ ID "${itemId}" مستخدم بالفعل — اضغط 🔄 لتوليد رقم جديد`, 'error');
+                        btn.disabled = false;
+                        btn.textContent = '✅ إضافة المنتج';
+                        return;
+                    }
+                }
+            }
+        } catch (_) { /* if check fails, proceed */ }
+    }
+
     const payload = {
         ID: itemId, name,
         price:    price || '0',
@@ -8098,12 +8290,21 @@ async function cpiSaveItem(isNew) {
         companytype: _cpiStoreType,
     };
 
-    const btn = document.getElementById('cim-save-btn');
-    btn.disabled = true; btn.textContent = '⏳ جاري الحفظ…';
-
     try {
         await fbSet(`items/${storeName}/${itemId}`, payload);
         _cpiAllItems[itemId] = payload;
+
+        // Upload staged image (if the user selected one) to items2/{id}.webp
+        if (_cpiPendingImageFile) {
+            btn.textContent = '📤 جاري رفع الصورة…';
+            try {
+                await cpiUploadItemImage(_cpiPendingImageFile, itemId);
+            } catch (imgErr) {
+                showNotif('تم حفظ المنتج، لكن فشل رفع الصورة', imgErr.message, 'error');
+            }
+        }
+
+        _cpiPendingImageFile = null;
         showNotif(isNew ? '✅ تمت الإضافة' : '💾 تم الحفظ', name, 'success');
         document.getElementById('cat-item-modal').remove();
         cpiRender();
