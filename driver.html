@@ -9,6 +9,7 @@
     <link rel="icon" href="assets/favicon-32.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
     <style>
     /* ═══════════════════════════════════════════════════════════
@@ -407,6 +408,161 @@
     }
     .drv-error.visible { display: block; }
 
+    /* ── Register modal (wider, scrollable) ─────────────────── */
+    .drv-modal--register {
+        max-width: 420px;
+        max-height: 92vh;
+        overflow-y: auto;
+    }
+    .drv-modal__switch {
+        text-align: center; font-size: 0.8rem; color: var(--clr-gray);
+    }
+    .drv-modal__switch a {
+        color: var(--clr-orange); font-weight: 800; text-decoration: none; cursor: pointer;
+    }
+    .drv-modal__switch a:hover { text-decoration: underline; }
+
+    .drv-field select {
+        background: var(--clr-surface2);
+        border: 1.5px solid var(--clr-border);
+        border-radius: var(--radius-md);
+        color: var(--clr-white);
+        font-family: inherit; font-size: 0.9rem;
+        padding: 11px 14px;
+        outline: none; direction: rtl;
+        transition: border-color 0.18s;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239898a6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: left 12px center;
+        padding-left: 34px;
+    }
+    .drv-field select:focus { border-color: var(--clr-orange); }
+    .drv-field-hint {
+        font-size: 0.7rem; color: var(--clr-gray); margin-top: 2px;
+    }
+    .drv-field-required { color: var(--clr-orange); }
+
+    /* Phone prefix row */
+    .drv-phone-row {
+        display: flex; align-items: center; gap: 0;
+        background: var(--clr-surface2);
+        border: 1.5px solid var(--clr-border);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        transition: border-color 0.18s;
+    }
+    .drv-phone-row:focus-within { border-color: var(--clr-orange); }
+    .drv-phone-row__prefix {
+        padding: 11px 12px; font-size: 0.85rem; font-weight: 700; color: var(--clr-gray-light);
+        background: rgba(255,255,255,0.03); white-space: nowrap; flex-shrink: 0;
+    }
+    .drv-phone-row input {
+        border: none !important; background: transparent !important; flex: 1;
+    }
+
+    /* Username availability indicator */
+    .drv-field-status {
+        font-size: 0.72rem; font-weight: 700; margin-top: 2px; display: none;
+    }
+    .drv-field-status.visible { display: block; }
+    .drv-field-status--ok    { color: var(--clr-green); }
+    .drv-field-status--bad   { color: var(--clr-red); }
+    .drv-field-status--check { color: var(--clr-gray); }
+
+    /* Vehicle type cards */
+    .drv-vehicle-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    }
+    .drv-vehicle-opt {
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        padding: 10px 4px; border-radius: var(--radius-md);
+        border: 1.5px solid var(--clr-border); background: var(--clr-surface2);
+        cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .drv-vehicle-opt span:first-child { font-size: 1.4rem; line-height: 1; }
+    .drv-vehicle-opt span:last-child  { font-size: 0.66rem; font-weight: 700; color: var(--clr-gray-light); }
+    .drv-vehicle-opt.active {
+        border-color: var(--clr-orange); background: rgba(255,92,0,0.12);
+    }
+    .drv-vehicle-opt.active span:last-child { color: var(--clr-orange); }
+
+    /* Location picker (reuses customer-side pattern) */
+    .drv-location-options { display: flex; gap: 8px; }
+    .drv-location-opt-btn {
+        flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+        padding: 10px; border-radius: var(--radius-md);
+        border: 1.5px solid var(--clr-border); background: var(--clr-surface2);
+        color: var(--clr-gray-light); font-family: inherit; font-size: 0.78rem; font-weight: 700;
+        cursor: pointer; transition: border-color 0.15s, color 0.15s;
+    }
+    .drv-location-opt-btn--active {
+        border-color: var(--clr-orange); color: var(--clr-orange); background: rgba(255,92,0,0.1);
+    }
+    .drv-location-status {
+        font-size: 0.74rem; font-weight: 700; padding: 6px 10px; border-radius: var(--radius-sm);
+        display: none;
+    }
+    .drv-location-status.visible { display: block; }
+    .drv-location-status--info    { background: rgba(59,130,246,0.12); color: #93c5fd; }
+    .drv-location-status--success { background: rgba(34,197,94,0.12); color: var(--clr-green); }
+    .drv-location-status--error   { background: rgba(239,68,68,0.12); color: #fca5a5; }
+    .drv-location-status--loading { background: var(--clr-surface2); color: var(--clr-gray); }
+    .drv-location-map-wrap { display: none; }
+    .drv-location-map {
+        width: 100%; height: 220px; border-radius: var(--radius-md);
+        overflow: hidden; border: 1.5px solid var(--clr-border);
+    }
+    .drv-location-map-hint {
+        font-size: 0.7rem; color: var(--clr-gray); margin-top: 6px; text-align: center;
+    }
+    .map-toggle-btn {
+        background:#fff; border:2px solid var(--clr-orange);
+        border-radius:6px; padding:5px 9px;
+        font-size:12px; font-weight:700;
+        cursor:pointer; color:var(--clr-orange);
+        box-shadow:0 1px 5px rgba(0,0,0,0.3);
+        white-space:nowrap; font-family: inherit;
+    }
+
+    /* Document upload boxes */
+    .drv-upload-box {
+        display: flex; align-items: center; gap: 10px;
+        border: 1.5px dashed var(--clr-border); border-radius: var(--radius-md);
+        padding: 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+        background: var(--clr-surface2);
+    }
+    .drv-upload-box:hover { border-color: var(--clr-orange); }
+    .drv-upload-box.has-file { border-color: var(--clr-green); border-style: solid; }
+    .drv-upload-box__icon {
+        width: 40px; height: 40px; border-radius: var(--radius-sm); flex-shrink: 0;
+        background: var(--clr-surface); display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; overflow: hidden;
+    }
+    .drv-upload-box__icon img { width: 100%; height: 100%; object-fit: cover; }
+    .drv-upload-box__text { flex: 1; min-width: 0; }
+    .drv-upload-box__title { font-size: 0.82rem; font-weight: 700; color: var(--clr-white); }
+    .drv-upload-box__sub   { font-size: 0.7rem; color: var(--clr-gray); margin-top: 2px; }
+
+    /* Pending-approval banner inside driver app */
+    .drv-pending-banner {
+        display: none; align-items: flex-start; gap: 12px;
+        background: linear-gradient(135deg, rgba(245,158,11,0.14), rgba(245,158,11,0.06));
+        border: 1.5px solid rgba(245,158,11,0.35);
+        border-radius: var(--radius-lg);
+        padding: 14px 16px; margin: 12px 16px 0;
+    }
+    .drv-pending-banner.visible { display: flex; }
+    .drv-pending-banner__icon { font-size: 1.8rem; line-height: 1; flex-shrink: 0; }
+    .drv-pending-banner__title { font-size: 0.9rem; font-weight: 800; color: var(--clr-yellow); }
+    .drv-pending-banner__sub   { font-size: 0.78rem; color: var(--clr-gray-light); margin-top: 4px; line-height: 1.6; }
+    .drv-pending-banner__docs-btn {
+        margin-top: 8px; padding: 7px 14px; border-radius: var(--radius-sm);
+        border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.12);
+        color: var(--clr-yellow); font-family: inherit; font-size: 0.74rem; font-weight: 800;
+        cursor: pointer;
+    }
+
     /* ── Toast ───────────────────────────────────────────────── */
     .drv-toast {
         position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
@@ -674,6 +830,155 @@
         <button class="drv-btn drv-btn--orange" id="drv-login-btn" style="width:100%;justify-content:center;padding:12px">
             تسجيل الدخول
         </button>
+        <p class="drv-modal__switch">ليس لديك حساب؟ <a id="drv-show-register">سجّل كسائق جديد</a></p>
+    </div>
+</div>
+
+<!-- ── Register modal ──────────────────────────────────────── -->
+<div class="drv-modal-overlay" id="drv-register-modal" style="display:none;">
+    <div class="drv-modal drv-modal--register">
+        <div class="drv-modal__logo">
+            <img src="assets/logo.png" alt="Delivo">
+            <span class="drv-modal__logo-title">انضم كسائق</span>
+            <span class="drv-modal__logo-sub">عبّئ بياناتك وابدأ التوصيل مع Delivo</span>
+        </div>
+
+        <p class="drv-error" id="drv-reg-error"></p>
+
+        <!-- Full name -->
+        <div class="drv-field">
+            <label for="drv-reg-name">الاسم الكامل <span class="drv-field-required">*</span></label>
+            <input type="text" id="drv-reg-name" placeholder="أحمد علي" autocomplete="name">
+        </div>
+
+        <!-- Phone -->
+        <div class="drv-field">
+            <label for="drv-reg-phone">رقم الهاتف <span class="drv-field-required">*</span></label>
+            <div class="drv-phone-row">
+                <span class="drv-phone-row__prefix">🇱🇧 +961</span>
+                <input type="tel" id="drv-reg-phone" placeholder="03 123 456" dir="ltr" maxlength="10" inputmode="numeric">
+            </div>
+            <span class="drv-field-hint">مثال: 03 123 456 أو 71 123 456</span>
+        </div>
+
+        <!-- Address (map) -->
+        <div class="drv-field">
+            <label>العنوان <span class="drv-field-required">*</span></label>
+            <div class="drv-location-options">
+                <button type="button" class="drv-location-opt-btn" id="drv-reg-loc-gps">📍 موقعي الحالي</button>
+                <button type="button" class="drv-location-opt-btn" id="drv-reg-loc-map">🗺 اختر على الخريطة</button>
+            </div>
+            <p class="drv-location-status" id="drv-reg-loc-status"></p>
+            <div class="drv-location-map-wrap" id="drv-reg-map-wrap">
+                <div id="drv-reg-map" class="drv-location-map"></div>
+                <p class="drv-location-map-hint">📍 اسحب الدبوس أو انقر لتحديد عنوانك بدقة</p>
+            </div>
+            <input type="hidden" id="drv-reg-lat">
+            <input type="hidden" id="drv-reg-lng">
+        </div>
+
+        <!-- Vehicle type -->
+        <div class="drv-field">
+            <label>نوع المركبة <span class="drv-field-required">*</span></label>
+            <div class="drv-vehicle-grid" id="drv-vehicle-grid">
+                <div class="drv-vehicle-opt" data-vehicle="motorcycle"><span>🛵</span><span>دراجة نارية</span></div>
+                <div class="drv-vehicle-opt" data-vehicle="car"><span>🚗</span><span>سيارة</span></div>
+                <div class="drv-vehicle-opt" data-vehicle="tuktuk"><span>🛺</span><span>توك توك</span></div>
+                <div class="drv-vehicle-opt" data-vehicle="bicycle"><span>🚲</span><span>دراجة هوائية</span></div>
+            </div>
+            <input type="hidden" id="drv-reg-vehicle">
+        </div>
+
+        <!-- Username -->
+        <div class="drv-field">
+            <label for="drv-reg-username">اسم المستخدم <span class="drv-field-required">*</span></label>
+            <input type="text" id="drv-reg-username" placeholder="مثال: ahmad_driver" dir="ltr" maxlength="30" autocapitalize="none">
+            <span class="drv-field-hint">أحرف إنجليزية، أرقام، _ فقط — 3-30 حرف</span>
+            <span class="drv-field-status" id="drv-reg-username-status"></span>
+        </div>
+
+        <!-- Password -->
+        <div class="drv-field">
+            <label for="drv-reg-password">كلمة المرور <span class="drv-field-required">*</span></label>
+            <input type="password" id="drv-reg-password" placeholder="8 أحرف على الأقل" dir="ltr" autocomplete="new-password">
+        </div>
+
+        <!-- Documents (optional) -->
+        <div class="drv-field">
+            <label>📄 الوثائق <span style="color:var(--clr-gray); font-weight:600;">(اختياري — يمكن إضافتها بعد تسجيل الدخول)</span></label>
+
+            <label class="drv-upload-box" id="drv-id-box" for="drv-reg-id-file">
+                <div class="drv-upload-box__icon" id="drv-id-icon">🪪</div>
+                <div class="drv-upload-box__text">
+                    <div class="drv-upload-box__title" id="drv-id-title">صورة الهوية</div>
+                    <div class="drv-upload-box__sub" id="drv-id-sub">اضغط لرفع صورة عن بطاقة الهوية</div>
+                </div>
+            </label>
+            <input type="file" id="drv-reg-id-file" accept="image/*" style="display:none;">
+
+            <label class="drv-upload-box" id="drv-license-box" for="drv-reg-license-file" style="margin-top:8px;">
+                <div class="drv-upload-box__icon" id="drv-license-icon">🚘</div>
+                <div class="drv-upload-box__text">
+                    <div class="drv-upload-box__title" id="drv-license-title">رخصة القيادة</div>
+                    <div class="drv-upload-box__sub" id="drv-license-sub">اضغط لرفع صورة عن رخصة القيادة</div>
+                </div>
+            </label>
+            <input type="file" id="drv-reg-license-file" accept="image/*" style="display:none;">
+        </div>
+
+        <button class="drv-btn drv-btn--orange" id="drv-reg-submit" style="width:100%;justify-content:center;padding:12px">
+            ➕ إنشاء حساب السائق
+        </button>
+        <p class="drv-modal__switch">لديك حساب؟ <a id="drv-show-login">سجّل الدخول</a></p>
+    </div>
+</div>
+
+<!-- ── Pending-approval banner ─────────────────────────────── -->
+<div class="drv-pending-banner" id="drv-pending-banner">
+    <span class="drv-pending-banner__icon">⏳</span>
+    <div>
+        <div class="drv-pending-banner__title">حسابك قيد المراجعة</div>
+        <div class="drv-pending-banner__sub">
+            تم استلام طلب انضمامك بنجاح! يقوم فريق Delivo بمراجعة بياناتك حالياً.
+            يمكنك تسجيل الدخول، لكن لن تتلقى طلبات توصيل حتى يتم تفعيل حسابك. سنخبرك فور التفعيل.
+        </div>
+        <button class="drv-pending-banner__docs-btn" id="drv-pending-docs-btn" style="display:none;">📄 إضافة الوثائق الآن</button>
+    </div>
+</div>
+
+<!-- ── Documents upload modal (for drivers who skipped at registration) ── -->
+<div class="drv-modal-overlay" id="drv-docs-modal" style="display:none;">
+    <div class="drv-modal drv-modal--register">
+        <div class="drv-modal__logo">
+            <span class="drv-modal__logo-title">📄 وثائقك</span>
+            <span class="drv-modal__logo-sub">أكمل ملفك لتسريع عملية التفعيل</span>
+        </div>
+        <p class="drv-error" id="drv-docs-error"></p>
+
+        <label class="drv-upload-box" id="drv-docs-id-box" for="drv-docs-id-file">
+            <div class="drv-upload-box__icon" id="drv-docs-id-icon">🪪</div>
+            <div class="drv-upload-box__text">
+                <div class="drv-upload-box__title" id="drv-docs-id-title">صورة الهوية</div>
+                <div class="drv-upload-box__sub" id="drv-docs-id-sub">اضغط لرفع صورة عن بطاقة الهوية</div>
+            </div>
+        </label>
+        <input type="file" id="drv-docs-id-file" accept="image/*" style="display:none;">
+
+        <label class="drv-upload-box" id="drv-docs-license-box" for="drv-docs-license-file" style="margin-top:8px;">
+            <div class="drv-upload-box__icon" id="drv-docs-license-icon">🚘</div>
+            <div class="drv-upload-box__text">
+                <div class="drv-upload-box__title" id="drv-docs-license-title">رخصة القيادة</div>
+                <div class="drv-upload-box__sub" id="drv-docs-license-sub">اضغط لرفع صورة عن رخصة القيادة</div>
+            </div>
+        </label>
+        <input type="file" id="drv-docs-license-file" accept="image/*" style="display:none;">
+
+        <button class="drv-btn drv-btn--orange" id="drv-docs-save" style="width:100%;justify-content:center;padding:12px;margin-top:8px;">
+            💾 حفظ الوثائق
+        </button>
+        <button class="drv-btn drv-btn--ghost" id="drv-docs-close" style="width:100%;justify-content:center;padding:12px;">
+            إغلاق
+        </button>
     </div>
 </div>
 
@@ -685,6 +990,9 @@
 ══════════════════════════════════════════════════════════ -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 /* ════════════════════════════════════════════════════════════
@@ -704,6 +1012,8 @@ const FIREBASE_CONFIG = {
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.database();
+const fsdb = firebase.firestore();
+const storage = firebase.storage();
 
 // ── State ─────────────────────────────────────────────────────
 let driverData    = null;   // { id, username, owner }
@@ -742,8 +1052,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (snap.exists()) {
                 const d = snap.val();
                 if (d && d.username === parsed.username) {
-                    // Refresh owner name in case it changed in admin
-                    parsed.owner = d.owner || d.fullname || d.username;
+                    // Refresh owner name and active/document status in case they changed in admin
+                    parsed.owner        = d.owner || d.fullname || d.username;
+                    parsed.active       = d.active === true;
+                    parsed.idImage      = d.idImage      || null;
+                    parsed.licenseImage = d.licenseImage || null;
                     driverData = parsed;
                     localStorage.setItem('delivoDriver', JSON.stringify(driverData));
                     startDriverSession();
@@ -768,11 +1081,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupLogout();
     setupStats();
     setupHistoryToggle();
+    setupRegisterSwitchLinks();
+    setupRegisterForm();
+    setupDocsModal();
 });
 
 // ── Login ─────────────────────────────────────────────────────
 function showLoginModal() {
     document.getElementById('drv-login-modal').style.display = 'flex';
+    document.getElementById('drv-register-modal').style.display = 'none';
+    document.getElementById('drv-pending-banner').classList.remove('visible');
     document.getElementById('drv-nav').style.display = 'none';
     document.getElementById('drv-stats').style.display = 'none';
     document.getElementById('drv-loading').style.display = 'none';
@@ -808,6 +1126,9 @@ function setupLoginForm() {
                         id:       child.key,
                         username: d.username,
                         owner:    d.owner || d.fullname || d.username,
+                        active:   d.active === true,
+                        idImage:      d.idImage      || null,
+                        licenseImage: d.licenseImage || null,
                     };
                 }
             });
@@ -833,6 +1154,481 @@ function setupLoginForm() {
     passInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 }
 
+// ── Registration ─────────────────────────────────────────────
+let _regSelectedVehicle = null;
+let _regIdFile          = null;
+let _regLicenseFile     = null;
+let _regMap, _regMarker;
+
+function showRegisterModal() {
+    document.getElementById('drv-login-modal').style.display    = 'none';
+    document.getElementById('drv-register-modal').style.display = 'flex';
+}
+function showLoginModalFromRegister() {
+    document.getElementById('drv-register-modal').style.display = 'none';
+    document.getElementById('drv-login-modal').style.display     = 'flex';
+}
+
+function setupRegisterSwitchLinks() {
+    document.getElementById('drv-show-register')?.addEventListener('click', showRegisterModal);
+    document.getElementById('drv-show-login')?.addEventListener('click', showLoginModalFromRegister);
+}
+
+/* ── Vehicle type picker ─────────────────────────────────────── */
+function setupVehiclePicker() {
+    document.querySelectorAll('.drv-vehicle-opt').forEach(opt => {
+        opt.addEventListener('click', () => {
+            document.querySelectorAll('.drv-vehicle-opt').forEach(o => o.classList.remove('active'));
+            opt.classList.add('active');
+            _regSelectedVehicle = opt.dataset.vehicle;
+            document.getElementById('drv-reg-vehicle').value = _regSelectedVehicle;
+        });
+    });
+}
+
+/* ── Username availability check ─────────────────────────────── */
+let _usernameCheckTimer = null;
+function setupUsernameCheck() {
+    const input  = document.getElementById('drv-reg-username');
+    const status = document.getElementById('drv-reg-username-status');
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+        // Sanitize: lowercase, allowed chars only
+        input.value = input.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+        const username = input.value;
+        status.className = 'drv-field-status';
+
+        if (!username) { status.classList.remove('visible'); return; }
+        if (!/^[a-z0-9_]{3,30}$/.test(username)) {
+            status.textContent = '✗ 3-30 حرف إنجليزي، أرقام أو _ فقط';
+            status.classList.add('visible', 'drv-field-status--bad');
+            return;
+        }
+
+        status.textContent = 'جاري التحقق…';
+        status.classList.add('visible', 'drv-field-status--check');
+
+        clearTimeout(_usernameCheckTimer);
+        _usernameCheckTimer = setTimeout(() => checkUsernameAvailability(username), 450);
+    });
+}
+
+async function checkUsernameAvailability(username) {
+    const status = document.getElementById('drv-reg-username-status');
+    // Make sure the user hasn't kept typing since this check was scheduled
+    if (document.getElementById('drv-reg-username').value !== username) return;
+
+    try {
+        // 1) Check against existing drivers (RTDB)
+        const drvSnap = await db.ref('drivers').get();
+        let takenByDriver = false;
+        if (drvSnap.exists()) {
+            drvSnap.forEach(child => {
+                const d = child.val();
+                if (d && d.username === username) takenByDriver = true;
+            });
+        }
+        if (takenByDriver) {
+            status.textContent = '✗ اسم المستخدم محجوز من سائق آخر';
+            status.className   = 'drv-field-status visible drv-field-status--bad';
+            return;
+        }
+
+        // 2) Check against customer usernames (Firestore)
+        try {
+            const custDoc = await fsdb.collection('usernames').doc(username).get();
+            if (custDoc.exists) {
+                status.textContent = '✗ اسم المستخدم محجوز';
+                status.className   = 'drv-field-status visible drv-field-status--bad';
+                return;
+            }
+        } catch (_) { /* Firestore unreachable — fall through to "available" */ }
+
+        status.textContent = '✓ اسم المستخدم متاح';
+        status.className   = 'drv-field-status visible drv-field-status--ok';
+    } catch (e) {
+        status.textContent = '';
+        status.classList.remove('visible');
+    }
+}
+
+/* ── Location: GPS + Map picker (registration) ────────────────── */
+function setLocStatus(type, msg) {
+    const el = document.getElementById('drv-reg-loc-status');
+    el.textContent = msg;
+    el.className   = `drv-location-status visible drv-location-status--${type}`;
+}
+
+function setupRegisterLocationPicker() {
+    const gpsBtn = document.getElementById('drv-reg-loc-gps');
+    const mapBtn = document.getElementById('drv-reg-loc-map');
+
+    gpsBtn.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            setLocStatus('error', 'جهازك لا يدعم تحديد الموقع.');
+            return;
+        }
+        setLocStatus('loading', 'جاري تحديد موقعك…');
+        gpsBtn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                document.getElementById('drv-reg-lat').value = lat.toFixed(6);
+                document.getElementById('drv-reg-lng').value = lng.toFixed(6);
+                setLocStatus('success', '✓ تم تحديد موقعك بنجاح');
+                gpsBtn.disabled = false;
+                gpsBtn.classList.add('drv-location-opt-btn--active');
+                mapBtn.classList.remove('drv-location-opt-btn--active');
+                document.getElementById('drv-reg-map-wrap').style.display = 'none';
+                if (_regMap) {
+                    _regMap.setView([lat, lng], 16);
+                    _regMarker.setLatLng([lat, lng]);
+                }
+            },
+            (err) => {
+                gpsBtn.disabled = false;
+                const msgs = {
+                    1: 'رفضت الإذن. يرجى السماح بالوصول للموقع.',
+                    2: 'تعذّر تحديد الموقع. حاول مرة أخرى.',
+                    3: 'انتهت المهلة. حاول مرة أخرى.',
+                };
+                setLocStatus('error', msgs[err.code] || 'تعذّر تحديد الموقع.');
+            },
+            { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
+        );
+    });
+
+    mapBtn.addEventListener('click', () => {
+        const mapWrap = document.getElementById('drv-reg-map-wrap');
+        mapWrap.style.display = 'block';
+        mapBtn.classList.add('drv-location-opt-btn--active');
+        gpsBtn.classList.remove('drv-location-opt-btn--active');
+
+        if (!_regMap) {
+            const defaultLat = 34.0040;
+            const defaultLng = 36.2100;
+            const savedLat   = parseFloat(document.getElementById('drv-reg-lat').value) || defaultLat;
+            const savedLng   = parseFloat(document.getElementById('drv-reg-lng').value) || defaultLng;
+
+            const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
+            const satellite = L.tileLayer(
+                `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${GOOGLE_KEY}`,
+                { attribution: '© Google Maps', maxZoom: 20, subdomains: '0123' }
+            );
+            const standard = L.tileLayer(
+                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                { attribution: '© OpenStreetMap', maxZoom: 19 }
+            );
+
+            _regMap = L.map('drv-reg-map', { zoomControl: true, attributionControl: true })
+                .setView([savedLat, savedLng], 17);
+            satellite.addTo(_regMap);
+            let currentLayer = 'satellite';
+
+            const toggleCtrl = L.control({ position: 'topright' });
+            toggleCtrl.onAdd = function() {
+                const btn = L.DomUtil.create('button', 'map-toggle-btn');
+                btn.innerHTML = '🗺 خريطة';
+                btn.title     = 'تبديل نوع الخريطة';
+                L.DomEvent.on(btn, 'click', function(e) {
+                    L.DomEvent.stopPropagation(e);
+                    if (currentLayer === 'satellite') {
+                        _regMap.removeLayer(satellite);
+                        standard.addTo(_regMap);
+                        currentLayer = 'standard';
+                        btn.innerHTML = '🛰 صورة جوية';
+                    } else {
+                        _regMap.removeLayer(standard);
+                        satellite.addTo(_regMap);
+                        currentLayer = 'satellite';
+                        btn.innerHTML = '🗺 خريطة';
+                    }
+                });
+                return btn;
+            };
+            toggleCtrl.addTo(_regMap);
+
+            const orangeIcon = L.divIcon({
+                className: '',
+                html: `<div style="
+                    width:30px;height:30px;
+                    background:#FF5C00;
+                    border:3px solid #fff;
+                    border-radius:50% 50% 50% 0;
+                    transform:rotate(-45deg);
+                    box-shadow:0 2px 8px rgba(0,0,0,0.4);
+                "></div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+            });
+
+            _regMarker = L.marker([savedLat, savedLng], { icon: orangeIcon, draggable: true }).addTo(_regMap);
+
+            _regMarker.on('dragend', (e) => {
+                const pos = e.target.getLatLng();
+                document.getElementById('drv-reg-lat').value = pos.lat.toFixed(6);
+                document.getElementById('drv-reg-lng').value = pos.lng.toFixed(6);
+                setLocStatus('success', '✓ تم تحديد العنوان على الخريطة');
+            });
+            _regMap.on('click', (e) => {
+                _regMarker.setLatLng(e.latlng);
+                document.getElementById('drv-reg-lat').value = e.latlng.lat.toFixed(6);
+                document.getElementById('drv-reg-lng').value = e.latlng.lng.toFixed(6);
+                setLocStatus('success', '✓ تم تحديد العنوان على الخريطة');
+            });
+
+            document.getElementById('drv-reg-lat').value = savedLat.toFixed(6);
+            document.getElementById('drv-reg-lng').value = savedLng.toFixed(6);
+        } else {
+            setTimeout(() => _regMap.invalidateSize(), 100);
+        }
+
+        setLocStatus('info', 'اسحب الدبوس أو انقر على الخريطة لتحديد عنوانك');
+    });
+}
+
+/* ── Document image preview helper ───────────────────────────── */
+function setupDocPreview(fileInputId, boxId, iconId, titleId, subId, onSelect) {
+    const input = document.getElementById(fileInputId);
+    const icon  = document.getElementById(iconId);
+    const title = document.getElementById(titleId);
+    const sub   = document.getElementById(subId);
+    const box   = document.getElementById(boxId);
+
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('⚠ حجم الصورة أكبر من 5MB');
+            input.value = '';
+            return;
+        }
+        onSelect(file);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            icon.innerHTML = `<img src="${e.target.result}" alt="">`;
+        };
+        reader.readAsDataURL(file);
+        title.textContent = '✓ تم اختيار الصورة';
+        sub.textContent   = file.name;
+        box.classList.add('has-file');
+    });
+}
+
+/* ── Upload an image file to Firebase Storage, returns download URL ── */
+async function uploadDriverDoc(file, driverId, docName) {
+    const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `driverDocs/${driverId}/${docName}.${ext}`;
+    const ref  = storage.ref(path);
+    await ref.put(file);
+    return await ref.getDownloadURL();
+}
+
+/* ── Submit registration ──────────────────────────────────────── */
+function setupRegisterForm() {
+    setupVehiclePicker();
+    setupUsernameCheck();
+    setupRegisterLocationPicker();
+    setupDocPreview('drv-reg-id-file',      'drv-id-box',      'drv-id-icon',      'drv-id-title',      'drv-id-sub',      f => _regIdFile = f);
+    setupDocPreview('drv-reg-license-file', 'drv-license-box', 'drv-license-icon', 'drv-license-title', 'drv-license-sub', f => _regLicenseFile = f);
+
+    const submitBtn = document.getElementById('drv-reg-submit');
+    const errorEl   = document.getElementById('drv-reg-error');
+
+    submitBtn.addEventListener('click', async () => {
+        errorEl.classList.remove('visible');
+
+        const fullname = document.getElementById('drv-reg-name').value.trim();
+        const phoneRaw = document.getElementById('drv-reg-phone').value.trim().replace(/[\s\-]/g, '');
+        const lat      = document.getElementById('drv-reg-lat').value;
+        const lng      = document.getElementById('drv-reg-lng').value;
+        const vehicle  = document.getElementById('drv-reg-vehicle').value;
+        const username = document.getElementById('drv-reg-username').value.trim().toLowerCase();
+        const password = document.getElementById('drv-reg-password').value;
+
+        // ── Validation ──────────────────────────────────────────
+        if (!fullname || fullname.length < 2) {
+            return showRegError('أدخل اسمك الكامل (حرفان على الأقل).');
+        }
+        if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneRaw)) {
+            return showRegError('رقم الهاتف غير صحيح. أدخل رقماً لبنانياً صحيحاً.');
+        }
+        if (!lat || !lng) {
+            return showRegError('يرجى تحديد عنوانك (موقعك الحالي أو على الخريطة).');
+        }
+        if (!vehicle) {
+            return showRegError('يرجى اختيار نوع المركبة.');
+        }
+        if (!/^[a-z0-9_]{3,30}$/.test(username)) {
+            return showRegError('اسم المستخدم: 3-30 حرف إنجليزي، أرقام أو _ فقط.');
+        }
+        if (!password || password.length < 8) {
+            return showRegError('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = '…';
+
+        try {
+            // Final username uniqueness re-check (race-condition guard)
+            const drvSnap = await db.ref('drivers').get();
+            let taken = false;
+            if (drvSnap.exists()) {
+                drvSnap.forEach(child => {
+                    const d = child.val();
+                    if (d && d.username === username) taken = true;
+                });
+            }
+            if (!taken) {
+                try {
+                    const custDoc = await fsdb.collection('usernames').doc(username).get();
+                    if (custDoc.exists) taken = true;
+                } catch (_) {}
+            }
+            if (taken) {
+                return showRegError('اسم المستخدم محجوز. اختر اسماً آخر.');
+            }
+
+            const phoneFormatted = '+961' + phoneRaw.replace(/^0/, '');
+
+            // Create the driver record first (without doc images) to get an ID
+            const newRef = db.ref('drivers').push();
+            const driverId = newRef.key;
+
+            const driverRecord = {
+                owner          : fullname,
+                fullname       : fullname,
+                username       : username,
+                password       : password,
+                phone          : phoneFormatted,
+                vehicleType    : vehicle,
+                address        : { lat: parseFloat(lat), lng: parseFloat(lng) },
+                status         : 'offline',
+                active         : false,          // ← admin must activate before receiving orders
+                pendingApproval: true,
+                createdAt      : Date.now(),
+            };
+            await newRef.set(driverRecord);
+
+            // Upload optional documents (non-blocking for registration success)
+            const docUpdates = {};
+            if (_regIdFile) {
+                try { docUpdates.idImage = await uploadDriverDoc(_regIdFile, driverId, 'id'); }
+                catch (e) { console.error('[Delivo] ID upload failed:', e); }
+            }
+            if (_regLicenseFile) {
+                try { docUpdates.licenseImage = await uploadDriverDoc(_regLicenseFile, driverId, 'license'); }
+                catch (e) { console.error('[Delivo] License upload failed:', e); }
+            }
+            if (Object.keys(docUpdates).length) {
+                await newRef.update(docUpdates);
+            }
+
+            // Log the driver in immediately
+            driverData = {
+                id:       driverId,
+                username: username,
+                owner:    fullname,
+                active:   false,
+                idImage:      docUpdates.idImage      || null,
+                licenseImage: docUpdates.licenseImage || null,
+            };
+            localStorage.setItem('delivoDriver', JSON.stringify(driverData));
+
+            document.getElementById('drv-register-modal').style.display = 'none';
+            showToast('🎉 تم إنشاء حسابك بنجاح!');
+            startDriverSession();
+
+        } catch (e) {
+            console.error('[Delivo] registration error:', e);
+            showRegError('حدث خطأ أثناء إنشاء الحساب. حاول مجدداً.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '➕ إنشاء حساب السائق';
+        }
+    });
+
+    function showRegError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.add('visible');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '➕ إنشاء حساب السائق';
+    }
+}
+
+/* ── "Add documents later" modal ─────────────────────────────── */
+let _docsIdFile      = null;
+let _docsLicenseFile = null;
+
+function setupDocsModal() {
+    setupDocPreview('drv-docs-id-file',      'drv-docs-id-box',      'drv-docs-id-icon',      'drv-docs-id-title',      'drv-docs-id-sub',      f => _docsIdFile = f);
+    setupDocPreview('drv-docs-license-file', 'drv-docs-license-box', 'drv-docs-license-icon', 'drv-docs-license-title', 'drv-docs-license-sub', f => _docsLicenseFile = f);
+
+    document.getElementById('drv-pending-docs-btn')?.addEventListener('click', () => {
+        document.getElementById('drv-docs-modal').style.display = 'flex';
+    });
+    document.getElementById('drv-docs-close')?.addEventListener('click', () => {
+        document.getElementById('drv-docs-modal').style.display = 'none';
+    });
+    document.getElementById('drv-docs-modal')?.addEventListener('click', e => {
+        if (e.target.id === 'drv-docs-modal') e.currentTarget.style.display = 'none';
+    });
+
+    document.getElementById('drv-docs-save').addEventListener('click', async () => {
+        if (!driverData) return;
+        const btn = document.getElementById('drv-docs-save');
+        const errorEl = document.getElementById('drv-docs-error');
+        errorEl.classList.remove('visible');
+
+        if (!_docsIdFile && !_docsLicenseFile) {
+            errorEl.textContent = 'اختر صورة واحدة على الأقل لرفعها.';
+            errorEl.classList.add('visible');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = '…';
+
+        try {
+            const updates = {};
+            if (_docsIdFile)      updates.idImage      = await uploadDriverDoc(_docsIdFile, driverData.id, 'id');
+            if (_docsLicenseFile) updates.licenseImage = await uploadDriverDoc(_docsLicenseFile, driverData.id, 'license');
+
+            await db.ref(`drivers/${driverData.id}`).update(updates);
+
+            driverData.idImage      = updates.idImage      || driverData.idImage;
+            driverData.licenseImage = updates.licenseImage || driverData.licenseImage;
+            localStorage.setItem('delivoDriver', JSON.stringify(driverData));
+
+            showToast('✅ تم حفظ الوثائق بنجاح');
+            document.getElementById('drv-docs-modal').style.display = 'none';
+            updatePendingBanner();
+        } catch (e) {
+            errorEl.textContent = 'فشل رفع الوثائق. حاول مجدداً.';
+            errorEl.classList.add('visible');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '💾 حفظ الوثائق';
+        }
+    });
+}
+
+/* ── Pending-approval banner visibility ──────────────────────── */
+function updatePendingBanner() {
+    const banner  = document.getElementById('drv-pending-banner');
+    const docsBtn = document.getElementById('drv-pending-docs-btn');
+    if (!driverData || driverData.active) {
+        banner.classList.remove('visible');
+        return;
+    }
+    banner.classList.add('visible');
+    const hasDocs = driverData.idImage && driverData.licenseImage;
+    docsBtn.style.display = hasDocs ? 'none' : 'inline-flex';
+}
+
 // ── Session start ─────────────────────────────────────────────
 function startDriverSession() {
     // Show UI
@@ -840,7 +1636,11 @@ function startDriverSession() {
     document.getElementById('drv-stats').style.display = 'flex';
     document.getElementById('drv-tabs').style.display  = 'flex';
     document.getElementById('drv-login-modal').style.display = 'none';
+    document.getElementById('drv-register-modal').style.display = 'none';
     document.getElementById('drv-name').textContent = driverData.owner;
+
+    // Show "pending approval" banner for not-yet-active drivers
+    updatePendingBanner();
 
     // Set driver online — stamp username so admin map always shows correct identity
     const driverRef = db.ref(`drivers/${driverData.id}`);
@@ -1114,6 +1914,26 @@ function renderPool() {
     const emptyEl   = document.getElementById('drv-pool-empty');
     const badge     = document.getElementById('pool-badge');
 
+    // Inactive drivers can browse but not claim — show a locked state instead
+    if (driverData && !driverData.active) {
+        container.querySelectorAll('.drv-pool-card').forEach(c => c.remove());
+        badge.classList.remove('visible');
+        emptyEl.style.display = 'none';
+        if (!document.getElementById('drv-pool-locked')) {
+            const locked = document.createElement('div');
+            locked.id = 'drv-pool-locked';
+            locked.className = 'drv-empty';
+            locked.style.display = '';
+            locked.innerHTML = `
+                <span class="drv-empty__icon">🔒</span>
+                <span class="drv-empty__text">سيتم فتح الطلبات بعد تفعيل حسابك من قِبل الإدارة</span>`;
+            container.appendChild(locked);
+        }
+        return;
+    }
+    const lockedEl = document.getElementById('drv-pool-locked');
+    if (lockedEl) lockedEl.remove();
+
     // Update badge
     const count = Object.keys(poolCache).length;
     badge.textContent = count > 9 ? '9+' : count;
@@ -1162,6 +1982,10 @@ function renderPool() {
 
 async function claimOrder(orderId) {
     if (!driverData) return;
+    if (!driverData.active) {
+        showToast('🔒 حسابك قيد المراجعة — لا يمكنك استلام الطلبات حتى يتم التفعيل');
+        return;
+    }
     const btn = document.querySelector(`.drv-pool-card[data-id="${orderId}"] .drv-claim-btn`);
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
 
