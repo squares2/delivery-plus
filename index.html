@@ -330,6 +330,12 @@
 
         <div id="mealtime-section"></div>
 
+        <div class="section-splitter" role="separator" aria-hidden="true">
+            <span class="section-splitter__line"></span>
+            <span class="section-splitter__dot"></span>
+            <span class="section-splitter__line"></span>
+        </div>
+
         <section class="stores" id="stores-section">
             <div class="stores__header">
                 <h2 class="section-title">المتاجر الأكثر طلباً</h2>
@@ -625,7 +631,7 @@
                         </div>
                     </div>
                     <div class="acct-points-card__right">
-                        <span class="acct-points-card__hint">كل طلب = 10 نقاط 🎁</span>
+                        <span class="acct-points-card__hint" id="acct-credit-hint" style="display:none;">رصيد: $<span id="acct-credit-balance">0</span></span>
                         <span class="acct-points-card__cta">عرض السلم ›</span>
                     </div>
                 </div>
@@ -878,6 +884,15 @@
                 </div>
             </div>
 
+            <!-- Loyalty reward banner (shown when a queued reward applies to this order) -->
+            <div id="cart-reward-banner" style="display:none;align-items:center;gap:10px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fed7aa;border-radius:12px;padding:10px 14px;margin-bottom:10px;">
+                <span id="cart-reward-icon" style="font-size:1.5rem;line-height:1;">🎉</span>
+                <div style="flex:1;min-width:0;">
+                    <div id="cart-reward-title" style="font-weight:800;color:#9a3412;font-size:0.88rem;"></div>
+                    <div style="color:#c2410c;font-size:0.76rem;margin-top:2px;">مكافأة من برنامج النقاط — تُطبَّق تلقائياً على هذا الطلب</div>
+                </div>
+            </div>
+
             <div class="cart-totals">
                 <div class="cart-total-row">
                     <span class="cart-total-label">المجموع الفرعي</span>
@@ -886,6 +901,10 @@
                 <div class="cart-total-row">
                     <span class="cart-total-label">رسوم التوصيل</span>
                     <span class="cart-total-val" id="cart-delivery">مجاناً</span>
+                </div>
+                <div class="cart-total-row" id="cart-discount-row" style="display:none;">
+                    <span class="cart-total-label">خصم المكافأة</span>
+                    <span class="cart-total-val" id="cart-discount" style="color:#ea580c;">−$0.00</span>
                 </div>
                 <div class="cart-total-row cart-total-row--main">
                     <span class="cart-total-label">الإجمالي</span>
@@ -1141,6 +1160,9 @@
         <!-- Rendered by JS — highest pts first -->
     </div>
 
+    <!-- Active queued reward — shown if one is pending -->
+    <div class="loyalty-active-reward" id="loyalty-active-reward" style="display:none;"></div>
+
     <!-- How to earn -->
     <div class="loyalty-howto">
         <div class="loyalty-howto__title">كيف تجمع نقاط؟</div>
@@ -1271,6 +1293,21 @@
     padding: 6px 10px; display: inline-block;
     border: 1px solid #ffe0c0;
 }
+
+/* Active queued reward banner */
+.loyalty-active-reward {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 20px 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    border: 1.5px solid #fed7aa;
+}
+.loyalty-active-reward__icon { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+.loyalty-active-reward__title { font-size: 0.88rem; font-weight: 800; color: #9a3412; }
+.loyalty-active-reward__sub { font-size: 0.74rem; color: #c2410c; margin-top: 2px; }
 
 /* How to earn */
 .loyalty-howto {
@@ -1434,17 +1471,56 @@
 const LOYALTY_RTDB   = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 // POINTS_PER_ORDER is defined in cart.js
 
-const LOYALTY_REWARDS = [
-    { pts: 50,   icon: '☕', reward: 'قهوة مجانية',              desc: 'قهوة إسبريسو من متجر شريك' },
-    { pts: 100,  icon: '🍕', reward: 'خصم $1 على طلبك',         desc: 'خصم دولار واحد على أي طلب' },
-    { pts: 150,  icon: '🛵', reward: 'توصيل مجاني',              desc: 'طلب واحد بتوصيل مجاني' },
-    { pts: 200,  icon: '🎁', reward: 'هدية مفاجئة',              desc: 'هدية خاصة من Delivo' },
-    { pts: 300,  icon: '🍔', reward: 'وجبة مجانية',              desc: 'وجبة مجانية من متجر مختار' },
-    { pts: 400,  icon: '💳', reward: 'رصيد $5 في حسابك',         desc: 'رصيد دائم قابل للاستخدام' },
-    { pts: 500,  icon: '🏅', reward: 'عضوية VIP شهر',            desc: 'تخفيضات وأولوية دائمة لمدة شهر' },
-    { pts: 700,  icon: '🎟️', reward: 'خصم 10% لمدة أسبوع',      desc: 'على جميع طلباتك لمدة 7 أيام' },
-    { pts: 1000, icon: '👑', reward: 'عضوية Gold سنة كاملة',     desc: 'أعلى مرتبة — مزايا حصرية للأبد' },
+// Default ladder — used as fallback until /settings/loyaltyRewards loads (or if empty)
+const DEFAULT_LOYALTY_REWARDS = [
+    { pts: 50,   icon: '☕', reward: 'قهوة مجانية',              desc: 'قهوة إسبريسو من متجر شريك',       type: 'manual',           value: 0 },
+    { pts: 100,  icon: '🍕', reward: 'خصم $1 على طلبك',         desc: 'خصم دولار واحد على أي طلب',        type: 'discount_fixed',   value: 1 },
+    { pts: 150,  icon: '🛵', reward: 'توصيل مجاني',              desc: 'طلب واحد بتوصيل مجاني',           type: 'free_delivery',    value: 0 },
+    { pts: 200,  icon: '🎁', reward: 'هدية مفاجئة',              desc: 'هدية خاصة من Delivo',              type: 'manual',           value: 0 },
+    { pts: 300,  icon: '🍔', reward: 'وجبة مجانية',              desc: 'وجبة مجانية من متجر مختار',        type: 'manual',           value: 0 },
+    { pts: 400,  icon: '💳', reward: 'رصيد $5 في حسابك',         desc: 'رصيد دائم قابل للاستخدام',         type: 'account_credit',   value: 5 },
+    { pts: 500,  icon: '🏅', reward: 'عضوية VIP شهر',            desc: 'تخفيضات وأولوية دائمة لمدة شهر',   type: 'manual',           value: 0 },
+    { pts: 700,  icon: '🎟️', reward: 'خصم 10% لمدة أسبوع',      desc: 'على جميع طلباتك لمدة 7 أيام',      type: 'discount_percent', value: 10 },
+    { pts: 1000, icon: '👑', reward: 'عضوية Gold سنة كاملة',     desc: 'أعلى مرتبة — مزايا حصرية للأبد',   type: 'manual',           value: 0 },
 ];
+
+let LOYALTY_REWARDS = DEFAULT_LOYALTY_REWARDS; // overwritten by _loadLoyaltyRewards()
+let _loyaltyRewardsLoaded = false;
+
+async function _loadLoyaltyRewards() {
+    if (_loyaltyRewardsLoaded) return LOYALTY_REWARDS;
+    try {
+        const r = await fetch(`${LOYALTY_RTDB}/settings/loyaltyRewards.json`);
+        const data = await r.json();
+        if (Array.isArray(data) && data.length) {
+            LOYALTY_REWARDS = [...data].sort((a,b) => a.pts - b.pts);
+        }
+    } catch (_) { /* keep defaults */ }
+    _loyaltyRewardsLoaded = true;
+    return LOYALTY_REWARDS;
+}
+// Expose for cart.js
+window._loadLoyaltyRewards = _loadLoyaltyRewards;
+window.getLoyaltyRewards   = () => LOYALTY_REWARDS;
+
+const REWARD_TYPE_LABELS_FE = {
+    free_delivery:    '🛵 توصيل مجاني للطلب القادم',
+    discount_fixed:   'خصم على طلبك القادم',
+    discount_percent: 'نسبة خصم على طلبك القادم',
+    account_credit:   'رصيد دائم تمت إضافته لحسابك',
+    manual:           'سيتواصل فريق Delivo معك لتسليم هذه المكافأة',
+};
+
+function _rewardActiveText(item) {
+    switch (item.type) {
+        case 'free_delivery':    return `🛵 طلبك القادم بتوصيل <strong>مجاني</strong>!`;
+        case 'discount_fixed':   return `💵 خصم <strong>$${item.value}</strong> على طلبك القادم!`;
+        case 'discount_percent': return `🏷️ خصم <strong>${item.value}%</strong> على طلبك القادم!`;
+        case 'account_credit':   return `💳 تمت إضافة <strong>$${item.value}</strong> كرصيد دائم لحسابك!`;
+        case 'manual':           return `🎁 لديك مكافأة بانتظار التسليم — سيتواصل فريق Delivo معك قريباً!`;
+        default:                 return `🎉 لديك مكافأة بانتظارك!`;
+    }
+}
 
 let _loyaltyOpen = false;
 
@@ -1489,7 +1565,10 @@ async function _renderLoyaltyModal() {
     const ringFill = document.getElementById('loyalty-ring-fill');
     const ringNum  = document.getElementById('loyalty-modal-points');
     const nextMsg  = document.getElementById('loyalty-next-msg');
+    const activeBox = document.getElementById('loyalty-active-reward');
     if (!ladder) return;
+
+    await _loadLoyaltyRewards();
 
     if (!user) {
         ladder.innerHTML = `
@@ -1500,6 +1579,7 @@ async function _renderLoyaltyModal() {
             </div>`;
         if (ringNum) ringNum.textContent = '0';
         if (nextMsg) nextMsg.textContent = 'سجّل دخولك لتبدأ!';
+        if (activeBox) activeBox.style.display = 'none';
         return;
     }
 
@@ -1512,6 +1592,26 @@ async function _renderLoyaltyModal() {
     // Update profile badge
     const balEl = document.getElementById('acct-points-balance');
     if (balEl) balEl.textContent = pts;
+
+    // Active queued reward (next order auto-apply)
+    if (activeBox) {
+        try {
+            const qr = await fetch(`${LOYALTY_RTDB}/users/${user.uid}/rewardQueue.json`);
+            const queue = await qr.json();
+            const next = Array.isArray(queue) && queue.length ? queue[0] : null;
+            if (next) {
+                activeBox.style.display = 'flex';
+                activeBox.innerHTML = `
+                    <span class="loyalty-active-reward__icon">${next.icon || '🎉'}</span>
+                    <div class="loyalty-active-reward__body">
+                        <div class="loyalty-active-reward__title">${_rewardActiveText(next)}</div>
+                        <div class="loyalty-active-reward__sub">${next.reward || ''}${queue.length > 1 ? ` · +${queue.length - 1} مكافآت أخرى بالانتظار` : ''}</div>
+                    </div>`;
+            } else {
+                activeBox.style.display = 'none';
+            }
+        } catch (_) { activeBox.style.display = 'none'; }
+    }
 
     // Animate ring
     const maxPts = LOYALTY_REWARDS[LOYALTY_REWARDS.length - 1].pts;
@@ -1593,11 +1693,25 @@ async function _refreshLoyaltyBalance() {
     const user = window.DelivoUser;
     if (!user) return;
     try {
-        const r = await fetch(`${LOYALTY_RTDB}/users/${user.uid}/points.json`);
-        const v = await r.json();
-        const pts = parseInt(v) || 0;
-        const balEl = document.getElementById('acct-points-balance');
+        const [ptsR, credR] = await Promise.all([
+            fetch(`${LOYALTY_RTDB}/users/${user.uid}/points.json`),
+            fetch(`${LOYALTY_RTDB}/users/${user.uid}/credit.json`),
+        ]);
+        const pts    = parseInt(await ptsR.json()) || 0;
+        const credit = parseFloat(await credR.json()) || 0;
+        const balEl  = document.getElementById('acct-points-balance');
         if (balEl) balEl.textContent = pts;
+
+        const creditHint = document.getElementById('acct-credit-hint');
+        const creditVal  = document.getElementById('acct-credit-balance');
+        if (creditHint && creditVal) {
+            if (credit > 0) {
+                creditVal.textContent = credit.toFixed(2);
+                creditHint.style.display = 'inline';
+            } else {
+                creditHint.style.display = 'none';
+            }
+        }
     } catch (_) {}
 }
 

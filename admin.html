@@ -1181,6 +1181,13 @@ input, select, textarea { font-family: var(--font); }
     cursor:pointer; transition:background 0.15s; font-size:0.85rem;
 }
 .sc-locate-set-btn:hover { background:rgba(255,92,0,0.2); }
+.sc-catorder-btn {
+    display:flex; align-items:center; justify-content:center;
+    border:1.5px solid rgba(255,92,0,0.3); border-radius:10px; padding:8px;
+    background:rgba(255,92,0,0.08); color:var(--orange);
+    cursor:pointer; transition:background 0.15s; font-size:0.85rem;
+}
+.sc-catorder-btn:hover { background:rgba(255,92,0,0.2); }
 .sc-closed-lbl {
     font-size:0.6rem; font-weight:900; color:#fff; letter-spacing:0.8px;
     background:rgba(239,68,68,0.85); border-radius:50px; padding:2px 7px;
@@ -1872,6 +1879,17 @@ input, select, textarea { font-family: var(--font); }
                 <div class="settings-scroll" id="settings-content"></div>
             </div>
 
+            <!-- ══ REWARDS / LOYALTY LADDER PANEL ══════════════════════ -->
+            <div class="panel" id="panel-rewards">
+                <div class="panel-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <h2>نظام النقاط — سلم المكافآت</h2>
+                    <span class="panel-header-sub" id="rw-summary-label"></span>
+                </div>
+                <div class="settings-scroll" id="rewards-content"></div>
+            </div>
+
+
             <!-- ══ CATALOG PANEL ══════════════════════════════════════ -->
             <div class="panel" id="panel-catalog">
                 <div class="panel-header">
@@ -2263,6 +2281,7 @@ const NAV_ITEMS = [
     { id: 'stores',    label: 'المتاجر',            icon: storeIcon(),  perm: 'stores'    },
     { id: 'catalog',   label: 'المنتجات',            icon: catalogIcon(), perm: 'stores'   },
     { id: 'employees', label: 'الموظفون',           icon: empIcon(),    perm: 'employees' },
+    { id: 'rewards',   label: 'نظام النقاط',        icon: rewardsIcon(),perm: 'settings'  },
     { id: 'settings',  label: 'الإعدادات',          icon: settingsIcon(),perm: 'settings' },
 ];
 
@@ -2275,6 +2294,7 @@ function empIcon()     { return `<svg width="15" height="15" viewBox="0 0 24 24"
 function onlineReqIcon(){ return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M2 20c0-4 4-7 10-7s10 3 10 7"/><polyline points="16 12 18 14 22 10"/></svg>`; }
 function settingsIcon(){ return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`; }
 function catalogIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`; }
+function rewardsIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`; }
 
 // ── Toast ─────────────────────────────────────────────────────
 /* ================================================================
@@ -2524,6 +2544,7 @@ function startApp() {
         if (id === 'employees')  renderEmployees();
         if (id === 'settings')   renderSettings();
         if (id === 'catalog')    renderCatalog();
+        if (id === 'rewards')    renderRewards();
     });
     startAutoRefresh();
 }
@@ -2585,7 +2606,7 @@ function switchPanel(id) {
     const btn = document.querySelector(`[data-panel="${id}"]`);
     if (btn) btn.classList.add('active');
 
-    const labels = { map:'الخريطة', orders:'الطلبات', drivers:'السائقون', customers:'العملاء', stores:'المتاجر', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات' };
+    const labels = { map:'الخريطة', orders:'الطلبات', drivers:'السائقون', customers:'العملاء', stores:'المتاجر', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط' };
     document.getElementById('topbar-panel-name').textContent = labels[id] || '';
 
     if (id === 'map' && adminMap) setTimeout(() => adminMap.invalidateSize(), 100);
@@ -2598,6 +2619,7 @@ function switchPanel(id) {
     if (id === 'employees') renderEmployees();
     if (id === 'settings')  renderSettings();
     if (id === 'catalog')   renderCatalog();
+    if (id === 'rewards')   renderRewards();
 
 
 }
@@ -5012,23 +5034,26 @@ function renderStores() {
                     <button class="sc-priority-save sc-meal-save" title="حفظ وجبات">✓</button>
                 </div>
             </div>
-            <div class="sc-close-actions" style="gap:6px;">
-                <button class="sc-status-btn ${isClosed ? 'sc-status-btn--open' : 'sc-status-btn--close'}" style="flex:2;">
+            <div class="sc-close-actions" style="gap:5px;">
+                <button class="sc-status-btn ${isClosed ? 'sc-status-btn--open' : 'sc-status-btn--close'}" style="flex:1.8;">
                     ${isClosed
                         ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg> فتح`
                         : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> إغلاق`
                     }
                 </button>
-                <button class="sc-disable-btn ${isDisabled ? 'sc-disable-btn--on' : ''}" style="flex:1.5;" title="${isDisabled ? 'إعادة التفعيل' : 'تعطيل المتجر'}">
+                <button class="sc-disable-btn ${isDisabled ? 'sc-disable-btn--on' : ''}" style="flex:1.3;" title="${isDisabled ? 'إعادة التفعيل' : 'تعطيل المتجر'}">
                     ${isDisabled ? '✅ تفعيل' : '🚫 تعطيل'}
                 </button>
-                <button class="sc-type-edit-btn" style="flex:1;" title="تغيير نوع المتجر">
+                <button class="sc-type-edit-btn" style="flex:0.8;" title="تغيير نوع المتجر">
                     🏷
                 </button>
-                <button class="sc-locate-set-btn" style="flex:1;" title="تحديد موقع المتجر على الخريطة">
+                <button class="sc-catorder-btn" style="flex:0.8;" title="ترتيب الأقسام والأصناف الفرعية">
+                    🗂
+                </button>
+                <button class="sc-locate-set-btn" style="flex:0.8;" title="تحديد موقع المتجر على الخريطة">
                     📍
                 </button>
-                <button class="sc-delete-btn" style="flex:0.8;" title="حذف المتجر">
+                <button class="sc-delete-btn" style="flex:0.7;" title="حذف المتجر">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                 </button>
             </div>`;
@@ -5093,6 +5118,12 @@ function renderStores() {
         card.querySelector('.sc-type-edit-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             openStoreTypeModal(name, s.allTypes || [s.type]);
+        });
+
+        // Category order editor button
+        card.querySelector('.sc-catorder-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openCategoryOrderModal(name);
         });
 
         grid.appendChild(card);
@@ -5568,7 +5599,197 @@ async function openStoreTypeModal(storeName, currentTypes) {
     };
 }
 
-// ── Add Store Modal ──────────────────────────────────────────
+// ── Category / Sub-category Order Modal ────────────────────────
+// Lets admin drag-reorder a store's main categories (catmain) and,
+// per main category, its sub-categories (cat). Saved to
+// settings/categoryOrder/{storeName} = { main: [...], sub: { mainName: [...] } }
+let _coState = { mains: [], subsByMain: {}, activeMain: null, storeName: null };
+
+async function openCategoryOrderModal(storeName) {
+    const stale = document.getElementById('catorder-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'catorder-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:480px;font-family:var(--font);direction:rtl;max-height:90vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <h3 style="font-size:1rem;font-weight:800;color:var(--white);margin:0;">🗂 ترتيب الأقسام — ${storeName}</h3>
+            <button id="co-close" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size:0.75rem;color:var(--gray);margin-bottom:14px;">اسحب لإعادة ترتيب الأقسام كما تظهر للعميل في صفحة المتجر</p>
+        <div id="co-body">
+            <div style="text-align:center;color:var(--gray);font-size:0.8rem;padding:30px;">جارٍ التحميل…</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px;">
+            <button id="co-cancel" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:11px;color:var(--white);font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            <button id="co-save" style="flex:2;background:var(--orange);border:none;border-radius:12px;padding:11px;color:#fff;font-family:inherit;font-size:0.88rem;font-weight:800;cursor:pointer;">💾 حفظ الترتيب</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    document.getElementById('co-close').onclick  = close;
+    document.getElementById('co-cancel').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    // Load items + saved order
+    try {
+        let items = await fbGet(`items/${storeName}`).catch(() => null);
+        if (!items) items = await fbGet(`items/${storeName.toLowerCase()}`).catch(() => null);
+        const savedOrder = await fbGet(`settings/categoryOrder/${storeName}`).catch(() => null);
+
+        const tree = {};
+        Object.values(items || {}).forEach(item => {
+            if (!item || !item.name) return;
+            const main = (item.catmain || 'عام').trim();
+            const sub  = (item.cat    || 'عام').trim();
+            if (!tree[main]) tree[main] = new Set();
+            tree[main].add(sub);
+        });
+
+        if (!Object.keys(tree).length) {
+            document.getElementById('co-body').innerHTML = `
+                <div style="text-align:center;color:var(--gray);font-size:0.8rem;padding:30px;">لا توجد منتجات بعد لهذا المتجر — أضف منتجات أولاً لترتيب أقسامها</div>`;
+            document.getElementById('co-save').style.display = 'none';
+            return;
+        }
+
+        _coState.storeName = storeName;
+        _coState.mains = _coSortByOrder(Object.keys(tree), savedOrder?.main);
+        _coState.subsByMain = {};
+        Object.entries(tree).forEach(([main, subSet]) => {
+            _coState.subsByMain[main] = _coSortByOrder([...subSet], savedOrder?.sub?.[main]);
+        });
+        _coState.activeMain = _coState.mains[0];
+
+        coRenderBody();
+    } catch (e) {
+        document.getElementById('co-body').innerHTML = `<div style="text-align:center;color:var(--red);font-size:0.8rem;padding:30px;">فشل تحميل البيانات</div>`;
+    }
+
+    document.getElementById('co-save').onclick = async () => {
+        const btn = document.getElementById('co-save');
+        coSyncFromDOM();
+        const payload = { main: _coState.mains, sub: _coState.subsByMain };
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            await fbSet(`settings/categoryOrder/${storeName}`, payload);
+            toast(`💾 تم حفظ ترتيب أقسام ${storeName}`);
+            close();
+        } catch (e) {
+            toast('فشل الحفظ', true);
+            btn.disabled = false; btn.textContent = '💾 حفظ الترتيب';
+        }
+    };
+}
+
+function _coSortByOrder(keys, orderList) {
+    if (!Array.isArray(orderList) || !orderList.length) return [...keys].sort();
+    const known   = orderList.filter(k => keys.includes(k));
+    const unknown = keys.filter(k => !orderList.includes(k)).sort();
+    return [...known, ...unknown];
+}
+
+/* Read current drag order from the DOM back into _coState */
+function coSyncFromDOM() {
+    const mainList = document.getElementById('co-main-list');
+    if (mainList) {
+        _coState.mains = [...mainList.querySelectorAll('.co-row')].map(r => r.dataset.name);
+    }
+    const subList = document.getElementById('co-sub-list');
+    if (subList && _coState.activeMain) {
+        _coState.subsByMain[_coState.activeMain] = [...subList.querySelectorAll('.co-row')].map(r => r.dataset.name);
+    }
+}
+
+function coRowHTML(name, badge) {
+    return `
+    <div class="co-row" draggable="true" data-name="${name.replace(/"/g,'&quot;')}"
+         style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;cursor:grab;">
+        <span style="color:var(--gray);font-size:1rem;line-height:1;">⠿</span>
+        <span style="flex:1;font-size:0.85rem;font-weight:700;color:var(--white);">${name}</span>
+        ${badge || ''}
+    </div>`;
+}
+
+function coRenderBody() {
+    const body = document.getElementById('co-body');
+    if (!body) return;
+
+    const mainsHTML = _coState.mains.map(m => coRowHTML(m)).join('');
+    const subs = _coState.subsByMain[_coState.activeMain] || [];
+    const multiSub = subs.length > 1;
+    const subsHTML = multiSub
+        ? subs.map(s => coRowHTML(s)).join('')
+        : `<div style="text-align:center;color:var(--gray);font-size:0.76rem;padding:14px;">هذا القسم لا يحتوي أقسام فرعية متعددة</div>`;
+
+    const mainTabsHTML = _coState.mains.map(m => `
+        <button class="co-main-tab ${m === _coState.activeMain ? 'active' : ''}" data-main="${m.replace(/"/g,'&quot;')}"
+                style="padding:5px 12px;border-radius:50px;font-size:0.74rem;font-weight:700;cursor:pointer;border:1px solid ${m === _coState.activeMain ? 'var(--orange)' : 'var(--border)'};background:${m === _coState.activeMain ? 'rgba(255,92,0,0.12)' : 'var(--surface2)'};color:${m === _coState.activeMain ? 'var(--orange)' : 'var(--gray-light)'};white-space:nowrap;">
+            ${m}
+        </button>`).join('');
+
+    body.innerHTML = `
+        <div style="margin-bottom:18px;">
+            <div style="font-size:0.72rem;color:var(--gray);font-weight:800;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">📂 الأقسام الرئيسية</div>
+            <div id="co-main-list" style="display:flex;flex-direction:column;gap:6px;">${mainsHTML}</div>
+        </div>
+        <div>
+            <div style="font-size:0.72rem;color:var(--gray);font-weight:800;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">📁 الأقسام الفرعية — اختر القسم الرئيسي:</div>
+            <div id="co-main-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${mainTabsHTML}</div>
+            <div id="co-sub-list" style="display:flex;flex-direction:column;gap:6px;">${subsHTML}</div>
+        </div>`;
+
+    coWireDragReorder('co-main-list');
+    if (multiSub) coWireDragReorder('co-sub-list');
+
+    // Wire main-category tab switching (syncs sub order before switching)
+    body.querySelectorAll('.co-main-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            coSyncFromDOM();
+            _coState.activeMain = btn.dataset.main;
+            coRenderBody();
+        });
+    });
+}
+
+let _coDragEl = null;
+function coWireDragReorder(listId) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+
+    list.querySelectorAll('.co-row').forEach(row => {
+        row.addEventListener('dragstart', () => {
+            _coDragEl = row;
+            row.style.opacity = '0.4';
+        });
+        row.addEventListener('dragend', () => {
+            row.style.opacity = '';
+            _coDragEl = null;
+        });
+        row.addEventListener('dragover', e => {
+            e.preventDefault();
+            if (!_coDragEl || _coDragEl === row || row.parentElement !== list || _coDragEl.parentElement !== list) return;
+            // Live reorder as the dragged row passes over another row in this list
+            const rows = [...list.children];
+            const fromIdx = rows.indexOf(_coDragEl);
+            const toIdx   = rows.indexOf(row);
+            if (fromIdx === -1 || toIdx === -1) return;
+            if (fromIdx < toIdx) {
+                row.after(_coDragEl);
+            } else {
+                row.before(_coDragEl);
+            }
+        });
+        row.addEventListener('drop', e => {
+            e.preventDefault();
+        });
+    });
+}
+
+
 const ALL_TYPES = [
     { key:'Restaurants',  label:'مطعم',       emoji:'🍔' },
     { key:'ButcherShops', label:'ملحمة',       emoji:'🥩' },
@@ -6433,6 +6654,11 @@ document.addEventListener('input', e => {
         || e.target.classList.contains('sd-tier-disc')) {
         sdRunPreview();
     }
+    if (e.target.classList.contains('rw-pts') || e.target.classList.contains('rw-icon')
+        || e.target.classList.contains('rw-reward') || e.target.classList.contains('rw-desc')
+        || e.target.classList.contains('rw-value')) {
+        rwRenderPreview();
+    }
 });
 
 // Save all smart delivery settings to Firebase
@@ -6482,6 +6708,355 @@ async function sdLoad() {
         cfg.tiers.forEach(t => sdAddTier(t.minTotal, t.discount));
     }
     sdRunPreview();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REWARDS / LOYALTY LADDER  —  admin editor
+   Firebase path: /settings/loyaltyRewards   (array, sorted asc by pts)
+   Each step: { pts, icon, reward, desc, type, value }
+   type ∈ free_delivery | discount_fixed | discount_percent | account_credit | manual
+
+   Auto-apply system (see scripts/cart.js):
+     /users/{uid}/claimedTiers  → array of pts thresholds already queued
+     /users/{uid}/rewardQueue   → FIFO array of pending one-time rewards
+   ═══════════════════════════════════════════════════════════════ */
+
+const REWARD_TYPES = [
+    { id: 'free_delivery',    label: '🛵 توصيل مجاني',         hasValue: false, unit: '' },
+    { id: 'discount_fixed',   label: '💵 خصم مبلغ ثابت',       hasValue: true,  unit: '$' },
+    { id: 'discount_percent', label: '🏷️ خصم نسبة %',          hasValue: true,  unit: '%' },
+    { id: 'account_credit',   label: '💳 رصيد دائم في الحساب', hasValue: true,  unit: '$' },
+    { id: 'manual',           label: '🎁 مكافأة يدوية (هدية/عضوية/وجبة)', hasValue: false, unit: '' },
+];
+const REWARD_TYPE_LABELS = Object.fromEntries(REWARD_TYPES.map(t => [t.id, t.label]));
+
+// Default ladder — used only if /settings/loyaltyRewards is empty (first run)
+const DEFAULT_LOYALTY_REWARDS = [
+    { pts: 50,   icon: '☕', reward: 'قهوة مجانية',          desc: 'قهوة إسبريسو من متجر شريك',        type: 'manual',           value: 0 },
+    { pts: 100,  icon: '🍕', reward: 'خصم $1 على طلبك',      desc: 'خصم دولار واحد على أي طلب',        type: 'discount_fixed',   value: 1 },
+    { pts: 150,  icon: '🛵', reward: 'توصيل مجاني',          desc: 'طلب واحد بتوصيل مجاني',            type: 'free_delivery',    value: 0 },
+    { pts: 200,  icon: '🎁', reward: 'هدية مفاجئة',          desc: 'هدية خاصة من Delivo',               type: 'manual',           value: 0 },
+    { pts: 300,  icon: '🍔', reward: 'وجبة مجانية',          desc: 'وجبة مجانية من متجر مختار',        type: 'manual',           value: 0 },
+    { pts: 400,  icon: '💳', reward: 'رصيد $5 في حسابك',     desc: 'رصيد دائم قابل للاستخدام',         type: 'account_credit',   value: 5 },
+    { pts: 500,  icon: '🏅', reward: 'عضوية VIP شهر',        desc: 'تخفيضات وأولوية دائمة لمدة شهر',   type: 'manual',           value: 0 },
+    { pts: 700,  icon: '🎟️', reward: 'خصم 10% لمدة أسبوع',  desc: 'على جميع طلباتك لمدة 7 أيام',      type: 'discount_percent', value: 10 },
+    { pts: 1000, icon: '👑', reward: 'عضوية Gold سنة كاملة', desc: 'أعلى مرتبة — مزايا حصرية للأبد',   type: 'manual',           value: 0 },
+];
+
+let _rwSteps   = [];   // working copy of the ladder, edited in-memory
+let _rwStepIdx = 0;    // unique row counter
+
+async function renderRewards() {
+    const el = document.getElementById('rewards-content');
+    if (!el) return;
+
+    el.innerHTML = `
+        <div class="settings-section">
+            <div class="settings-section-title">🪜 سلم نقاط الولاء</div>
+            <div class="setting-row setting-row--col" style="padding:14px 16px;">
+                <div>
+                    <div class="setting-label">درجات السلم</div>
+                    <div class="setting-sub">كل درجة = عتبة نقاط ومكافأتها. عند بلوغ العميل العتبة، تُمنح المكافأة تلقائياً لطلبه التالي مرة واحدة.</div>
+                </div>
+                <div style="width:100%;display:flex;flex-direction:column;gap:10px;margin-top:6px;" id="rw-steps-list"></div>
+                <button onclick="rwAddStep()"
+                        style="margin-top:12px;width:100%;padding:10px;background:rgba(255,92,0,0.12);color:var(--orange);border:1px solid rgba(255,92,0,0.3);border-radius:var(--radius-md);font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.85rem;">
+                    + إضافة درجة جديدة
+                </button>
+            </div>
+            <div class="setting-row" style="border-top:1px solid var(--border);">
+                <div>
+                    <div class="setting-label">حفظ السلم</div>
+                    <div class="setting-sub">يحفظ كل الدرجات ويرتبها تلقائياً حسب النقاط</div>
+                </div>
+                <button onclick="rwSave()"
+                        style="padding:10px 24px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.85rem;">
+                    💾 حفظ السلم
+                </button>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-section-title">👁 معاينة — كما يراها العميل</div>
+            <div id="rw-preview" style="padding:16px;display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-section-title">📬 صندوق المكافآت اليدوية</div>
+            <div class="setting-row setting-row--col" style="padding:14px 16px;">
+                <div>
+                    <div class="setting-label">طلبات تحتاج تنفيذ يدوي</div>
+                    <div class="setting-sub">عملاء بلغوا عتبة "مكافأة يدوية" (هدية، وجبة، عضوية...) — نفّذ المكافأة ثم اضغط "تم التنفيذ"</div>
+                </div>
+                <div id="rw-inbox-list" style="width:100%;display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+                    <div style="text-align:center;color:var(--gray);font-size:0.78rem;padding:14px;">جارٍ التحميل…</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    await rwLoad();
+    await rwLoadInbox();
+}
+
+/* ── Build one editable step row ─────────────────────────────── */
+function rwStepRowHTML(step, idx) {
+    const typeOpts = REWARD_TYPES.map(t =>
+        `<option value="${t.id}" ${step.type === t.id ? 'selected' : ''}>${t.label}</option>`
+    ).join('');
+    const typeMeta = REWARD_TYPES.find(t => t.id === step.type) || REWARD_TYPES[0];
+    const valueDisplay = typeMeta.hasValue ? '' : 'display:none;';
+
+    return `
+    <div class="rw-step" id="rw-step-${idx}" draggable="true"
+         style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;position:relative;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+            <div style="cursor:grab;color:var(--gray);font-size:1.1rem;line-height:1;padding-top:6px;flex-shrink:0;" title="اسحب لإعادة الترتيب">⠿</div>
+
+            <div style="display:grid;grid-template-columns:90px 64px 1fr;gap:8px;flex:1;">
+                <div>
+                    <label style="font-size:0.62rem;color:var(--gray);display:block;margin-bottom:3px;">النقاط المطلوبة</label>
+                    <input type="number" class="rw-pts" value="${step.pts}" min="1" step="10"
+                           style="width:100%;background:var(--surface3,#1e1e28);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;text-align:center;">
+                </div>
+                <div>
+                    <label style="font-size:0.62rem;color:var(--gray);display:block;margin-bottom:3px;">أيقونة</label>
+                    <input type="text" class="rw-icon" value="${step.icon || ''}" maxlength="4"
+                           style="width:100%;background:var(--surface3,#1e1e28);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--white);font-size:1.1rem;outline:none;box-sizing:border-box;text-align:center;">
+                </div>
+                <div>
+                    <label style="font-size:0.62rem;color:var(--gray);display:block;margin-bottom:3px;">عنوان المكافأة</label>
+                    <input type="text" class="rw-reward" value="${(step.reward || '').replace(/"/g,'&quot;')}" placeholder="مثال: توصيل مجاني"
+                           style="width:100%;background:var(--surface3,#1e1e28);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--white);font-family:var(--font);font-size:0.85rem;outline:none;box-sizing:border-box;direction:rtl;">
+                </div>
+            </div>
+
+            <button onclick="rwRemoveStep(${idx})"
+                    style="background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:0.8rem;flex-shrink:0;">✕</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 200px 110px;gap:8px;margin-top:10px;">
+            <div>
+                <label style="font-size:0.62rem;color:var(--gray);display:block;margin-bottom:3px;">الوصف (يظهر للعميل)</label>
+                <input type="text" class="rw-desc" value="${(step.desc || '').replace(/"/g,'&quot;')}" placeholder="مثال: طلب واحد بتوصيل مجاني"
+                       style="width:100%;background:var(--surface3,#1e1e28);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--white);font-family:var(--font);font-size:0.78rem;outline:none;box-sizing:border-box;direction:rtl;">
+            </div>
+            <div>
+                <label style="font-size:0.62rem;color:var(--gray);display:block;margin-bottom:3px;">نوع المكافأة (التطبيق التلقائي)</label>
+                <select class="rw-type" onchange="rwTypeChanged(${idx})"
+                        style="width:100%;background:var(--surface3,#1e1e28);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--white);font-family:var(--font);font-size:0.78rem;outline:none;box-sizing:border-box;direction:rtl;">
+                    ${typeOpts}
+                </select>
+            </div>
+            <div class="rw-value-wrap" style="${valueDisplay}">
+                <label style="font-size:0.62rem;color:var(--gray);display:block;margin-bottom:3px;">القيمة (${typeMeta.unit})</label>
+                <input type="number" class="rw-value" value="${step.value || 0}" min="0" step="${typeMeta.unit === '%' ? 1 : 0.5}"
+                       style="width:100%;background:var(--surface3,#1e1e28);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;text-align:center;">
+            </div>
+        </div>
+    </div>`;
+}
+
+function rwTypeChanged(idx) {
+    const row = document.getElementById(`rw-step-${idx}`);
+    if (!row) return;
+    const typeId = row.querySelector('.rw-type').value;
+    const meta    = REWARD_TYPES.find(t => t.id === typeId) || REWARD_TYPES[0];
+    const wrap    = row.querySelector('.rw-value-wrap');
+    const label   = wrap.querySelector('label');
+    const input   = wrap.querySelector('.rw-value');
+    if (meta.hasValue) {
+        wrap.style.display = '';
+        label.textContent  = `القيمة (${meta.unit})`;
+        input.step = meta.unit === '%' ? 1 : 0.5;
+    } else {
+        wrap.style.display = 'none';
+    }
+    rwRenderPreview();
+}
+
+function rwAddStep() {
+    const maxPts = _rwSteps.length ? Math.max(..._rwSteps.map(s => s.pts)) : 0;
+    _rwSteps.push({ pts: maxPts + 100, icon: '🎁', reward: 'مكافأة جديدة', desc: '', type: 'manual', value: 0 });
+    rwRenderList();
+}
+
+function rwRemoveStep(idx) {
+    _rwSteps.splice(idx, 1);
+    rwRenderList();
+}
+
+/* Read current values from the DOM back into _rwSteps */
+function rwSyncFromDOM() {
+    const rows = [...document.querySelectorAll('#rw-steps-list .rw-step')];
+    _rwSteps = rows.map(row => ({
+        pts:    parseInt(row.querySelector('.rw-pts').value)   || 0,
+        icon:   row.querySelector('.rw-icon').value.trim()     || '🎁',
+        reward: row.querySelector('.rw-reward').value.trim()   || 'مكافأة',
+        desc:   row.querySelector('.rw-desc').value.trim(),
+        type:   row.querySelector('.rw-type').value,
+        value:  parseFloat(row.querySelector('.rw-value')?.value) || 0,
+    }));
+}
+
+function rwRenderList() {
+    const list = document.getElementById('rw-steps-list');
+    if (!list) return;
+    if (!_rwSteps.length) {
+        list.innerHTML = `<div style="text-align:center;color:var(--gray);font-size:0.8rem;padding:20px;">لا توجد درجات — اضغط "إضافة درجة جديدة"</div>`;
+    } else {
+        list.innerHTML = _rwSteps.map((s, i) => rwStepRowHTML(s, i)).join('');
+    }
+    rwWireDragReorder();
+    rwRenderPreview();
+}
+
+/* ── Drag-and-drop reordering of ladder steps ──────────────── */
+let _rwDragEl = null;
+function rwWireDragReorder() {
+    const list = document.getElementById('rw-steps-list');
+    if (!list) return;
+    list.querySelectorAll('.rw-step').forEach(row => {
+        row.addEventListener('dragstart', () => {
+            _rwDragEl = row;
+            row.style.opacity = '0.4';
+        });
+        row.addEventListener('dragend', () => {
+            row.style.opacity = '';
+            _rwDragEl = null;
+            // Persist the new DOM order and refresh the live preview
+            rwRenderPreview();
+        });
+        row.addEventListener('dragover', e => {
+            e.preventDefault();
+            if (!_rwDragEl || _rwDragEl === row || row.parentElement !== list || _rwDragEl.parentElement !== list) return;
+            const rows   = [...list.children];
+            const fromIdx = rows.indexOf(_rwDragEl);
+            const toIdx   = rows.indexOf(row);
+            if (fromIdx === -1 || toIdx === -1) return;
+            if (fromIdx < toIdx) {
+                row.after(_rwDragEl);
+            } else {
+                row.before(_rwDragEl);
+            }
+        });
+        row.addEventListener('drop', e => e.preventDefault());
+    });
+}
+
+/* ── Live preview matching the customer-facing loyalty ladder ── */
+function rwRenderPreview() {
+    rwSyncFromDOM();
+    const wrap = document.getElementById('rw-preview');
+    if (!wrap) return;
+    if (!_rwSteps.length) {
+        wrap.innerHTML = `<div style="text-align:center;color:var(--gray);font-size:0.8rem;">أضف درجات للسلم لمعاينتها</div>`;
+        return;
+    }
+    const sorted = [...rwSyncedSteps()].sort((a,b) => a.pts - b.pts);
+    wrap.innerHTML = sorted.slice().reverse().map(s => `
+        <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+            <div style="text-align:center;min-width:42px;">
+                <div style="font-family:var(--mono);font-weight:800;color:var(--orange);font-size:0.95rem;">${s.pts}</div>
+                <div style="font-size:0.58rem;color:var(--gray);">نقطة</div>
+            </div>
+            <div style="font-size:1.6rem;line-height:1;">${s.icon}</div>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:0.85rem;font-weight:700;color:var(--white);">${s.reward}</div>
+                <div style="font-size:0.7rem;color:var(--gray-light);margin-top:2px;">${s.desc || ''}</div>
+            </div>
+            <div style="font-size:0.65rem;font-weight:800;color:var(--gray-light);background:var(--surface3,#1e1e28);border-radius:50px;padding:3px 10px;flex-shrink:0;">${REWARD_TYPE_LABELS[s.type] || s.type}</div>
+        </div>
+    `).join('');
+}
+
+function rwSyncedSteps() {
+    rwSyncFromDOM();
+    return _rwSteps;
+}
+
+/* ── Save / Load ────────────────────────────────────────────── */
+async function rwSave() {
+    rwSyncFromDOM();
+    if (!_rwSteps.length) { toast('أضف درجة واحدة على الأقل', true); return; }
+    for (const s of _rwSteps) {
+        if (!s.pts || s.pts <= 0) { toast('تحقق من قيم النقاط — يجب أن تكون أكبر من صفر', true); return; }
+        if (!s.reward) { toast('كل درجة تحتاج عنوان مكافأة', true); return; }
+    }
+    // Sort by points ascending, dedupe identical thresholds
+    const sorted = [...new Map(_rwSteps.sort((a,b)=>a.pts-b.pts).map(s => [s.pts, s])).values()];
+    try {
+        await fbSet('settings/loyaltyRewards', sorted);
+        _rwSteps = sorted;
+        rwRenderList();
+        toast('💾 تم حفظ سلم المكافآت بنجاح');
+    } catch (e) { toast('فشل الحفظ', true); }
+}
+
+async function rwLoad() {
+    let rewards = await fbGet('settings/loyaltyRewards').catch(() => null);
+    if (!Array.isArray(rewards) || !rewards.length) {
+        rewards = DEFAULT_LOYALTY_REWARDS;
+    }
+    _rwSteps = rewards.map(r => ({
+        pts: r.pts, icon: r.icon || '🎁', reward: r.reward || '',
+        desc: r.desc || '', type: r.type || 'manual', value: r.value || 0,
+    })).sort((a,b) => a.pts - b.pts);
+    rwRenderList();
+}
+
+/* ── Manual rewards inbox ──────────────────────────────────────
+   Scans /users/{uid}/rewardQueue for entries with type === 'manual'.
+   Admin marks them fulfilled, which removes them from the queue. ── */
+async function rwLoadInbox() {
+    const box = document.getElementById('rw-inbox-list');
+    if (!box) return;
+    try {
+        const users = await fbGet('users').catch(() => null);
+        if (!users) { box.innerHTML = `<div style="text-align:center;color:var(--gray);font-size:0.78rem;padding:14px;">لا يوجد عملاء</div>`; return; }
+
+        const entries = [];
+        Object.entries(users).forEach(([uid, u]) => {
+            const queue = Array.isArray(u?.rewardQueue) ? u.rewardQueue : [];
+            queue.forEach((item, idx) => {
+                if (item && item.type === 'manual') {
+                    entries.push({ uid, idx, item, userName: u.displayName || u.username || u.phone || uid.slice(0,8) });
+                }
+            });
+        });
+
+        if (!entries.length) {
+            box.innerHTML = `<div style="text-align:center;color:var(--gray);font-size:0.78rem;padding:14px;">لا توجد مكافآت يدوية معلّقة 🎉</div>`;
+            return;
+        }
+
+        box.innerHTML = entries.map(e => `
+            <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+                <div style="font-size:1.5rem;line-height:1;">${e.item.icon || '🎁'}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.85rem;font-weight:700;color:var(--white);">${e.item.reward || 'مكافأة'}</div>
+                    <div style="font-size:0.72rem;color:var(--gray-light);margin-top:2px;">العميل: ${e.userName} · عتبة ${e.item.pts} نقطة</div>
+                </div>
+                <button onclick="rwFulfill('${e.uid}', ${e.idx})"
+                        style="padding:7px 16px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.3);border-radius:8px;font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.78rem;flex-shrink:0;">
+                    ✓ تم التنفيذ
+                </button>
+            </div>
+        `).join('');
+    } catch (e) {
+        box.innerHTML = `<div style="text-align:center;color:var(--red);font-size:0.78rem;padding:14px;">فشل تحميل الصندوق</div>`;
+    }
+}
+
+async function rwFulfill(uid, idx) {
+    try {
+        const queue = await fbGet(`users/${uid}/rewardQueue`).catch(() => null);
+        if (!Array.isArray(queue)) { toast('تعذر العثور على المكافأة', true); return; }
+        queue.splice(idx, 1);
+        await fbSet(`users/${uid}/rewardQueue`, queue);
+        toast('✓ تم تعليم المكافأة كمنفّذة');
+        rwLoadInbox();
+    } catch (e) { toast('فشل التحديث', true); }
 }
 
 async function setMaxOrders(val) {

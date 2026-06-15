@@ -181,6 +181,128 @@ function _resetFirstOrderCache() {
     _firstOrderPromise = null;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   LOYALTY REWARD QUEUE
+   /users/{uid}/rewardQueue  → FIFO array of one-time reward objects:
+     { pts, icon, reward, type, value }
+   type ∈ free_delivery | discount_fixed | discount_percent | account_credit | manual
+
+   - free_delivery / discount_fixed / discount_percent: applied to the
+     customer's NEXT checkout, then removed from the queue.
+   - account_credit: credited immediately to /users/{uid}/credit when
+     the threshold is crossed (not queued for "next order").
+   - manual: stays in the queue until an admin marks it fulfilled
+     (admin Rewards Inbox).
+══════════════════════════════════════════════════════════════ */
+let _activeReward      = null;   // first queue-applicable item (free_delivery/discount_*), resolved once per session
+let _activeRewardChecked = false;
+let _activeRewardPromise = null;
+
+/** Returns the first auto-appliable reward in the queue (or null) */
+async function _checkActiveReward() {
+    const user = window.DelivoUser;
+    if (!user) return null;
+    if (_activeRewardChecked) return _activeReward;
+    if (_activeRewardPromise) return _activeRewardPromise;
+
+    _activeRewardPromise = (async () => {
+        try {
+            const r = await fetch(`${RTDB_CART_URL}/users/${user.uid}/rewardQueue.json`);
+            const queue = await r.json();
+            if (Array.isArray(queue)) {
+                _activeReward = queue.find(it => it && ['free_delivery','discount_fixed','discount_percent'].includes(it.type)) || null;
+            } else {
+                _activeReward = null;
+            }
+        } catch (_) { _activeReward = null; }
+        _activeRewardChecked = true;
+        return _activeReward;
+    })();
+
+    return _activeRewardPromise;
+}
+
+/** Remove the given reward from the user's queue (after it's been used at checkout) */
+async function _consumeActiveReward(item) {
+    const user = window.DelivoUser;
+    if (!user || !item) return;
+    try {
+        const r = await fetch(`${RTDB_CART_URL}/users/${user.uid}/rewardQueue.json`);
+        const queue = await r.json();
+        if (!Array.isArray(queue)) return;
+        const idx = queue.findIndex(it => it && it.pts === item.pts && it.type === item.type);
+        if (idx !== -1) queue.splice(idx, 1);
+        await fetch(`${RTDB_CART_URL}/users/${user.uid}/rewardQueue.json`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(queue),
+        });
+    } catch (_) {}
+    _activeReward        = null;
+    _activeRewardChecked = false;
+    _activeRewardPromise = null;
+}
+
+/**
+ * Compare oldPts → newPts against the loyalty ladder and queue any
+ * newly-crossed thresholds. account_credit is applied immediately;
+ * the rest are pushed to rewardQueue (FIFO, oldest threshold first).
+ */
+async function _processLoyaltyThresholds(uid, oldPts, newPts) {
+    try {
+        const rewards = (typeof window._loadLoyaltyRewards === 'function')
+            ? await window._loadLoyaltyRewards()
+            : [];
+        if (!Array.isArray(rewards) || !rewards.length) return;
+
+        const [claimedResp, queueResp] = await Promise.all([
+            fetch(`${RTDB_CART_URL}/users/${uid}/claimedTiers.json`),
+            fetch(`${RTDB_CART_URL}/users/${uid}/rewardQueue.json`),
+        ]);
+        let claimed = await claimedResp.json();
+        let queue   = await queueResp.json();
+        claimed = Array.isArray(claimed) ? claimed : [];
+        queue   = Array.isArray(queue)   ? queue   : [];
+
+        let creditAdd = 0;
+        const newlyCrossed = rewards.filter(s => s.pts > oldPts && s.pts <= newPts && !claimed.includes(s.pts));
+
+        for (const step of newlyCrossed) {
+            claimed.push(step.pts);
+            if (step.type === 'account_credit') {
+                creditAdd += parseFloat(step.value) || 0;
+            } else {
+                queue.push({ pts: step.pts, icon: step.icon, reward: step.reward, type: step.type, value: step.value || 0 });
+            }
+        }
+
+        if (!newlyCrossed.length) return;
+
+        const writes = [
+            fetch(`${RTDB_CART_URL}/users/${uid}/claimedTiers.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(claimed),
+            }),
+            fetch(`${RTDB_CART_URL}/users/${uid}/rewardQueue.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(queue),
+            }),
+        ];
+        if (creditAdd > 0) {
+            const credResp = await fetch(`${RTDB_CART_URL}/users/${uid}/credit.json`);
+            const credNow  = parseFloat((await credResp.json()) || 0) || 0;
+            writes.push(fetch(`${RTDB_CART_URL}/users/${uid}/credit.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credNow + creditAdd),
+            }));
+        }
+        await Promise.all(writes);
+
+        // Reset session cache so the new queue/credit is reflected immediately
+        _activeReward        = null;
+        _activeRewardChecked = false;
+        _activeRewardPromise = null;
+    } catch (_) { /* non-critical */ }
+}
+
+
 function initCart() {
 
     /* ── State ──────────────────────────────────────────────── */
@@ -287,8 +409,10 @@ function initCart() {
         document.body.classList.add('modal-open');
         if (typeof window._cartLocationRefresh === 'function') window._cartLocationRefresh();
 
-        // Kick off first-order check in background so it's ready by checkout time
-        if (window.DelivoUser) _checkIsFirstOrder().then(() => _refreshTotals());
+        // Kick off first-order check + active reward check in background so they're ready by checkout time
+        if (window.DelivoUser) {
+            Promise.all([_checkIsFirstOrder(), _checkActiveReward()]).then(() => _refreshTotals());
+        }
     };
 
     window.closeCartSidebar = function() {
@@ -507,6 +631,51 @@ function initCart() {
         window.DelivoCart.updateBadge();
     }
 
+    /* Apply the active queued reward (if any) to displayed totals.
+       Returns { deliveryFee, discount, grandTotal } after adjustment.
+       freeDeliveryAlready = true when first-order free delivery already zeroed the fee. */
+    function _applyActiveRewardToTotals(subtotalUSD, deliveryFee, freeDeliveryAlready) {
+        const bannerEl = document.getElementById('cart-reward-banner');
+        const rowEl    = document.getElementById('cart-discount-row');
+        const discEl   = document.getElementById('cart-discount');
+        const titleEl  = document.getElementById('cart-reward-title');
+        const iconEl   = document.getElementById('cart-reward-icon');
+
+        let discount = 0;
+        const item = _activeReward;
+
+        if (!item) {
+            if (bannerEl) bannerEl.style.display = 'none';
+            if (rowEl)    rowEl.style.display    = 'none';
+            return { deliveryFee, discount: 0, grandTotal: subtotalUSD + deliveryFee };
+        }
+
+        if (item.type === 'free_delivery' && !freeDeliveryAlready) {
+            deliveryFee = 0;
+        } else if (item.type === 'discount_fixed') {
+            discount = Math.min(parseFloat(item.value) || 0, subtotalUSD + deliveryFee);
+        } else if (item.type === 'discount_percent') {
+            discount = (subtotalUSD + deliveryFee) * ((parseFloat(item.value) || 0) / 100);
+        }
+
+        if (bannerEl && titleEl && iconEl) {
+            bannerEl.style.display = 'flex';
+            iconEl.textContent = item.icon || '🎉';
+            titleEl.textContent = item.reward || 'مكافأة';
+        }
+        if (rowEl && discEl) {
+            if (discount > 0) {
+                rowEl.style.display = 'flex';
+                discEl.textContent  = '−$' + discount.toFixed(2);
+            } else {
+                rowEl.style.display = 'none';
+            }
+        }
+
+        const grandTotal = Math.max(0, subtotalUSD + deliveryFee - discount);
+        return { deliveryFee, discount, grandTotal };
+    }
+
     function _refreshTotals() {
         // Sync version — uses flat fee; replaced by async version when smart mode is on
         const cart         = window.DelivoCart;
@@ -517,13 +686,15 @@ function initCart() {
         const subtotalUSD  = _cartTotalUSD();
         const storeCount   = cart.getStores().length;
 
-        const deliveryFee  = _isFirstOrder ? 0 : storeCount * DELIVERY_FEE_PER_STORE;
-        const grandTotal   = subtotalUSD + deliveryFee;
+        let deliveryFee = _isFirstOrder ? 0 : storeCount * DELIVERY_FEE_PER_STORE;
+        const { grandTotal } = _applyActiveRewardToTotals(subtotalUSD, deliveryFee, _isFirstOrder);
 
         if (subtotalEl)   subtotalEl.textContent   = '$' + subtotalUSD.toFixed(2);
         if (deliveryEl) {
             if (_isFirstOrder) {
                 deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${(storeCount * DELIVERY_FEE_PER_STORE).toFixed(2)}</span> <span style="color:#22c55e;font-weight:800;">مجاناً 🎁</span>`;
+            } else if (_activeReward && _activeReward.type === 'free_delivery') {
+                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${(storeCount * DELIVERY_FEE_PER_STORE).toFixed(2)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
             } else {
                 deliveryEl.textContent = deliveryFee > 0 ? '$' + deliveryFee.toFixed(2) : 'مجاناً';
             }
@@ -553,7 +724,8 @@ function initCart() {
         if (_isFirstOrder) {
             const flatTotal = stores.length * DELIVERY_FEE_PER_STORE;
             if (deliveryEl) deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${flatTotal.toFixed(2)}</span> <span style="color:#22c55e;font-weight:800;">مجاناً 🎁</span>`;
-            if (grandtotalEl) grandtotalEl.textContent = '$' + subtotalUSD.toFixed(2);
+            const { grandTotal } = _applyActiveRewardToTotals(subtotalUSD, 0, true);
+            if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);
             return;
         }
 
@@ -566,8 +738,14 @@ function initCart() {
             totalDelivery += fee;
         }
 
-        const grandTotal = subtotalUSD + totalDelivery;
-        if (deliveryEl)   deliveryEl.textContent   = '$' + totalDelivery.toFixed(2);
+        const { deliveryFee, grandTotal } = _applyActiveRewardToTotals(subtotalUSD, totalDelivery, false);
+        if (deliveryEl) {
+            if (_activeReward && _activeReward.type === 'free_delivery') {
+                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${totalDelivery.toFixed(2)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
+            } else {
+                deliveryEl.textContent = '$' + deliveryFee.toFixed(2);
+            }
+        }
         if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);
     }
 
@@ -636,13 +814,32 @@ function initCart() {
             // Compute effective delivery fee per store (smart or flat)
             const coords = _getCustomerCoords();
 
+            // Resolve active queued reward (free_delivery / discount_fixed / discount_percent)
+            const activeRewardNow = await _checkActiveReward();
+
             // Write one request per store
             for (const storeName of stores) {
                 const storeItems     = cart.getStoreItems(storeName);
                 const storeSub       = _storeUSD(storeItems);
-                const smartFee       = isFirstOrderNow ? 0 : await _getStoreFee(storeName, coords.lat, coords.lng, storeSub);
+                let   smartFee       = isFirstOrderNow ? 0 : await _getStoreFee(storeName, coords.lat, coords.lng, storeSub);
+
+                // Apply free-delivery reward (if first-order discount didn't already zero it)
+                if (activeRewardNow && activeRewardNow.type === 'free_delivery' && !isFirstOrderNow) {
+                    smartFee = 0;
+                }
+
+                let storeTotalNum = storeSub + smartFee;
+
+                // Apply discount rewards proportionally across stores
+                if (activeRewardNow && activeRewardNow.type === 'discount_fixed' && stores.length) {
+                    const share = (parseFloat(activeRewardNow.value) || 0) / stores.length;
+                    storeTotalNum = Math.max(0, storeTotalNum - share);
+                } else if (activeRewardNow && activeRewardNow.type === 'discount_percent') {
+                    storeTotalNum = Math.max(0, storeTotalNum * (1 - (parseFloat(activeRewardNow.value) || 0) / 100));
+                }
+
                 const cartStr        = storeItems.map(i => `${i.qty}:${i.name}:${i.price}:${storeName}:${(i.notes||'').replace(/,/g,'،').replace(/:/g,'؛')}`).join(',');
-                const storeTotal     = (storeSub + smartFee).toFixed(2);
+                const storeTotal     = storeTotalNum.toFixed(2);
                 const requestKey = `id_${nextId}`;
 
                 const requestObj = {
@@ -652,6 +849,7 @@ function initCart() {
                     delivryplusid: user.uid || '',
                     driver       : '0',
                     freeDelivery : isFirstOrderNow ? '1' : '0',  // ← flag for admin/driver
+                    rewardApplied: activeRewardNow ? `${activeRewardNow.type}:${activeRewardNow.value || ''}` : '',
                     fullname     : userProfile.displayName || user.displayName || user.email || '',
                     lat          : String(orderLat),
                     lng          : String(orderLng),
@@ -692,6 +890,11 @@ function initCart() {
 
             // Invalidate first-order cache so it never applies again this session
             _resetFirstOrderCache();
+
+            // Consume the queued reward (one-time use) now that it's been applied
+            if (activeRewardNow) {
+                await _consumeActiveReward(activeRewardNow);
+            }
 
             // ── WhatsApp admin notification ───────────────────────────────
             // Reads settings/adminPhone from Firebase (e.g. "96176123456")
@@ -736,15 +939,23 @@ function initCart() {
                 // Sync local UI badge if account modal is already open
                 const balEl = document.getElementById('acct-points-balance');
                 if (balEl) balEl.textContent = ptsNew;
+
+                // Queue any newly-crossed loyalty rewards (for the order AFTER this one)
+                await _processLoyaltyThresholds(user.uid, ptsNow, ptsNew);
             } catch (_) { /* non-critical */ }
             // ─────────────────────────────────────────────────────────────
 
             cart.clear();
             closeCartSidebar();
 
-            const successMsg = isFirstOrderNow
-                ? `🎉 مبروك! طلبك الأول وصل مجاناً — بدون رسوم توصيل!`
-                : `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
+            let successMsg;
+            if (isFirstOrderNow) {
+                successMsg = `🎉 مبروك! طلبك الأول وصل مجاناً — بدون رسوم توصيل!`;
+            } else if (activeRewardNow) {
+                successMsg = `🎉 تم تطبيق مكافأتك (${activeRewardNow.reward || 'مكافأة'}) على هذا الطلب! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
+            } else {
+                successMsg = `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
+            }
             _showToast(successMsg, 'success');
 
             // Refresh the store counts section so the total reflects the new order

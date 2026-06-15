@@ -423,7 +423,10 @@ async function _loadStorePanel(storeName, storeType) {
             tree[main][sub].push(item);
         });
 
-        const mains = Object.keys(tree).sort();
+        // Apply admin-defined category order (settings/categoryOrder/{storeName})
+        const catOrder = await rtdbGet(`settings/categoryOrder/${storeName}`).catch(() => null);
+        const mains = _sortByOrder(Object.keys(tree), catOrder?.main);
+
         const tabsEl = document.getElementById('sp-tabs-inner');
         tabsEl.innerHTML = mains.map((main, i) => `
             <button class="sp-tab ${i === 0 ? 'active' : ''}"
@@ -437,6 +440,7 @@ async function _loadStorePanel(storeName, storeType) {
 
         window._spTree      = tree;
         window._spStoreName = storeName;
+        window._spCatOrder  = catOrder;
         _renderMainSection(mains[0], tree, storeName, body);
         _initSectionObserver(mains);
         _updateSpCartBar();
@@ -666,7 +670,8 @@ function _initDragScroll(el) {
 }
 
 function _renderMainSection(main, tree, storeName, body) {
-    const subs     = Object.keys(tree[main]).sort();
+    const subOrder = window._spCatOrder?.sub?.[main];
+    const subs     = _sortByOrder(Object.keys(tree[main]), subOrder);
     const multiSub = subs.length > 1;
     const wrap     = document.getElementById('sp-subcat-wrap');
 
@@ -750,6 +755,19 @@ function renderSkeleton() {
 
 /* ── Utilities ────────────────────────────────────────────── */
 function _slugify(s)     { return String(s).replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_'); }
+
+/**
+ * Sort `keys` according to an admin-defined `orderList` (array of names).
+ * Keys present in orderList come first, in that order; any remaining
+ * keys (not in orderList) are appended afterward, alphabetically.
+ */
+function _sortByOrder(keys, orderList) {
+    if (!Array.isArray(orderList) || !orderList.length) return [...keys].sort();
+    const known   = orderList.filter(k => keys.includes(k));
+    const unknown = keys.filter(k => !orderList.includes(k)).sort();
+    return [...known, ...unknown];
+}
+
 function _getItemQty(id) {
     if (!window.DelivoCart) return 0;
     const item = window.DelivoCart.items.find(i => i.id === id);

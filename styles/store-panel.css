@@ -129,7 +129,9 @@
 .sp-hero__gradient {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.70) 0%, transparent 55%);
+    background:
+        linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 35%),
+        linear-gradient(to top, rgba(0,0,0,0.70) 0%, transparent 55%);
     z-index: 1;
 }
 .sp-hero__back {
@@ -153,9 +155,11 @@
 .sp-hero__back:hover { background: rgba(0,0,0,0.68); }
 .sp-hero__info {
     position: absolute;
-    bottom: clamp(46px, 10vw, 60px);  /* sits above the circle badge */
-    right: clamp(12px, 3vw, 18px);
-    left: clamp(12px, 3vw, 18px);
+    top: clamp(14px, 4vw, 22px);  /* moved up — away from the circle badge */
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - clamp(112px, 28vw, 140px)); /* leave equal space for back button on both sides */
+    max-width: 320px;
     z-index: 3;
     text-align: center;
 }

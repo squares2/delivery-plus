@@ -110,6 +110,34 @@
 }
 
 /* ══════════════════════════════════════════════════════════
+   SECTION SPLITTER  (between mealtime & most-requested stores)
+   ══════════════════════════════════════════════════════════ */
+.section-splitter {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 14px);
+    max-width: 520px;
+    margin: 0 auto;
+    padding: clamp(6px, 1.5vw, 10px) var(--container-pad);
+    background: var(--clr-white);
+}
+.section-splitter__line {
+    flex: 1;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--clr-orange, #FF5C00) 50%, transparent);
+    opacity: 0.35;
+}
+.section-splitter__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--clr-orange, #FF5C00);
+    box-shadow: 0 0 0 4px rgba(255, 92, 0, 0.12);
+    flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
    STORES
    ══════════════════════════════════════════════════════════ */
 .stores {
