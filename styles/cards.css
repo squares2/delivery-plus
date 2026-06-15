@@ -946,11 +946,11 @@
     justify-content: flex-end;
 }
 .app-download__qr-wrap {
-    width: clamp(46px,11vw,68px);
-    height: clamp(46px,11vw,68px);
+    width: clamp(64px,14vw,90px);
+    height: clamp(64px,14vw,90px);
     background: #fff;
     border-radius: 8px;
-    padding: clamp(3px,0.7vw,5px);
+    padding: clamp(4px,1vw,6px);
     display: flex;
     align-items: center;
     justify-content: center;
