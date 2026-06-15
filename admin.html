@@ -999,6 +999,60 @@ input, select, textarea { font-family: var(--font); }
 .dc-delete-btn:hover { border-color: var(--red); color: var(--red); }
 .dc-phone { font-size: 0.7rem; color: var(--gray); font-family: var(--mono); margin-top: 2px; direction: ltr; }
 
+/* Pending-review driver cards */
+.driver-card.pending-review { border-color: rgba(255,92,0,0.35); background: linear-gradient(180deg, rgba(255,92,0,0.05), transparent 40%); }
+.dc-pending-tag {
+    display: inline-block; font-size: 0.62rem; font-weight: 800;
+    background: rgba(255,92,0,0.15); color: var(--orange);
+    border: 1px solid rgba(255,92,0,0.3); border-radius: 50px;
+    padding: 3px 10px; margin-bottom: 8px;
+}
+
+/* Vehicle / address info pills */
+.dc-info-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--pad-sm); }
+.dc-info-pill {
+    font-size: 0.68rem; font-weight: 700; color: var(--gray-light);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 50px; padding: 3px 10px;
+}
+.dc-address-pill:hover { border-color: var(--orange); color: var(--orange); }
+
+/* Document thumbnails */
+.dc-docs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+.dc-doc-thumb {
+    position: relative; height: 64px; border-radius: var(--radius-md);
+    overflow: hidden; border: 1px solid var(--border); cursor: pointer;
+    background: var(--surface2);
+}
+.dc-doc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
+.dc-doc-thumb:hover img { transform: scale(1.06); }
+.dc-doc-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    font-size: 0.6rem; font-weight: 800; color: #fff; text-align: center;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 3px 0 2px;
+}
+.dc-doc-thumb--empty {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.62rem; color: var(--gray); font-weight: 700; text-align: center; padding: 4px;
+    cursor: default;
+}
+
+/* Activate / deactivate buttons */
+.dc-activate-btn {
+    width: 100%; margin-top: 8px; padding: 9px; border-radius: var(--radius-md);
+    background: rgba(34,197,94,0.12); border: 1.5px solid rgba(34,197,94,0.35);
+    color: var(--green); font-size: 0.76rem; font-weight: 800; cursor: pointer;
+    font-family: var(--font); transition: all 0.15s;
+}
+.dc-activate-btn:hover { background: rgba(34,197,94,0.22); }
+.dc-deactivate-btn {
+    padding: 7px 10px; border-radius: var(--radius-md);
+    background: none; border: 1.5px solid var(--border); color: var(--gray);
+    font-size: 0.72rem; font-weight: 800; transition: all 0.15s; cursor: pointer;
+    font-family: var(--font); white-space: nowrap;
+}
+.dc-deactivate-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+
 /* ─── USERS PANEL ───────────────────────────────────────────── */
 .users-table-wrap { flex: 1; overflow: auto; padding: 16px 20px; }
 .users-table { width: 100%; border-collapse: collapse; }
@@ -1453,6 +1507,7 @@ input, select, textarea { font-family: var(--font); }
 .confirm-icon-wrap.danger  { background: rgba(239,68,68,0.15); }
 .confirm-icon-wrap.warning { background: rgba(245,158,11,0.15); }
 .confirm-icon-wrap.info    { background: rgba(59,130,246,0.15); }
+.confirm-icon-wrap.success { background: rgba(34,197,94,0.15); }
 #confirm-title {
     font-size: 1.05rem; font-weight: 800; color: var(--white);
     text-align: center; margin-bottom: 8px;
@@ -1476,6 +1531,7 @@ input, select, textarea { font-family: var(--font); }
 .confirm-btn--ok.danger  { background: var(--red);    color: #fff; }
 .confirm-btn--ok.warning { background: var(--yellow);  color: #111; }
 .confirm-btn--ok.info    { background: var(--blue);    color: #fff; }
+.confirm-btn--ok.success { background: var(--green);   color: #fff; }
 
 /* ─── Scrollbars ────────────────────────────────────────────── */
 *::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -1734,6 +1790,7 @@ input, select, textarea { font-family: var(--font); }
                     <button class="filter-pill active" data-driver-filter="all">الكل</button>
                     <button class="filter-pill" data-driver-filter="online">🟢 نشط</button>
                     <button class="filter-pill" data-driver-filter="offline">⚫ غير نشط</button>
+                    <button class="filter-pill" data-driver-filter="pending" style="color:var(--orange);">🆕 قيد المراجعة</button>
                 </div>
                 <div class="drivers-grid" id="drivers-grid"></div>
             </div>
@@ -4344,6 +4401,13 @@ async function markRead(orderId) {
 // ═══════════════════════════════════════════════════════════════
 // DRIVERS PANEL
 // ═══════════════════════════════════════════════════════════════
+const VEHICLE_LABELS = {
+    motorcycle: { emoji: '🛵', label: 'دراجة نارية' },
+    car:        { emoji: '🚗', label: 'سيارة' },
+    tuktuk:     { emoji: '🛺', label: 'توك توك' },
+    bicycle:    { emoji: '🚲', label: 'دراجة هوائية' },
+};
+
 function renderDrivers() {
     const grid    = document.getElementById('drivers-grid');
     const countEl = document.getElementById('drivers-count-label');
@@ -4352,7 +4416,9 @@ function renderDrivers() {
     let drivers = allDrivers.filter(d => d);
 
     // Filter by status
-    if (driverFilter !== 'all') {
+    if (driverFilter === 'pending') {
+        drivers = drivers.filter(d => d.active !== true);
+    } else if (driverFilter !== 'all') {
         drivers = drivers.filter(d => (d.status || 'offline') === driverFilter);
     }
     // Search by name/username
@@ -4381,6 +4447,8 @@ function renderDrivers() {
 
     drivers.forEach((d) => {
         const online   = d.status === 'online';
+        const isActive = d.active === true;
+        const isPending = !isActive;
         const name     = d.owner || d.username || '—';
         const ordCount = driverOrders[d.owner] || driverOrders[d.username] || 0;
         const hasLoc   = !!(d.location?.lat);
@@ -4388,10 +4456,13 @@ function renderDrivers() {
         const lastSeen = d.location?.timestamp
             ? new Date(d.location.timestamp).toLocaleTimeString('ar', {hour:'2-digit', minute:'2-digit'})
             : '—';
+        const vehicle  = VEHICLE_LABELS[d.vehicleType] || null;
+        const hasAddress = !!(d.address?.lat && d.address?.lng);
 
         const card = document.createElement('div');
-        card.className = `driver-card${online ? ' online' : ''}`;
+        card.className = `driver-card${online ? ' online' : ''}${isPending ? ' pending-review' : ''}`;
         card.innerHTML = `
+            ${isPending ? `<div class="dc-pending-tag">🆕 قيد المراجعة — لم يُفعَّل بعد</div>` : ''}
             <div class="dc-top">
                 <div class="dc-avatar">
                     ${avatarLetter}
@@ -4405,9 +4476,14 @@ function renderDrivers() {
                 <span style="font-size:0.62rem;padding:2px 8px;border-radius:50px;font-weight:800;
                     background:${online ? 'var(--green-glow)' : 'var(--surface3)'};
                     color:${online ? 'var(--green)' : 'var(--gray)'};">
-                    ${online ? 'نشط' : 'غير نشط'}
+                    ${online ? 'متصل' : 'غير متصل'}
                 </span>
             </div>
+            ${vehicle || hasAddress ? `
+            <div class="dc-info-row">
+                ${vehicle ? `<span class="dc-info-pill">${vehicle.emoji} ${vehicle.label}</span>` : ''}
+                ${hasAddress ? `<span class="dc-info-pill dc-address-pill" data-lat="${d.address.lat}" data-lng="${d.address.lng}" style="cursor:pointer;">🏠 عنوان السائق</span>` : ''}
+            </div>` : ''}
             <div class="dc-stats">
                 <div class="dc-stat">
                     <div class="dc-stat-val">${ordCount}</div>
@@ -4422,10 +4498,32 @@ function renderDrivers() {
                 ? `<button class="dc-locate-btn" data-lat="${d.location.lat}" data-lng="${d.location.lng}">📍 عرض على الخريطة</button>`
                 : '<div style="margin-top:8px;font-size:0.7rem;color:var(--gray);text-align:center;">لا يوجد موقع</div>'
             }
+            ${(d.idImage || d.licenseImage) ? `
+            <div class="dc-docs">
+                ${d.idImage ? `
+                <div class="dc-doc-thumb" data-src="${d.idImage}" title="صورة الهوية — اضغط للتكبير">
+                    <img src="${d.idImage}" alt="ID">
+                    <span class="dc-doc-label">🪪 الهوية</span>
+                </div>` : `<div class="dc-doc-thumb dc-doc-thumb--empty">🪪 لا توجد صورة هوية</div>`}
+                ${d.licenseImage ? `
+                <div class="dc-doc-thumb" data-src="${d.licenseImage}" title="رخصة القيادة — اضغط للتكبير">
+                    <img src="${d.licenseImage}" alt="License">
+                    <span class="dc-doc-label">🚘 الرخصة</span>
+                </div>` : `<div class="dc-doc-thumb dc-doc-thumb--empty">🚘 لا توجد صورة رخصة</div>`}
+            </div>` : isPending ? `
+            <div class="dc-docs">
+                <div class="dc-doc-thumb dc-doc-thumb--empty">🪪 لا توجد صورة هوية</div>
+                <div class="dc-doc-thumb dc-doc-thumb--empty">🚘 لا توجد صورة رخصة</div>
+            </div>` : ''}
+            ${isPending ? `
+            <button class="dc-activate-btn" data-driver-key="${d._key}">
+                ✅ تفعيل السائق — السماح باستلام الطلبات
+            </button>` : ''}
             <div class="dc-actions">
                 <button class="dc-edit-btn" data-driver-key="${d._key}">
                     ✏️ تعديل البيانات
                 </button>
+                ${isActive ? `<button class="dc-deactivate-btn" data-driver-key="${d._key}" title="إلغاء التفعيل">⏸ إلغاء التفعيل</button>` : ''}
                 <button class="dc-delete-btn" data-driver-key="${d._key}" title="حذف السائق">🗑</button>
             </div>
         `;
@@ -4437,6 +4535,22 @@ function renderDrivers() {
                 setTimeout(() => adminMap && adminMap.setView([lat, lng], 16), 150);
             });
         }
+        const addrPill = card.querySelector('.dc-address-pill');
+        if (addrPill) {
+            addrPill.addEventListener('click', (e) => {
+                const lat = parseFloat(e.currentTarget.dataset.lat);
+                const lng = parseFloat(e.currentTarget.dataset.lng);
+                switchPanel('map');
+                setTimeout(() => adminMap && adminMap.setView([lat, lng], 16), 150);
+            });
+        }
+        card.querySelectorAll('.dc-doc-thumb[data-src]').forEach(thumb => {
+            thumb.addEventListener('click', () => openImagePreview(thumb.dataset.src));
+        });
+        const activateBtn = card.querySelector('.dc-activate-btn');
+        if (activateBtn) activateBtn.addEventListener('click', () => activateDriver(d));
+        const deactivateBtn = card.querySelector('.dc-deactivate-btn');
+        if (deactivateBtn) deactivateBtn.addEventListener('click', () => deactivateDriver(d));
         card.querySelector('.dc-edit-btn').addEventListener('click', () => openDriverEditModal(d));
         card.querySelector('.dc-delete-btn').addEventListener('click', () => deleteDriver(d));
         grid.appendChild(card);
@@ -4583,6 +4697,60 @@ async function deleteDriver(driver) {
         toast('❌ خطأ في الحذف: ' + err.message, true);
     }
 }
+
+// ── Activate / Deactivate driver ───────────────────────────────
+async function activateDriver(driver) {
+    const name = driver.owner || driver.username || 'هذا السائق';
+    const _confirm = await showConfirm({
+        title: `تفعيل السائق`,
+        msg: `هل تريد تفعيل السائق <b>${name}</b>؟<br>سيصبح قادراً على استلام طلبات التوصيل من هذه اللحظة.`,
+        type: 'success', icon: '✅',
+        okLabel: 'تفعيل السائق', cancelLabel: 'إلغاء'
+    });
+    if (!_confirm) return;
+    try {
+        await fbUpdate(`drivers/${driver._key}`, { active: true, pendingApproval: false });
+        toast(`✅ تم تفعيل السائق "${name}" — يمكنه الآن استلام الطلبات`);
+        await loadAllData();
+        renderDrivers();
+    } catch (err) {
+        toast('❌ فشل التفعيل: ' + err.message, true);
+    }
+}
+
+async function deactivateDriver(driver) {
+    const name = driver.owner || driver.username || 'هذا السائق';
+    const _confirm = await showConfirm({
+        title: `إلغاء تفعيل السائق`,
+        msg: `هل تريد إلغاء تفعيل السائق <b>${name}</b>؟<br>لن يتمكن من استلام طلبات جديدة حتى تتم إعادة تفعيله.`,
+        type: 'warning', icon: '⏸',
+        okLabel: 'إلغاء التفعيل', cancelLabel: 'تراجع'
+    });
+    if (!_confirm) return;
+    try {
+        await fbUpdate(`drivers/${driver._key}`, { active: false });
+        toast(`⏸ تم إلغاء تفعيل السائق "${name}"`);
+        await loadAllData();
+        renderDrivers();
+    } catch (err) {
+        toast('❌ فشل التحديث: ' + err.message, true);
+    }
+}
+
+// ── Simple full-screen image preview (for ID/license docs) ─────
+function openImagePreview(src) {
+    const stale = document.getElementById('img-preview-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'img-preview-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out;';
+    overlay.innerHTML = `<img src="${src}" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.6);">`;
+    overlay.addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
+}
+
+
 
 document.getElementById('add-driver-btn').addEventListener('click', () => openDriverEditModal(null));
 
