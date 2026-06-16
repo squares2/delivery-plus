@@ -192,20 +192,25 @@ body.modal-open { overflow: hidden; max-width: 100vw; }
    0.0s  bg fades in (arc + wordmark + marker)
    0.12s moto launches from left off-screen
    0.12→1.17s moto travels with decel, lands at x=46% y=49%
-   0.75s SVG speed streaks burst in moto's wake (left side)
-   streaks draw + fade over ~0.5s
+/* ═══════════════════════════════════════════════════════════
+   DELIVO SPLASH SCREEN — Professional waving flag
+   1. Full-screen brand image shown perfectly (no distortion)
+   2. Black corner decorations stay 100% static
+   3. A masked center-layer waves like fabric in the wind
+   4. Two shimmer sweeps simulate light on moving fabric
+   5. Tagline pulses softly at the bottom
 ═══════════════════════════════════════════════════════════ */
 
 #delivo-splash {
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: #ffffff;
+    background: #1a1a16;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: stretch;
     overflow: hidden;
-    transition: opacity 0.7s ease, visibility 0.7s ease;
+    transition: opacity 0.75s ease, visibility 0.75s ease;
 }
 #delivo-splash.hiding {
     opacity: 0;
@@ -214,112 +219,173 @@ body.modal-open { overflow: hidden; max-width: 100vw; }
 }
 #delivo-splash.hidden { display: none; }
 
-/* ── Scene — square matching splash-bg.png ─────────────── */
 .splash__scene {
     position: relative;
-    width:  clamp(240px, 72vw, 290px);
-    height: clamp(240px, 72vw, 290px);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
 }
 
-/* ── Background: arc ring + wordmark + marker ───────────── */
-/* Builds up in 3 layers: arc spins → marker drops → wordmark rises */
-.splash__bg {
+/* ── Static base image — perfectly preserved ────────────── */
+.splash__flag-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0;
+    animation: splash-popin 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+}
+@keyframes splash-popin {
+    0%   { opacity: 0; transform: scale(1.04); }
+    55%  { opacity: 1; }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+/* Base image — static, never distorted */
+.splash__flag-img {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    image-rendering: auto;
-
-    /* Clip the bg into 3 horizontal regions using clip-path
-       Each region gets its own entrance — JS adds .sp-bg-ready */
-    opacity: 0;
+    object-fit: cover;
+    object-position: center center;
 }
 
-/* Simple fade-in for the whole bg — 
-   We animate regions via pseudo-layering in JS approach below */
-.splash__bg.sp-bg-ready {
-    animation: sp-bg-fade 0.4s ease 0s both;
+/* ── Wave layer — clipped to center, black corners untouched */
+/* Uses background-image of the same jpeg to perfectly overlay
+   only the center content zone, leaving the corner decorations
+   on the static base completely undisturbed.                  */
+.splash__flag-wrap::after {
+    content: '';
+    position: absolute;
+    top: 18%;
+    bottom: 18%;
+    left: -8%;
+    right: -8%;
+    background-image: url('../assets/splash-brand.jpg');
+    background-size: 116% auto;
+    background-position: center 36%;
+    background-repeat: no-repeat;
+    transform-origin: center center;
+    animation: splash-center-wave 2.8s ease-in-out 0.65s infinite;
+    /* Feathered mask so wave edges dissolve into the static layer */
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 14%,
+        black 86%,
+        transparent 100%
+    );
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 14%,
+        black 86%,
+        transparent 100%
+    );
 }
-@keyframes sp-bg-fade {
-    from { opacity: 0; transform: scale(0.92); }
-    to   { opacity: 1; transform: scale(1); }
+@keyframes splash-center-wave {
+    0%   { transform: perspective(700px) rotateY(0deg)    skewY(0deg)     scaleX(1.000); }
+    14%  { transform: perspective(700px) rotateY(-3deg)   skewY(0.45deg)  scaleX(1.012); }
+    30%  { transform: perspective(700px) rotateY(3.8deg)  skewY(-0.6deg)  scaleX(0.990); }
+    48%  { transform: perspective(700px) rotateY(-2.5deg) skewY(0.4deg)   scaleX(1.008); }
+    65%  { transform: perspective(700px) rotateY(2.8deg)  skewY(-0.38deg) scaleX(0.994); }
+    82%  { transform: perspective(700px) rotateY(-1.5deg) skewY(0.2deg)   scaleX(1.003); }
+    100% { transform: perspective(700px) rotateY(0deg)    skewY(0deg)     scaleX(1.000); }
 }
 
-/* ── Logo layers — single image, no clipping ───────────── */
-/* All three classes now share the same full-image fade+scale animation.
-   The old clip-path approach caused visible cut lines on the logo.    */
-.splash__arc-layer {
+/* ── Shimmer 1 — sweeps across at 0.9s ─────────────────── */
+.splash__flag-shimmer {
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    opacity: 0;
-    animation: sp-logo-in 0.7s cubic-bezier(0.22,1,0.36,1) 0.08s both;
+    pointer-events: none;
+    background: linear-gradient(
+        112deg,
+        transparent 20%,
+        rgba(255,255,255,0.07) 38%,
+        rgba(255,255,255,0.20) 50%,
+        rgba(255,255,255,0.07) 62%,
+        transparent 80%
+    );
+    background-size: 300% 100%;
+    background-position: 140% 0;
+    animation: splash-shimmer1 1.15s ease-in-out 0.9s both;
 }
-/* Second and third layers are hidden — the full logo shows on the first */
-.splash__marker-layer,
-.splash__word-layer {
-    display: none;
+@keyframes splash-shimmer1 {
+    0%   { background-position: 140% 0; opacity: 0; }
+    8%   { opacity: 1; }
+    100% { background-position: -50% 0; opacity: 0; }
 }
-@keyframes sp-logo-in {
-    0%   { opacity:0; transform: scale(0.82); }
-    60%  { opacity:1; }
-    100% { opacity:1; transform: scale(1);    }
-}
-
-/* ── Moto ────────────────────────────────────────────────── */
-/*
-  Rider centre from full logo analysis: x=46%, y=49%
-  Moto 167×143 rendered at 38% scene width → 106×91px in 280px scene
-  top  = 49% − (91/280/2)  = 49% − 16.3% = 32.7%
-  left = 46% − (106/280/2) = 46% − 18.9% = 27.0%
-*/
-.splash__moto {
+/* Second shimmer — subtler, at 2.3s */
+.splash__flag-shimmer::after {
+    content: '';
     position: absolute;
-    width:  32%;          /* measured from target: 53.7% of scene */
-    height: auto;
-    image-rendering: auto;
-    z-index: 4;
-    top:  30.5%;            /* down: +4% from previous 28% */
-    left: 33.8%;            /* back (right): centre x=49.4% − width/2 */
-    /* start far left off-screen, slight forward tilt */
-    transform: translateX(-130vw) rotate(-6deg);
+    inset: 0;
+    background: linear-gradient(
+        108deg,
+        transparent 28%,
+        rgba(255,255,255,0.04) 44%,
+        rgba(255,255,255,0.12) 50%,
+        rgba(255,255,255,0.04) 56%,
+        transparent 72%
+    );
+    background-size: 300% 100%;
+    animation: splash-shimmer2 1.0s ease-in-out 2.3s both;
     opacity: 0;
-    transition:
-        transform 1.05s cubic-bezier(0.18, 1, 0.32, 1) 0.12s,
-        opacity   0.14s ease                            0.12s;
-    will-change: transform, opacity;
 }
-.splash__moto.sp-moto-land {
-    transform: translateX(0) rotate(0deg);
-    opacity: 1;
+@keyframes splash-shimmer2 {
+    0%   { background-position: 140% 0; opacity: 0; }
+    10%  { opacity: 1; }
+    100% { background-position: -50% 0; opacity: 0; }
 }
 
-/* ── Speed streaks SVG (injected by JS) ─────────────────── */
-/*
-  Zone: left of moto, same vertical band
-  top=33%, left=-10%, width=39% (−10% → 27% moto left edge)
-  height=32% (matches moto height)
-*/
-/* ── Speed lines — div-based, trail behind moving moto ────── */
-/*
-  Lines are div elements with gradient background.
-  Each scales in from the RIGHT (moto side) using scaleX,
-  holds briefly, then fades out as the moto lands.
-  Total animation fits within the moto's 1.05s travel time.
-*/
-@keyframes sp-line-run {
-    0%   { transform: scaleX(0); opacity: 0;   }
-    15%  { opacity: 1;           }
-    55%  { transform: scaleX(1); opacity: 0.85; }
-    100% { transform: scaleX(1); opacity: 0;    }
+/* ── Tagline ─────────────────────────────────────────────── */
+.splash__tagline {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: rgba(255,255,255,0.92);
+    font-family: 'Almarai', 'Segoe UI', sans-serif;
+    font-size: clamp(0.78rem, 2.6vw, 0.95rem);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.4);
+    opacity: 0;
+    transform: translateY(10px);
+    margin-bottom: clamp(22px, 5vh, 44px);
+    animation:
+        splash-tagline-in    0.5s ease-out   1.1s both,
+        splash-tagline-pulse 2.4s ease-in-out 2.0s infinite;
+}
+@keyframes splash-tagline-in    { to { opacity: 1; transform: translateY(0); } }
+@keyframes splash-tagline-pulse { 0%,100%{opacity:1} 50%{opacity:0.68} }
+
+.splash__tagline-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(255,255,255,0.78); flex-shrink: 0;
+    animation: splash-dot-pulse 2.4s ease-in-out 2.0s infinite;
+}
+@keyframes splash-dot-pulse {
+    0%,100%{transform:scale(1);opacity:.78} 50%{transform:scale(1.5);opacity:1}
 }
 
+/* ── Unused legacy elements ──────────────────────────────── */
+.splash__arc-layer, .splash__marker-layer,
+.splash__word-layer, .splash__moto { display: none; }
 .splash__spinner { display: none; }
+
+@keyframes sp-line-run {
+    0%{transform:scaleX(0);opacity:0} 55%{transform:scaleX(1);opacity:.85} 100%{transform:scaleX(1);opacity:0}
+}
+
 body        { visibility: hidden; }
 body.loaded { visibility: visible; }
+
+
 /* ── PWA Install Banner ───────────────────────────────────── */
 .install-banner {
     position: fixed;

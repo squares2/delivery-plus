@@ -74,28 +74,23 @@
     <div id="delivo-splash" aria-hidden="true">
         <div class="splash__scene" id="splash-scene">
 
-            <!-- Layer 1: arc ring — spins in from top -->
-            <img class="splash__arc-layer"
-                 src="assets/splash-bg.png" alt=""
-                 fetchpriority="high" decoding="sync" draggable="false">
+            <!-- Full-screen brand image — waves like a flag via CSS filter+transform -->
+            <div class="splash__flag-wrap" id="splash-flag-wrap">
+                <img class="splash__flag-img"
+                     id="splash-flag-img"
+                     src="assets/splash-brand.jpg"
+                     alt="Delivo"
+                     fetchpriority="high" decoding="sync" draggable="false">
+                <!-- Shimmer overlay — light sweeping across the flag like sunlight -->
+                <div class="splash__flag-shimmer"></div>
+            </div>
 
-            <!-- Layer 2: marker pin — drops from above -->
-            <img class="splash__marker-layer"
-                 src="assets/splash-bg.png" alt=""
-                 decoding="async" draggable="false">
-
-            <!-- Layer 3: wordmark — rises from below -->
-            <img class="splash__word-layer"
-                 src="assets/splash-bg.png" alt=""
-                 decoding="async" draggable="false">
-
-            <!-- SVG speed streaks injected by JS -->
-
-            <!-- Moto: flies in from left, lands in marker gap -->
-            <img class="splash__moto"
-                 id="splash-moto"
-                 src="assets/splash-moto.png" alt=""
-                 fetchpriority="high" decoding="sync" draggable="false">
+            <!-- Tagline fades in below the image -->
+            <div class="splash__tagline" id="splash-tagline">
+                <span class="splash__tagline-dot"></span>
+                <span>Your order, delivered.</span>
+                <span class="splash__tagline-dot"></span>
+            </div>
 
         </div>
     </div>

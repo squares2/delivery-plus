@@ -107,101 +107,10 @@ async function loadAll() {
 
 document.addEventListener('DOMContentLoaded', loadAll);
 
-/* ── Splash: moto flies in with speed lines trailing behind ── */
-(function () {
+/* ── Splash: moto JS removed — waving flag is pure CSS ───── */
+/* All animation is handled by CSS keyframes in base.css.
+   No JS needed for the new splash entrance.                  */
 
-    /*
-      Strategy: inject the streaks SVG BEFORE launching the moto.
-      The SVG is positioned absolutely in the scene, left of the
-      moto landing zone. It animates with a slight delay after the
-      moto starts moving — so lines appear to trail behind the moto
-      as it crosses the screen, then fade out as it lands.
-
-      Each line:
-        - delay staggers so they appear mid-travel (~300ms in)
-        - duration chosen so they fade out right as moto arrives
-        - gradient: bright orange on RIGHT (moto side) → transparent LEFT
-        - lines draw right-to-left (scaleX from right origin)
-    */
-
-    /* Line definitions — 7 lines, tapered burst shape */
-    var LINES = [
-        /*  top%  width%  thick  appear(s)  dur(s) */
-        [ 14,   55,   1.5,   0.32,   0.55 ],
-        [ 26,   72,   2.2,   0.28,   0.60 ],
-        [ 38,   85,   3.0,   0.24,   0.65 ],   /* thickest - center */
-        [ 50,   78,   2.6,   0.26,   0.62 ],
-        [ 62,   68,   2.0,   0.30,   0.58 ],
-        [ 74,   50,   1.6,   0.34,   0.52 ],
-        [ 86,   38,   1.2,   0.38,   0.46 ],
-    ];
-
-    function _makeStreaks(scene) {
-        /* Container: covers the left portion of the scene
-           where the moto will have passed through          */
-        var wrap = document.createElement('div');
-        wrap.style.cssText = [
-            'position:absolute',
-            'top:25%',
-            'left:-14%',
-            'width:52%',       /* −14% to 38% → right edge just touches moto left */
-            'height:52%',
-            'z-index:3',
-            'pointer-events:none',
-            'overflow:visible',
-        ].join(';');
-
-        LINES.forEach(function(L, i) {
-            var top = L[0], wPct = L[1], thick = L[2], delay = L[3], dur = L[4];
-
-            var line = document.createElement('div');
-            line.style.cssText = [
-                'position:absolute',
-                'top:' + top + '%',
-                'right:0',                  /* anchored to RIGHT of wrap (moto side) */
-                'width:' + wPct + '%',
-                'height:' + thick + 'px',
-                'border-radius:' + (thick/2) + 'px',
-                /* Orange on right → transparent on left */
-                'background:linear-gradient(to left, #FF5C00 0%, #FF8000 30%, rgba(255,160,0,0.3) 70%, transparent 100%)',
-                'transform:scaleX(0)',
-                'transform-origin:right center',
-                'opacity:0',
-                /* Animate: scale in from right → hold → fade out */
-                'animation:sp-line-run ' + dur + 's ease-out ' + delay + 's both',
-            ].join(';');
-
-            wrap.appendChild(line);
-        });
-
-        /* Inject BEFORE moto so moto renders on top */
-        var moto = document.getElementById('splash-moto');
-        scene.insertBefore(wrap, moto);
-        return wrap;
-    }
-
-    function _launch() {
-        var moto  = document.getElementById('splash-moto');
-        var scene = document.getElementById('splash-scene');
-        if (!moto || !scene) return;
-
-        /* Build streaks first so they are in DOM before moto moves */
-        _makeStreaks(scene);
-
-        requestAnimationFrame(function() {
-            requestAnimationFrame(function() {
-                moto.classList.add('sp-moto-land');
-            });
-        });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', _launch);
-    } else {
-        _launch();
-    }
-
-})();
 /* ============================================================
    Real-time settings stream
    Uses Firebase SSE (EventSource) on /settings.json so the
