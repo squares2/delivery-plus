@@ -258,33 +258,61 @@ body.modal-open { overflow: hidden; max-width: 100vw; }
 
 
 
-/* ── Corner vignette — strong dark edges, burnt-in look ─── */
+/* ── Corner vignette + orange ember glow ────────────────── */
 .splash__flag-wrap::before {
     content: '';
     position: absolute;
     inset: 0;
     z-index: 2;
     pointer-events: none;
-    background: radial-gradient(
-        ellipse 70% 68% at 50% 50%,
-        transparent 35%,
-        rgba(0,0,0,0.35) 60%,
-        rgba(0,0,0,0.72) 80%,
-        rgba(0,0,0,0.92) 100%
-    );
+    /* Layer 1: deep black corners */
+    background:
+        /* orange ember — top-left corner */
+        radial-gradient(ellipse 55% 45% at -5% -5%,
+            rgba(255,100,0,0.55) 0%,
+            rgba(200,50,0,0.28) 45%,
+            transparent 70%),
+        /* orange ember — bottom-right corner */
+        radial-gradient(ellipse 55% 45% at 105% 105%,
+            rgba(255,80,0,0.50) 0%,
+            rgba(180,40,0,0.22) 45%,
+            transparent 70%),
+        /* subtle warm hint — top-right */
+        radial-gradient(ellipse 40% 35% at 108% -8%,
+            rgba(255,120,0,0.30) 0%,
+            transparent 60%),
+        /* subtle warm hint — bottom-left */
+        radial-gradient(ellipse 40% 35% at -8% 108%,
+            rgba(255,90,0,0.28) 0%,
+            transparent 60%),
+        /* dark center-out vignette to keep logo clear */
+        radial-gradient(ellipse 65% 62% at 50% 50%,
+            transparent 30%,
+            rgba(0,0,0,0.18) 55%,
+            rgba(0,0,0,0.65) 78%,
+            rgba(0,0,0,0.90) 100%);
+    animation: splash-ember-pulse 3.2s ease-in-out 0.8s infinite;
 }
 
-/* ── Shimmer 1 — sweeps across at 0.9s ─────────────────── */
+@keyframes splash-ember-pulse {
+    0%   { opacity: 1; }
+    40%  { opacity: 0.72; }
+    70%  { opacity: 0.92; }
+    100% { opacity: 1; }
+}
+
+/* ── Shimmer 1 — warm orange-white sweep at 0.9s ─────────── */
 .splash__flag-shimmer {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    z-index: 3;
     background: linear-gradient(
         112deg,
         transparent 20%,
-        rgba(255,255,255,0.07) 38%,
-        rgba(255,255,255,0.20) 50%,
-        rgba(255,255,255,0.07) 62%,
+        rgba(255,140,40,0.06) 36%,
+        rgba(255,255,255,0.22) 50%,
+        rgba(255,140,40,0.06) 64%,
         transparent 80%
     );
     background-size: 300% 100%;
@@ -296,7 +324,7 @@ body.modal-open { overflow: hidden; max-width: 100vw; }
     8%   { opacity: 1; }
     100% { background-position: -50% 0; opacity: 0; }
 }
-/* Second shimmer — subtler, at 2.3s */
+/* Second shimmer — subtler gold tint, at 2.3s */
 .splash__flag-shimmer::after {
     content: '';
     position: absolute;
@@ -304,9 +332,9 @@ body.modal-open { overflow: hidden; max-width: 100vw; }
     background: linear-gradient(
         108deg,
         transparent 28%,
-        rgba(255,255,255,0.04) 44%,
-        rgba(255,255,255,0.12) 50%,
-        rgba(255,255,255,0.04) 56%,
+        rgba(255,160,60,0.04) 44%,
+        rgba(255,255,255,0.14) 50%,
+        rgba(255,160,60,0.04) 56%,
         transparent 72%
     );
     background-size: 300% 100%;
@@ -317,6 +345,45 @@ body.modal-open { overflow: hidden; max-width: 100vw; }
     0%   { background-position: 140% 0; opacity: 0; }
     10%  { opacity: 1; }
     100% { background-position: -50% 0; opacity: 0; }
+}
+
+/* ── Corner spark particles ──────────────────────────────── */
+/* Four tiny orbs that flare up in each corner independently  */
+.splash__flag-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background:
+        /* top-left flare */
+        radial-gradient(circle 80px at 0% 0%,
+            rgba(255,120,0,0.70) 0%,
+            rgba(255,60,0,0.35) 35%,
+            transparent 70%),
+        /* bottom-right flare */
+        radial-gradient(circle 80px at 100% 100%,
+            rgba(255,100,0,0.65) 0%,
+            rgba(220,50,0,0.30) 35%,
+            transparent 70%),
+        /* top-right flare */
+        radial-gradient(circle 55px at 100% 0%,
+            rgba(255,80,0,0.45) 0%,
+            rgba(200,40,0,0.18) 40%,
+            transparent 70%),
+        /* bottom-left flare */
+        radial-gradient(circle 55px at 0% 100%,
+            rgba(255,90,0,0.40) 0%,
+            rgba(200,45,0,0.16) 40%,
+            transparent 70%);
+    animation: splash-sparks 2.8s ease-in-out 0.6s infinite;
+}
+@keyframes splash-sparks {
+    0%   { opacity: 0.55; filter: blur(0px); }
+    25%  { opacity: 1.00; filter: blur(1px); }
+    55%  { opacity: 0.40; filter: blur(2px); }
+    80%  { opacity: 0.85; filter: blur(0.5px); }
+    100% { opacity: 0.55; filter: blur(0px); }
 }
 
 /* ── Tagline ─────────────────────────────────────────────── */
