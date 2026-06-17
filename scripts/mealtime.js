@@ -171,7 +171,8 @@
         <div class="mt-card"
              data-store-name="${name}"
              data-store-type="${store._type}"
-             data-store-id="${slug}">
+             data-store-id="${slug}"
+             data-store-rtdbkey="${store.companyname}">
             <div class="mt-card__thumb">
                 <img src="${img}" alt="${name}"
                      onerror="if(this.src.includes('.webp')){this.src=this.src.replace('.webp','.png');return;}this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -225,7 +226,8 @@
                 const type = card.dataset.storeType;
                 const id   = card.dataset.storeId || name;
                 if (typeof window.openStorePanel === 'function') {
-                    window.openStorePanel(id, name, type);
+                    const rtdbKey = card.dataset.storeRtdbkey || id;
+                    window.openStorePanel(rtdbKey, name, type, rtdbKey);
                 }
             });
         });

@@ -104,6 +104,9 @@ async function _fetchStores(fbKey) {
                     ? parseInt(s.priority) : 9999;
         if (!seen[key] || p < seen[key]._priority) {
             seen[key] = { ...s, _priority: p };
+        } else if (s.nameAr && s.nameAr.trim() && (!seen[key].nameAr || !seen[key].nameAr.trim())) {
+            // Merge nameAr from any entry that has it, even if this entry lost priority race
+            seen[key] = { ...seen[key], nameAr: s.nameAr };
         }
     });
 
@@ -206,7 +209,7 @@ function _storeCardHTML(store, catKey, fbType) {
 
     return `
     <div class="store-card ${stateClass}"
-         data-store-name="${rawName}" data-store-id="${id}" data-fb-type="${fbType}"
+         data-store-name="${rawName}" data-store-id="${id}" data-fb-type="${fbType}" data-store-rtdbkey="${rawName}" data-name-ar="${store.nameAr ? store.nameAr.trim() : ""}"
          style="${stateStyle}flex-shrink:0;">
         <div class="store-card__thumb" style="position:relative;">
             <img src="${imgUrl}" alt="${name}"
@@ -278,3 +281,26 @@ function _catLabel(cat) {
 window.initCategories   = initCategories;
 window.closeCatDropdown = _closeDropdown;
 window._invalidateCategoriesCache = function() { _cache = {}; };
+
+/* ── Listen for nameAr changes from stores.js SSE and update category cards ── */
+window._onCategoryNameArChange = function(companyname, nameAr) {
+    const display = nameAr && nameAr.trim() ? nameAr.trim() : companyname;
+    // Invalidate cache so next dropdown open fetches fresh data
+    Object.keys(_cache).forEach(k => {
+        _cache[k] = _cache[k].map(s => {
+            if (s.companyname === companyname) return { ...s, nameAr };
+            return s;
+        });
+    });
+    // Update any currently-open category dropdown cards
+    document.querySelectorAll(`.store-card[data-store-rtdbkey="${companyname}"]`).forEach(card => {
+        card.dataset.nameAr = nameAr || '';
+        const nameEl = card.querySelector('.store-card__name');
+        if (nameEl && nameEl.textContent !== display) {
+            nameEl.textContent = display;
+            nameEl.style.transition = 'color 0.4s';
+            nameEl.style.color = 'var(--clr-orange, #FF5C00)';
+            setTimeout(() => { nameEl.style.color = ''; }, 1200);
+        }
+    });
+};

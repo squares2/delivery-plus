@@ -163,7 +163,12 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     }, DURATION);
 }
 
-function openStorePanel(storeId, storeName, storeType) {
+// rtdbKey = original Firebase companyname key (always English).
+// storeName = display name shown in UI (may be Arabic).
+// Regular cards:  openStorePanel(slug, 'Classic-Food', type)          -> rtdbKey defaults to storeName
+// Mealtime cards: openStorePanel('Classic-Food', 'كلاسيك فود', type, 'Classic-Food')
+function openStorePanel(storeId, storeName, storeType, rtdbKey) {
+    const _fireKey = rtdbKey || storeName; // always the English Firebase key
     const _introCacheKey = `pattern_${storeType}`;
     const _introFetch = _spCache[_introCacheKey]
         ? Promise.resolve(_spCache[_introCacheKey])
@@ -173,17 +178,18 @@ function openStorePanel(storeId, storeName, storeType) {
         .then(patternData => {
             let storeMeta = null;
             if (patternData && typeof patternData === 'object') {
-                storeMeta = Object.values(patternData).find(s => s && s.companyname === storeName);
+                storeMeta = Object.values(patternData).find(s => s && s.companyname === _fireKey);
             }
             showStoreIntro(storeId, storeName, storeType, storeMeta, () => {
-                _openStorePanelNow(storeId, storeName, storeType);
+                _openStorePanelNow(storeId, storeName, storeType, _fireKey);
             });
         })
-        .catch(() => { _openStorePanelNow(storeId, storeName, storeType); });
+        .catch(() => { _openStorePanelNow(storeId, storeName, storeType, _fireKey); });
 }
 
-function _openStorePanelNow(storeId, storeName, storeType) {
-    _currentStore = { id: storeId, name: storeName, type: storeType };
+function _openStorePanelNow(storeId, storeName, storeType, rtdbKey) {
+    const _fireKey = rtdbKey || storeName;
+    _currentStore = { id: storeId, name: storeName, type: storeType, rtdbKey: _fireKey };
     window._currentStore = _currentStore;
     const overlay = document.getElementById('store-panel-overlay');
     const panel   = document.getElementById('store-panel');
@@ -267,7 +273,7 @@ function _openStorePanelNow(storeId, storeName, storeType) {
     overlay.classList.add('active');
     panel.classList.add('active');
     document.body.classList.add('modal-open');
-    _loadStorePanel(storeName, storeType);
+    _loadStorePanel(_fireKey, storeType);
 }
 
 function closeStorePanel() {
@@ -1056,9 +1062,15 @@ async function openItemPopup(item, storeName) {
     const imgEl      = document.getElementById('ip-img');
     const fallbackEl = document.getElementById('ip-img-fallback');
     if (pngExist && imgUrl) {
+        imgEl.onerror = function () {
+            this.style.display = 'none';
+            fallbackEl.textContent = _typeEmoji(item.companytype);
+            fallbackEl.style.display = 'flex';
+        };
         imgEl.src = imgUrl; imgEl.alt = item.name || '';
         imgEl.style.display = 'block'; fallbackEl.style.display = 'none';
     } else {
+        imgEl.src = '';
         imgEl.style.display = 'none';
         fallbackEl.textContent = _typeEmoji(item.companytype);
         fallbackEl.style.display = 'flex';

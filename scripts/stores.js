@@ -345,22 +345,27 @@ function _startStoreNameSSE() {
 
     function _applyNameAr(companyname, nameAr) {
         const section = document.getElementById('stores-section');
-        if (!section) return;
         const display = nameAr && nameAr.trim()
             ? nameAr.trim()
             : cleanEnglishName(companyname);
 
-        // Find all cards whose rtdbkey matches this companyname
-        section.querySelectorAll(`.store-card[data-store-rtdbkey="${companyname}"]`).forEach(card => {
-            const nameEl = card.querySelector('.store-card__name');
-            if (nameEl && nameEl.textContent !== display) {
-                nameEl.textContent = display;
-                // Brief highlight to signal the live update
-                nameEl.style.transition = 'color 0.4s';
-                nameEl.style.color = 'var(--clr-orange, #FF5C00)';
-                setTimeout(() => { nameEl.style.color = ''; }, 1200);
-            }
-        });
+        // Update main stores-section cards
+        if (section) {
+            section.querySelectorAll(`.store-card[data-store-rtdbkey="${companyname}"]`).forEach(card => {
+                const nameEl = card.querySelector('.store-card__name');
+                if (nameEl && nameEl.textContent !== display) {
+                    nameEl.textContent = display;
+                    nameEl.style.transition = 'color 0.4s';
+                    nameEl.style.color = 'var(--clr-orange, #FF5C00)';
+                    setTimeout(() => { nameEl.style.color = ''; }, 1200);
+                }
+            });
+        }
+
+        // Also update category dropdown cards (multi-store fix)
+        if (typeof window._onCategoryNameArChange === 'function') {
+            window._onCategoryNameArChange(companyname, nameAr);
+        }
     }
 
     function _processPattern(data) {
