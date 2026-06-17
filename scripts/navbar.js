@@ -90,15 +90,14 @@ function initNavbar() {
                 <span class="bb-logo-btn__label" id="bb-logo-label">Delivo</span>
             </button>
 
-            <button class="bb-tab" id="bb-orders-btn" aria-label="طلباتي">
+            <button class="bb-tab bb-search-btn" id="bb-search-btn" aria-label="بحث">
                 <span class="bb-tab__icon">
                     <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 17H5a2 2 0 0 0-2 2"/>
-                        <path d="M9 3H5a2 2 0 0 0-2 2v14"/>
-                        <rect x="9" y="3" width="12" height="18" rx="2"/>
+                        <circle cx="11" cy="11" r="7"/>
+                        <line x1="16.5" y1="16.5" x2="22" y2="22"/>
                     </svg>
                 </span>
-                <span class="bb-tab__label">طلباتي</span>
+                <span class="bb-tab__label">بحث</span>
             </button>
 
             <button class="bb-account-btn" id="bb-account-btn" aria-label="حسابي">
@@ -134,13 +133,8 @@ function initNavbar() {
         const t = document.getElementById('categories') || document.getElementById('stores-section');
         if (t) t.scrollIntoView({ behavior: 'smooth' });
     });
-    document.getElementById('bb-orders-btn').addEventListener('click', () => {
-        const ov = document.getElementById('modal-account');
-        if (ov) {
-            ov.classList.add('open');
-            document.body.classList.add('modal-open');
-            setTimeout(() => { const b = document.getElementById('acct-orders-btn'); if (b) b.click(); }, 80);
-        }
+    document.getElementById('bb-search-btn').addEventListener('click', () => {
+        openSearchOverlay();
     });
     document.getElementById('bb-account-btn').addEventListener('click', () => {
         const b = document.getElementById('account-btn'); if (b) b.click();
@@ -384,6 +378,399 @@ window._closeTrackSheet = function _closeTrackSheet() {
     document.getElementById('bb-track-sheet').classList.remove('open');
     document.body.classList.remove('modal-open');
 }
+
+/* ══════════════════════════════════════════════════════════════
+   SEARCH OVERLAY
+══════════════════════════════════════════════════════════════ */
+function _injectSearchOverlay() {
+    if (document.getElementById('bb-search-overlay')) return;
+    const el = document.createElement('div');
+    el.id = 'bb-search-overlay';
+    el.innerHTML = `
+        <div class="bbs__backdrop" id="bbs-backdrop"></div>
+        <div class="bbs__panel" id="bbs-panel">
+            <div class="bbs__header">
+                <div class="bbs__input-wrap">
+                    <span class="bbs__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                             stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                            <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+                        </svg>
+                    </span>
+                    <input
+                        id="bbs-input"
+                        type="search"
+                        inputmode="search"
+                        autocomplete="off"
+                        autocorrect="off"
+                        spellcheck="false"
+                        dir="rtl"
+                        placeholder="ابحث عن متجر أو وجبة أو منتج…"
+                        class="bbs__input"
+                    >
+                    <button class="bbs__clear" id="bbs-clear" aria-label="مسح">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                             stroke-linecap="round" width="14" height="14">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+                <button class="bbs__cancel" id="bbs-cancel">إلغاء</button>
+            </div>
+
+            <div class="bbs__body" id="bbs-body">
+                <!-- Initial state — trending / quick picks -->
+                <div class="bbs__section" id="bbs-initial">
+                    <p class="bbs__section-label">🔥 الأكثر بحثاً</p>
+                    <div class="bbs__chips" id="bbs-trending">
+                        <button class="bbs__chip">برغر</button>
+                        <button class="bbs__chip">بيتزا</button>
+                        <button class="bbs__chip">شاورما</button>
+                        <button class="bbs__chip">فلافل</button>
+                        <button class="bbs__chip">حلويات</button>
+                        <button class="bbs__chip">قهوة</button>
+                        <button class="bbs__chip">دجاج</button>
+                        <button class="bbs__chip">سناك</button>
+                    </div>
+                    <p class="bbs__section-label" style="margin-top:20px;">⚡ تصفح سريع</p>
+                    <div class="bbs__quick-grid" id="bbs-quick-grid">
+                        <button class="bbs__quick-card" data-type="Restaurants">🍔<span>مطاعم</span></button>
+                        <button class="bbs__quick-card" data-type="BakeryShops">🥖<span>مخابز</span></button>
+                        <button class="bbs__quick-card" data-type="SweetsShops">🍰<span>حلويات</span></button>
+                        <button class="bbs__quick-card" data-type="CoffeeShops">☕<span>قهوة</span></button>
+                        <button class="bbs__quick-card" data-type="ButcherShops">🥩<span>ملاحم</span></button>
+                        <button class="bbs__quick-card" data-type="Markets">🛒<span>سوبرماركت</span></button>
+                        <button class="bbs__quick-card" data-type="FishShops">🐟<span>أسماك</span></button>
+                        <button class="bbs__quick-card" data-type="GroceryShops">🧺<span>بقالة</span></button>
+                    </div>
+                </div>
+                <!-- Results state -->
+                <div class="bbs__results" id="bbs-results" style="display:none;">
+                    <div class="bbs__results-list" id="bbs-results-list"></div>
+                </div>
+                <!-- Empty state -->
+                <div class="bbs__empty" id="bbs-empty" style="display:none;">
+                    <div class="bbs__empty-icon">🔍</div>
+                    <p class="bbs__empty-title">لا نتائج</p>
+                    <p class="bbs__empty-sub">جرّب كلمة أخرى</p>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(el);
+
+    // Wire close triggers
+    document.getElementById('bbs-cancel').addEventListener('click', closeSearchOverlay);
+    document.getElementById('bbs-backdrop').addEventListener('click', closeSearchOverlay);
+    document.getElementById('bbs-clear').addEventListener('click', () => {
+        document.getElementById('bbs-input').value = '';
+        document.getElementById('bbs-input').focus();
+        _bbs_showInitial();
+    });
+
+    // Input handler (will be linked later)
+    document.getElementById('bbs-input').addEventListener('input', _bbs_onInput);
+    document.getElementById('bbs-input').addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeSearchOverlay();
+    });
+
+    // Chip clicks fill input and search
+    document.querySelectorAll('.bbs__chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            document.getElementById('bbs-input').value = chip.textContent;
+            const clr = document.getElementById('bbs-clear');
+            if (clr) clr.style.opacity = '1';
+            _bbs_onInput();
+        });
+    });
+
+    // Quick card clicks browse by store type
+    document.querySelectorAll('.bbs__quick-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const type  = card.dataset.type;
+            const label = card.querySelector('span')?.textContent || '';
+            // Show selected state
+            document.querySelectorAll('.bbs__quick-card').forEach(c => c.classList.remove('bbs__quick-card--active'));
+            card.classList.add('bbs__quick-card--active');
+            _bbsSearchByType(type, label);
+        });
+    });
+}
+
+/* ── Search index ─────────────────────────────────────────── */
+
+async function _bbsSearchByType(fbType, label) {
+    _bbs_showLoading();
+    const stores = await _bbsLoadStores();
+    const typeStores = stores.filter(s => s.type === fbType);
+    const results = [];
+    const CHUNK = 6;
+    for (let i = 0; i < typeStores.length; i += CHUNK) {
+        const chunk = typeStores.slice(i, i + CHUNK);
+        await Promise.all(chunk.map(async store => {
+            const items = await _bbsLoadItems(store.companyname);
+            items.forEach(item => {
+                const price   = parseFloat(item.price) || 0;
+                const sale    = parseFloat(item.sale)  || 0;
+                const hasSale = sale > 0 && sale < price;
+                results.push({
+                    item,
+                    storeName   : store.companyname,
+                    storeNameAr : store.nameAr || store.companyname,
+                    storeType   : store.type,
+                    price, sale, hasSale,
+                    dispPrice   : hasSale ? sale : price,
+                    matchScore  : 1,
+                });
+            });
+        }));
+    }
+    results.sort((a, b) => a.dispPrice - b.dispPrice);
+    _bbs_showResults(results, label);
+}
+
+
+const _BBS_RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+let _bbsStores    = null;  // [{companyname, nameAr, type}]
+let _bbsItemCache = {};    // storeName → [item]
+let _bbsSearchTimer = null;
+
+async function _bbsLoadStores() {
+    if (_bbsStores) return _bbsStores;
+    try {
+        const res  = await fetch(`${_BBS_RTDB}/pattern.json`);
+        const data = await res.json();
+        if (!data) { _bbsStores = []; return []; }
+        const seen = new Set();
+        const list = [];
+        for (const [type, entries] of Object.entries(data)) {
+            if (!entries || typeof entries !== 'object') continue;
+            const arr = Array.isArray(entries) ? entries : Object.values(entries);
+            for (const s of arr) {
+                if (!s || !s.companyname) continue;
+                const name = s.companyname.trim();
+                if (seen.has(name)) continue;
+                seen.add(name);
+                if (s.disabled) continue;
+                list.push({ companyname: name, nameAr: s.nameAr || '', type });
+            }
+        }
+        _bbsStores = list;
+        return list;
+    } catch(e) { _bbsStores = []; return []; }
+}
+
+async function _bbsLoadItems(storeName) {
+    if (_bbsItemCache[storeName]) return _bbsItemCache[storeName];
+    try {
+        const res  = await fetch(`${_BBS_RTDB}/items/${storeName}.json`);
+        const data = await res.json();
+        if (!data) { _bbsItemCache[storeName] = []; return []; }
+        const items = Object.values(data).filter(i => i && i.name);
+        _bbsItemCache[storeName] = items;
+        return items;
+    } catch(e) { _bbsItemCache[storeName] = []; return []; }
+}
+
+async function _bbsSearch(q) {
+    const query = q.trim().toLowerCase();
+    if (!query) { _bbs_showInitial(); return; }
+
+    _bbs_showLoading();
+    const stores = await _bbsLoadStores();
+
+    // Search all stores in parallel — limit concurrent fetches
+    const CHUNK = 6;
+    const results = [];
+
+    for (let i = 0; i < stores.length; i += CHUNK) {
+        const chunk = stores.slice(i, i + CHUNK);
+        await Promise.all(chunk.map(async store => {
+            const items = await _bbsLoadItems(store.companyname);
+            items.forEach(item => {
+                const nameLower = (item.name || '').toLowerCase();
+                const catLower  = (item.cat || item.catmain || '').toLowerCase();
+                if (nameLower.includes(query) || catLower.includes(query)) {
+                    const price  = parseFloat(item.price) || 0;
+                    const sale   = parseFloat(item.sale)  || 0;
+                    const hasSale = sale > 0 && sale < price;
+                    results.push({
+                        item,
+                        storeName    : store.companyname,
+                        storeNameAr  : store.nameAr || store.companyname,
+                        storeType    : store.type,
+                        price,
+                        sale,
+                        hasSale,
+                        dispPrice    : hasSale ? sale : price,
+                        matchScore   : nameLower === query ? 3
+                                     : nameLower.startsWith(query) ? 2 : 1,
+                    });
+                }
+            });
+        }));
+    }
+
+    // Sort: exact match first, then by price ascending for easy comparison
+    results.sort((a, b) => (b.matchScore - a.matchScore) || (a.dispPrice - b.dispPrice));
+    _bbs_showResults(results);
+}
+
+let _bbsDebounce = null;
+function _bbs_onInput() {
+    const q = (document.getElementById('bbs-input').value || '').trim();
+    const clearBtn = document.getElementById('bbs-clear');
+    if (clearBtn) clearBtn.style.opacity = q ? '1' : '0';
+    if (!q) { _bbs_showInitial(); return; }
+    clearTimeout(_bbsDebounce);
+    _bbsDebounce = setTimeout(() => _bbsSearch(q), 340);
+}
+
+function _bbs_showInitial() {
+    document.getElementById('bbs-initial').style.display = '';
+    document.getElementById('bbs-results').style.display = 'none';
+    document.getElementById('bbs-empty').style.display   = 'none';
+    document.getElementById('bbs-loading')?.remove();
+}
+
+function _bbs_showLoading() {
+    document.getElementById('bbs-initial').style.display = 'none';
+    document.getElementById('bbs-results').style.display = 'none';
+    document.getElementById('bbs-empty').style.display   = 'none';
+    let ld = document.getElementById('bbs-loading');
+    if (!ld) {
+        ld = document.createElement('div');
+        ld.id = 'bbs-loading';
+        ld.className = 'bbs__loading';
+        ld.innerHTML = `<span class="bbs__loading-dot"></span><span class="bbs__loading-dot"></span><span class="bbs__loading-dot"></span>`;
+        document.getElementById('bbs-body').appendChild(ld);
+    }
+}
+
+function _bbs_showResults(results, sectionLabel) {
+    document.getElementById('bbs-loading')?.remove();
+    document.getElementById('bbs-initial').style.display = 'none';
+
+    if (!results || results.length === 0) {
+        document.getElementById('bbs-results').style.display = 'none';
+        document.getElementById('bbs-empty').style.display   = '';
+        return;
+    }
+
+    document.getElementById('bbs-results').style.display = '';
+    document.getElementById('bbs-empty').style.display   = 'none';
+
+    // Show section label if browsing by type
+    let headerHtml = '';
+    if (sectionLabel) {
+        headerHtml = `<div style="font-size:0.72rem;font-weight:800;color:rgba(255,255,255,0.4);
+                                   letter-spacing:0.08em;text-transform:uppercase;direction:rtl;
+                                   margin-bottom:14px;">${sectionLabel} — ${results.length} منتج</div>`;
+    }
+
+    // Group by item name for comparison
+    const groups = {};
+    results.forEach(r => {
+        const key = (r.item.name || '').trim().toLowerCase();
+        if (!groups[key]) groups[key] = { name: r.item.name, entries: [] };
+        groups[key].entries.push(r);
+    });
+
+    const html = Object.values(groups).map(group => {
+        const entries = group.entries;
+        const multi   = entries.length > 1;
+
+        const rowsHtml = entries.map((r, idx) => {
+            const imgId = r.item.ID || r.item.id || '';
+            const hasPng = r.item.pngExist === '1' || r.item.pngExist === 1;
+            const imgSrc = hasPng ? `./items2/${String(imgId).toLowerCase()}.webp` : '';
+            const storeDisplay = r.storeNameAr && r.storeNameAr !== r.storeName
+                ? r.storeNameAr
+                : r.storeName.replace(/[-_]/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+            const cheapest = idx === 0 && multi;
+            return `
+            <div class="bbs__item-row ${cheapest ? 'bbs__item-row--best' : ''}"
+                 onclick="_bbsOpenItem(${JSON.stringify(r.item).replace(/"/g,'&quot;')}, '${r.storeName}', '${r.storeType}')">
+                <div class="bbs__item-img">
+                    ${hasPng
+                        ? `<img src="${imgSrc}" alt="${r.item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                        : ''
+                    }
+                    <div class="bbs__item-img-fb" style="${hasPng?'display:none':''}">🏪</div>
+                </div>
+                <div class="bbs__item-info">
+                    <span class="bbs__item-store">${storeDisplay}</span>
+                    ${r.item.cat ? `<span class="bbs__item-cat">${r.item.cat}</span>` : ''}
+                </div>
+                <div class="bbs__item-pricing">
+                    ${r.hasSale ? `<span class="bbs__item-sale-badge">خصم</span>` : ''}
+                    <span class="bbs__item-price ${r.hasSale ? 'bbs__item-price--sale' : ''}">
+                        ${typeof formatPrice === 'function' ? formatPrice(r.dispPrice) : r.dispPrice}
+                    </span>
+                    ${r.hasSale ? `<span class="bbs__item-price-old">${typeof formatPrice === 'function' ? formatPrice(r.price) : r.price}</span>` : ''}
+                    ${cheapest ? `<span class="bbs__item-best-tag">الأرخص</span>` : ''}
+                </div>
+                <span class="bbs__result-arrow">›</span>
+            </div>`;
+        }).join('');
+
+        return `
+        <div class="bbs__group">
+            <div class="bbs__group-header">
+                <span class="bbs__group-name">${group.name}</span>
+                ${multi ? `<span class="bbs__group-count">${entries.length} متجر</span>` : ''}
+            </div>
+            ${rowsHtml}
+        </div>`;
+    }).join('');
+
+    document.getElementById('bbs-results-list').innerHTML = (headerHtml || '') + html;
+}
+
+/* Open item popup from search — injects storeType into _currentStore so
+   notes section shows for Restaurants/BakeryShops                       */
+window._bbsOpenItem = function(item, storeName, storeType) {
+    // Flag so closeItemPopup knows to return here instead of clearing modal-open
+    window._bbsFromSearch = true;
+    // Inject storeType into store-panel's private _currentStore via the exposed setter
+    if (typeof window._setCurrentStoreForSearch === 'function') {
+        window._setCurrentStoreForSearch(storeName, storeType);
+    }
+    // Hide search panel (keep overlay in DOM, just remove open class so it slides down)
+    const srch = document.getElementById('bb-search-overlay');
+    if (srch) srch.classList.remove('bbs--open');
+    setTimeout(() => {
+        if (typeof openItemPopup === 'function') openItemPopup(item, storeName);
+    }, 300);
+};
+
+window.openSearchOverlay = function openSearchOverlay() {
+    _injectSearchOverlay();
+    const ov = document.getElementById('bb-search-overlay');
+    requestAnimationFrame(() => {
+        ov.classList.add('bbs--open');
+        setTimeout(() => {
+            const inp = document.getElementById('bbs-input');
+            if (inp) inp.focus();
+        }, 320);
+    });
+    document.body.classList.add('modal-open');
+};
+
+window.closeSearchOverlay = function closeSearchOverlay() {
+    const ov = document.getElementById('bb-search-overlay');
+    if (!ov) return;
+    window._bbsFromSearch = false;
+    ov.classList.remove('bbs--open');
+    document.body.classList.remove('modal-open');
+    setTimeout(() => {
+        const inp = document.getElementById('bbs-input');
+        if (inp) { inp.value = ''; inp.blur(); }
+        const clr = document.getElementById('bbs-clear');
+        if (clr) clr.style.opacity = '0';
+        _bbs_showInitial();
+    }, 380);
+};
 
 function updateCartBadge() {
     const old = document.getElementById('cart-badge');

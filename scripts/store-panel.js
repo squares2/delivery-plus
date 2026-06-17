@@ -1134,12 +1134,23 @@ async function openItemPopup(item, storeName) {
 }
 
 function closeItemPopup() {
-    const overlay = document.getElementById('item-popup-overlay');
-    const popup   = document.getElementById('item-popup');
+    const overlay    = document.getElementById('item-popup-overlay');
+    const popup      = document.getElementById('item-popup');
     if (overlay) overlay.classList.remove('active');
     if (popup)   popup.classList.remove('active');
-    if (!document.getElementById('store-panel')?.classList.contains('active')) {
+    const storeOpen  = document.getElementById('store-panel')?.classList.contains('active');
+    const searchOpen = window._bbsFromSearch;
+    if (!storeOpen && !searchOpen) {
         document.body.classList.remove('modal-open');
+    }
+    if (!storeOpen && searchOpen) {
+        // Return to search overlay
+        window._bbsFromSearch = false;
+        const srch = document.getElementById('bb-search-overlay');
+        if (srch) {
+            srch.classList.add('bbs--open');
+            document.body.classList.add('modal-open');
+        }
     }
     _ipItem = null;
 }
@@ -1218,3 +1229,8 @@ function _ipResetAddBtn() {
 
 window.openItemPopup  = openItemPopup;
 window.closeItemPopup = closeItemPopup;
+
+/* Called by search to inject storeType before openItemPopup */
+window._setCurrentStoreForSearch = function(storeName, storeType) {
+    _currentStore = { id: storeName, name: storeName, type: storeType, rtdbKey: storeName };
+};

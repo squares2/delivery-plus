@@ -1242,6 +1242,13 @@ input, select, textarea { font-family: var(--font); }
     cursor:pointer; transition:background 0.15s; font-size:0.85rem;
 }
 .sc-catorder-btn:hover { background:rgba(255,92,0,0.2); }
+.sc-type-edit-btn {
+    display:flex; align-items:center; justify-content:center;
+    border:1.5px solid rgba(168,85,247,0.3); border-radius:10px; padding:8px;
+    background:rgba(168,85,247,0.08); color:#a855f7;
+    cursor:pointer; transition:background 0.15s; font-size:0.85rem;
+}
+.sc-type-edit-btn:hover { background:rgba(168,85,247,0.2); }
 .sc-rename-btn {
     display:flex; align-items:center; justify-content:center;
     border:1.5px solid rgba(59,130,246,0.3); border-radius:10px; padding:8px;
@@ -1848,20 +1855,6 @@ input, select, textarea { font-family: var(--font); }
                 </div>
                 <div class="orders-toolbar" style="flex-shrink:0;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;" id="stores-filter-bar">
                     <button class="filter-pill active" data-store-filter="all">الكل</button>
-                    <button class="filter-pill" data-store-filter="Restaurants">🍔 مطاعم</button>
-                    <button class="filter-pill" data-store-filter="ButcherShops">🥩 ملاحم</button>
-                    <button class="filter-pill" data-store-filter="BakeryShops">🥖 مخابز</button>
-                    <button class="filter-pill" data-store-filter="Markets">🛒 أسواق</button>
-                    <button class="filter-pill" data-store-filter="GroceryShops">🧺 بقالة</button>
-                    <button class="filter-pill" data-store-filter="SweetsShops">🍰 حلويات</button>
-                    <button class="filter-pill" data-store-filter="FishShops">🐟 أسماك</button>
-                    <button class="filter-pill" data-store-filter="CoffeeShops">☕ قهوة</button>
-                    <button class="filter-pill" data-store-filter="ChickenShops">🍗 دجاج</button>
-                    <button class="filter-pill" data-store-filter="DairyShops">🥛 ألبان</button>
-                    <button class="filter-pill" data-store-filter="FlowerShops">💐 زهور</button>
-                    <button class="filter-pill" data-store-filter="TobaccoShops">🚬 تبغ</button>
-                    <button class="filter-pill" data-store-filter="ToysShops">🧸 ألعاب</button>
-                    <button class="filter-pill" data-store-filter="Taxi">🚕 تاكسي</button>
                 </div>
                 <div class="stores-grid" id="stores-grid"></div>
             </div>
@@ -2450,6 +2443,121 @@ function showConfirm({ title, msg, type = 'danger', icon = '\uD83D\uDDD1', okLab
 }
 
 // ── Firebase RTDB helpers ─────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════
+   TYPE ORDER — drag-and-drop reorder for store categories
+   Saved to Firebase: settings/typeOrder = ['Restaurants','BakeryShops',...]
+   ═══════════════════════════════════════════════════════════ */
+const ALL_TYPES = [
+    { key:'Restaurants',  label:'مطاعم',      emoji:'🍔' },
+    { key:'ButcherShops', label:'ملاحم',      emoji:'🥩' },
+    { key:'BakeryShops',  label:'مخابز',      emoji:'🥖' },
+    { key:'Markets',      label:'أسواق',      emoji:'🛒' },
+    { key:'GroceryShops', label:'بقالة',      emoji:'🧺' },
+    { key:'SweetsShops',  label:'حلويات',     emoji:'🍰' },
+    { key:'FishShops',    label:'أسماك',      emoji:'🐟' },
+    { key:'CoffeeShops',  label:'قهوة',       emoji:'☕' },
+    { key:'ChickenShops', label:'دجاج',       emoji:'🍗' },
+    { key:'DairyShops',   label:'ألبان',      emoji:'🥛' },
+    { key:'FlowerShops',  label:'زهور',       emoji:'💐' },
+    { key:'TobaccoShops', label:'تبغ',        emoji:'🚬' },
+    { key:'ToysShops',    label:'ألعاب',      emoji:'🧸' },
+    { key:'Taxi',         label:'تاكسي',      emoji:'🚕' },
+];
+
+let _typeOrder = null; // cached order array
+
+async function getTypeOrder() {
+    if (_typeOrder) return _typeOrder;
+    const saved = await fbGet('settings/typeOrder').catch(() => null);
+    if (Array.isArray(saved) && saved.length) {
+        // Merge: start with saved order, append any new types not yet in it
+        const savedKeys = new Set(saved);
+        const merged = [...saved, ...ALL_TYPES.map(t=>t.key).filter(k => !savedKeys.has(k))];
+        _typeOrder = merged;
+    } else {
+        _typeOrder = ALL_TYPES.map(t => t.key);
+    }
+    return _typeOrder;
+}
+
+function _typeByKey(key) { return ALL_TYPES.find(t => t.key === key) || { key, label: key, emoji: '📦' }; }
+
+async function renderTypeOrderList() {
+    const list = document.getElementById('typeorder-list');
+    if (!list) return;
+    const order = await getTypeOrder();
+    list.innerHTML = order.map((key, i) => {
+        const t = _typeByKey(key);
+        return `<div class="typeorder-row" draggable="true" data-key="${key}" data-idx="${i}"
+                     style="display:flex;align-items:center;gap:12px;background:var(--surface2);
+                            border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;
+                            cursor:grab;user-select:none;transition:background 0.15s;">
+            <span style="font-size:1.1rem;flex-shrink:0;">⠿</span>
+            <span style="font-size:1.2rem;">${t.emoji}</span>
+            <span style="font-size:0.88rem;font-weight:700;color:var(--white);flex:1;">${t.label}</span>
+            <span style="font-size:0.72rem;color:var(--gray);font-family:var(--mono);">${t.key}</span>
+        </div>`;
+    }).join('');
+    _initTypeOrderDrag(list);
+}
+
+function _initTypeOrderDrag(list) {
+    let dragSrc = null;
+    list.querySelectorAll('.typeorder-row').forEach(row => {
+        row.addEventListener('dragstart', e => {
+            dragSrc = row;
+            row.style.opacity = '0.45';
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => { row.style.opacity = '1'; });
+        row.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const rows = [...list.querySelectorAll('.typeorder-row')];
+            const targetIdx = rows.indexOf(row);
+            const srcIdx    = rows.indexOf(dragSrc);
+            if (dragSrc && dragSrc !== row) {
+                row.style.borderColor = 'var(--orange)';
+                if (srcIdx < targetIdx) list.insertBefore(dragSrc, row.nextSibling);
+                else                    list.insertBefore(dragSrc, row);
+            }
+        });
+        row.addEventListener('dragleave', () => { row.style.borderColor = 'var(--border)'; });
+        row.addEventListener('drop',      () => { row.style.borderColor = 'var(--border)'; });
+    });
+}
+
+async function saveTypeOrder() {
+    const list = document.getElementById('typeorder-list');
+    if (!list) return;
+    const order = [...list.querySelectorAll('.typeorder-row')].map(r => r.dataset.key);
+    _typeOrder = order;
+    await fbSet('settings/typeOrder', order);
+    await renderAdminFilterBar();
+    toast('✅ تم حفظ ترتيب الأقسام');
+}
+
+async function renderAdminFilterBar() {
+    const bar = document.getElementById('stores-filter-bar');
+    if (!bar) return;
+    const order = await getTypeOrder();
+    const active = bar.querySelector('.filter-pill.active')?.dataset?.storeFilter || 'all';
+    bar.innerHTML = `<button class="filter-pill ${active==='all'?'active':''}" data-store-filter="all">الكل</button>` +
+        order.map(key => {
+            const t = _typeByKey(key);
+            return `<button class="filter-pill ${active===key?'active':''}" data-store-filter="${key}">${t.emoji} ${t.label}</button>`;
+        }).join('');
+    // Re-wire click handlers
+    bar.querySelectorAll('.filter-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+            bar.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            storeFilter = btn.dataset.storeFilter;
+            renderStores();
+        });
+    });
+}
+
 async function fbGet(path) {
     const r = await fetch(`${RTDB}/${path}.json`);
     if (!r.ok) throw new Error(`RTDB ${r.status}: ${path}`);
@@ -3715,7 +3823,7 @@ function renderMap() {
                         <div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;">${(p.username||'?')[0].toUpperCase()}</div>
                         <div>
                             <div style="font-weight:800;font-size:12px;">@${p.username||'—'}</div>
-                            <div style="font-size:10px;color:#9ca3af;">${p.displayName||p.fullname||''} ${p.phone?'· +961 '+p.phone:''}</div>
+                            <div style="font-size:10px;color:#9ca3af;">${p.displayName||p.fullname||''} ${p.phone?'· '+formatPhone(p.phone):''}</div>
                         </div>
                     </div>`
                 ).join('');
@@ -3743,7 +3851,7 @@ function renderMap() {
                     null, [11, 38]
                 );
                 const m = L.marker([lat, lng], { icon })
-                    .bindPopup(`<b style="font-family:Almarai">${u.displayName||u.fullname||u.username||'—'}</b><br><small style="color:#888">${u.phone?'+961 '+u.phone:''}</small>`)
+                    .bindPopup(`<b style="font-family:Almarai">${u.displayName||u.fullname||u.username||'—'}</b><br><small style="color:#888">${u.phone?formatPhone(u.phone):''}</small>`)
                     .addTo(adminMap);
                 mapMarkers.customers.push(m);
             }
@@ -4544,7 +4652,7 @@ function renderDrivers() {
                 <div style="flex:1;min-width:0;">
                     <div class="dc-name">${name}</div>
                     <div class="dc-sub">@${d.username}</div>
-                    ${d.phone ? `<div class="dc-phone">📞 ${d.phone}</div>` : ''}
+                    ${d.phone ? `<div class="dc-phone" dir="ltr">📞 ${formatPhone(d.phone)}</div>` : ''}
                 </div>
                 <span style="font-size:0.62rem;padding:2px 8px;border-radius:50px;font-weight:800;
                     background:${online ? 'var(--green-glow)' : 'var(--surface3)'};
@@ -5045,7 +5153,7 @@ function renderCustomers() {
                         </div>
                     </td>
                     <td style="font-family:var(--mono);color:var(--gray-light);">@${p.username||'\u2014'}</td>
-                    <td class="ut-phone">${p.phone?'+961 '+p.phone:'\u2014'}</td>
+                    <td class="ut-phone" dir="ltr">${formatPhone(p.phone)}</td>
                     <td class="ut-points">${p.points||0}</td>
                     <td style="font-family:var(--mono);font-size:0.72rem;color:var(--gray-light);">${ordCount}</td>
                     <td><span class="ut-status ${pBlocked?'blocked':(isActive?'active':'offline')}">${pBlocked?'\u26d4 \u0645\u062d\u0638\u0648\u0631':(isActive?'\u0646\u0634\u0637':'\u063a\u064a\u0631 \u0646\u0634\u0637')}</span></td>
@@ -5123,7 +5231,7 @@ function renderCustomers() {
                     </div>
                 </td>
                 <td style="font-family:var(--mono);color:var(--gray-light);">@${u.username||'\u2014'}</td>
-                <td class="ut-phone">${u.phone?'+961 '+u.phone:'\u2014'}</td>
+                <td class="ut-phone" dir="ltr">${formatPhone(u.phone)}</td>
                 <td class="ut-points">${u.points||0}</td>
                 <td style="font-family:var(--mono);font-size:0.72rem;color:var(--gray-light);">${ordCount}</td>
                 <td><span class="ut-status ${isBlocked?'blocked':(isActive?'active':'offline')}">${isBlocked?'\u26d4 \u0645\u062d\u0638\u0648\u0631':(isActive?'\u0646\u0634\u0637':'\u063a\u064a\u0631 \u0646\u0634\u0637')}</span></td>
@@ -5172,6 +5280,7 @@ const TYPE_LABELS = { Restaurants:'مطعم', BakeryShops:'مخبز', ButcherSho
 const TYPE_EMOJI  = { Restaurants:'🍔', BakeryShops:'🥖', ButcherShops:'🥩', Markets:'🛒', GroceryShops:'🧺', SweetsShops:'🍰', FishShops:'🐟', CoffeeShops:'☕', ChickenShops:'🍗', DairyShops:'🥛', FlowerShops:'💐', TobaccoShops:'🚬', ToysShops:'🧸', Taxi:'🚕' };
 
 function renderStores() {
+    renderAdminFilterBar();
     const grid    = document.getElementById('stores-grid');
     const countEl = document.getElementById('stores-count-label');
     grid.innerHTML = '';
@@ -6224,23 +6333,6 @@ async function openStoreRenameModal(oldName, storeTypes) {
 }
 
 
-const ALL_TYPES = [
-    { key:'Restaurants',  label:'مطعم',       emoji:'🍔' },
-    { key:'ButcherShops', label:'ملحمة',       emoji:'🥩' },
-    { key:'BakeryShops',  label:'مخبز',        emoji:'🥖' },
-    { key:'Markets',      label:'سوبرماركت',   emoji:'🛒' },
-    { key:'GroceryShops', label:'بقالة',       emoji:'🧺' },
-    { key:'SweetsShops',  label:'حلويات',      emoji:'🍰' },
-    { key:'FishShops',    label:'أسماك',       emoji:'🐟' },
-    { key:'CoffeeShops',  label:'قهوة',        emoji:'☕' },
-    { key:'ChickenShops', label:'دجاج',        emoji:'🍗' },
-    { key:'DairyShops',   label:'ألبان',       emoji:'🥛' },
-    { key:'FlowerShops',  label:'زهور',        emoji:'💐' },
-    { key:'TobaccoShops', label:'تبغ',         emoji:'🚬' },
-    { key:'ToysShops',    label:'ألعاب',       emoji:'🧸' },
-    { key:'Taxi',         label:'تاكسي',       emoji:'🚕' },
-];
-
 function openAddStoreModal() {
     const stale = document.getElementById('add-store-overlay');
     if (stale) stale.remove();
@@ -6826,6 +6918,19 @@ function renderSettings() {
             </div>
         </div>
         <div class="settings-section">
+            <div class="settings-section-title">🏷️ ترتيب أقسام المتاجر</div>
+            <div class="setting-row setting-row--col" style="padding:14px 16px;">
+                <div>
+                    <div class="setting-label">اسحب وأفلت لإعادة ترتيب الأقسام</div>
+                    <div class="setting-sub">يؤثر على شريط الفلتر في لوحة الإدارة وأيقونات الأقسام في التطبيق</div>
+                </div>
+                <div id="typeorder-list" style="width:100%;display:flex;flex-direction:column;gap:8px;margin-top:12px;"></div>
+                <button onclick="saveTypeOrder()" class="ph-btn ph-btn--primary" style="margin-top:12px;width:100%;justify-content:center;">
+                    💾 حفظ الترتيب
+                </button>
+            </div>
+        </div>
+        <div class="settings-section">
             <div class="settings-section-title">معلومات النظام</div>
             <div class="setting-row">
                 <div><div class="setting-label">Firebase Project</div><div class="setting-sub" style="font-family:var(--mono);">deliveryonline-300f7</div></div>
@@ -6843,6 +6948,8 @@ function renderSettings() {
         if (toggle) toggle.checked = isOn;
     }).catch(() => {});
     // Load test mode state  ← FIX: was never loaded after DOM injection
+    renderTypeOrderList();
+    renderAdminFilterBar();
     fbGet('settings/testMode').then(val => {
         const isTest  = val === true || val === 'true';
         const toggle  = document.getElementById('toggle-test-mode');
@@ -7563,15 +7670,7 @@ document.getElementById('stores-refresh-btn').addEventListener('click', async ()
     await loadAllData(); renderStores(); toast('✅ تم تحديث المتاجر');
 });
 
-// Stores filter pills
-document.querySelectorAll('[data-store-filter]').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('[data-store-filter]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        storeFilter = btn.dataset.storeFilter;
-        renderStores();
-    });
-});
+// Stores filter pills — handled dynamically by renderAdminFilterBar()
 
 // Stores search
 document.getElementById('stores-search').addEventListener('input', e => {

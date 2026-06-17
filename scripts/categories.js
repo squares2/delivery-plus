@@ -35,8 +35,43 @@ const CAT_MAP = {
 
 let _openCategory = null;
 let _cache        = {};
+let _typeOrderCache = null;
+
+async function _getTypeOrder() {
+    if (_typeOrderCache) return _typeOrderCache;
+    try {
+        const res  = await fetch(`${RTDB_BASE}/settings/typeOrder.json`);
+        const data = await res.json();
+        if (Array.isArray(data) && data.length) {
+            _typeOrderCache = data;
+            return data;
+        }
+    } catch(e) {}
+    _typeOrderCache = Object.values(CAT_MAP).map(c => c.fbKey);
+    return _typeOrderCache;
+}
+
+async function _renderCategoryBar() {
+    // Build reverse map: fbKey → CAT_MAP local key (e.g. 'Restaurants' → 'restaurants')
+    const fbKeyToLocal = {};
+    Object.entries(CAT_MAP).forEach(([localKey, meta]) => { fbKeyToLocal[meta.fbKey] = localKey; });
+
+    const container = document.querySelector('.categories__scroll');
+    if (!container) return;
+
+    const order = await _getTypeOrder();
+
+    // Re-order DOM nodes: for each fbKey in saved order, find the matching .category-item and append
+    order.forEach(fbKey => {
+        const localKey = fbKeyToLocal[fbKey];
+        if (!localKey) return;
+        const el = container.querySelector(`.category-item[data-category="${localKey}"]`);
+        if (el) container.appendChild(el); // moves it to end = preserves saved order
+    });
+}
 
 function initCategories() {
+    _renderCategoryBar();
     document.querySelectorAll('.category-item[data-category]').forEach(item => {
         item.addEventListener('click', () => _toggleCategory(item.dataset.category));
     });
