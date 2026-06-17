@@ -1242,6 +1242,13 @@ input, select, textarea { font-family: var(--font); }
     cursor:pointer; transition:background 0.15s; font-size:0.85rem;
 }
 .sc-catorder-btn:hover { background:rgba(255,92,0,0.2); }
+.sc-rename-btn {
+    display:flex; align-items:center; justify-content:center;
+    border:1.5px solid rgba(59,130,246,0.3); border-radius:10px; padding:8px;
+    background:rgba(59,130,246,0.08); color:var(--blue);
+    cursor:pointer; transition:background 0.15s; font-size:0.85rem;
+}
+.sc-rename-btn:hover { background:rgba(59,130,246,0.2); }
 .sc-closed-lbl {
     font-size:0.6rem; font-weight:900; color:#fff; letter-spacing:0.8px;
     background:rgba(239,68,68,0.85); border-radius:50px; padding:2px 7px;
@@ -3333,7 +3340,66 @@ function startAutoRefresh() {
         } else if (id === 'stores') {
             const grid      = document.getElementById('stores-grid');
             const scrollTop = grid ? grid.scrollTop : 0;
+
+            // If the user is actively typing in any input inside the grid, skip the
+            // re-render entirely this cycle — it will run again in 12s once they're done
+            const active = document.activeElement;
+            if (active && grid && grid.contains(active) &&
+                (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+                return; // skip this cycle — user is editing
+            }
+
+            // Snapshot all input values keyed by store name so they survive the re-render
+            const inputSnapshot = {};
+            if (grid) {
+                grid.querySelectorAll('.store-card-admin').forEach(card => {
+                    const storeName = card.querySelector('.sc-name')?.textContent?.trim();
+                    if (!storeName) return;
+                    inputSnapshot[storeName] = {};
+
+                    // Arabic name field
+                    const nameArInput = card.querySelector('.sc-namear-input');
+                    if (nameArInput) inputSnapshot[storeName].nameAr = nameArInput.value;
+
+                    // Priority inputs (one per type)
+                    card.querySelectorAll('.sc-priority-input').forEach(inp => {
+                        inputSnapshot[storeName][`priority_${inp.dataset.ptype}`] = inp.value;
+                    });
+
+                    // Meal checkboxes
+                    const mealState = {};
+                    card.querySelectorAll('.sc-meal-cb').forEach(cb => {
+                        mealState[cb.dataset.meal] = cb.checked;
+                    });
+                    if (Object.keys(mealState).length) inputSnapshot[storeName].meals = mealState;
+                });
+            }
+
             await _refreshStoresData();
+
+            // Restore all snapshotted values after re-render
+            if (grid && Object.keys(inputSnapshot).length) {
+                grid.querySelectorAll('.store-card-admin').forEach(card => {
+                    const storeName = card.querySelector('.sc-name')?.textContent?.trim();
+                    const snap = storeName && inputSnapshot[storeName];
+                    if (!snap) return;
+
+                    if (snap.nameAr !== undefined) {
+                        const inp = card.querySelector('.sc-namear-input');
+                        if (inp && document.activeElement !== inp) inp.value = snap.nameAr;
+                    }
+                    card.querySelectorAll('.sc-priority-input').forEach(inp => {
+                        const key = `priority_${inp.dataset.ptype}`;
+                        if (snap[key] !== undefined && document.activeElement !== inp) inp.value = snap[key];
+                    });
+                    if (snap.meals) {
+                        card.querySelectorAll('.sc-meal-cb').forEach(cb => {
+                            if (snap.meals[cb.dataset.meal] !== undefined) cb.checked = snap.meals[cb.dataset.meal];
+                        });
+                    }
+                });
+            }
+
             if (grid) requestAnimationFrame(() => { grid.scrollTop = scrollTop; });
         }
 
@@ -5159,6 +5225,16 @@ function renderStores() {
             </div>
             <div class="sc-body">
                 <div class="sc-name">${name}</div>
+                <!-- Arabic name row -->
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+                    <span style="font-size:0.6rem;color:var(--gray);flex-shrink:0;">🈶 عربي</span>
+                    <input type="text" class="sc-namear-input" dir="rtl"
+                           value="${s.nameAr || ''}"
+                           placeholder="الاسم بالعربية"
+                           style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--white);font-family:var(--font);font-size:0.75rem;outline:none;">
+                    <button class="sc-namear-save" title="حفظ الاسم العربي"
+                            style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:var(--green);padding:4px 8px;cursor:pointer;font-size:0.72rem;">✓</button>
+                </div>
                 <div class="sc-meta">
                     <span class="sc-items">${ordCount} طلب إجمالي</span>
                     <span class="sc-rank">${s.rank ? '⭐ '+s.rank : ''}</span>
@@ -5222,6 +5298,9 @@ function renderStores() {
                 <button class="sc-type-edit-btn" style="flex:0.8;" title="تغيير نوع المتجر">
                     🏷
                 </button>
+                <button class="sc-rename-btn" style="flex:0.8;" title="إعادة تسمية المتجر">
+                    ✏️
+                </button>
                 <button class="sc-catorder-btn" style="flex:0.8;" title="ترتيب الأقسام والأصناف الفرعية">
                     🗂
                 </button>
@@ -5232,6 +5311,36 @@ function renderStores() {
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                 </button>
             </div>`;
+
+        // Arabic name save
+        card.querySelector('.sc-namear-save').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const input = card.querySelector('.sc-namear-input');
+            const val   = input.value.trim();
+            // Save nameAr AND ensure imgSlug (English) is stored for image lookups
+            await _storeSetField(name, s.type, 'nameAr', val || null);
+            if (!s.imgSlug) {
+                // Derive English slug from the companyname (before any Arabic rename)
+                const enSlug = name.toLowerCase()
+                    .replace(/[^\x00-\x7F]/g, '').replace(/\s+/g, '-')
+                    .replace(/-+/g, '-').replace(/^-|-$/g, '');
+                if (enSlug) await _storeSetField(name, s.type, 'imgSlug', enSlug);
+            }
+            toast(`✓ تم حفظ الاسم العربي: ${val || '(محذوف)'}`);
+        });
+        card.querySelector('.sc-namear-input').addEventListener('keydown', async (e) => {
+            if (e.key !== 'Enter') return;
+            e.stopPropagation();
+            const val = e.target.value.trim();
+            await _storeSetField(name, s.type, 'nameAr', val || null);
+            if (!s.imgSlug) {
+                const enSlug = name.toLowerCase()
+                    .replace(/[^\x00-\x7F]/g, '').replace(/\s+/g, '-')
+                    .replace(/-+/g, '-').replace(/^-|-$/g, '');
+                if (enSlug) await _storeSetField(name, s.type, 'imgSlug', enSlug);
+            }
+            toast(`✓ تم حفظ الاسم العربي: ${val || '(محذوف)'}`);
+        });
 
         // Close/open button
         card.querySelector('.sc-status-btn').addEventListener('click', (e) => {
@@ -5293,6 +5402,12 @@ function renderStores() {
         card.querySelector('.sc-type-edit-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             openStoreTypeModal(name, s.allTypes || [s.type]);
+        });
+
+        // Rename button
+        card.querySelector('.sc-rename-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openStoreRenameModal(name, s.allTypes || [s.type]);
         });
 
         // Category order editor button
@@ -5962,6 +6077,150 @@ function coWireDragReorder(listId) {
             e.preventDefault();
         });
     });
+}
+
+// ── Store Rename Modal ─────────────────────────────────────────
+// Renames a store across ALL Firebase paths that use the store name as a key:
+//   pattern/{type}[i].companyname  → updated in-place (name is a field, not a key)
+//   items/{oldName}                → copied to items/{newName}, old deleted
+//   storeStatus/{oldName}          → copied to storeStatus/{newName}, old deleted
+//   settings/categoryOrder/{old}   → copied to settings/categoryOrder/{new}, old deleted
+//   settings/loyaltyRewards        → N/A (not store-keyed)
+async function openStoreRenameModal(oldName, storeTypes) {
+    const stale = document.getElementById('store-rename-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'store-rename-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:26px;width:100%;max-width:420px;font-family:var(--font);direction:rtl;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+            <span style="font-size:1.3rem;">✏️</span>
+            <div>
+                <div style="font-size:1rem;font-weight:800;color:var(--white);">إعادة تسمية المتجر</div>
+                <div style="font-size:0.72rem;color:var(--gray);margin-top:2px;">الاسم الحالي: <span style="color:var(--orange);font-weight:800;">${oldName}</span></div>
+            </div>
+            <button id="srm-close" style="margin-right:auto;background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;">✕</button>
+        </div>
+
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.74rem;color:var(--gray-light);font-weight:700;display:block;margin-bottom:6px;">الاسم الجديد</label>
+            <input type="text" id="srm-input" value="${oldName}" dir="ltr"
+                   style="width:100%;box-sizing:border-box;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--white);font-family:inherit;font-size:0.9rem;outline:none;"
+                   onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+            <div id="srm-check-status" style="font-size:0.66rem;margin-top:5px;min-height:14px;"></div>
+        </div>
+
+        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:10px 12px;margin-bottom:16px;font-size:0.72rem;color:#fca5a5;line-height:1.6;">
+            ⚠️ سيتم تحديث اسم المتجر في جميع الأقسام:<br>
+            <strong>قائمة المتاجر · منتجات المتجر · حالة المتجر · ترتيب الأقسام</strong><br>
+            التصنيف الوظيفي للموظفين المرتبطين بهذا المتجر سيحتاج تحديث يدوي.
+        </div>
+
+        <div style="display:flex;gap:10px;">
+            <button id="srm-cancel" style="flex:1;padding:11px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;color:var(--white);font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            <button id="srm-save" style="flex:2;padding:11px;background:var(--blue);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:0.88rem;font-weight:800;cursor:pointer;">✏️ تغيير الاسم</button>
+        </div>
+        <div id="srm-progress" style="display:none;margin-top:12px;font-size:0.72rem;color:var(--gray);text-align:center;"></div>
+    </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    document.getElementById('srm-close').onclick  = close;
+    document.getElementById('srm-cancel').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    // Input validation + duplicate check
+    const input  = document.getElementById('srm-input');
+    const status = document.getElementById('srm-check-status');
+    let _renameValid = false;
+
+    async function validateNewName() {
+        const val = input.value.trim();
+        status.style.color = '';
+        if (!val) { status.textContent = ''; _renameValid = false; return; }
+        if (val === oldName) { status.textContent = ''; _renameValid = false; return; }
+        if (!/^[a-zA-Z0-9\u0600-\u06FF\s\-_.]+$/.test(val)) {
+            status.textContent = '✗ اسم غير صالح — يُسمح بالحروف والأرقام والشرطة والنقطة فقط';
+            status.style.color = 'var(--red)'; _renameValid = false; return;
+        }
+        // Check if name already exists in allStores
+        if (allStores[val]) {
+            status.textContent = `✗ يوجد متجر باسم "${val}" بالفعل`;
+            status.style.color = 'var(--red)'; _renameValid = false; return;
+        }
+        status.textContent = '✓ الاسم متاح';
+        status.style.color = 'var(--green)';
+        _renameValid = true;
+    }
+
+    input.addEventListener('input', validateNewName);
+    input.select();
+
+    document.getElementById('srm-save').onclick = async () => {
+        const newName = input.value.trim();
+        if (!newName || newName === oldName) { status.textContent = 'أدخل اسماً مختلفاً'; status.style.color = 'var(--red)'; return; }
+        if (!_renameValid) { status.textContent = 'الاسم غير صالح أو مستخدم'; status.style.color = 'var(--red)'; return; }
+
+        const saveBtn = document.getElementById('srm-save');
+        const cancelBtn = document.getElementById('srm-cancel');
+        const progress  = document.getElementById('srm-progress');
+        saveBtn.disabled = cancelBtn.disabled = true;
+        saveBtn.textContent = '…';
+        progress.style.display = 'block';
+
+        const setProgress = (msg) => { progress.textContent = msg; };
+
+        try {
+            // ① Update companyname in pattern/{type} for each store type
+            setProgress('جارٍ تحديث قائمة المتاجر…');
+            for (const type of storeTypes) {
+                const rawType = await fbGet(`pattern/${type}`).catch(() => null);
+                if (!rawType) continue;
+                const entries = typeof rawType === 'object' ? Object.entries(rawType) : [];
+                for (const [key, val] of entries) {
+                    if (val && val.companyname === oldName) {
+                        await fbSet(`pattern/${type}/${key}/companyname`, newName);
+                    }
+                }
+            }
+
+            // ② Copy items/{oldName} → items/{newName}, delete old
+            setProgress('جارٍ نقل المنتجات…');
+            const items = await fbGet(`items/${oldName}`).catch(() => null);
+            if (items) {
+                await fbSet(`items/${newName}`, items);
+                await fbSet(`items/${oldName}`, null);
+            }
+
+            // ③ Copy storeStatus/{oldName} → storeStatus/{newName}, delete old
+            setProgress('جارٍ نقل حالة المتجر…');
+            const status_ = await fbGet(`storeStatus/${oldName}`).catch(() => null);
+            if (status_) {
+                await fbSet(`storeStatus/${newName}`, status_);
+                await fbSet(`storeStatus/${oldName}`, null);
+            }
+
+            // ④ Copy settings/categoryOrder/{oldName} → /{newName}, delete old
+            setProgress('جارٍ نقل ترتيب الأقسام…');
+            const catOrder = await fbGet(`settings/categoryOrder/${oldName}`).catch(() => null);
+            if (catOrder) {
+                await fbSet(`settings/categoryOrder/${newName}`, catOrder);
+                await fbSet(`settings/categoryOrder/${oldName}`, null);
+            }
+
+            setProgress('✅ تم تغيير الاسم بنجاح!');
+            toast(`✏️ تمت إعادة التسمية: "${oldName}" ← "${newName}"`);
+            close();
+            await _refreshStoresData();
+
+        } catch (e) {
+            progress.textContent = `❌ فشل: ${e.message}`;
+            saveBtn.disabled = cancelBtn.disabled = false;
+            saveBtn.textContent = '✏️ تغيير الاسم';
+        }
+    };
 }
 
 

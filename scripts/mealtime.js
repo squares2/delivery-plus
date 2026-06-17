@@ -136,15 +136,17 @@
 
     /* ── Build store card HTML ─────────────────────────────── */
     function _cardHTML(store, mealLabel) {
-        const name  = store.companyname;
-        // Use explicit assetName field if set, otherwise slugify to Latin-safe filename
-        const slug  = store.assetName
-            ? store.assetName.toLowerCase()
-            : name.toLowerCase()
-                  .replace(/\s+/g, '-')          // spaces → dash
-                  .replace(/[^\x00-\x7F]/g, '')  // strip non-ASCII (Arabic chars)
-                  .replace(/-+/g, '-')            // collapse double dashes
-                  .replace(/^-|-$/g, '');         // trim leading/trailing dashes
+        const name  = (store.nameAr && store.nameAr.trim()) ? store.nameAr.trim() : store.companyname;
+        // Use explicit imgSlug (English), fall back to stripping non-ASCII from companyname
+        const slug  = store.imgSlug
+            ? store.imgSlug.trim().toLowerCase()
+            : (store.assetName
+                ? store.assetName.toLowerCase()
+                : store.companyname.toLowerCase()
+                      .replace(/[^\x00-\x7F]/g, '')
+                      .replace(/\s+/g, '-')
+                      .replace(/-+/g, '-')
+                      .replace(/^-|-$/g, '') || 'store');
         const imgBase = `assets/${slug || 'store'}`;
         const img     = `${imgBase}.webp`;
         const tags  = store.tags || store.storeType || '';

@@ -403,7 +403,8 @@ function initCart() {
         const overlay = document.getElementById('cart-overlay');
         const sidebar = document.getElementById('cart-sidebar');
         if (!overlay || !sidebar) return;
-        renderCartSidebar();
+        // Load Arabic store names in background before rendering
+        _loadNameArCache().then(() => renderCartSidebar());
         overlay.classList.add('active');
         sidebar.classList.add('active');
         document.body.classList.add('modal-open');
@@ -469,17 +470,37 @@ function initCart() {
     };
 
     /* ── Store group section HTML ───────────────────────────── */
+    // nameAr cache: companyname → Arabic display name (populated on first cart open)
+    let _nameArCache = {};
+    async function _loadNameArCache() {
+        if (Object.keys(_nameArCache).length) return;
+        try {
+            const r = await fetch(`${RTDB_CART_URL}/pattern.json`);
+            const data = await r.json();
+            if (!data || typeof data !== 'object') return;
+            for (const entries of Object.values(data)) {
+                if (!entries || typeof entries !== 'object') continue;
+                const arr = Array.isArray(entries) ? entries : Object.values(entries);
+                for (const s of arr) {
+                    if (s && s.companyname && s.nameAr) {
+                        _nameArCache[s.companyname] = s.nameAr.trim();
+                    }
+                }
+            }
+        } catch (_) {}
+    }
+
     function _renderStoreGroup(storeName, items) {
         const freeDelivery = _isFirstOrder;
-        // Placeholder — fee updates asynchronously via _updateStoreFeeHint
         const feeDisplay = freeDelivery
             ? `<span style="text-decoration:line-through;color:#aaa;margin-left:4px;">$${DELIVERY_FEE_PER_STORE.toFixed(2)}</span> <span style="color:#22c55e;font-weight:800;">مجاناً 🎁</span>`
             : `<span class="fee-loading" style="color:var(--clr-gray-400);font-size:0.75em;">…</span>`;
+        const displayName = (_nameArCache[storeName] && _nameArCache[storeName]) || storeName;
 
         return `
         <div class="cart-store-group" id="csg-${_cslug(storeName)}">
             <div class="cart-store-group__header">
-                <span class="cart-store-group__name">🏪 ${storeName}</span>
+                <span class="cart-store-group__name">🏪 ${displayName}</span>
                 <button class="cart-store-group__clear"
                         onclick="cartClearStore('${storeName}')"
                         title="مسح متجر">✕</button>

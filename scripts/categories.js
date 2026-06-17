@@ -151,35 +151,29 @@ function _renderStores(stores, catKey, catMeta) {
     _initDragScroll(scrollEl);
 }
 
-/* ── Arabic display names — keyed by Firebase companyname ─── */
-const STORE_NAME_AR = {
-    'Classic-Food'    : 'كلاسيك فود',
-    'King-Pizza'      : 'كينغ بيتزا',
-    'Zahret-Lobnan'   : 'زهرة لبنان',
-    'Al-Amana'        : 'الأمانة',
-    'Hellani-Kitchen' : 'حلاني كيتشن',
-    'Bhalib'          : 'بحليب',
-    'AL-Beik'         : 'البيك',
-    'AL-Fajr'         : 'الفجر',
-    'Assaf-Grocery'   : 'بقالة عساف',
-    'Foodigo'         : 'فوديغو',
-    'Minini'          : 'ميني ني',
-    'Pan-Corner'      : 'بان كورنر',
-    'Cesar'           : 'سيزار',
-    'Al-Kanater'      : 'القناطر',
-    'Shams-Pool'      : 'شمس بول',
-    'Shams Pool'      : 'شمس بول',
-    'Al Kanater'      : 'القناطر',
-};
+/* ── Display name: use nameAr from Firebase, fallback to companyname ── */
+function _displayName(store) {
+    if (store.nameAr && store.nameAr.trim()) return store.nameAr.trim();
+    return store.companyname;
+}
+
+/* ── Image slug: always English, never Arabic ─────────────── */
+function _imgSlug(store) {
+    if (store.imgSlug && store.imgSlug.trim()) return store.imgSlug.trim().toLowerCase();
+    // Derive from companyname stripping non-ASCII (safe even if Arabic)
+    return store.companyname.toLowerCase()
+        .replace(/[^\x00-\x7F]/g, '').replace(/\s+/g, '-')
+        .replace(/-+/g, '-').replace(/^-|-$/g, '') || 'store';
+}
 
 function _storeCardHTML(store, catKey, fbType) {
     const rawName  = store.companyname;
-    const name     = STORE_NAME_AR[rawName] || rawName;
+    const name     = _displayName(store);
     const rank     = store.rank ? parseFloat(store.rank).toFixed(1) : null;
     const isSoon   = store.soon == '1' || store.soon === 1;
     const isClosed = !!store._closed;
-    const imgUrl   = `${STORE_IMG}/${encodeURIComponent(rawName.toLowerCase())}.webp`;
-    const id       = rawName.toLowerCase().replace(/\s+/g, '-');
+    const imgUrl   = `${STORE_IMG}/${_imgSlug(store)}.webp`;
+    const id       = _imgSlug(store);  // always English — used for store panel lookup
 
     let opensChip = '';
     if (isClosed && store._opensAt) {

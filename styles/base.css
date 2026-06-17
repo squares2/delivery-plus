@@ -237,62 +237,41 @@ body.modal-open { overflow: hidden; max-width: 100vw; }
     animation: splash-popin 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
 }
 @keyframes splash-popin {
-    0%   { opacity: 0; transform: scale(1.04); }
+    0%   { opacity: 0; }
     55%  { opacity: 1; }
-    100% { opacity: 1; transform: scale(1); }
+    100% { opacity: 1; }
 }
 
-/* Base image — static, never distorted */
+/* Base image — always fills screen, centered on any viewport */
 .splash__flag-img {
     position: absolute;
-    inset: 0;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center center;
+    min-width: 100%;
+    min-height: 100%;
 }
 
-/* ── Wave layer — clipped to center, black corners untouched */
-/* Uses background-image of the same jpeg to perfectly overlay
-   only the center content zone, leaving the corner decorations
-   on the static base completely undisturbed.                  */
-.splash__flag-wrap::after {
+
+
+/* ── Corner vignette — strong dark edges, burnt-in look ─── */
+.splash__flag-wrap::before {
     content: '';
     position: absolute;
-    top: 18%;
-    bottom: 18%;
-    left: -8%;
-    right: -8%;
-    background-image: url('../assets/splash-brand.jpg');
-    background-size: 116% auto;
-    background-position: center 36%;
-    background-repeat: no-repeat;
-    transform-origin: center center;
-    animation: splash-center-wave 2.8s ease-in-out 0.65s infinite;
-    /* Feathered mask so wave edges dissolve into the static layer */
-    -webkit-mask-image: linear-gradient(
-        to bottom,
-        transparent 0%,
-        black 14%,
-        black 86%,
-        transparent 100%
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(
+        ellipse 70% 68% at 50% 50%,
+        transparent 35%,
+        rgba(0,0,0,0.35) 60%,
+        rgba(0,0,0,0.72) 80%,
+        rgba(0,0,0,0.92) 100%
     );
-    mask-image: linear-gradient(
-        to bottom,
-        transparent 0%,
-        black 14%,
-        black 86%,
-        transparent 100%
-    );
-}
-@keyframes splash-center-wave {
-    0%   { transform: perspective(700px) rotateY(0deg)    skewY(0deg)     scaleX(1.000); }
-    14%  { transform: perspective(700px) rotateY(-3deg)   skewY(0.45deg)  scaleX(1.012); }
-    30%  { transform: perspective(700px) rotateY(3.8deg)  skewY(-0.6deg)  scaleX(0.990); }
-    48%  { transform: perspective(700px) rotateY(-2.5deg) skewY(0.4deg)   scaleX(1.008); }
-    65%  { transform: perspective(700px) rotateY(2.8deg)  skewY(-0.38deg) scaleX(0.994); }
-    82%  { transform: perspective(700px) rotateY(-1.5deg) skewY(0.2deg)   scaleX(1.003); }
-    100% { transform: perspective(700px) rotateY(0deg)    skewY(0deg)     scaleX(1.000); }
 }
 
 /* ── Shimmer 1 — sweeps across at 0.9s ─────────────────── */

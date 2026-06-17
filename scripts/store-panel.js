@@ -91,14 +91,17 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     const dots     = document.querySelectorAll('.store-intro__dot');
     const DURATION = 2200;
 
-    nameEl.textContent = storeName;
+    nameEl.textContent = (storeMeta && storeMeta.nameAr && storeMeta.nameAr.trim())
+        ? storeMeta.nameAr.trim()
+        : storeName;
     catEl.textContent  = (_typeEmoji(storeType) || '') + '  ' + (_typeLabel(storeType) || storeType);
     const rank = storeMeta && storeMeta.rank ? parseFloat(storeMeta.rank) : null;
     if (rank) { ratingVal.textContent = rank.toFixed(1); ratingEl.style.display = 'flex'; }
     else       { ratingEl.style.display = 'none'; }
 
-    const logoPath    = `assets/${storeId}.webp`;
-    const logoPngPath = `assets/${storeId}.png`;
+    const _introImgSl = _getImgSlug(storeId, storeMeta);
+    const logoPath    = `assets/${_introImgSl}.webp`;
+    const logoPngPath = `assets/${_introImgSl}.png`;
     logoImg.style.display  = 'none';
     logoEmoji.style.display = 'none';
     logoImg.onload  = () => { logoImg.style.display = 'block'; logoEmoji.style.display = 'none'; };
@@ -197,8 +200,10 @@ function _openStorePanelNow(storeId, storeName, storeType) {
     const bgImg      = document.getElementById('sp-hero-bg');
     const videoEl    = document.getElementById('sp-hero-video');
     const fallbackEl = document.getElementById('sp-hero-fallback');
-    const logoPath    = `assets/${storeId}.webp`;
-    const logoPngPath = `assets/${storeId}.png`;
+    // storeId may be Arabic if companyname was renamed — strip non-ASCII for file paths
+    const _heroImgSl  = _getImgSlug(storeId, null);
+    const logoPath    = `assets/${_heroImgSl}.webp`;
+    const logoPngPath = `assets/${_heroImgSl}.png`;
     const emojiDef    = _typeEmoji(storeType) || '🏪';
 
     if (logoImg)   { logoImg.style.display = 'none'; logoImg.src = ''; }
@@ -206,7 +211,7 @@ function _openStorePanelNow(storeId, storeName, storeType) {
     if (bgImg)     { bgImg.style.display = 'none'; bgImg.src = ''; }
     if (fallbackEl){ fallbackEl.style.display = 'none'; }
 
-    /* ── Hero video: try assets/videos/{storeId}.webm → .mp4 → fallback to image ── */
+    /* ── Hero video: try assets/videos/{slug}.webm → .mp4 → fallback to image ── */
     if (videoEl) {
         videoEl.style.display = 'none';
         videoEl.pause();
@@ -221,7 +226,7 @@ function _openStorePanelNow(storeId, storeName, storeType) {
         });
 
         (async () => {
-            const webm = await tryVideo(`assets/videos/${storeId}.webm`);
+            const webm = await tryVideo(`assets/videos/${_heroImgSl}.webm`);
             if (webm) {
                 videoEl.style.display = 'block';
                 videoEl.play().catch(() => {});
@@ -229,7 +234,7 @@ function _openStorePanelNow(storeId, storeName, storeType) {
                 if (fallbackEl){ fallbackEl.style.display = 'none'; }
                 return;
             }
-            const mp4 = await tryVideo(`assets/videos/${storeId}.mp4`);
+            const mp4 = await tryVideo(`assets/videos/${_heroImgSl}.mp4`);
             if (mp4) {
                 videoEl.style.display = 'block';
                 videoEl.play().catch(() => {});
@@ -341,6 +346,32 @@ async function _loadStorePanel(storeName, storeType) {
 
         const metaEl = document.getElementById('sp-hero-meta');
         const emoji  = STORE_TYPE_EMOJI[storeType] || '🏪';
+
+        // Update hero name to Arabic if nameAr is set
+        if (storeMeta && storeMeta.nameAr && storeMeta.nameAr.trim()) {
+            const heroNameEl = document.getElementById('sp-hero-name');
+            if (heroNameEl) heroNameEl.textContent = storeMeta.nameAr.trim();
+        }
+
+        // Re-load hero logo with correct imgSlug now that storeMeta is available
+        if (storeMeta) {
+            const correctSlug = _getImgSlug(storeName, storeMeta);
+            const heroLogo = document.getElementById('sp-hero-logo');
+            const heroBg   = document.getElementById('sp-hero-bg');
+            if (heroLogo && !heroLogo.src.includes(`/${correctSlug}.`)) {
+                const correctPath = `assets/${correctSlug}.webp`;
+                const correctPng  = `assets/${correctSlug}.png`;
+                heroLogo.onerror = function() {
+                    if (this.src.includes('.webp')) { this.src = correctPng; return; }
+                    heroLogo.style.display = 'none';
+                };
+                heroLogo.onload = () => {
+                    heroLogo.style.display = 'block';
+                    if (heroBg) { heroBg.src = heroLogo.src; heroBg.style.display = 'block'; }
+                };
+                heroLogo.src = correctPath;
+            }
+        }
 
         // ── Handle closed state ───────────────────────────────
         const isClosed = storeStatusData && (storeStatusData.closed === true || storeStatusData.closed === '1' || storeStatusData.closed === 1);
@@ -755,6 +786,17 @@ function renderSkeleton() {
 
 /* ── Utilities ────────────────────────────────────────────── */
 function _slugify(s)     { return String(s).replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_'); }
+
+/* Returns the English image slug for a store — uses imgSlug field if set,
+   otherwise strips non-ASCII from the provided storeId/companyname.       */
+function _getImgSlug(storeId, storeMeta) {
+    if (storeMeta && storeMeta.imgSlug && storeMeta.imgSlug.trim())
+        return storeMeta.imgSlug.trim().toLowerCase();
+    return String(storeId).toLowerCase()
+        .replace(/[^\x00-\x7F]/g, '')
+        .replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+        || String(storeId).toLowerCase();
+}
 
 /**
  * Sort `keys` according to an admin-defined `orderList` (array of names).
