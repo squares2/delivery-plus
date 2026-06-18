@@ -70,8 +70,39 @@ async function _renderCategoryBar() {
     });
 }
 
+async function _markEmptyCategories() {
+    try {
+        const res  = await fetch(`${RTDB_BASE}/pattern.json`);
+        const data = await res.json();
+        if (!data || typeof data !== 'object') return;
+
+        // Build set of types that have at least one active store
+        const hasStores = new Set();
+        for (const [type, entries] of Object.entries(data)) {
+            if (!entries || typeof entries !== 'object') continue;
+            const arr = Array.isArray(entries) ? entries : Object.values(entries);
+            const active = arr.filter(s => s && s.companyname
+                && s.disabled !== '1' && s.disabled !== 1 && s.disabled !== true);
+            if (active.length > 0) hasStores.add(type);
+        }
+
+        // Mark each category-item as empty if its fbKey has no stores
+        document.querySelectorAll('.category-item[data-category]').forEach(el => {
+            const localKey = el.dataset.category;
+            const meta     = CAT_MAP[localKey];
+            if (!meta) return;
+            if (!hasStores.has(meta.fbKey)) {
+                el.classList.add('category-item--empty');
+            } else {
+                el.classList.remove('category-item--empty');
+            }
+        });
+    } catch(e) {}
+}
+
 function initCategories() {
     _renderCategoryBar();
+    _markEmptyCategories();
     document.querySelectorAll('.category-item[data-category]').forEach(item => {
         item.addEventListener('click', () => _toggleCategory(item.dataset.category));
     });

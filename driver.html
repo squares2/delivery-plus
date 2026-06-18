@@ -830,7 +830,6 @@
         <button class="drv-btn drv-btn--orange" id="drv-login-btn" style="width:100%;justify-content:center;padding:12px">
             تسجيل الدخول
         </button>
-        <p class="drv-modal__switch">ليس لديك حساب؟ <a id="drv-show-register">سجّل كسائق جديد</a></p>
     </div>
 </div>
 
@@ -889,23 +888,10 @@
             <input type="hidden" id="drv-reg-vehicle">
         </div>
 
-        <!-- Username -->
-        <div class="drv-field">
-            <label for="drv-reg-username">اسم المستخدم <span class="drv-field-required">*</span></label>
-            <input type="text" id="drv-reg-username" placeholder="مثال: ahmad_driver" dir="ltr" maxlength="30" autocapitalize="none">
-            <span class="drv-field-hint">أحرف إنجليزية، أرقام، _ فقط — 3-30 حرف</span>
-            <span class="drv-field-status" id="drv-reg-username-status"></span>
-        </div>
-
-        <!-- Password -->
-        <div class="drv-field">
-            <label for="drv-reg-password">كلمة المرور <span class="drv-field-required">*</span></label>
-            <input type="password" id="drv-reg-password" placeholder="8 أحرف على الأقل" dir="ltr" autocomplete="new-password">
-        </div>
 
         <!-- Documents (optional) -->
         <div class="drv-field">
-            <label>📄 الوثائق <span style="color:var(--clr-gray); font-weight:600;">(اختياري — يمكن إضافتها بعد تسجيل الدخول)</span></label>
+            <label>📄 الوثائق <span style="color:var(--clr-gray); font-weight:600;">(اختياري — يمكن إضافتها لاحقاً)</span></label>
 
             <label class="drv-upload-box" id="drv-id-box" for="drv-reg-id-file">
                 <div class="drv-upload-box__icon" id="drv-id-icon">🪪</div>
@@ -927,9 +913,8 @@
         </div>
 
         <button class="drv-btn drv-btn--orange" id="drv-reg-submit" style="width:100%;justify-content:center;padding:12px">
-            ➕ إنشاء حساب السائق
+            📨 إرسال طلب الانضمام
         </button>
-        <p class="drv-modal__switch">لديك حساب؟ <a id="drv-show-login">سجّل الدخول</a></p>
     </div>
 </div>
 
@@ -1170,8 +1155,10 @@ function showLoginModalFromRegister() {
 }
 
 function setupRegisterSwitchLinks() {
-    document.getElementById('drv-show-register')?.addEventListener('click', showRegisterModal);
-    document.getElementById('drv-show-login')?.addEventListener('click', showLoginModalFromRegister);
+    // Auto-open register form when coming from landing page
+    if (new URLSearchParams(window.location.search).get('register') === '1') {
+        showRegisterModal();
+    }
 }
 
 /* ── Vehicle type picker ─────────────────────────────────────── */
@@ -1446,8 +1433,6 @@ function setupRegisterForm() {
         const lat      = document.getElementById('drv-reg-lat').value;
         const lng      = document.getElementById('drv-reg-lng').value;
         const vehicle  = document.getElementById('drv-reg-vehicle').value;
-        const username = document.getElementById('drv-reg-username').value.trim().toLowerCase();
-        const password = document.getElementById('drv-reg-password').value;
 
         // ── Validation ──────────────────────────────────────────
         if (!fullname || fullname.length < 2) {
@@ -1462,92 +1447,64 @@ function setupRegisterForm() {
         if (!vehicle) {
             return showRegError('يرجى اختيار نوع المركبة.');
         }
-        if (!/^[a-z0-9_]{3,30}$/.test(username)) {
-            return showRegError('اسم المستخدم: 3-30 حرف إنجليزي، أرقام أو _ فقط.');
-        }
-        if (!password || password.length < 8) {
-            return showRegError('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
-        }
 
         submitBtn.disabled = true;
         submitBtn.textContent = '…';
 
         try {
-            // Final username uniqueness re-check (race-condition guard)
-            const drvSnap = await db.ref('drivers').get();
-            let taken = false;
-            if (drvSnap.exists()) {
-                drvSnap.forEach(child => {
-                    const d = child.val();
-                    if (d && d.username === username) taken = true;
-                });
-            }
-            if (!taken) {
-                try {
-                    const custDoc = await fsdb.collection('usernames').doc(username).get();
-                    if (custDoc.exists) taken = true;
-                } catch (_) {}
-            }
-            if (taken) {
-                return showRegError('اسم المستخدم محجوز. اختر اسماً آخر.');
-            }
-
             const phoneFormatted = '+961' + phoneRaw.replace(/^0/, '');
 
-            // Create the driver record first (without doc images) to get an ID
-            const newRef = db.ref('drivers').push();
-            const driverId = newRef.key;
+            // Save to driverApplications (not drivers) — admin reviews and creates account later
+            const newRef   = db.ref('driverApplications').push();
+            const appId    = newRef.key;
 
-            const driverRecord = {
-                owner          : fullname,
-                fullname       : fullname,
-                username       : username,
-                password       : password,
-                phone          : phoneFormatted,
-                vehicleType    : vehicle,
-                address        : { lat: parseFloat(lat), lng: parseFloat(lng) },
-                status         : 'offline',
-                active         : false,          // ← admin must activate before receiving orders
-                pendingApproval: true,
-                createdAt      : Date.now(),
+            const application = {
+                fullname    : fullname,
+                phone       : phoneFormatted,
+                vehicleType : vehicle,
+                address     : { lat: parseFloat(lat), lng: parseFloat(lng) },
+                status      : 'pending',   // admin sets to 'approved' then creates driver account
+                createdAt   : Date.now(),
             };
-            await newRef.set(driverRecord);
+            await newRef.set(application);
 
-            // Upload optional documents (non-blocking for registration success)
+            // Upload optional documents
             const docUpdates = {};
             if (_regIdFile) {
-                try { docUpdates.idImage = await uploadDriverDoc(_regIdFile, driverId, 'id'); }
+                try { docUpdates.idImage = await uploadDriverDoc(_regIdFile, appId, 'id'); }
                 catch (e) { console.error('[Delivo] ID upload failed:', e); }
             }
             if (_regLicenseFile) {
-                try { docUpdates.licenseImage = await uploadDriverDoc(_regLicenseFile, driverId, 'license'); }
+                try { docUpdates.licenseImage = await uploadDriverDoc(_regLicenseFile, appId, 'license'); }
                 catch (e) { console.error('[Delivo] License upload failed:', e); }
             }
             if (Object.keys(docUpdates).length) {
                 await newRef.update(docUpdates);
             }
 
-            // Log the driver in immediately
-            driverData = {
-                id:       driverId,
-                username: username,
-                owner:    fullname,
-                active:   false,
-                idImage:      docUpdates.idImage      || null,
-                licenseImage: docUpdates.licenseImage || null,
-            };
-            localStorage.setItem('delivoDriver', JSON.stringify(driverData));
-
+            // Show success — no login, just confirmation
             document.getElementById('drv-register-modal').style.display = 'none';
-            showToast('🎉 تم إنشاء حسابك بنجاح!');
-            startDriverSession();
+            // Show full-screen thank-you message
+            const thanks = document.createElement('div');
+            thanks.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0d0d0d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center;font-family:Almarai,sans-serif;';
+            thanks.innerHTML =
+                '<div style="font-size:3.5rem;">🛵</div>' +
+                '<h2 style="color:#FF5C00;font-size:1.4rem;font-weight:900;margin:0;">تم إرسال طلبك!</h2>' +
+                '<p style="color:rgba(255,255,255,0.8);font-size:0.95rem;max-width:300px;line-height:1.6;margin:0;">' +
+                    'شكراً <strong style="color:#fff;">' + fullname + '</strong>، استلمنا طلب انضمامك كسائق.<br>' +
+                    'سيتواصل معك فريق Delivo قريباً على رقم هاتفك لتأكيد القبول وإنشاء حسابك.' +
+                '</p>' +
+                '<a href="index.html" style="background:#FF5C00;color:#fff;border:none;border-radius:14px;padding:13px 32px;font-size:0.95rem;font-weight:800;font-family:Almarai,sans-serif;text-decoration:none;margin-top:8px;">' +
+                    'العودة للرئيسية' +
+                '</a>';
+            document.body.appendChild(thanks);
 
         } catch (e) {
             console.error('[Delivo] registration error:', e);
             showRegError('حدث خطأ أثناء إنشاء الحساب. حاول مجدداً.');
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = '➕ إنشاء حساب السائق';
+            submitBtn.textContent = '📨 إرسال طلب الانضمام';
         }
     });
 
@@ -1555,7 +1512,7 @@ function setupRegisterForm() {
         errorEl.textContent = msg;
         errorEl.classList.add('visible');
         submitBtn.disabled = false;
-        submitBtn.textContent = '➕ إنشاء حساب السائق';
+        submitBtn.textContent = '📨 إرسال طلب الانضمام';
     }
 }
 

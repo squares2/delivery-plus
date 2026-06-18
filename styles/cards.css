@@ -109,6 +109,37 @@
     color: var(--clr-orange);
 }
 
+/* ── Empty category — grayscale + قريباً badge ─────────────── */
+.category-item--empty {
+    cursor: default;
+    pointer-events: none;
+}
+.category-item--empty .category-item__circle {
+    filter: grayscale(1) brightness(0.6);
+    border-color: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    position: relative;
+}
+.category-item--empty .category-item__circle::after {
+    content: 'قريباً';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.52);
+    color: #fff;
+    font-size: clamp(0.5rem, 1.4vw, 0.62rem);
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.01em;
+}
+.category-item--empty .category-item__label {
+    color: rgba(120,120,120,0.6) !important;
+    font-weight: 700;
+}
+
 /* ══════════════════════════════════════════════════════════
    SECTION SPLITTER  (between mealtime & most-requested stores)
    ══════════════════════════════════════════════════════════ */

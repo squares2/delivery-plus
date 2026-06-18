@@ -218,6 +218,10 @@ input, select, textarea { font-family: var(--font); }
 
 /* Stats chips in topbar */
 .topbar-stats { display: flex; gap: 6px; align-items: center; }
+@keyframes appsPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,92,0,0.4); }
+    50%      { box-shadow: 0 0 0 6px rgba(255,92,0,0); }
+}
 .tstat {
     display: flex; align-items: center; gap: 5px;
     background: var(--surface2); border: 1px solid var(--border);
@@ -1686,6 +1690,11 @@ input, select, textarea { font-family: var(--font); }
                 <span id="stat-drivers" class="tstat__val">0</span>
                 <span style="color:var(--gray);font-size:0.65rem;">سائق نشط</span>
             </div>
+            <div class="tstat" id="apps-topbar-chip" style="display:none;cursor:pointer;background:rgba(255,92,0,0.12);border:1.5px solid rgba(255,92,0,0.35);border-radius:50px;animation:appsPulse 1.8s ease-in-out infinite;" onclick="document.querySelector('[data-nav=\'drivers\']')?.click();" title="طلبات انضمام سائقين جدد — انقر للمراجعة">
+                <span style="font-size:0.75rem;">🛵</span>
+                <span id="apps-topbar-count" style="color:#FF5C00;font-weight:900;font-size:0.75rem;">0</span>
+                <span style="color:var(--orange);font-size:0.65rem;font-weight:700;">طلب جديد</span>
+            </div>
             <div class="tstat tstat--usr">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 <span id="stat-users" class="tstat__val">0</span>
@@ -1805,6 +1814,13 @@ input, select, textarea { font-family: var(--font); }
                     <button class="filter-pill" data-driver-filter="online">🟢 نشط</button>
                     <button class="filter-pill" data-driver-filter="offline">⚫ غير نشط</button>
                     <button class="filter-pill" data-driver-filter="pending" style="color:var(--orange);">🆕 قيد المراجعة</button>
+                </div>
+                <div id="driver-applications-section" style="display:none;padding:12px 16px 0;">
+                    <div style="font-size:0.72rem;font-weight:800;color:var(--orange);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">
+                        📋 طلبات انضمام سائقين جدد
+                    </div>
+                    <div id="driver-applications-grid" style="display:flex;flex-direction:column;gap:10px;"></div>
+                    <div style="height:1px;background:var(--border);margin:16px 0;"></div>
                 </div>
                 <div class="drivers-grid" id="drivers-grid"></div>
             </div>
@@ -2563,8 +2579,23 @@ async function fbGet(path) {
     if (!r.ok) throw new Error(`RTDB ${r.status}: ${path}`);
     return r.json();
 }
+async function _rtdbAuthParam() {
+    // RTDB rules currently use timestamp expiry (open) — no auth required
+    // Try to get token anyway for when rules are tightened later
+    try {
+        const t = await Promise.race([
+            getFsToken(),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+        ]);
+        return t ? `?auth=${t}` : '';
+    } catch(e) {
+        console.warn('[Delivo] RTDB using no-auth (rules are open):', e.message);
+        return '';
+    }
+}
 async function fbSet(path, data) {
-    const r = await fetch(`${RTDB}/${path}.json`, {
+    const auth = await _rtdbAuthParam();
+    const r = await fetch(`${RTDB}/${path}.json${auth}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
@@ -2572,7 +2603,8 @@ async function fbSet(path, data) {
     return r.json();
 }
 async function fbUpdate(path, data) {
-    const r = await fetch(`${RTDB}/${path}.json`, {
+    const auth = await _rtdbAuthParam();
+    const r = await fetch(`${RTDB}/${path}.json${auth}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
@@ -2580,11 +2612,16 @@ async function fbUpdate(path, data) {
     return r.json();
 }
 async function fbPush(path, data) {
-    const r = await fetch(`${RTDB}/${path}.json`, {
+    const auth = await _rtdbAuthParam();
+    const r = await fetch(`${RTDB}/${path}.json${auth}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
-    if (!r.ok) throw new Error(`RTDB POST ${r.status}: ${path}`);
+    if (!r.ok) {
+        let msg = `RTDB POST ${r.status}: ${path}`;
+        try { const err = await r.json(); msg += ' — ' + JSON.stringify(err); } catch(_) {}
+        throw new Error(msg);
+    }
     return r.json();
 }
 
@@ -2717,7 +2754,7 @@ function startApp() {
         if (id === 'map')        renderMap();
         if (id === 'orders')     renderOrders();
         if (id === 'online-req') renderOnlineRequests();
-        if (id === 'drivers')    renderDrivers();
+        if (id === 'drivers')    { renderDrivers(); loadDriverApplications(); }
         if (id === 'customers')  renderCustomers();
         if (id === 'stores')     renderStores();
         if (id === 'employees')  renderEmployees();
@@ -3338,6 +3375,8 @@ function startAutoRefresh() {
     // ── Real-time driver listener ──────────────────────────────
     // Uses the already-initialised `db` reference (not `firebase.database()`)
     // so it works regardless of when the SDK fully loads.
+    loadDriverApplications();  // start realtime SSE listener for driver applications
+
     if (typeof db !== 'undefined' && db) {
         db.ref('drivers').on('value', snap => {
             if (!snap.exists()) { allDrivers = []; }
@@ -4588,6 +4627,244 @@ const VEHICLE_LABELS = {
     tuktuk:     { emoji: '🛺', label: 'توك توك' },
     bicycle:    { emoji: '🚲', label: 'دراجة هوائية' },
 };
+
+/* ── Driver Applications — SSE realtime listener ──────────────
+   Uses Firebase SSE (same pattern as storeStatus) — no SDK needed  */
+let _driverAppsSSE = null;
+
+function _updateAppsTopbarBadge(count) {
+    const chip    = document.getElementById('apps-topbar-chip');
+    const countEl = document.getElementById('apps-topbar-count');
+    if (!chip) return;
+    if (count > 0) {
+        if (countEl) countEl.textContent = count;
+        chip.style.display = 'flex';
+    } else {
+        chip.style.display = 'none';
+    }
+}
+
+function _renderDriverApplications(data) {
+    const section = document.getElementById('driver-applications-section');
+    const grid    = document.getElementById('driver-applications-grid');
+
+    if (!data || typeof data !== 'object') {
+        if (section) section.style.display = 'none';
+        _updateAppsTopbarBadge(0);
+        return;
+    }
+
+    const vehicleMap = { motorcycle:'🛵 دراجة نارية', car:'🚗 سيارة', tuktuk:'🛺 توك توك', bicycle:'🚲 دراجة هوائية' };
+
+    const apps = Object.entries(data)
+        .map(([k, v]) => v && typeof v === 'object' ? { ...v, _key: k } : null)
+        .filter(a => a && a.status === 'pending')
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    _updateAppsTopbarBadge(apps.length);
+
+    if (!section || !grid) return;
+    if (!apps.length) { section.style.display = 'none'; return; }
+
+    section.style.display = 'block';
+
+    const pill = document.querySelector('[data-driver-filter="pending"]');
+    if (pill) pill.textContent = '🆕 قيد المراجعة (' + apps.length + ')';
+
+    grid.innerHTML = apps.map(a => {
+        const safeFullname = (a.fullname || '').replace(/'/g, "\'");
+        const safePhone    = (a.phone    || '').replace(/'/g, "\'");
+        const safeVehicle  = (a.vehicleType || '').replace(/'/g, "\'");
+        const dateStr = a.createdAt
+            ? new Date(a.createdAt).toLocaleDateString('ar-LB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+            : '';
+        return '<div style="background:var(--surface2);border:1.5px solid rgba(255,92,0,0.3);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;direction:rtl;">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+                '<div style="display:flex;align-items:center;gap:10px;">' +
+                    '<div style="width:40px;height:40px;border-radius:50%;background:rgba(255,92,0,0.15);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">🛵</div>' +
+                    '<div>' +
+                        '<div style="font-weight:800;color:var(--white);font-size:0.92rem;">' + (a.fullname || '—') + '</div>' +
+                        '<div style="font-size:0.72rem;color:var(--gray);font-family:var(--mono);margin-top:2px;" dir="ltr">' + (a.phone ? formatPhone(a.phone) : '—') + ' · ' + (vehicleMap[a.vehicleType] || a.vehicleType || '—') + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' +
+                    (a.idImage      ? '<a href="' + a.idImage + '" target="_blank" style="font-size:0.72rem;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:4px 10px;color:#60a5fa;text-decoration:none;">🪪 الهوية</a>' : '') +
+                    (a.licenseImage ? '<a href="' + a.licenseImage + '" target="_blank" style="font-size:0.72rem;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:4px 10px;color:#60a5fa;text-decoration:none;">🚘 الرخصة</a>' : '') +
+                    '<button onclick="rejectDriverApp(\'' + a._key + '\')" style="font-size:0.72rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:5px 12px;color:#f87171;cursor:pointer;">❌ رفض</button>' +
+                    '<button onclick="approveDriverApp(\'' + a._key + '\',\'' + safeFullname + '\',\'' + safePhone + '\',\'' + safeVehicle + '\')" style="font-size:0.72rem;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);border-radius:8px;padding:5px 12px;color:#4ade80;cursor:pointer;font-weight:800;">✅ قبول وإنشاء حساب</button>' +
+                '</div>' +
+            '</div>' +
+            (dateStr ? '<div style="font-size:0.67rem;color:var(--gray);margin-top:2px;">' + dateStr + '</div>' : '') +
+        '</div>';
+    }).join('');
+}
+
+function loadDriverApplications() {
+    if (_driverAppsSSE) return;   // already connected
+
+    let _cache = {};
+
+    function _connect() {
+        if (_driverAppsSSE) { try { _driverAppsSSE.close(); } catch(_) {} }
+        _driverAppsSSE = new EventSource(`${RTDB}/driverApplications.json?accept=text/event-stream`);
+
+        _driverAppsSSE.addEventListener('put', e => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.path === '/') {
+                    _cache = msg.data && typeof msg.data === 'object' ? msg.data : {};
+                } else {
+                    const key = msg.path.replace(/^\//, '');
+                    if (msg.data === null) delete _cache[key];
+                    else _cache[key] = typeof msg.data === 'object' ? { ..._cache[key], ...msg.data } : msg.data;
+                }
+                _renderDriverApplications(_cache);
+            } catch(err) { console.error('[Delivo] driverApps SSE parse error', err); }
+        });
+
+        _driverAppsSSE.addEventListener('patch', e => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.data && typeof msg.data === 'object') {
+                    Object.entries(msg.data).forEach(([k, v]) => {
+                        if (v === null) delete _cache[k];
+                        else _cache[k] = { ..._cache[k], ...v };
+                    });
+                }
+                _renderDriverApplications(_cache);
+            } catch(err) {}
+        });
+
+        _driverAppsSSE.onerror = () => {
+            _driverAppsSSE.close();
+            _driverAppsSSE = null;
+            setTimeout(_connect, 5000);
+        };
+    }
+
+    // Fetch initial snapshot first, then open SSE stream
+    fbGet('driverApplications').then(data => {
+        _cache = data && typeof data === 'object' ? data : {};
+        _renderDriverApplications(_cache);
+        _connect();
+    }).catch(() => { _connect(); });
+}
+
+
+async function rejectDriverApp(key) {
+    if (!confirm('رفض هذا الطلب؟')) return;
+    await fbSet(`driverApplications/${key}/status`, 'rejected');
+    toast('🗑 تم رفض الطلب');
+}
+
+function _showApproveDriverModal(fullname) {
+    return new Promise(resolve => {
+        const existing = document.getElementById('approve-driver-modal');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'approve-driver-modal';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+
+        const defaultUser = fullname.toLowerCase().replace(/\s+/g, '.');
+        overlay.innerHTML =
+            '<div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;width:100%;max-width:400px;font-family:var(--font);direction:rtl;">' +
+                '<div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">' +
+                    '<div style="width:44px;height:44px;border-radius:50%;background:rgba(34,197,94,0.15);border:1.5px solid rgba(34,197,94,0.35);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">🛵</div>' +
+                    '<div>' +
+                        '<div style="font-weight:900;color:var(--white);font-size:1rem;">قبول السائق</div>' +
+                        '<div style="font-size:0.75rem;color:var(--gray);margin-top:2px;">إنشاء حساب لـ <strong style="color:var(--orange);">' + fullname + '</strong></div>' +
+                    '</div>' +
+                '</div>' +
+
+                '<div style="margin-bottom:14px;">' +
+                    '<label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:6px;">اسم المستخدم</label>' +
+                    '<input id="appdv-username" type="text" value="' + defaultUser + '" dir="ltr" maxlength="30" autocapitalize="none" ' +
+                        'style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--white);font-family:var(--mono);font-size:0.88rem;outline:none;box-sizing:border-box;" ' +
+                        'onfocus="this.style.borderColor=\'var(--orange)\'" onblur="this.style.borderColor=\'var(--border)\'">' +
+                    '<div style="font-size:0.65rem;color:var(--gray);margin-top:4px;">أحرف إنجليزية، أرقام، نقطة أو _ فقط</div>' +
+                '</div>' +
+
+                '<div style="margin-bottom:22px;">' +
+                    '<label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:6px;">كلمة المرور</label>' +
+                    '<input id="appdv-password" type="text" placeholder="8 أحرف على الأقل" dir="ltr" autocomplete="off" style="-webkit-text-security:disc;" ' +
+                        'style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--white);font-family:var(--mono);font-size:0.88rem;outline:none;box-sizing:border-box;" ' +
+                        'onfocus="this.style.borderColor=\'var(--orange)\'" onblur="this.style.borderColor=\'var(--border)\'">' +
+                '</div>' +
+
+                '<div id="appdv-error" style="display:none;font-size:0.75rem;color:var(--red);margin-bottom:12px;padding:8px 12px;background:rgba(239,68,68,0.08);border-radius:8px;border:1px solid rgba(239,68,68,0.2);"></div>' +
+
+                '<div style="display:flex;gap:10px;">' +
+                    '<button id="appdv-cancel" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:11px;color:var(--gray);font-family:var(--font);font-size:0.85rem;cursor:pointer;">إلغاء</button>' +
+                    '<button id="appdv-confirm" style="flex:2;background:rgba(34,197,94,0.9);border:none;border-radius:10px;padding:11px;color:#fff;font-family:var(--font);font-size:0.88rem;font-weight:800;cursor:pointer;">✅ إنشاء الحساب</button>' +
+                '</div>' +
+            '</div>';
+
+        document.body.appendChild(overlay);
+        document.getElementById('appdv-username').select();
+
+        function _close(result) {
+            overlay.remove();
+            resolve(result);
+        }
+
+        document.getElementById('appdv-cancel').onclick = () => _close(null);
+        overlay.addEventListener('click', e => { if (e.target === overlay) _close(null); });
+
+        document.getElementById('appdv-confirm').onclick = () => {
+            const username = (document.getElementById('appdv-username').value || '').trim().toLowerCase();
+            const password =  document.getElementById('appdv-password').value;
+            const errEl   =  document.getElementById('appdv-error');
+            if (!/^[a-z0-9._]{3,30}$/.test(username)) {
+                errEl.textContent = 'اسم المستخدم: 3-30 حرف إنجليزي، أرقام، نقطة أو _ فقط';
+                errEl.style.display = 'block'; return;
+            }
+            if (!password || password.length < 8) {
+                errEl.textContent = 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+                errEl.style.display = 'block'; return;
+            }
+            _close({ username, password });
+        };
+
+        // Allow Enter to confirm
+        overlay.addEventListener('keydown', e => {
+            if (e.key === 'Enter') document.getElementById('appdv-confirm').click();
+            if (e.key === 'Escape') _close(null);
+        });
+    });
+}
+
+async function approveDriverApp(key, fullname, phone, vehicle) {
+    // Show styled modal instead of browser prompt
+    const result = await _showApproveDriverModal(fullname);
+    if (!result) return;
+    const { username, password } = result;
+
+    try {
+        // Get application data for address/docs
+        const app = await fbGet(`driverApplications/${key}`);
+        await fbPush('drivers', {
+            owner          : fullname,
+            fullname       : fullname,
+            username       : username.trim().toLowerCase(),
+            password       : password,
+            phone          : phone,
+            vehicleType    : vehicle,
+            address        : (app && app.address) ? app.address : null,
+            idImage        : (app && app.idImage) ? app.idImage : null,
+            licenseImage   : (app && app.licenseImage) ? app.licenseImage : null,
+            status         : 'offline',
+            active         : true,
+            pendingApproval: false,
+            createdAt      : Date.now(),
+            fromApplication: key,
+        });
+        // Mark application as approved — non-blocking, don't let this failure hide success
+        fbUpdate(`driverApplications/${key}`, { status: 'approved' }).catch(e => console.warn('[Delivo] Could not mark app approved:', e));
+        toast(`✅ تم إنشاء حساب السائق "${fullname}" بنجاح`);
+        renderDrivers();
+    } catch(e) { console.error('[Delivo] approveDriverApp error:', e); alert('حدث خطأ: ' + e.message); }
+}
 
 function renderDrivers() {
     const grid    = document.getElementById('drivers-grid');
