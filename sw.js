@@ -44,7 +44,7 @@ const PRECACHE = [
     './scripts/presence.js',
     './assets/splash-logo.webp',
     './assets/logo.png',
-    './assets/hero_temple_bg.jpg',
+
 ];
 
 /* ══════════════════════════════════════════════════════════

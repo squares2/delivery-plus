@@ -953,7 +953,11 @@ input, select, textarea { font-family: var(--font); }
 }
 
 /* ─── DRIVERS PANEL ─────────────────────────────────────────── */
-.drivers-grid { padding: var(--pad-md) var(--pad-lg); display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr)); gap: var(--gap-md); overflow-y: auto; }
+.drivers-grid { padding: var(--pad-md) var(--pad-lg); display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr)); gap: var(--gap-md); overflow-y: auto; align-content: start; }
+.drivers-grid::-webkit-scrollbar { width: 5px; }
+.drivers-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+#driver-applications-grid::-webkit-scrollbar { width: 4px; }
+#driver-applications-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .driver-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-lg); padding: var(--pad-md);
@@ -1020,6 +1024,174 @@ input, select, textarea { font-family: var(--font); }
     border-radius: 50px; padding: 3px 10px;
 }
 .dc-address-pill:hover { border-color: var(--orange); color: var(--orange); }
+
+/* ── Driver Application Cards (dapp) ─────────────────────── */
+.dapp-card {
+    background: var(--surface2);
+    border: 1.5px solid rgba(255,92,0,0.28);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    direction: rtl;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.dapp-card:hover { border-color: rgba(255,92,0,0.55); box-shadow: 0 4px 20px rgba(255,92,0,0.07); }
+.dapp-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dapp-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(255,92,0,0.12); border: 1.5px solid rgba(255,92,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+}
+.dapp-info { flex: 1; min-width: 0; }
+.dapp-name { font-weight: 900; color: var(--white); font-size: 0.85rem; }
+.dapp-meta { font-size: 0.68rem; color: var(--gray); font-family: var(--mono); margin-top: 1px; }
+.dapp-time { font-size: 0.62rem; color: var(--gray); margin-top: 1px; }
+.dapp-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.dapp-pill {
+    font-size: 0.62rem; font-weight: 700;
+    background: var(--surface3); border: 1px solid var(--border);
+    border-radius: 50px; padding: 2px 7px; color: var(--gray-light);
+}
+.dapp-pill--vehicle { background: rgba(255,92,0,0.1); border-color: rgba(255,92,0,0.3); color: var(--orange); }
+.dapp-docs { display: flex; gap: 6px; flex-wrap: wrap; }
+.dapp-doc-link {
+    font-size: 0.67rem; font-weight: 700;
+    background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 7px; padding: 3px 9px; color: #60a5fa;
+    text-decoration: none; cursor: pointer; transition: background 0.15s;
+    display: inline-flex; align-items: center; gap: 4px;
+}
+.dapp-doc-link:hover { background: rgba(59,130,246,0.2); }
+.dapp-doc-missing {
+    font-size: 0.62rem; color: var(--gray);
+    background: var(--surface3); border: 1px solid var(--border);
+    border-radius: 7px; padding: 3px 9px;
+    display: inline-flex; align-items: center; gap: 4px;
+}
+.dapp-actions { display: flex; gap: 6px; }
+.dapp-btn {
+    flex: 1; min-width: 80px; padding: 6px 10px; border-radius: 8px;
+    font-family: var(--font); font-size: 0.76rem; font-weight: 800;
+    border: 1.5px solid; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.dapp-btn--reject {
+    background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.3); color: #f87171;
+}
+.dapp-btn--reject:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.55); }
+.dapp-btn--approve {
+    background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.4); color: #4ade80;
+    flex: 2;
+}
+.dapp-btn--approve:hover { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.7); }
+.dapp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.dapp-detail-btn {
+    background: none; border: none; color: var(--gray);
+    font-size: 0.7rem; cursor: pointer; padding: 3px 6px; border-radius: 6px;
+    font-family: var(--font); transition: color 0.15s;
+}
+.dapp-detail-btn:hover { color: var(--white); }
+
+/* ── Driver Approval Modal (dam) ─────────────────────────── */
+.dam-overlay {
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.78); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; animation: damFadeIn 0.2s ease;
+}
+@keyframes damFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.dam-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 22px; padding: 0; width: 100%; max-width: 460px;
+    font-family: var(--font); direction: rtl; overflow: hidden;
+    animation: damSlideUp 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    max-height: 92vh; overflow-y: auto;
+}
+@keyframes damSlideUp { from { opacity: 0; transform: translateY(30px) scale(0.97); } to { opacity: 1; transform: none; } }
+.dam-header {
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, rgba(34,197,94,0.06), transparent);
+}
+.dam-header-icon {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: rgba(34,197,94,0.13); border: 1.5px solid rgba(34,197,94,0.35);
+    display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;
+}
+.dam-header-title { font-weight: 900; color: var(--white); font-size: 1.05rem; }
+.dam-header-sub { font-size: 0.76rem; color: var(--gray); margin-top: 3px; }
+.dam-header-sub strong { color: var(--orange); }
+.dam-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 18px; }
+.dam-applicant-summary {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.dam-summary-row { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; }
+.dam-summary-label { color: var(--gray); min-width: 80px; font-size: 0.72rem; font-weight: 700; }
+.dam-summary-val { color: var(--white); font-weight: 700; }
+.dam-summary-val--mono { font-family: var(--mono); }
+.dam-docs-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.dam-section-label {
+    font-size: 0.7rem; font-weight: 800; color: var(--gray);
+    letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 10px;
+}
+.dam-field { display: flex; flex-direction: column; gap: 6px; }
+.dam-field label { font-size: 0.72rem; font-weight: 800; color: var(--gray); }
+.dam-field-hint { font-size: 0.64rem; color: var(--gray); margin-top: 3px; }
+.dam-input {
+    width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: 11px; padding: 11px 14px; color: var(--white);
+    font-family: var(--mono); font-size: 0.9rem; outline: none;
+    box-sizing: border-box; transition: border-color 0.15s;
+}
+.dam-input:focus { border-color: var(--orange); }
+.dam-input-wrap { position: relative; }
+.dam-input-wrap .dam-input { padding-left: 40px; }
+.dam-pwd-toggle {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--gray); cursor: pointer;
+    padding: 4px; display: flex; align-items: center; transition: color 0.15s;
+}
+.dam-pwd-toggle:hover { color: var(--white); }
+.dam-error {
+    font-size: 0.76rem; color: #f87171; padding: 9px 13px;
+    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 9px; display: none;
+}
+.dam-footer {
+    padding: 18px 24px 22px; border-top: 1px solid var(--border);
+    display: flex; gap: 10px;
+}
+.dam-footer-btn {
+    padding: 12px 18px; border-radius: 12px; font-family: var(--font);
+    font-size: 0.88rem; font-weight: 800; cursor: pointer; border: 1.5px solid;
+    transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.dam-footer-btn--cancel {
+    flex: 1; background: var(--surface2); border-color: var(--border); color: var(--gray);
+}
+.dam-footer-btn--cancel:hover { border-color: var(--gray); color: var(--white); }
+.dam-footer-btn--confirm {
+    flex: 2.5; background: rgba(34,197,94,0.88); border-color: rgba(34,197,94,0.7); color: #fff;
+}
+.dam-footer-btn--confirm:hover { background: rgba(34,197,94,1); }
+.dam-footer-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.dam-spinner {
+    width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+.dam-success-banner {
+    background: rgba(34,197,94,0.1); border: 1.5px solid rgba(34,197,94,0.35);
+    border-radius: 13px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 0.82rem; color: #4ade80;
+    margin-bottom: 4px;
+}
 
 /* Document thumbnails */
 .dc-docs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
@@ -1815,14 +1987,18 @@ input, select, textarea { font-family: var(--font); }
                     <button class="filter-pill" data-driver-filter="offline">⚫ غير نشط</button>
                     <button class="filter-pill" data-driver-filter="pending" style="color:var(--orange);">🆕 قيد المراجعة</button>
                 </div>
-                <div id="driver-applications-section" style="display:none;padding:12px 16px 0;">
-                    <div style="font-size:0.72rem;font-weight:800;color:var(--orange);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">
-                        📋 طلبات انضمام سائقين جدد
-                    </div>
-                    <div id="driver-applications-grid" style="display:flex;flex-direction:column;gap:10px;"></div>
-                    <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+                <div id="driver-applications-section" style="display:none;padding:8px 16px 0;flex-shrink:0;">
+                    <details id="dapp-details">
+                        <summary style="display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;margin-bottom:8px;user-select:none;padding:4px 0;">
+                            <span style="font-size:0.7rem;font-weight:800;color:var(--orange);letter-spacing:0.06em;text-transform:uppercase;">📋 طلبات انضمام</span>
+                            <span id="dapp-section-count" style="font-size:0.65rem;background:rgba(255,92,0,0.15);color:var(--orange);border:1px solid rgba(255,92,0,0.3);border-radius:50px;padding:1px 8px;font-weight:800;"></span>
+                            <span style="font-size:0.63rem;color:var(--gray);margin-right:auto;">اضغط لعرض / طي</span>
+                        </summary>
+                        <div id="driver-applications-grid" style="display:flex;flex-direction:column;gap:7px;max-height:420px;overflow-y:auto;padding-left:2px;"></div>
+                    </details>
+                    <div style="height:1px;background:var(--border);margin:8px 0 0;"></div>
                 </div>
-                <div class="drivers-grid" id="drivers-grid"></div>
+                <div class="drivers-grid" id="drivers-grid" style="flex:1;overflow-y:auto;min-height:0;"></div>
             </div>
 
             <!-- CUSTOMERS panel -->
@@ -2195,6 +2371,44 @@ input, select, textarea { font-family: var(--font); }
         </div>
 
         <input type="hidden" id="driver-edit-key">
+
+        <!-- Documents -->
+        <div class="modal-field" id="driver-docs-section" style="display:none;">
+            <label style="margin-bottom:8px;display:block;">الوثائق</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <!-- ID -->
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                    <div id="driver-doc-id-preview" style="height:80px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:0.72rem;color:var(--gray);cursor:pointer;position:relative;">
+                        <span id="driver-doc-id-empty">🪪 لا توجد هوية</span>
+                        <img id="driver-doc-id-img" src="" alt="ID" style="display:none;width:100%;height:100%;object-fit:cover;">
+                    </div>
+                    <div style="display:flex;gap:5px;">
+                        <label style="flex:1;cursor:pointer;">
+                            <input type="file" id="driver-doc-id-file" accept="image/*" style="display:none;">
+                            <span style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:0.68rem;font-weight:700;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;border-radius:7px;padding:5px 0;cursor:pointer;">📤 تحديث</span>
+                        </label>
+                        <button type="button" id="driver-doc-id-remove" style="font-size:0.68rem;font-weight:700;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:#f87171;border-radius:7px;padding:5px 8px;cursor:pointer;">🗑</button>
+                    </div>
+                    <span style="font-size:0.62rem;color:var(--gray);text-align:center;">🪪 صورة الهوية</span>
+                </div>
+                <!-- License -->
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                    <div id="driver-doc-lic-preview" style="height:80px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:0.72rem;color:var(--gray);cursor:pointer;position:relative;">
+                        <span id="driver-doc-lic-empty">🚘 لا توجد رخصة</span>
+                        <img id="driver-doc-lic-img" src="" alt="License" style="display:none;width:100%;height:100%;object-fit:cover;">
+                    </div>
+                    <div style="display:flex;gap:5px;">
+                        <label style="flex:1;cursor:pointer;">
+                            <input type="file" id="driver-doc-lic-file" accept="image/*" style="display:none;">
+                            <span style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:0.68rem;font-weight:700;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;border-radius:7px;padding:5px 0;cursor:pointer;">📤 تحديث</span>
+                        </label>
+                        <button type="button" id="driver-doc-lic-remove" style="font-size:0.68rem;font-weight:700;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:#f87171;border-radius:7px;padding:5px 8px;cursor:pointer;">🗑</button>
+                    </div>
+                    <span style="font-size:0.62rem;color:var(--gray);text-align:center;">🚘 رخصة القيادة</span>
+                </div>
+            </div>
+        </div>
+
         <div class="modal-actions">
             <button class="modal-btn" id="driver-edit-cancel">إلغاء</button>
             <button class="modal-btn primary" id="driver-edit-save">💾 حفظ التغييرات</button>
@@ -2287,32 +2501,39 @@ const FS_ADMIN_EMAIL = 'admin@delivivo.app';  // ← your Firebase Auth email
 const FS_ADMIN_PASS  = 'delivo2025';           // ← that user's password
 
 // ── Firebase Auth token (for Firestore reads) ─────────────────
-let _fsToken       = null;
-let _fsTokenExpiry = 0;
+let _fsToken        = null;
+let _fsTokenExpiry  = 0;
+let _fsTokenPromise = null;   // singleton — prevents parallel sign-in floods
 
 async function getFsToken() {
-    // Re-use cached token if still valid (refresh 60s before expiry)
+    // Return cached token if still valid
     if (_fsToken && Date.now() < _fsTokenExpiry) return _fsToken;
-    // Sign in with the admin panel's Firebase Auth account
-    console.log('[Auth] Signing into Firebase Auth as:', FS_ADMIN_EMAIL);
-    const r = await fetch(FB_AUTH_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            email:             FS_ADMIN_EMAIL,
-            password:          FS_ADMIN_PASS,
-            returnSecureToken: true,
-        }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-        console.error('[Auth] Firebase sign-in failed:', d?.error?.message, '| email:', FS_ADMIN_EMAIL);
-        throw new Error('Firebase Auth: ' + (d?.error?.message || r.status));
-    }
-    console.log('[Auth] ✅ Got Firestore token, expires in', d.expiresIn, 's');
-    _fsToken       = d.idToken;
-    _fsTokenExpiry = Date.now() + (parseInt(d.expiresIn) - 60) * 1000;
-    return _fsToken;
+    // If a sign-in is already in flight, wait for it instead of firing another
+    if (_fsTokenPromise) return _fsTokenPromise;
+
+    _fsTokenPromise = (async () => {
+        console.log('[Auth] Signing into Firebase Auth as:', FS_ADMIN_EMAIL);
+        const r = await fetch(FB_AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email:             FS_ADMIN_EMAIL,
+                password:          FS_ADMIN_PASS,
+                returnSecureToken: true,
+            }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+            console.error('[Auth] Firebase sign-in failed:', d?.error?.message, '| email:', FS_ADMIN_EMAIL);
+            throw new Error('Firebase Auth: ' + (d?.error?.message || r.status));
+        }
+        console.log('[Auth] ✅ Got Firestore token, expires in', d.expiresIn, 's');
+        _fsToken       = d.idToken;
+        _fsTokenExpiry = Date.now() + (parseInt(d.expiresIn) - 60) * 1000;
+        return _fsToken;
+    })().finally(() => { _fsTokenPromise = null; });
+
+    return _fsTokenPromise;
 }
 
 // ── Admin accounts stored in Firebase at /adminUsers ──────────
@@ -2574,55 +2795,68 @@ async function renderAdminFilterBar() {
     });
 }
 
-async function fbGet(path) {
-    const r = await fetch(`${RTDB}/${path}.json`);
-    if (!r.ok) throw new Error(`RTDB ${r.status}: ${path}`);
-    return r.json();
-}
 async function _rtdbAuthParam() {
-    // RTDB rules currently use timestamp expiry (open) — no auth required
-    // Try to get token anyway for when rules are tightened later
     try {
-        const t = await Promise.race([
-            getFsToken(),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
-        ]);
+        const t = await getFsToken();
         return t ? `?auth=${t}` : '';
     } catch(e) {
-        console.warn('[Delivo] RTDB using no-auth (rules are open):', e.message);
+        console.warn('[Delivo] RTDB proceeding without auth token:', e.message);
         return '';
     }
 }
+function _rtdbCtrl(ms = 20000) {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), ms);
+    return { signal: c.signal, clear: () => clearTimeout(t) };
+}
+async function fbGet(path) {
+    const auth = await _rtdbAuthParam();
+    const { signal, clear } = _rtdbCtrl();
+    try {
+        const r = await fetch(`${RTDB}/${path}.json${auth}`, { signal });
+        if (!r.ok) throw new Error(`RTDB ${r.status}: ${path}`);
+        return r.json();
+    } finally { clear(); }
+}
 async function fbSet(path, data) {
     const auth = await _rtdbAuthParam();
-    const r = await fetch(`${RTDB}/${path}.json${auth}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-    if (!r.ok) throw new Error(`RTDB PUT ${r.status}: ${path}`);
-    return r.json();
+    const { signal, clear } = _rtdbCtrl();
+    try {
+        const r = await fetch(`${RTDB}/${path}.json${auth}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data), signal,
+        });
+        if (!r.ok) throw new Error(`RTDB PUT ${r.status}: ${path}`);
+        return r.json();
+    } finally { clear(); }
 }
 async function fbUpdate(path, data) {
     const auth = await _rtdbAuthParam();
-    const r = await fetch(`${RTDB}/${path}.json${auth}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-    if (!r.ok) throw new Error(`RTDB PATCH ${r.status}: ${path}`);
-    return r.json();
+    const { signal, clear } = _rtdbCtrl();
+    try {
+        const r = await fetch(`${RTDB}/${path}.json${auth}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data), signal,
+        });
+        if (!r.ok) throw new Error(`RTDB PATCH ${r.status}: ${path}`);
+        return r.json();
+    } finally { clear(); }
 }
 async function fbPush(path, data) {
     const auth = await _rtdbAuthParam();
-    const r = await fetch(`${RTDB}/${path}.json${auth}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-    if (!r.ok) {
-        let msg = `RTDB POST ${r.status}: ${path}`;
-        try { const err = await r.json(); msg += ' — ' + JSON.stringify(err); } catch(_) {}
-        throw new Error(msg);
-    }
-    return r.json();
+    const { signal, clear } = _rtdbCtrl();
+    try {
+        const r = await fetch(`${RTDB}/${path}.json${auth}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data), signal,
+        });
+        if (!r.ok) {
+            let msg = `RTDB POST ${r.status}: ${path}`;
+            try { const err = await r.json(); msg += ' — ' + JSON.stringify(err); } catch(_) {}
+            throw new Error(msg);
+        }
+        return r.json();
+    } finally { clear(); }
 }
 
 // ── Firestore helpers ─────────────────────────────────────────
@@ -3280,7 +3514,7 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll] = await Promise.all([
+        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, _cvPrefetch] = await Promise.all([
             fbGet('requests'),
             fbGet('drivers'),
             fsGetCollection('users'),
@@ -3289,6 +3523,7 @@ async function loadAllData() {
             fbGet('adminUsers').catch(()  => null),
             fbGet('blacklist').catch(()   => null),
             fbGet('storeStatus').catch(() => null),
+            fbGet('companydatas').then(d => { companyVars = d || {}; }).catch(() => { companyVars = {}; }),
         ]);
 
         allOrders    = orders    || {};
@@ -3348,8 +3583,12 @@ async function loadAllData() {
         updateNavBadge();
 
     } catch(e) {
-        console.error('[Admin] loadAllData:', e);
-        toast('خطأ في تحميل البيانات', true);
+        if (e.name === 'AbortError') {
+            console.warn('[Admin] loadAllData: request timed out, retrying with cached data');
+        } else {
+            console.error('[Admin] loadAllData:', e);
+            toast('خطأ في تحميل البيانات', true);
+        }
     }
 }
 
@@ -4630,7 +4869,8 @@ const VEHICLE_LABELS = {
 
 /* ── Driver Applications — SSE realtime listener ──────────────
    Uses Firebase SSE (same pattern as storeStatus) — no SDK needed  */
-let _driverAppsSSE = null;
+let _driverAppsSSE   = null;
+let _driverAppsCache = {};   // module-level so rejectDriverApp / approveDriverApp can update it immediately
 
 function _updateAppsTopbarBadge(count) {
     const chip    = document.getElementById('apps-topbar-chip');
@@ -4671,30 +4911,42 @@ function _renderDriverApplications(data) {
     const pill = document.querySelector('[data-driver-filter="pending"]');
     if (pill) pill.textContent = '🆕 قيد المراجعة (' + apps.length + ')';
 
+    const countBadge = document.getElementById('dapp-section-count');
+    if (countBadge) countBadge.textContent = apps.length + ' طلب';
+
     grid.innerHTML = apps.map(a => {
-        const safeFullname = (a.fullname || '').replace(/'/g, "\'");
-        const safePhone    = (a.phone    || '').replace(/'/g, "\'");
-        const safeVehicle  = (a.vehicleType || '').replace(/'/g, "\'");
-        const dateStr = a.createdAt
+        const key       = a._key;
+        const name      = a.fullname || '—';
+        const phone     = a.phone ? formatPhone(a.phone) : '—';
+        const vehicle   = vehicleMap[a.vehicleType] || a.vehicleType || '—';
+        const hasId     = !!a.idImage;
+        const hasLic    = !!a.licenseImage;
+        const hasAddr   = !!(a.address && a.address.lat);
+        const dateStr   = a.createdAt
             ? new Date(a.createdAt).toLocaleDateString('ar-LB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
             : '';
-        return '<div style="background:var(--surface2);border:1.5px solid rgba(255,92,0,0.3);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;direction:rtl;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
-                '<div style="display:flex;align-items:center;gap:10px;">' +
-                    '<div style="width:40px;height:40px;border-radius:50%;background:rgba(255,92,0,0.15);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">🛵</div>' +
-                    '<div>' +
-                        '<div style="font-weight:800;color:var(--white);font-size:0.92rem;">' + (a.fullname || '—') + '</div>' +
-                        '<div style="font-size:0.72rem;color:var(--gray);font-family:var(--mono);margin-top:2px;" dir="ltr">' + (a.phone ? formatPhone(a.phone) : '—') + ' · ' + (vehicleMap[a.vehicleType] || a.vehicleType || '—') + '</div>' +
+
+        return '<div class="dapp-card" id="dapp-' + key + '">' +
+            '<div class="dapp-top">' +
+                '<div class="dapp-avatar">🛵</div>' +
+                '<div class="dapp-info">' +
+                    '<div class="dapp-name">' + name + '</div>' +
+                    '<div class="dapp-meta" dir="ltr">' + phone + '</div>' +
+                    '<div class="dapp-pills">' +
+                        '<span class="dapp-pill dapp-pill--vehicle">' + vehicle + '</span>' +
+                        (hasAddr ? '<span class="dapp-pill">📍 موقع محدد</span>' : '') +
                     '</div>' +
                 '</div>' +
-                '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' +
-                    (a.idImage      ? '<a href="' + a.idImage + '" target="_blank" style="font-size:0.72rem;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:4px 10px;color:#60a5fa;text-decoration:none;">🪪 الهوية</a>' : '') +
-                    (a.licenseImage ? '<a href="' + a.licenseImage + '" target="_blank" style="font-size:0.72rem;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:4px 10px;color:#60a5fa;text-decoration:none;">🚘 الرخصة</a>' : '') +
-                    '<button onclick="rejectDriverApp(\'' + a._key + '\')" style="font-size:0.72rem;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:5px 12px;color:#f87171;cursor:pointer;">❌ رفض</button>' +
-                    '<button onclick="approveDriverApp(\'' + a._key + '\',\'' + safeFullname + '\',\'' + safePhone + '\',\'' + safeVehicle + '\')" style="font-size:0.72rem;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);border-radius:8px;padding:5px 12px;color:#4ade80;cursor:pointer;font-weight:800;">✅ قبول وإنشاء حساب</button>' +
-                '</div>' +
+                (dateStr ? '<div style="font-size:0.64rem;color:var(--gray);white-space:nowrap;align-self:flex-start;">' + dateStr + '</div>' : '') +
             '</div>' +
-            (dateStr ? '<div style="font-size:0.67rem;color:var(--gray);margin-top:2px;">' + dateStr + '</div>' : '') +
+            '<div class="dapp-docs">' +
+                (hasId  ? '<a class="dapp-doc-link" href="' + a.idImage      + '" target="_blank" rel="noopener">🪪 صورة الهوية</a>'   : '<span class="dapp-doc-missing">🪪 لا توجد هوية</span>') +
+                (hasLic ? '<a class="dapp-doc-link" href="' + a.licenseImage + '" target="_blank" rel="noopener">🚘 رخصة القيادة</a>' : '<span class="dapp-doc-missing">🚘 لا توجد رخصة</span>') +
+            '</div>' +
+            '<div class="dapp-actions">' +
+                '<button class="dapp-btn dapp-btn--reject"  onclick="rejectDriverApp(\'' + key + '\', this)">❌ رفض</button>' +
+                '<button class="dapp-btn dapp-btn--approve" onclick="approveDriverApp(\'' + key + '\', this)">✅ قبول وإنشاء حساب</button>' +
+            '</div>' +
         '</div>';
     }).join('');
 }
@@ -4702,23 +4954,26 @@ function _renderDriverApplications(data) {
 function loadDriverApplications() {
     if (_driverAppsSSE) return;   // already connected
 
-    let _cache = {};
+    let _cache = _driverAppsCache;   // alias to module-level so external functions can update it
 
-    function _connect() {
+    async function _connect() {
         if (_driverAppsSSE) { try { _driverAppsSSE.close(); } catch(_) {} }
-        _driverAppsSSE = new EventSource(`${RTDB}/driverApplications.json?accept=text/event-stream`);
+        const auth = await _rtdbAuthParam();
+        _driverAppsSSE = new EventSource(`${RTDB}/driverApplications.json?accept=text/event-stream${auth ? '&auth=' + auth.slice(6) : ''}`);
 
         _driverAppsSSE.addEventListener('put', e => {
             try {
                 const msg = JSON.parse(e.data);
                 if (msg.path === '/') {
-                    _cache = msg.data && typeof msg.data === 'object' ? msg.data : {};
+                    _driverAppsCache = msg.data && typeof msg.data === 'object' ? msg.data : {};
+                    _cache = _driverAppsCache;
                 } else {
                     const key = msg.path.replace(/^\//, '');
-                    if (msg.data === null) delete _cache[key];
-                    else _cache[key] = typeof msg.data === 'object' ? { ..._cache[key], ...msg.data } : msg.data;
+                    if (msg.data === null) delete _driverAppsCache[key];
+                    else _driverAppsCache[key] = typeof msg.data === 'object' ? { ..._driverAppsCache[key], ...msg.data } : msg.data;
+                    _cache = _driverAppsCache;
                 }
-                _renderDriverApplications(_cache);
+                _renderDriverApplications(_driverAppsCache);
             } catch(err) { console.error('[Delivo] driverApps SSE parse error', err); }
         });
 
@@ -4727,11 +4982,12 @@ function loadDriverApplications() {
                 const msg = JSON.parse(e.data);
                 if (msg.data && typeof msg.data === 'object') {
                     Object.entries(msg.data).forEach(([k, v]) => {
-                        if (v === null) delete _cache[k];
-                        else _cache[k] = { ..._cache[k], ...v };
+                        if (v === null) delete _driverAppsCache[k];
+                        else _driverAppsCache[k] = { ..._driverAppsCache[k], ...v };
                     });
+                    _cache = _driverAppsCache;
                 }
-                _renderDriverApplications(_cache);
+                _renderDriverApplications(_driverAppsCache);
             } catch(err) {}
         });
 
@@ -4744,126 +5000,380 @@ function loadDriverApplications() {
 
     // Fetch initial snapshot first, then open SSE stream
     fbGet('driverApplications').then(data => {
-        _cache = data && typeof data === 'object' ? data : {};
-        _renderDriverApplications(_cache);
+        _driverAppsCache = data && typeof data === 'object' ? data : {};
+        _cache = _driverAppsCache;
+        _renderDriverApplications(_driverAppsCache);
         _connect();
     }).catch(() => { _connect(); });
 }
 
 
-async function rejectDriverApp(key) {
-    if (!confirm('رفض هذا الطلب؟')) return;
-    await fbSet(`driverApplications/${key}/status`, 'rejected');
-    toast('🗑 تم رفض الطلب');
-}
+async function rejectDriverApp(key, btnEl) {
+    const card = document.getElementById('dapp-' + key);
+    const name = card?.querySelector('.dapp-name')?.textContent || 'هذا الطلب';
 
-function _showApproveDriverModal(fullname) {
-    return new Promise(resolve => {
-        const existing = document.getElementById('approve-driver-modal');
-        if (existing) existing.remove();
+    const confirmed = await showConfirm({
+        title: 'رفض الطلب',
+        msg: `هل تريد رفض طلب انضمام <b>${name}</b>؟<br><span style="color:var(--gray);font-size:0.82rem;">سيتم حذف الطلب نهائياً.</span>`,
+        type: 'danger',
+        icon: '❌',
+    });
+    if (!confirmed) return;
 
-        const overlay = document.createElement('div');
-        overlay.id = 'approve-driver-modal';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+    // ── Optimistic: remove from UI immediately, no waiting ────
+    delete _driverAppsCache[key];
+    _renderDriverApplications(_driverAppsCache);
+    if (card) {
+        card.style.transition = 'opacity 0.25s, transform 0.25s';
+        card.style.opacity    = '0';
+        card.style.transform  = 'scale(0.96)';
+        setTimeout(() => { if (card.parentNode) card.remove(); }, 280);
+    }
+    toast('🗑 تم رفض وحذف الطلب');
 
-        const defaultUser = fullname.toLowerCase().replace(/\s+/g, '.');
-        overlay.innerHTML =
-            '<div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;width:100%;max-width:400px;font-family:var(--font);direction:rtl;">' +
-                '<div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">' +
-                    '<div style="width:44px;height:44px;border-radius:50%;background:rgba(34,197,94,0.15);border:1.5px solid rgba(34,197,94,0.35);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">🛵</div>' +
-                    '<div>' +
-                        '<div style="font-weight:900;color:var(--white);font-size:1rem;">قبول السائق</div>' +
-                        '<div style="font-size:0.75rem;color:var(--gray);margin-top:2px;">إنشاء حساب لـ <strong style="color:var(--orange);">' + fullname + '</strong></div>' +
-                    '</div>' +
-                '</div>' +
-
-                '<div style="margin-bottom:14px;">' +
-                    '<label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:6px;">اسم المستخدم</label>' +
-                    '<input id="appdv-username" type="text" value="' + defaultUser + '" dir="ltr" maxlength="30" autocapitalize="none" ' +
-                        'style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--white);font-family:var(--mono);font-size:0.88rem;outline:none;box-sizing:border-box;" ' +
-                        'onfocus="this.style.borderColor=\'var(--orange)\'" onblur="this.style.borderColor=\'var(--border)\'">' +
-                    '<div style="font-size:0.65rem;color:var(--gray);margin-top:4px;">أحرف إنجليزية، أرقام، نقطة أو _ فقط</div>' +
-                '</div>' +
-
-                '<div style="margin-bottom:22px;">' +
-                    '<label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:6px;">كلمة المرور</label>' +
-                    '<input id="appdv-password" type="text" placeholder="8 أحرف على الأقل" dir="ltr" autocomplete="off" style="-webkit-text-security:disc;" ' +
-                        'style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--white);font-family:var(--mono);font-size:0.88rem;outline:none;box-sizing:border-box;" ' +
-                        'onfocus="this.style.borderColor=\'var(--orange)\'" onblur="this.style.borderColor=\'var(--border)\'">' +
-                '</div>' +
-
-                '<div id="appdv-error" style="display:none;font-size:0.75rem;color:var(--red);margin-bottom:12px;padding:8px 12px;background:rgba(239,68,68,0.08);border-radius:8px;border:1px solid rgba(239,68,68,0.2);"></div>' +
-
-                '<div style="display:flex;gap:10px;">' +
-                    '<button id="appdv-cancel" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:11px;color:var(--gray);font-family:var(--font);font-size:0.85rem;cursor:pointer;">إلغاء</button>' +
-                    '<button id="appdv-confirm" style="flex:2;background:rgba(34,197,94,0.9);border:none;border-radius:10px;padding:11px;color:#fff;font-family:var(--font);font-size:0.88rem;font-weight:800;cursor:pointer;">✅ إنشاء الحساب</button>' +
-                '</div>' +
-            '</div>';
-
-        document.body.appendChild(overlay);
-        document.getElementById('appdv-username').select();
-
-        function _close(result) {
-            overlay.remove();
-            resolve(result);
-        }
-
-        document.getElementById('appdv-cancel').onclick = () => _close(null);
-        overlay.addEventListener('click', e => { if (e.target === overlay) _close(null); });
-
-        document.getElementById('appdv-confirm').onclick = () => {
-            const username = (document.getElementById('appdv-username').value || '').trim().toLowerCase();
-            const password =  document.getElementById('appdv-password').value;
-            const errEl   =  document.getElementById('appdv-error');
-            if (!/^[a-z0-9._]{3,30}$/.test(username)) {
-                errEl.textContent = 'اسم المستخدم: 3-30 حرف إنجليزي، أرقام، نقطة أو _ فقط';
-                errEl.style.display = 'block'; return;
-            }
-            if (!password || password.length < 8) {
-                errEl.textContent = 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
-                errEl.style.display = 'block'; return;
-            }
-            _close({ username, password });
-        };
-
-        // Allow Enter to confirm
-        overlay.addEventListener('keydown', e => {
-            if (e.key === 'Enter') document.getElementById('appdv-confirm').click();
-            if (e.key === 'Escape') _close(null);
-        });
+    // ── Fire Firebase delete in background (don't block UI) ───
+    _rtdbDelete(`driverApplications/${key}`).catch(e => {
+        console.warn('[Delivo] reject background delete failed:', e.message);
+        // Fallback: mark as rejected so it won't show again
+        fbUpdate(`driverApplications/${key}`, { status: 'rejected' }).catch(() => {});
     });
 }
 
-async function approveDriverApp(key, fullname, phone, vehicle) {
-    // Show styled modal instead of browser prompt
-    const result = await _showApproveDriverModal(fullname);
+async function _storageUpload(file, pathNoExt) {
+    const ext    = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path   = `${pathNoExt}.${ext}`;
+    const bucket = 'deliveryonline-300f7.firebasestorage.app';
+    const token  = await getFsToken().catch(() => '');
+    const encPath = encodeURIComponent(path);
+    const ctrl   = new AbortController();
+    const tid    = setTimeout(() => ctrl.abort(), 20000);
+    try {
+        const r = await fetch(
+            `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encPath}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': file.type || 'application/octet-stream',
+                    ...(token ? { 'Authorization': `Firebase ${token}` } : {}),
+                },
+                body: file,
+                signal: ctrl.signal,
+            }
+        );
+        if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || r.status); }
+        // Build public download URL
+        return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encPath}?alt=media`;
+    } finally { clearTimeout(tid); }
+}
+
+
+async function _rtdbDelete(path) {
+    const auth = await _rtdbAuthParam();
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 8000);  // 8s timeout
+    try {
+        const r = await fetch(`${RTDB}/${path}.json${auth}`, {
+            method: 'DELETE',
+            signal: ctrl.signal,
+        });
+        if (!r.ok) throw new Error(`RTDB DELETE ${r.status}: ${path}`);
+    } finally {
+        clearTimeout(tid);
+    }
+}
+
+/* ── Approve Driver: full modal with applicant summary + account setup ── */
+async function approveDriverApp(key, btnEl) {
+    // Use cached application data (already loaded via SSE) — no network round trip
+    const app = _driverAppsCache[key] || {};
+
+    const vehicleMap = { motorcycle:'🛵 دراجة نارية', car:'🚗 سيارة', tuktuk:'🛺 توك توك', bicycle:'🚲 دراجة هوائية' };
+    const fullname   = app.fullname    || '';
+    const phone      = app.phone       ? formatPhone(app.phone) : '—';
+    const vehicle    = vehicleMap[app.vehicleType] || app.vehicleType || '—';
+    const hasAddr    = !!(app.address && app.address.lat);
+    const hasId      = !!app.idImage;
+    const hasLic     = !!app.licenseImage;
+
+    // Auto-suggest username from full name
+    const defaultUser = fullname.toLowerCase()
+        .replace(/\s+/g, '.')
+        .replace(/[^a-z0-9._]/g, '')
+        .replace(/\.+/g, '.')
+        .replace(/^\.|\.$/, '')
+        .slice(0, 25) || 'driver';
+
+    const result = await _showDriverApprovalModal({ fullname, phone, vehicle, hasAddr, hasId, hasLic, idImage: app.idImage, licenseImage: app.licenseImage, defaultUser });
     if (!result) return;
+
     const { username, password } = result;
 
+    // Disable the approve button on the card while we save
+    if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="dam-spinner"></span> جاري الإنشاء…'; }
+
     try {
-        // Get application data for address/docs
-        const app = await fbGet(`driverApplications/${key}`);
-        await fbPush('drivers', {
+        // ── Duplicate username check ──────────────────────────────
+        const usernameConflict = allDrivers.find(d => d && d.username === username);
+        if (usernameConflict) {
+            if (btnEl) { btnEl.disabled = false; btnEl.textContent = '✅ قبول وإنشاء حساب'; }
+            await _showDriverApprovalModal({ fullname, phone, vehicle, hasAddr, hasId, hasLic, idImage: app.idImage, licenseImage: app.licenseImage, defaultUser, prefillUsername: username, prefillError: `اسم المستخدم "${username}" مستخدم بالفعل من قِبل سائق آخر. اختر اسماً مختلفاً.` });
+            return;
+        }
+
+        // ── Build driver record ───────────────────────────────────
+        const newDriver = {
             owner          : fullname,
             fullname       : fullname,
-            username       : username.trim().toLowerCase(),
+            username       : username,
             password       : password,
-            phone          : phone,
-            vehicleType    : vehicle,
-            address        : (app && app.address) ? app.address : null,
-            idImage        : (app && app.idImage) ? app.idImage : null,
-            licenseImage   : (app && app.licenseImage) ? app.licenseImage : null,
+            phone          : app.phone || '',
+            vehicleType    : app.vehicleType || '',
+            address        : app.address     || null,
+            idImage        : app.idImage     || null,
+            licenseImage   : app.licenseImage|| null,
             status         : 'offline',
             active         : true,
             pendingApproval: false,
             createdAt      : Date.now(),
             fromApplication: key,
-        });
-        // Mark application as approved — non-blocking, don't let this failure hide success
-        fbUpdate(`driverApplications/${key}`, { status: 'approved' }).catch(e => console.warn('[Delivo] Could not mark app approved:', e));
-        toast(`✅ تم إنشاء حساب السائق "${fullname}" بنجاح`);
+        };
+
+        // ── Write to /drivers ─────────────────────────────────────
+        const hasNumeric = allDrivers.some(d => d._isNumeric);
+        if (hasNumeric) {
+            const current = await fbGet('drivers');
+            const arr = (Array.isArray(current) ? current : Object.values(current || {}))
+                .filter(v => v && typeof v === 'object');
+            arr.push(newDriver);
+            await fbSet('drivers', arr);
+        } else {
+            await fbPush('drivers', newDriver);
+        }
+
+        // ── Remove pending application ────────────────────────────
+        await fbSet(`driverApplications/${key}`, null).catch(() =>
+            fbUpdate(`driverApplications/${key}`, { status: 'approved' })
+        );
+
+        // ── Update local cache immediately — don't wait for SSE ──
+        delete _driverAppsCache[key];
+        _renderDriverApplications(_driverAppsCache);
+
+        // ── Show success & animate card out ──────────────────────
+        const card = document.getElementById('dapp-' + key);
+        if (card) {
+            card.style.transition = 'opacity 0.35s, transform 0.35s';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => card.remove(), 380);
+        }
+
+        toast(`✅ تم إنشاء حساب السائق "${fullname}" — @${username}`);
+        await loadAllData();
         renderDrivers();
-    } catch(e) { console.error('[Delivo] approveDriverApp error:', e); alert('حدث خطأ: ' + e.message); }
+
+    } catch (e) {
+        console.error('[Delivo] approveDriverApp error:', e);
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = '✅ قبول وإنشاء حساب'; }
+        const friendly = (e.message || '').includes('401') || (e.message || '').includes('403')
+            ? 'صلاحيات RTDB غير كافية للكتابة على /drivers. راجع Firebase Console → Realtime Database → Rules.'
+            : 'حدث خطأ: ' + (e.message || e);
+        toast('❌ ' + friendly, true);
+    }
+}
+
+function _showDriverApprovalModal({ fullname, phone, vehicle, hasAddr, hasId, hasLic, idImage, licenseImage, defaultUser, prefillUsername, prefillError }) {
+    return new Promise(resolve => {
+        const existing = document.getElementById('dam-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dam-overlay';
+        overlay.id = 'dam-overlay';
+
+        overlay.innerHTML = `
+        <div class="dam-panel">
+            <div class="dam-header">
+                <div class="dam-header-icon">🛵</div>
+                <div>
+                    <div class="dam-header-title">قبول السائق وإنشاء حسابه</div>
+                    <div class="dam-header-sub">سيتمكن <strong>${fullname || 'السائق'}</strong> من تسجيل الدخول بالبيانات التالية</div>
+                </div>
+            </div>
+
+            <div class="dam-body">
+                <!-- Applicant summary -->
+                <div>
+                    <div class="dam-section-label">📋 بيانات المتقدم</div>
+                    <div class="dam-applicant-summary">
+                        <div class="dam-summary-row">
+                            <span class="dam-summary-label">الاسم</span>
+                            <span class="dam-summary-val">${fullname || '—'}</span>
+                        </div>
+                        <div class="dam-summary-row">
+                            <span class="dam-summary-label">الهاتف</span>
+                            <span class="dam-summary-val dam-summary-val--mono" dir="ltr">${phone}</span>
+                        </div>
+                        <div class="dam-summary-row">
+                            <span class="dam-summary-label">المركبة</span>
+                            <span class="dam-summary-val">${vehicle}</span>
+                        </div>
+                        <div class="dam-summary-row">
+                            <span class="dam-summary-label">الموقع</span>
+                            <span class="dam-summary-val">${hasAddr ? '✅ محدد' : '❌ غير محدد'}</span>
+                        </div>
+                        <div class="dam-docs-row" style="margin-top:4px;">
+                            ${hasId  ? '<a class="dapp-doc-link" href="' + idImage  + '" target="_blank" rel="noopener">🪪 صورة الهوية</a>'    : '<span class="dapp-doc-missing">🪪 لا توجد هوية</span>'}
+                            ${hasLic ? '<a class="dapp-doc-link" href="' + licenseImage + '" target="_blank" rel="noopener">🚘 رخصة القيادة</a>' : '<span class="dapp-doc-missing">🚘 لا توجد رخصة</span>'}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account setup -->
+                <div>
+                    <div class="dam-section-label">🔐 بيانات الحساب</div>
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                        <div class="dam-field">
+                            <label for="dam-username">اسم المستخدم</label>
+                            <input id="dam-username" class="dam-input" type="text" dir="ltr"
+                                value="${prefillUsername || defaultUser}"
+                                maxlength="30" autocapitalize="none" autocomplete="off"
+                                placeholder="مثال: ahmad.driver">
+                            <span id="dam-username-status" style="font-size:0.68rem;margin-top:4px;display:flex;align-items:center;gap:5px;min-height:18px;"></span>
+                        </div>
+                        <div class="dam-field">
+                            <label for="dam-password">كلمة المرور</label>
+                            <div class="dam-input-wrap">
+                                <input id="dam-password" class="dam-input" type="password" dir="ltr"
+                                    placeholder="8 أحرف على الأقل" autocomplete="new-password">
+                                <button type="button" class="dam-pwd-toggle" id="dam-pwd-toggle" title="إظهار/إخفاء">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <span class="dam-field-hint">ستُحفظ كما هي — تأكد أنها قوية وسهلة التذكر للسائق</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dam-error" id="dam-error"></div>
+            </div>
+
+            <div class="dam-footer">
+                <button class="dam-footer-btn dam-footer-btn--cancel" id="dam-cancel">إلغاء</button>
+                <button class="dam-footer-btn dam-footer-btn--confirm" id="dam-confirm">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    إنشاء الحساب
+                </button>
+            </div>
+        </div>`;
+
+        document.body.appendChild(overlay);
+
+        // Show pre-filled error if any
+        if (prefillError) {
+            const errEl = overlay.querySelector('#dam-error');
+            if (errEl) { errEl.textContent = prefillError; errEl.style.display = 'block'; }
+        }
+
+        const usernameEl = overlay.querySelector('#dam-username');
+        const passwordEl = overlay.querySelector('#dam-password');
+        const errEl      = overlay.querySelector('#dam-error');
+        const confirmBtn = overlay.querySelector('#dam-confirm');
+        const cancelBtn  = overlay.querySelector('#dam-cancel');
+        const pwdToggle  = overlay.querySelector('#dam-pwd-toggle');
+
+        // Focus username field (select all if pre-filled)
+        setTimeout(() => { usernameEl.focus(); usernameEl.select(); }, 80);
+
+        // ── Live username availability check ─────────────────────
+        const statusEl = overlay.querySelector('#dam-username-status');
+        let _checkTimer = null;
+
+        function _checkUsername(val) {
+            if (!statusEl) return;
+            val = val.trim().toLowerCase();
+
+            if (!val) {
+                statusEl.innerHTML = '';
+                return;
+            }
+            if (!/^[a-z0-9._]{3,30}$/.test(val)) {
+                statusEl.innerHTML = '<span style="color:#f87171;">⚠️ أحرف إنجليزية صغيرة، أرقام، نقطة أو _ فقط (3–30 حرف)</span>';
+                return;
+            }
+
+            const taken = allDrivers.find(d => d && d.username === val);
+            if (taken) {
+                statusEl.innerHTML = '<span style="color:#f87171;">✗ محجوز — مستخدم من قِبل السائق <b>' + (taken.fullname || taken.owner || taken.username) + '</b></span>';
+                confirmBtn.disabled = true;
+            } else {
+                statusEl.innerHTML = '<span style="color:#4ade80;">✓ متاح</span>';
+                confirmBtn.disabled = false;
+            }
+        }
+
+        // Run check on current value immediately
+        _checkUsername(usernameEl.value);
+
+        usernameEl.addEventListener('input', () => {
+            statusEl.innerHTML = '<span style="color:var(--gray);">…</span>';
+            clearTimeout(_checkTimer);
+            _checkTimer = setTimeout(() => _checkUsername(usernameEl.value), 300);
+        });
+
+        // Password show/hide
+        pwdToggle.addEventListener('click', () => {
+            passwordEl.type = passwordEl.type === 'password' ? 'text' : 'password';
+        });
+
+        function _close(result) { overlay.remove(); resolve(result); }
+
+        cancelBtn.addEventListener('click', () => _close(null));
+        overlay.addEventListener('click', e => { if (e.target === overlay) _close(null); });
+
+        overlay.addEventListener('keydown', e => {
+            if (e.key === 'Escape') _close(null);
+            if (e.key === 'Enter')  confirmBtn.click();
+        });
+
+        confirmBtn.addEventListener('click', () => {
+            const username = (usernameEl.value || '').trim().toLowerCase();
+            const password =  passwordEl.value;
+
+            errEl.style.display = 'none';
+
+            if (!/^[a-z0-9._]{3,30}$/.test(username)) {
+                errEl.textContent = '⚠️ اسم المستخدم: 3–30 حرف إنجليزي صغير، أرقام، نقطة أو _ فقط';
+                errEl.style.display = 'block';
+                usernameEl.focus();
+                return;
+            }
+            if (!password || password.length < 8) {
+                errEl.textContent = '⚠️ كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+                errEl.style.display = 'block';
+                passwordEl.focus();
+                return;
+            }
+
+            // Check duplicate locally before closing modal
+            const dup = allDrivers.find(d => d && d.username === username);
+            if (dup) {
+                errEl.textContent = `⚠️ اسم المستخدم "@${username}" محجوز بالفعل — اختر اسماً مختلفاً`;
+                errEl.style.display = 'block';
+                usernameEl.focus();
+                usernameEl.select();
+                return;
+            }
+
+            // Visual feedback on confirm
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<span class="dam-spinner"></span>';
+
+            _close({ username, password });
+        });
+    });
 }
 
 function renderDrivers() {
@@ -5041,6 +5551,69 @@ function openDriverEditModal(driver) {
             : '';
     }
     document.getElementById('modal-driver-edit').classList.add('open');
+
+    // Click preview to open full size
+    ['id', 'lic'].forEach(type => {
+        document.getElementById('driver-doc-' + type + '-preview').addEventListener('click', () => {
+            const img = document.getElementById('driver-doc-' + type + '-img');
+            if (img.style.display !== 'none' && img.src) openImagePreview(img.src);
+        });
+    });
+
+    // ── Documents section (edit only) ────────────────────────
+    const docsSection = document.getElementById('driver-docs-section');
+    docsSection.style.display = isNew ? 'none' : 'block';
+
+    function _setDocPreview(imgEl, emptyEl, url) {
+        if (url) {
+            imgEl.src = url; imgEl.style.display = 'block';
+            emptyEl.style.display = 'none';
+        } else {
+            imgEl.src = ''; imgEl.style.display = 'none';
+            emptyEl.style.display = '';
+        }
+    }
+
+    _setDocPreview(
+        document.getElementById('driver-doc-id-img'),
+        document.getElementById('driver-doc-id-empty'),
+        driver?.idImage || ''
+    );
+    _setDocPreview(
+        document.getElementById('driver-doc-lic-img'),
+        document.getElementById('driver-doc-lic-empty'),
+        driver?.licenseImage || ''
+    );
+
+    // Preview selected file before upload
+    ['id', 'lic'].forEach(type => {
+        const fileInput = document.getElementById('driver-doc-' + type + '-file');
+        const imgEl     = document.getElementById('driver-doc-' + type + '-img');
+        const emptyEl   = document.getElementById('driver-doc-' + type + '-empty');
+        // Reset file input
+        fileInput.value = '';
+        const newInput  = fileInput.cloneNode(true);
+        fileInput.parentNode.replaceChild(newInput, fileInput);
+        newInput.addEventListener('change', () => {
+            const file = newInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => { imgEl.src = e.target.result; imgEl.style.display = 'block'; emptyEl.style.display = 'none'; };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    // Remove buttons — mark for removal
+    document.getElementById('driver-doc-id-remove').onclick = () => {
+        _setDocPreview(document.getElementById('driver-doc-id-img'), document.getElementById('driver-doc-id-empty'), '');
+        document.getElementById('driver-doc-id-file').value = '';
+        document.getElementById('driver-doc-id-remove').dataset.cleared = '1';
+    };
+    document.getElementById('driver-doc-lic-remove').onclick = () => {
+        _setDocPreview(document.getElementById('driver-doc-lic-img'), document.getElementById('driver-doc-lic-empty'), '');
+        document.getElementById('driver-doc-lic-file').value = '';
+        document.getElementById('driver-doc-lic-remove').dataset.cleared = '1';
+    };
 }
 
 document.getElementById('driver-edit-cancel').addEventListener('click', () => {
@@ -5091,9 +5664,6 @@ document.getElementById('driver-edit-save').addEventListener('click', async () =
                 phone    : phoneFormatted,
                 status   : 'offline',
             };
-            // If existing drivers use numeric indices, append to the array
-            // to stay consistent with the driver app's expected format.
-            // Otherwise (all auto-keys) use fbPush for a proper named key.
             const hasNumeric = allDrivers.some(d => d._isNumeric);
             if (hasNumeric) {
                 const current = await fbGet('drivers');
@@ -5106,9 +5676,37 @@ document.getElementById('driver-edit-save').addEventListener('click', async () =
             }
             toast('✅ تمت إضافة السائق بنجاح');
         } else {
-            // Patch existing driver fields
             const updates = { owner: name, username: username, phone: phoneFormatted };
             if (password) updates.password = password;
+
+            // ── Handle document changes ───────────────────────────
+            const idFileInput  = document.getElementById('driver-doc-id-file');
+            const licFileInput = document.getElementById('driver-doc-lic-file');
+            const idRemove     = document.getElementById('driver-doc-id-remove');
+            const licRemove    = document.getElementById('driver-doc-lic-remove');
+
+            saveBtn.textContent = 'جاري رفع الوثائق…';
+
+            // Upload new files if selected
+            if (idFileInput?.files[0]) {
+                try {
+                    updates.idImage = await _storageUpload(idFileInput.files[0], `driverDocs/${key}/id`);
+                } catch(e) { console.warn('ID upload failed:', e.message); }
+            } else if (idRemove?.dataset.cleared === '1') {
+                updates.idImage = null;
+                idRemove.dataset.cleared = '';
+            }
+
+            if (licFileInput?.files[0]) {
+                try {
+                    updates.licenseImage = await _storageUpload(licFileInput.files[0], `driverDocs/${key}/license`);
+                } catch(e) { console.warn('License upload failed:', e.message); }
+            } else if (licRemove?.dataset.cleared === '1') {
+                updates.licenseImage = null;
+                licRemove.dataset.cleared = '';
+            }
+
+            saveBtn.textContent = 'جاري الحفظ…';
             await fbUpdate(`drivers/${key}`, updates);
             toast('✅ تم حفظ التغييرات بنجاح');
         }
@@ -9052,7 +9650,10 @@ let driversData  = null;  // cached drivers array for cost lookup
 async function fetchCompanyVars() {
     if (companyVars) return companyVars;
     try {
-        const data = await fbGet('companydatas');
+        const data = await Promise.race([
+            fbGet('companydatas'),
+            new Promise(res => setTimeout(() => res(null), 3000))
+        ]);
         companyVars = data || {};
     } catch(e) { companyVars = {}; }
     return companyVars;
@@ -9123,7 +9724,8 @@ async function renderOnlineRequests() {
 
     tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--gray);padding:24px;font-size:var(--fs-xs);">جارٍ التحميل…</td></tr>';
 
-    const cv = await fetchCompanyVars();
+    fetchCompanyVars(); // pre-warm cache, non-blocking
+    const cv = companyVars || {};
 
     // Build entries from allOrders
     let entries = Object.entries(allOrders)
@@ -9337,7 +9939,7 @@ document.getElementById('or-search')?.addEventListener('input', e => {
 
 document.getElementById('or-refresh-btn')?.addEventListener('click', () => {
     companyVars = null; driversData = null;
-    loadData();
+    loadAllData().then(() => renderOnlineRequests());
 });
 
 

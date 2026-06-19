@@ -1410,7 +1410,12 @@ async function uploadDriverDoc(file, driverId, docName) {
     const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `driverDocs/${driverId}/${docName}.${ext}`;
     const ref  = storage.ref(path);
-    await ref.put(file);
+    // Race against 15s timeout — Firebase Storage CORS fails on localhost
+    // but works fine on Firebase Hosting (production). Docs can be added later.
+    await Promise.race([
+        ref.put(file),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('upload timeout — CORS on localhost')), 15000))
+    ]);
     return await ref.getDownloadURL();
 }
 
