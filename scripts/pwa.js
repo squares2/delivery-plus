@@ -292,3 +292,28 @@ if (isIosSafari() && !isAlreadyInstalled() &&
     // Wait for splash to clear before sliding in
     setTimeout(_showIosTopBanner, 1800);
 }
+// ── 6. Notification permission ────────────────────────────────
+// Request gently after the page settles (only if not already decided)
+// We defer to avoid blocking page load and only show after user has
+// had a chance to interact with the page.
+(function() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'default') return; // already granted or denied
+
+    // Wait for first meaningful user interaction, then ask
+    const _askOnce = () => {
+        if (Notification.permission !== 'default') return;
+        // Small delay so modal/UI doesn't clash
+        setTimeout(() => {
+            if (typeof window._requestNotifPermission === 'function') {
+                window._requestNotifPermission();
+            } else {
+                Notification.requestPermission().catch(() => {});
+            }
+        }, 800);
+        document.removeEventListener('click', _askOnce);
+    };
+
+    // Ask after first click (most permissive browsers require gesture)
+    document.addEventListener('click', _askOnce, { once: true });
+})();

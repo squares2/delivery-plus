@@ -983,6 +983,8 @@ function initCart() {
                 successMsg = `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
             }
             _showToast(successMsg, 'success');
+            // Request notification permission after first order placed
+            if (typeof window._onOrderPlaced === 'function') window._onOrderPlaced();
 
             // Refresh the store counts section so the total reflects the new order
             if (typeof window.refreshStoreCounts === 'function') window.refreshStoreCounts();

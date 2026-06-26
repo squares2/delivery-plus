@@ -481,10 +481,12 @@
         const user = window.DelivoUser;
         if (!user) throw new Error('not logged in');
 
-        // Build cart string (readable summary for admin)
+        // Build cart string in qty:name:price:store:note format (matches admin parseCart)
         const cartLines = _data.orderItems.filter(it => it.name)
-            .map(it => `${it.qty}× ${it.name}${it.note ? ` (${it.note})` : ''}`).join(' | ');
-        const cartStr   = cartLines + (_data.orderNote ? ` || ملاحظة: ${_data.orderNote}` : '');
+            .map(it => `${it.qty}:${it.name}:0:${_data.storeName}:${it.note || ''}`).join(',');
+        // Append order note as a special sentinel item so admin sees it
+        const noteEntry = _data.orderNote ? `,1:💬 ${_data.orderNote}:0::` : '';
+        const cartStr   = cartLines + noteEntry;
         const totalStr  = `${_data.approxTotal} ${_currency}`;
 
         // Counter
@@ -492,7 +494,8 @@
         const counter     = await counterResp.json();
         let nextId        = (counter?.requestId || 0) + 1;
         const requestKey  = `id_${nextId}`;
-        const dateStr     = new Date().toLocaleString('ar-LB');
+        const now = new Date();
+        const dateStr = now.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).replace(',','');
 
         const requestObj = {
             cart          : cartStr,
@@ -550,6 +553,8 @@
             }
         } catch(_) {}
 
+        // Request notification permission after order placed
+        if (typeof window._onOrderPlaced === 'function') window._onOrderPlaced();
         // Success screen
         _showSuccess(requestKey);
     }

@@ -2169,17 +2169,19 @@ function renderPool() {
 
         const shortId = key.replace('id_', '');
         const items = [];
-        (order.cart || '').split(',').filter(Boolean).forEach(seg => {
-            const p = seg.split(':');
-            if (p.length >= 2) items.push(p[1]);
-        });
+        const _poolCart = order.cart || '';
+        if (_poolCart.includes(':')) {
+            _poolCart.split(',').filter(Boolean).forEach(seg => { const p = seg.split(':'); if (p[1]) items.push(p[1]); });
+        } else {
+            (_poolCart.split('||')[0] || '').split('|').filter(Boolean).forEach(seg => { const m = seg.trim().match(/^\d+[×x]\s*(.+)$/); if (m) items.push(m[1].trim()); });
+        }
         const itemsPreview = items.slice(0, 3).join('، ') + (items.length > 3 ? '…' : '');
 
         card.innerHTML = `
             <div class="drv-pool-card__header">
                 <span class="drv-pool-card__id">#${shortId}</span>
                 <span class="drv-pool-card__store">🏪 ${order.store || '—'}</span>
-                <span class="drv-pool-card__total">${order.total || '0'}$</span>
+                <span class="drv-pool-card__total">${(v => { const n=parseFloat(v)||0; return n<1000?'$'+n:(n/1000).toFixed(0)+'k ل.ل'; })(order.total || '0')}</span>
             </div>
             <div class="drv-pool-card__meta">
                 <div class="drv-pool-card__cell">👤 <span>${order.fullname || '—'}</span></div>
@@ -2318,20 +2320,45 @@ function buildOrderCard(key, order) {
     const drvActok    = isDriverActionable(order);      // state 0 or 3
     const isCompState = STATE_MAP[state]?.company;      // company-managed state (6,7,8)
     const isFinalState  = ['1','2','5'].includes(state); // delivered / cancelled
+    // Format a price value: < 1000 → '$X', >= 1000 → 'Xk ل.ل'
+    const _fmt = v => { const n = parseFloat(v) || 0; return n <= 0 ? '' : n < 1000 ? '$' + n : (n/1000).toFixed(0) + 'k ل.ل'; };
     // Lock most actions until store has acknowledged the order.
     // States 0 (new) and 3 (delayed by driver) both mean the store hasn't
     // started yet — driver may only toggle متأخر; delivery/cancel/track
     // are blocked until the store moves to state 6, 7, or 8.
     const isStoreUnstarted = state === '0' || state === '3';
+    const isExternalOrder  = order.externalOrder === '1'; // no store to confirm — driver controls state directly
     const etaMs     = order.standbyUntil ? (order.standbyUntil - Date.now()) : null;
     const etaMins   = etaMs !== null ? Math.ceil(etaMs / 60000) : null;
 
-    // Parse cart items: "qty:name:price:store,..."
+    // Parse cart items — supports both formats:
+    // Standard:  "qty:name:price:store:notes,..."
+    // Legacy ext: "2× شاورما | 1× بيتزا || ملاحظة: …"
     const items = [];
-    (order.cart || '').split(',').filter(Boolean).forEach(seg => {
-        const p = seg.split(':');
-        if (p.length >= 3) items.push({ qty: p[0], name: p[1], price: p[2], store: p[3] || '', notes: p[4] || '' });
-    });
+    const _cartStr = order.cart || '';
+    if (_cartStr.includes(':')) {
+        // Standard colon format — split carefully: only first 4 colons matter
+        _cartStr.split(',').filter(Boolean).forEach(seg => {
+            const colonIdx = [0,0,0,0].reduce((acc,_,i) => { const n = seg.indexOf(':', acc+1); return n === -1 ? acc : n; }, -1);
+            // Split into max 5 parts on ':'
+            const parts = seg.split(':');
+            const qty   = parts[0];
+            const price = parts[2] || '0';
+            const store = parts[3] || '';
+            const notes = parts.slice(4).join(':') || ''; // in case notes contain colon
+            // Name may contain colons — re-join middle parts is not needed since name should be parts[1]
+            const name  = parts[1] || '';
+            if (qty && name) items.push({ qty, name, price, store, notes });
+        });
+    } else if (_cartStr.includes('×') || _cartStr.includes('x')) {
+        // Legacy pipe format: "2× شاورما | 1× بيتزا || ملاحظة: …"
+        const [itemsPart, notePart] = _cartStr.split('||');
+        (itemsPart || '').split('|').filter(Boolean).forEach(seg => {
+            const m = seg.trim().match(/^(\d+)[×x]\s*(.+)$/);
+            if (m) items.push({ qty: m[1], name: m[2].trim(), price: '0', store: order.store || '', notes: '' });
+        });
+        if (notePart) items.push({ qty: '📝', name: notePart.replace('ملاحظة:', '').trim(), price: '0', store: '', notes: '' });
+    }
 
     const card = document.createElement('div');
     card.className = 'drv-order';
@@ -2348,7 +2375,7 @@ function buildOrderCard(key, order) {
             <div class="drv-order__toggle">+</div>
             <span class="drv-order__id">#${key.replace('id_','')}</span>
             <span class="drv-order__name">${order.fullname || '—'}</span>
-            <span class="drv-order__total">${order.total || '0'}$</span>
+            <span class="drv-order__total">${_fmt(order.total) || '0'}</span>
             <span class="drv-state-badge drv-state-badge--${state}">${stateInfo.short}</span>
         </div>
 
@@ -2377,12 +2404,19 @@ function buildOrderCard(key, order) {
                 </div>
                 <div class="drv-info-cell">
                     <div class="drv-info-cell__label">الإجمالي</div>
-                    <div class="drv-info-cell__val" style="color:var(--clr-orange)">${order.total || '0'}$</div>
+                    <div class="drv-info-cell__val" style="color:var(--clr-orange)">${_fmt(order.total) || '0'}</div>
                 </div>
                 ${order.xnote ? `
                 <div class="drv-info-cell drv-info-cell--full">
                     <div class="drv-info-cell__label">ملاحظة</div>
                     <div class="drv-info-cell__val">${order.xnote}</div>
+                </div>` : ''}
+                ${isExternalOrder && order.storeAddress ? `
+                <div class="drv-info-cell drv-info-cell--full" style="background:rgba(255,92,0,0.06);border:1px solid rgba(255,92,0,0.2);border-radius:10px;padding:8px 12px;">
+                    <div class="drv-info-cell__label" style="color:var(--clr-orange);">🛍️ طلب خارجي — موقع المتجر</div>
+                    <div class="drv-info-cell__val">${order.storeAddress}</div>
+                    ${order.storeLat && order.storeLat !== '' ? `<a href="https://www.google.com/maps?q=${order.storeLat},${order.storeLng}" target="_blank" style="display:inline-block;margin-top:6px;font-size:0.75rem;font-weight:800;color:var(--clr-orange);text-decoration:none;">🗺 خريطة المتجر</a>` : ''}
+                    ${order.storePhone ? `<div style="margin-top:4px;"><a href="tel:${order.storePhone}" style="font-size:0.75rem;font-weight:800;color:#4ade80;text-decoration:none;">📞 ${order.storePhone}</a></div>` : ''}
                 </div>` : ''}
             </div>
 
@@ -2397,7 +2431,7 @@ function buildOrderCard(key, order) {
                             ${i.notes ? `<span style="display:block;font-size:0.68rem;font-weight:700;color:var(--clr-orange);margin-top:3px;">📝 ${i.notes}</span>` : ''}
                         </span>
                         <span class="drv-item-row__qty">×${i.qty}</span>
-                        <span class="drv-item-row__price">${i.price}$</span>
+                        ${parseFloat(i.price) > 0 ? `<span class="drv-item-row__price">${_fmt(i.price)}</span>` : ''}
                     </div>
                 `).join('')}
             </div>` : ''}
@@ -2417,8 +2451,8 @@ function buildOrderCard(key, order) {
                 </a>` : ''}
             </div>
 
-            <!-- Prep countdown banner (shown for company states 6,7,8) -->
-            ${isCompState ? `
+            <!-- Prep countdown banner (shown for company states 6,7,8; hidden for external orders) -->
+            ${isCompState && !isExternalOrder ? `
             <div class="drv-prep-banner ${compDone ? 'ready' : ''}" id="prep-${key}">
                 ${compDone
                     ? '✅ الطلب جاهز — يمكنك الانطلاق لاستلامه'
@@ -2434,7 +2468,7 @@ function buildOrderCard(key, order) {
                  2. New order (state 0):            partial lock — only متأخر (3) allowed
                     until store confirms receipt (state 6/7/8)
                  3. Ready (state 8) or driver states (1,2,3,5): fully unlocked -->
-            ${isCompState && !compDone ? `
+            ${(isCompState && !compDone && !isExternalOrder) ? `
             <div class="drv-locked-note">
                 🔒 بانتظار إنهاء الشركة تحضير الطلب
             </div>
@@ -2443,7 +2477,7 @@ function buildOrderCard(key, order) {
                     <button class="drv-state-btn ${state === s ? 'active' : ''}" disabled data-s="${s}">
                         ${STATE_MAP[s].label}
                     </button>`).join('')}
-            </div>` : isStoreUnstarted ? `
+            </div>` : (isStoreUnstarted && !isExternalOrder) ? `
             <div class="drv-locked-note">
                 ⏳ بانتظار استلام المتجر للطلب — يمكنك فقط وضع علامة «متأخر»
             </div>
@@ -2471,7 +2505,7 @@ function buildOrderCard(key, order) {
                  - Available when order is ready (state 8) OR active driver state (0,3)
                  - Locked during company processing (6,7)
                  - Disabled on final states (1,2,5) — shown greyed out so driver knows why -->
-            ${(isCompState && !compDone) || isStoreUnstarted ? `
+            ${((isCompState && !compDone) || isStoreUnstarted) && !isExternalOrder ? `
             <div class="drv-locked-note" style="margin-top:0;">
                 📍 التتبع متاح فقط بعد استلام المتجر وجاهزية الطلب
             </div>` : isFinalState ? `

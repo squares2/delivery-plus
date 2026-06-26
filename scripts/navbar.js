@@ -5,8 +5,9 @@
    ============================================================ */
 
 const _RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-let _trackListener = null;
-let _activeOrders  = [];
+let _trackListener    = null;
+let _activeOrders     = [];
+let _prevOrderStates  = {};  // orderId → { state, trackorder } — for change detection
 
 function initNavbar() {
 
@@ -155,6 +156,87 @@ function initNavbar() {
    REALTIME TRACKING — called by firebase-init.js onAuthStateChanged
 ══════════════════════════════════════════════════════════════ */
 
+/* ══════════════════════════════════════════════════════════
+   ORDER NOTIFICATIONS
+   Fires native push/notification on 3 events:
+   1. Order state becomes '8' (جاهز) — order ready
+   2. Order trackorder flips to '1' — driver tracking started
+   3. Driver within 500 m of destination — (fired from modal-auth.js proximity check)
+══════════════════════════════════════════════════════════ */
+
+// Request notification permission once after user interaction
+window._requestNotifPermission = async function() {
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied')  return false;
+    const result = await Notification.requestPermission();
+    return result === 'granted';
+};
+
+// Unified notification sender — works in browser and standalone PWA
+window._sendDelivoNotif = function(title, body, tag, icon) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const opts = {
+        body,
+        tag:   tag  || 'delivo-order',
+        icon:  icon || '/assets/logo.png',
+        badge: '/assets/logo.png',
+        vibrate: [200, 100, 200],
+        requireInteraction: false,
+        silent: false,
+    };
+    // Prefer service worker notification (works when tab is in background)
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, opts).catch(() => {
+                new Notification(title, opts); // fallback
+            });
+        }).catch(() => new Notification(title, opts));
+    } else {
+        try { new Notification(title, opts); } catch(e) {}
+    }
+};
+
+// Check for state/trackorder changes and fire appropriate notifications
+function _checkOrderNotifications(ordersCache) {
+    if (!ordersCache || typeof ordersCache !== 'object') return;
+
+    Object.entries(ordersCache).forEach(([id, order]) => {
+        if (!order) return;
+        const prev  = _prevOrderStates[id] || {};
+        const state = String(order.state      || '0');
+        const track = String(order.trackorder || '0');
+        const store = order.store || 'متجرك';
+        const reqNum = id.replace('id_', '#');
+
+        // Case 1 — Order ready (state → '8')
+        if (state === '8' && prev.state !== '8') {
+            window._sendDelivoNotif(
+                '✅ طلبك جاهز!',
+                `طلب ${reqNum} من ${store} جاهز وبانتظار السائق`,
+                `ready-${id}`
+            );
+        }
+
+        // Case 2 — Driver tracking started (trackorder → '1')
+        if (track === '1' && prev.track !== '1') {
+            window._sendDelivoNotif(
+                '🛵 السائق في الطريق!',
+                `السائق انطلق بطلبك ${reqNum} — يمكنك تتبعه الآن`,
+                `tracking-${id}`
+            );
+        }
+
+        // Update prev snapshot
+        _prevOrderStates[id] = { state, track };
+    });
+}
+
+// Auto-request permission on first order placed (hooked by firebase-init after checkout)
+window._onOrderPlaced = function() {
+    window._requestNotifPermission();
+};
+
 window.refreshActiveOrders = async function() {
     const user = window.DelivoUser;
     if (!user) { _resetLogo(); return; }
@@ -252,6 +334,8 @@ window.refreshActiveOrders = async function() {
         if (sheet && sheet.classList.contains('open')) {
             _renderTrackSheetList();
         }
+        // ── Notification triggers ────────────────────────────
+        _checkOrderNotifications(_ordersCache);
     }
 
     es.onerror = () => {

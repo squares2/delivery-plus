@@ -440,6 +440,8 @@ input, select, textarea { font-family: var(--font); }
 .oc-action-btn.primary:hover { background: var(--orange-dim); }
 .oc-action-btn.danger { border-color: var(--red); color: var(--red); }
 .oc-action-btn.active-state { opacity: 0.45; cursor: default; box-shadow: inset 0 0 0 1px currentColor; }
+.oc-action-btn.btn-ready { color: #4ade80; border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.07); }
+.oc-action-btn.btn-ready--active { color: #4ade80; border-color: rgba(74,222,128,0.6); background: rgba(74,222,128,0.18); box-shadow: inset 0 0 0 1px rgba(74,222,128,0.4); }
 
 /* Delivered — green */
 .oc-action-btn.btn-delivered { border-color: var(--green, #22c55e); color: var(--green, #22c55e); }
@@ -4361,6 +4363,9 @@ function buildOrderCard(key, order) {
                 <button class="oc-action-btn btn-canc-paid ${state==='5'?'btn-canc-paid--active':''}"
                         data-state="${key}" data-val="5"
                         title="ملغي ومدفوع">💜 ملغي/مدفوع</button>
+                <button class="oc-action-btn btn-ready ${state==='8'?'btn-ready--active':''}"
+                        data-state="${key}" data-val="8"
+                        title="الطلب جاهز للتسليم للسائق">✅ جاهز</button>
                 ${order.lat && order.lat !== '0' ? `<button class="oc-action-btn" data-locate="${order.lat},${order.lng}">🗺 الخريطة</button>` : ''}
                 ${ (['1','2','5'].includes(state))
                     ? `<button class="oc-action-btn btn-track" disabled title="الطلب منتهٍ — التتبع غير متاح" style="opacity:.4;cursor:not-allowed;">📡 التتبع</button>`
@@ -4483,10 +4488,25 @@ function buildOrderCard(key, order) {
 
 function parseCart(cartStr) {
     const items = [];
-    (cartStr || '').split(',').filter(Boolean).forEach(seg => {
-        const p = seg.split(':');
-        if (p.length >= 3) items.push({ qty: p[0], name: p[1], price: parseFloat(p[2]) || 0, notes: p[4] || '' });
+    const str = cartStr || '';
+
+    // Standard format: qty:name:price:store:notes,qty:name:price...
+    if (str.includes(':')) {
+        str.split(',').filter(Boolean).forEach(seg => {
+            const p = seg.split(':');
+            if (p.length >= 3) items.push({ qty: p[0], name: p[1], price: parseFloat(p[2]) || 0, notes: p[4] || '' });
+        });
+        return items;
+    }
+
+    // Legacy external-order format: "2× شاورما | 1× بيتزا || ملاحظة: ..."
+    // Split on || first to separate note
+    const [itemsPart, notePart] = str.split('||');
+    itemsPart.split('|').filter(Boolean).forEach(seg => {
+        const m = seg.trim().match(/^(\d+)[×x]\s*(.+)$/);
+        if (m) items.push({ qty: m[1], name: m[2].trim(), price: 0, notes: '' });
     });
+    if (notePart) items.push({ qty: '📝', name: notePart.replace('ملاحظة:', '').trim(), price: 0, notes: '' });
     return items;
 }
 
@@ -4614,6 +4634,7 @@ async function changeState(orderId, newState) {
                     { val:'3', label:'⏳ متأخر',        cls: ' btn-late'      + (newState==='3' ? ' btn-late--active' : ''), title:'تأخير الطلب' },
                     { val:'2', label:'✕ ملغي',         cls: ' btn-cancelled' + (newState==='2' ? ' btn-cancelled--active' : ''), title:'إلغاء الطلب' },
                     { val:'5', label:'💜 ملغي/مدفوع',  cls: ' btn-canc-paid' + (newState==='5' ? ' btn-canc-paid--active' : ''), title:'ملغي ومدفوع' },
+                    { val:'8', label:'✅ جاهز',         cls: ' btn-ready'     + (newState==='8' ? ' btn-ready--active' : ''), title:'الطلب جاهز للتسليم للسائق' },
                 ];
                 btnDefs.forEach(({ val, label, cls, title }) => {
                     const b = document.createElement('button');
@@ -9524,7 +9545,7 @@ async function renderOnlineRequests() {
                 <div style="font-weight:700;">${o.fullname || o.username || '—'}</div>
                 ${o.username && o.fullname ? `<div class="or-customer">@${o.username}</div>` : ''}
             </td>
-            <td><span class="or-phone">${formatPhone(o.phone)}</span></td>
+            <td dir="ltr" style="text-align:left;"><span class="or-phone">${formatPhone(o.phone)}</span></td>
             <td><span class="or-city">${o.city || '—'}${o.street ? ' · '+o.street : ''}</span></td>
             <td><span class="or-price">${formatMoney(orderPrice)}</span></td>
             <td><span class="${profit !== null ? 'or-profit' : 'or-profit-loading'}">${profit !== null ? formatMoney(profit) : '—'}</span></td>

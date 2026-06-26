@@ -916,6 +916,7 @@ function _buildOrderCard(key, order) {
 let _trackMap         = null;
 let _trackDriverMark  = null;
 let _trackDestMark    = null;
+let _proximityNotifSent = {};  // orderId → true when 500m notif already fired this session
 let _trackRouteLine   = null;
 let _trackInterval    = null;   // REST polling interval
 let _trackOrderRef    = null;   // reserved (RTDB SDK not loaded on this page)
@@ -1283,7 +1284,13 @@ function _ensureTrackModal() {
             font-family:inherit;transition:opacity 0.15s;
         }
         #track-open-gmaps:hover { opacity:0.88; }
+        #track-driver-contact { background: #fff8f4; }
         #track-driver-contact a:hover { opacity:0.85; }
+        #track-call-btn, #track-wa-btn {
+            flex:1;display:flex;align-items:center;justify-content:center;gap:7px;
+            padding:11px 14px;border-radius:14px;font-size:0.88rem;font-weight:800;
+            text-decoration:none;transition:opacity 0.15s;letter-spacing:0.01em;
+        }
         `;
         document.head.appendChild(s);
     }
@@ -1497,6 +1504,23 @@ async function _fetchAndUpdateTrack(orderId, uid) {
         // Also try order.driverPhone if RTDB lookup returned nothing
         if (!driverPhone && order.driverPhone) driverPhone = order.driverPhone;
 
+        // Last resort: re-scan drivers matching by username field too
+        if (!driverPhone && order.driver && order.driver !== '0') {
+            try {
+                const driversResp2 = await fetch(`${OH_RTDB_URL}/drivers.json`);
+                const driversData2 = await driversResp2.json();
+                if (driversData2 && typeof driversData2 === 'object') {
+                    for (const [key, d] of Object.entries(driversData2)) {
+                        if (d && (d.owner === order.driver || d.username === order.driver || d.fullname === order.driver)) {
+                            driverPhone = d.phone || null;
+                            if (!driverId) driverId = key;
+                            break;
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+
         await _applyTrackUpdate(order, loc, driverPhone);
 
     } catch(e) {
@@ -1521,7 +1545,7 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
         }
 
         // ── Contact buttons (call + WhatsApp) ─────────────────
-        // Only shown when we have a driver phone number
+        // Show contact buttons when driver phone is known; hide when not assigned
         const contactRow = document.getElementById('track-driver-contact');
         if (contactRow) {
             const phone = (driverPhone || '').toString().replace(/[^\d+]/g, '');
@@ -1571,6 +1595,13 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
                         </svg>
                         واتسآب
                     </a>`;
+                contactRow.style.display = 'flex';
+            } else if (order.driver && order.driver !== '0') {
+                // Driver assigned but phone unavailable — show driver name with admin contact hint
+                contactRow.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:8px;width:100%;">
+                        <span style="font-size:0.78rem;color:#888;flex:1;">🛵 السائق: <strong style="color:#FF5C00;">${order.driver}</strong> — رقم الهاتف غير متاح حالياً</span>
+                    </div>`;
                 contactRow.style.display = 'flex';
             } else {
                 contactRow.style.display = 'none';
@@ -1669,6 +1700,29 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
                     _setTrackStatus(`وقت الوصول المتوقع: ${mins} دقيقة  •  ${km} كم${ageStr}`, 'ok');
                 } else {
                     _setTrackStatus(`🛵 السائق في الطريق إليك${ageStr}`, 'ok');
+                }
+
+                // ── Case 3: Proximity notification (< 500 m from destination) ──
+                const _haversine = (lat1, lng1, lat2, lng2) => {
+                    const R = 6371000; // metres
+                    const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+                    const Δφ = (lat2 - lat1) * Math.PI / 180;
+                    const Δλ = (lng2 - lng1) * Math.PI / 180;
+                    const a  = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+                    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                };
+                const distMetres = _haversine(dLat, dLng, destLat, destLng);
+                if (distMetres < 500 && !_proximityNotifSent[_trackOrderId]) {
+                    _proximityNotifSent[_trackOrderId] = true;
+                    const reqNum = (_trackOrderId || '').replace('id_', '#');
+                    const store  = order.store || 'متجرك';
+                    if (typeof window._sendDelivoNotif === 'function') {
+                        window._sendDelivoNotif(
+                            '🛵 السائق على وشك الوصول!',
+                            `طلبك ${reqNum} من ${store} على بُعد أقل من 500 متر منك`,
+                            `proximity-${_trackOrderId}`
+                        );
+                    }
                 }
             } else {
                 _setTrackStatus(`🛵 السائق في الطريق إليك${ageStr}`, 'ok');
