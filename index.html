@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="styles/base.css?v=26">
     <link rel="stylesheet" href="styles/navbar.css?v=11">
     <link rel="stylesheet" href="styles/hero.css?v=7">
-    <link rel="stylesheet" href="styles/cards.css?v=9">
+    <link rel="stylesheet" href="styles/cards.css?v=8">
     <link rel="stylesheet" href="styles/modals.css?v=23">
     <link rel="stylesheet" href="styles/store-panel.css?v=3">
     <link rel="stylesheet" href="styles/cart.css?v=5">
@@ -392,7 +392,7 @@
 
                         <!-- Store buttons row -->
                         <div class="app-download__btns">
-                            <a href="#" class="store-btn">
+                            <span class="store-btn store-btn--soon" aria-disabled="true">
                                 <span class="store-btn__icon">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                                         <path d="M3.18 23.76c.3.17.64.24.98.24.4 0 .8-.11 1.15-.32L18.4 16.4l-3.26-3.26-11.96 10.62zM.5 1.4C.19 1.83 0 2.4 0 3.1v17.8c0 .7.19 1.27.5 1.7l.09.08 9.97-9.97v-.24L.59 1.32.5 1.4zM22.55 10.4l-3.01-1.71-3.38 3.38 3.38 3.38 3.03-1.72c.87-.49.87-1.3 0-1.79l-.02-.54zM4.11.32L18.18 8.6l-3.26 3.26L3.09.56C3.4.35 3.8.13 4.11.32z"/>
@@ -402,8 +402,9 @@
                                     <span class="store-btn__small">GET IT ON</span>
                                     <span class="store-btn__name">Google Play</span>
                                 </span>
-                            </a>
-                            <a href="#" class="store-btn">
+                                <span class="store-btn__soon-badge">قريباً</span>
+                            </span>
+                            <span class="store-btn store-btn--soon" aria-disabled="true">
                                 <span class="store-btn__icon">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                                         <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.15-2.18 1.27-2.16 3.8.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.37 2.78M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
@@ -413,7 +414,8 @@
                                     <span class="store-btn__small">Download on the</span>
                                     <span class="store-btn__name">App Store</span>
                                 </span>
-                            </a>
+                                <span class="store-btn__soon-badge">قريباً</span>
+                            </span>
                         </div>
 
                         <!-- QR row -->
@@ -870,22 +872,23 @@
         <!-- Footer (totals + checkout) -->
         <div class="cart-footer" id="cart-footer" style="display:none;">
 
-            <!-- First-order free delivery banner (shown only for new users) -->
-            <div id="cart-free-delivery-banner" style="display:none;align-items:center;gap:10px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid #6ee7b7;border-radius:12px;padding:10px 14px;margin-bottom:10px;">
-                <span style="font-size:1.5rem;line-height:1;">🎁</span>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-weight:800;color:#065f46;font-size:0.88rem;">طلبك الأول — توصيل مجاني!</div>
-                    <div style="color:#047857;font-size:0.76rem;margin-top:2px;">رسوم التوصيل مخفضة تلقائياً لهذا الطلب</div>
-                </div>
-            </div>
-
             <!-- Loyalty reward banner (shown when a queued reward applies to this order) -->
             <div id="cart-reward-banner" style="display:none;align-items:center;gap:10px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fed7aa;border-radius:12px;padding:10px 14px;margin-bottom:10px;">
                 <span id="cart-reward-icon" style="font-size:1.5rem;line-height:1;">🎉</span>
                 <div style="flex:1;min-width:0;">
                     <div id="cart-reward-title" style="font-weight:800;color:#9a3412;font-size:0.88rem;"></div>
-                    <div style="color:#c2410c;font-size:0.76rem;margin-top:2px;">مكافأة من برنامج النقاط — تُطبَّق تلقائياً على هذا الطلب</div>
+                    <div style="color:#c2410c;font-size:0.76rem;margin-top:2px;">مكافأة من برنامج النقاط — تُطبَّق على هذا الطلب</div>
                 </div>
+                <button id="cart-reward-skip-btn"
+                        title="تخطّ هذه المكافأة وحافظ عليها للطلب القادم"
+                        style="flex-shrink:0;background:none;border:1.5px solid #fed7aa;border-radius:20px;
+                               color:#9a3412;font-size:0.68rem;font-weight:800;padding:4px 10px;cursor:pointer;
+                               white-space:nowrap;transition:background 0.15s;"
+                        onmouseover="this.style.background='rgba(0,0,0,0.06)'"
+                        onmouseout="this.style.background='none'"
+                        onclick="window._skipCartReward && window._skipCartReward()">
+                    تخطّ ←
+                </button>
             </div>
 
             <div class="cart-totals">
@@ -964,19 +967,47 @@
                 </div>
             </div>
 
+            <div class="cart-checkout-warning">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>
+                    بعد الإرسال <strong>لا يمكن تعديل الطلب</strong> — تأكد من سلّتك جيداً.
+                    إذا ارتكبت خطأً بعد الإرسال، تواصل مع الإدارة فوراً عبر
+                    <a id="cart-warning-admin-link" href="#"
+                       style="color:#d97706;font-weight:800;text-decoration:underline;white-space:nowrap;">
+                        واتساب / اتصال
+                    </a>
+                </span>
+            </div>
             <button class="cart-checkout-btn" id="cart-checkout-btn">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2.2"
                      stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5 12h14M12 5l7 7-7 7"/>
                 </svg>
-                إتمام الطلب
+                إرسال الطلب
             </button>
             <button class="cart-clear-btn" id="cart-clear-btn">مسح السلة</button>
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════
+    <!-- ── Reward reminder toast (shown once per session when user has pending rewards) ── -->
+<div id="reward-reminder-toast" role="alert" aria-live="polite">
+    <span class="reward-reminder__icon">🎁</span>
+    <div class="reward-reminder__body">
+        <div class="reward-reminder__title">لديك مكافآت غير مستخدمة!</div>
+        <div class="reward-reminder__sub" id="reward-reminder-sub">افتح محفظتك لاستخدامها</div>
+    </div>
+    <button class="reward-reminder__open" onclick="_openReminderReward()">استخدم الآن</button>
+    <button class="reward-reminder__close" onclick="_dismissReminderToast()" aria-label="إغلاق">✕</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
          SCRIPTS
     ═══════════════════════════════════════════════════════ -->
     <!-- ═══════════════════════════════════════════════
@@ -1058,7 +1089,7 @@
     <script src="scripts/loader.js?v=16"></script>
     <script src="scripts/modals.js?v=7"></script>
     <script src="scripts/stores.js?v=14"></script>
-    <script src="scripts/categories.js?v=10"></script>
+    <script src="scripts/categories.js?v=9"></script>
     <script src="scripts/cart.js?v=16"></script>
     <script src="scripts/store-panel.js?v=15"></script>
     <script src="scripts/store-status-listener.js?v=1"></script>
@@ -1122,6 +1153,73 @@
             <div class="oh-sheet__empty-icon">📭</div>
             <p>لا توجد طلبات بعد</p>
             <small>ابدأ بطلب شيء لذيذ!</small>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     EXTERNAL ORDER MODAL — طلب من متجر خارجي
+══════════════════════════════════════════════════════════ -->
+<div id="ext-order-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.65);backdrop-filter:blur(3px);align-items:flex-end;justify-content:center;overscroll-behavior:contain;" onclick="if(event.target===this)_extCloseModal()">
+    <div id="ext-order-sheet" style="width:100%;max-width:500px;background:var(--surface,#1a1a2e);border-radius:22px 22px 0 0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;position:relative;" onclick="event.stopPropagation()">
+
+        <!-- Handle -->
+        <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:99px;margin:10px auto 0;flex-shrink:0;"></div>
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.07);">
+            <div>
+                <div style="font-size:1.05rem;font-weight:900;color:#fff;">🛍️ طلب خارجي</div>
+                <div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:2px;">اطلب من أي متجر — نوصّله لبابك</div>
+            </div>
+            <button onclick="_extCloseModal()" style="background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+        </div>
+
+        <!-- Steps indicator -->
+        <div id="ext-steps-bar" style="display:flex;align-items:center;justify-content:center;gap:0;padding:14px 18px 10px;flex-shrink:0;">
+            <div class="ext-step-dot" id="ext-dot-1" data-step="1" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                <div style="width:28px;height:28px;border-radius:50%;background:var(--orange,#ff5c00);color:#fff;font-size:0.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;">1</div>
+                <span style="font-size:0.58rem;font-weight:700;color:var(--orange,#ff5c00);">المتجر</span>
+            </div>
+            <div style="flex:1;height:2px;background:rgba(255,255,255,0.1);margin:0 6px;margin-bottom:16px;" id="ext-line-1"></div>
+            <div class="ext-step-dot" id="ext-dot-2" data-step="2" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:0.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;">2</div>
+                <span style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.35);">الطلب</span>
+            </div>
+            <div style="flex:1;height:2px;background:rgba(255,255,255,0.1);margin:0 6px;margin-bottom:16px;" id="ext-line-2"></div>
+            <div class="ext-step-dot" id="ext-dot-3" data-step="3" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:0.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;">3</div>
+                <span style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.35);">التوصيل</span>
+            </div>
+            <div style="flex:1;height:2px;background:rgba(255,255,255,0.1);margin:0 6px;margin-bottom:16px;" id="ext-line-3"></div>
+            <div class="ext-step-dot" id="ext-dot-4" data-step="4" style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:0.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;">4</div>
+                <span style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.35);">التأكيد</span>
+            </div>
+        </div>
+
+        <!-- Scrollable content -->
+        <div id="ext-order-content" style="overflow-y:auto;flex:1;padding:0 18px 24px;-webkit-overflow-scrolling:touch;"></div>
+
+        <!-- Footer nav -->
+        <div style="padding:12px 18px 20px;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:10px;">
+            <button id="ext-btn-back" onclick="_extBack()" style="display:none;flex:0 0 auto;padding:13px 20px;background:rgba(255,255,255,0.08);border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:0.9rem;font-weight:700;cursor:pointer;">‹ رجوع</button>
+            <button id="ext-btn-next" onclick="_extNext()" style="flex:1;padding:13px;background:var(--orange,#ff5c00);border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:0.95rem;font-weight:900;cursor:pointer;transition:opacity .2s;">التالي ›</button>
+        </div>
+    </div>
+</div>
+
+<!-- External order map picker -->
+<div id="ext-map-modal" style="display:none;position:fixed;inset:0;z-index:10100;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;">
+    <div style="width:100%;max-width:500px;background:#1a1a2e;border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,0.08);">
+            <span id="ext-map-title" style="font-size:0.95rem;font-weight:800;color:#fff;">📍 حدد الموقع</span>
+            <button onclick="_extMapCancel()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:rgba(255,255,255,0.5);padding:4px 8px;">✕</button>
+        </div>
+        <div id="ext-map-leaflet" style="width:100%;height:55vh;min-height:260px;"></div>
+        <p style="text-align:center;font-size:0.72rem;color:rgba(255,255,255,0.35);margin:6px 0;font-weight:600;">اسحب الدبوس أو انقر لتحديد الموقع</p>
+        <div style="padding:10px 16px 20px;">
+            <button id="ext-map-confirm" onclick="_extMapConfirm()" style="width:100%;background:var(--orange,#ff5c00);color:#fff;border:none;border-radius:12px;padding:13px;font-size:0.95rem;font-weight:900;cursor:pointer;font-family:inherit;">✔ تأكيد الموقع</button>
         </div>
     </div>
 </div>
@@ -1379,6 +1477,61 @@
 .loyalty-step__badge--done  { background:#dcfce7; color:#15803d; }
 .loyalty-step__badge--now   { background:#FF5C00; color:#fff; }
 .loyalty-step__badge--lock  { background:#f3f4f6; color:#999; }
+/* NEW: reward waiting to be used — pulsing orange */
+.loyalty-step__badge--ready {
+    background: linear-gradient(135deg,#FF5C00,#f97316);
+    color: #fff;
+    animation: badge-pulse 1.8s ease-in-out infinite;
+    box-shadow: 0 0 0 0 rgba(255,92,0,0.5);
+}
+@keyframes badge-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,92,0,0.45); }
+    50%      { box-shadow: 0 0 0 6px rgba(255,92,0,0); }
+}
+/* Greyed-out badge for already-used rewards */
+.loyalty-step__badge--used  { background:#e5e7eb; color:#9ca3af; text-decoration:line-through; }
+/* "Use Now" CTA inside a step */
+.loyalty-step__use-btn {
+    position: absolute; bottom: 9px; left: 12px;
+    background: #FF5C00; color: #fff; border: none;
+    border-radius: 20px; padding: 4px 13px;
+    font-size: 0.7rem; font-weight: 800;
+    cursor: pointer; white-space: nowrap;
+    font-family: 'Almarai', sans-serif;
+    transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 2px 6px rgba(255,92,0,0.35);
+}
+.loyalty-step__use-btn:hover  { background: #ea5500; }
+.loyalty-step__use-btn:active { transform: scale(0.95); }
+/* Reminder toast */
+#reward-reminder-toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(135deg,#1a1a1a,#2d1a00);
+    border: 1.5px solid #FF5C00; border-radius: 18px;
+    padding: 12px 18px; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(255,92,0,0.25);
+    z-index: 9999; max-width: 320px; width: calc(100% - 40px);
+    opacity: 0; transition: opacity 0.35s, transform 0.35s;
+    pointer-events: none;
+}
+#reward-reminder-toast.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+    pointer-events: all;
+}
+.reward-reminder__icon { font-size: 1.6rem; flex-shrink: 0; }
+.reward-reminder__body { flex: 1; min-width: 0; }
+.reward-reminder__title { font-size: 0.82rem; font-weight: 800; color: #fff; }
+.reward-reminder__sub   { font-size: 0.71rem; color: #f97316; margin-top: 2px; font-weight: 600; }
+.reward-reminder__open  {
+    background: #FF5C00; color: #fff; border: none; border-radius: 12px;
+    padding: 6px 12px; font-size: 0.72rem; font-weight: 800;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    font-family: 'Almarai', sans-serif;
+}
+.reward-reminder__close {
+    background: none; border: none; color: #9ca3af; font-size: 1.1rem;
+    cursor: pointer; flex-shrink: 0; line-height: 1; padding: 0 2px;
+}
 
 .loyalty-step__progress-bar {
     position: absolute; bottom: 0; left: 0;
@@ -1454,6 +1607,57 @@
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
+
+/* ══ External Order Modal ══════════════════════════════════ */
+.ext-field { margin-bottom: 15px; }
+.ext-label {
+    display: block; font-size: 0.74rem; font-weight: 800;
+    color: rgba(255,255,255,0.55); margin-bottom: 7px; letter-spacing: 0.02em;
+}
+.ext-input {
+    width: 100%; padding: 11px 13px; background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.1); border-radius: 12px;
+    color: #fff; font-family: inherit; font-size: 0.88rem;
+    outline: none; box-sizing: border-box; transition: border-color .18s;
+}
+.ext-input:focus { border-color: var(--orange, #ff5c00); }
+.ext-input::placeholder { color: rgba(255,255,255,0.25); }
+.ext-map-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 13px; background: rgba(255,92,0,0.12);
+    border: 1.5px solid rgba(255,92,0,0.3); border-radius: 12px;
+    color: var(--orange, #ff5c00); font-family: inherit; font-size: 0.78rem;
+    font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    transition: background .15s;
+}
+.ext-map-btn:hover { background: rgba(255,92,0,0.22); }
+.ext-coord-badge {
+    margin-top: 6px; font-size: 0.68rem; color: rgba(255,92,0,0.7);
+    font-weight: 700; font-family: monospace;
+}
+.ext-chip {
+    padding: 5px 13px; background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.1); border-radius: 50px;
+    color: rgba(255,255,255,0.55); font-family: inherit; font-size: 0.75rem;
+    font-weight: 700; cursor: pointer; transition: all .15s;
+}
+.ext-chip:hover, .ext-chip.active { background: rgba(255,92,0,0.15); border-color: rgba(255,92,0,0.4); color: var(--orange,#ff5c00); }
+.ext-chip--item { font-size: 0.72rem; }
+.ext-summary-card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; overflow: hidden;
+}
+.ext-summary-row {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.ext-summary-row:last-child { border-bottom: none; }
+.ext-summary-icon { font-size: 1.2rem; flex-shrink: 0; padding-top: 2px; }
+.ext-summary-label { font-size: 0.65rem; font-weight: 800; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+.ext-summary-val { font-size: 0.88rem; font-weight: 800; color: #fff; }
+.ext-summary-sub { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+@keyframes extPop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes extShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
 </style>
 
 <script>
@@ -1588,24 +1792,33 @@ async function _renderLoyaltyModal() {
     const balEl = document.getElementById('acct-points-balance');
     if (balEl) balEl.textContent = pts;
 
-    // Active queued reward (next order auto-apply)
+    // Fetch claimed tiers + reward queue in parallel (needed for step states below)
+    let _claimedTiers = [], _rewardQueue = [];
+    try {
+        const [ctResp, qrResp] = await Promise.all([
+            fetch(`${LOYALTY_RTDB}/users/${user.uid}/claimedTiers.json`),
+            fetch(`${LOYALTY_RTDB}/users/${user.uid}/rewardQueue.json`),
+        ]);
+        const ctData = await ctResp.json();
+        const qrData = await qrResp.json();
+        _claimedTiers = Array.isArray(ctData) ? ctData : [];
+        _rewardQueue  = Array.isArray(qrData) ? qrData  : [];
+    } catch (_) {}
+
+    // Active queued reward (next order auto-apply) — just the first applicable one
     if (activeBox) {
-        try {
-            const qr = await fetch(`${LOYALTY_RTDB}/users/${user.uid}/rewardQueue.json`);
-            const queue = await qr.json();
-            const next = Array.isArray(queue) && queue.length ? queue[0] : null;
-            if (next) {
-                activeBox.style.display = 'flex';
-                activeBox.innerHTML = `
-                    <span class="loyalty-active-reward__icon">${next.icon || '🎉'}</span>
-                    <div class="loyalty-active-reward__body">
-                        <div class="loyalty-active-reward__title">${_rewardActiveText(next)}</div>
-                        <div class="loyalty-active-reward__sub">${next.reward || ''}${queue.length > 1 ? ` · +${queue.length - 1} مكافآت أخرى بالانتظار` : ''}</div>
-                    </div>`;
-            } else {
-                activeBox.style.display = 'none';
-            }
-        } catch (_) { activeBox.style.display = 'none'; }
+        const next = _rewardQueue.find(it => it && ['free_delivery','discount_fixed','discount_percent'].includes(it.type)) || null;
+        if (next) {
+            activeBox.style.display = 'flex';
+            activeBox.innerHTML = `
+                <span class="loyalty-active-reward__icon">${next.icon || '🎉'}</span>
+                <div class="loyalty-active-reward__body">
+                    <div class="loyalty-active-reward__title">${_rewardActiveText(next)}</div>
+                    <div class="loyalty-active-reward__sub">${next.reward || ''}${_rewardQueue.length > 1 ? ` · +${_rewardQueue.length - 1} مكافآت أخرى بالانتظار` : ''}</div>
+                </div>`;
+        } else {
+            activeBox.style.display = 'none';
+        }
     }
 
     // Animate ring
@@ -1633,15 +1846,50 @@ async function _renderLoyaltyModal() {
         }
     }
 
-    // Build ladder
+    // Build ladder — 4 step states:
+    //  locked  : not yet reached
+    //  current : the next goal
+    //  ready   : reached + still in rewardQueue (unused, pulsing orange)
+    //  used    : reached + consumed from queue (grey strikethrough)
+    //  done    : reached + type=account_credit (auto-applied, green tick)
     let html = `<div class="loyalty-ladder__title">سلم المكافآت</div>`;
+    const queuePts = new Set(_rewardQueue.map(r => r && r.pts));
+
     [...LOYALTY_REWARDS].reverse().forEach((step, i) => {
-        const reached  = pts >= step.pts;
-        const isCurrent = nextReward && nextReward.pts === step.pts;
-        const cls = reached ? 'loyalty-step--reached' : isCurrent ? 'loyalty-step--current' : 'loyalty-step--locked';
-        const badgeTxt = reached ? '✓ تم' : isCurrent ? 'الهدف' : 'مقفل';
-        const badgeCls = reached ? 'loyalty-step__badge--done' : isCurrent ? 'loyalty-step__badge--now' : 'loyalty-step__badge--lock';
-        const isLast   = i === LOYALTY_REWARDS.length - 1; // last in reversed = lowest (50pts) = bottom
+        const reached   = pts >= step.pts || _claimedTiers.includes(step.pts);
+        const inQueue   = queuePts.has(step.pts);
+        const isCurrent = !reached && nextReward && nextReward.pts === step.pts;
+
+        // Determine badge state
+        let cls, badgeTxt, badgeCls, useBtn = '';
+        if (!reached && !isCurrent) {
+            cls = 'loyalty-step--locked';
+            badgeTxt = 'مقفل'; badgeCls = 'loyalty-step__badge--lock';
+        } else if (isCurrent) {
+            cls = 'loyalty-step--current';
+            badgeTxt = 'الهدف'; badgeCls = 'loyalty-step__badge--now';
+        } else if (inQueue) {
+            // Reward unlocked but sitting in queue — user hasn't used it yet
+            cls = 'loyalty-step--reached';
+            badgeTxt = '🟠 جاهز'; badgeCls = 'loyalty-step__badge--ready';
+            // Only auto-appliable rewards get an explicit "Use Now" button
+            if (['free_delivery','discount_fixed','discount_percent'].includes(step.type)) {
+                useBtn = `<button class="loyalty-step__use-btn"
+                    onclick="event.stopPropagation();_confirmUseReward(${step.pts},'${(step.reward||'').replace(/'/g,'')}')">
+                    ⚡ استخدم الآن
+                </button>`;
+            }
+        } else if (step.type === 'account_credit') {
+            // Auto-applied credit — always "done"
+            cls = 'loyalty-step--reached';
+            badgeTxt = '✓ مُضاف'; badgeCls = 'loyalty-step__badge--done';
+        } else {
+            // Reached + not in queue = already consumed
+            cls = 'loyalty-step--reached';
+            badgeTxt = '✓ مُستخدم'; badgeCls = 'loyalty-step__badge--used';
+        }
+
+        const isLast = i === LOYALTY_REWARDS.length - 1;
 
         // Progress bar inside current step
         let progressBar = '';
@@ -1654,8 +1902,11 @@ async function _renderLoyaltyModal() {
             }, 200);
         }
 
+        // Extra bottom padding when use-button is present
+        const extraPad = useBtn ? 'padding-bottom:38px;' : '';
+
         html += `
-        <div class="loyalty-step ${cls}" style="position:relative;overflow:hidden;">
+        <div class="loyalty-step ${cls}" style="position:relative;overflow:hidden;${extraPad}">
             <div class="loyalty-step__pts-col">
                 <span class="loyalty-step__pts">${step.pts}</span>
                 <span class="loyalty-step__pts-lbl">نقطة</span>
@@ -1666,6 +1917,7 @@ async function _renderLoyaltyModal() {
                 <div class="loyalty-step__desc">${step.desc}</div>
             </div>
             <span class="loyalty-step__badge ${badgeCls}">${badgeTxt}</span>
+            ${useBtn}
             ${progressBar}
             ${!isLast ? `<div class="loyalty-step__connector"></div>` : ''}
         </div>`;
@@ -1682,6 +1934,127 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#loyalty-card')) openLoyaltyModal();
 });
+
+/* ── "Use Now" confirm dialog ──────────────────────────────────────────────────
+   Called from the ⚡ استخدم الآن button inside a ladder step.
+   Brings up a native confirm, then promotes that reward to position 0 in the
+   queue so it will auto-apply on the very next cart checkout.               */
+async function _confirmUseReward(pts, rewardName) {
+    const ok = confirm(
+        `هل تريد استخدام مكافأة "${rewardName}" على طلبك القادم؟
+
+` +
+        `بعد التأكيد، ستُطبَّق المكافأة تلقائياً عند إتمام طلبك التالي.
+` +
+        `يمكنك إلغاء التطبيق من سلّة التسوق قبل الإرسال.`
+    );
+    if (!ok) return;
+
+    const user = window.DelivoUser;
+    if (!user) return;
+    const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+    try {
+        // Fetch current queue
+        const r = await fetch(`${RTDB}/users/${user.uid}/rewardQueue.json`);
+        let queue = await r.json();
+        queue = Array.isArray(queue) ? queue : [];
+
+        // Find the chosen reward and move it to front
+        const idx = queue.findIndex(it => it && it.pts === pts);
+        if (idx < 0) {
+            alert('لم يُعثر على المكافأة في قائمة الانتظار. ربما تم استخدامها مسبقاً.');
+            return;
+        }
+        if (idx !== 0) {
+            const [item] = queue.splice(idx, 1);
+            queue.unshift(item);
+            await fetch(`${RTDB}/users/${user.uid}/rewardQueue.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(queue),
+            });
+        }
+
+        // Reset the cart-side reward cache so the moved reward is picked up immediately
+        if (window._resetRewardCache) window._resetRewardCache();
+
+        // Show success feedback and re-render modal
+        _showLoyaltyToast(`✅ المكافأة جاهزة — ستُطبَّق تلقائياً على طلبك القادم! 🎉`);
+        setTimeout(() => _renderLoyaltyModal(), 400);
+
+    } catch (e) {
+        console.error('[Loyalty] _confirmUseReward failed:', e);
+        alert('حدث خطأ، حاول مجدداً.');
+    }
+}
+
+/* ── In-modal mini toast ─────────────────────────────────────────────────── */
+function _showLoyaltyToast(msg) {
+    let t = document.getElementById('loyalty-mini-toast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'loyalty-mini-toast';
+        t.style.cssText = `
+            position:sticky;bottom:12px;left:50%;transform:translateX(-50%);
+            background:#1a1a1a;color:#fff;border:1px solid #FF5C00;
+            border-radius:20px;padding:8px 18px;font-size:0.78rem;font-weight:700;
+            text-align:center;z-index:100;opacity:0;transition:opacity 0.3s;
+            pointer-events:none;white-space:nowrap;max-width:90%;margin:10px auto 0;
+            display:block;`;
+        document.getElementById('loyalty-ladder')?.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.opacity = '1';
+    setTimeout(() => { t.style.opacity = '0'; }, 3500);
+}
+
+/* ── Reminder toast — shown once per session if user has pending rewards ── */
+let _reminderShown = false;
+
+async function _checkRewardReminder() {
+    if (_reminderShown) return;
+    const user = window.DelivoUser;
+    if (!user) return;
+    // Only remind once per session (tracked in sessionStorage)
+    if (sessionStorage.getItem('delivo_reward_reminded')) return;
+
+    const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+    try {
+        const r = await fetch(`${RTDB}/users/${user.uid}/rewardQueue.json`);
+        const queue = await r.json();
+        if (!Array.isArray(queue) || !queue.length) return;
+
+        // Build subtitle
+        const next = queue[0];
+        const sub = next ? _rewardActiveText(next).replace(/<[^>]*>/g, '') : `${queue.length} مكافأة بانتظارك`;
+        const subEl = document.getElementById('reward-reminder-sub');
+        if (subEl) subEl.textContent = sub;
+
+        _reminderShown = true;
+        sessionStorage.setItem('delivo_reward_reminded', '1');
+
+        // Show after 8 seconds, auto-dismiss after 12s
+        setTimeout(() => {
+            const toast = document.getElementById('reward-reminder-toast');
+            if (toast) toast.classList.add('show');
+            setTimeout(() => _dismissReminderToast(), 12000);
+        }, 8000);
+    } catch (_) {}
+}
+
+function _dismissReminderToast() {
+    const toast = document.getElementById('reward-reminder-toast');
+    if (toast) toast.classList.remove('show');
+}
+
+function _openReminderReward() {
+    _dismissReminderToast();
+    openLoyaltyModal();
+}
+
+// Expose to window so firebase-init.js auth listener can call it
+window._checkRewardReminder = _checkRewardReminder;
 
 /* ── Refresh points balance when account modal opens ─────── */
 async function _refreshLoyaltyBalance() {
@@ -1717,5 +2090,6 @@ if (_origAcctBtn) {
 }
 </script>
 
+    <script src="scripts/external-order.js?v=1"></script>
 </body>
 </html>

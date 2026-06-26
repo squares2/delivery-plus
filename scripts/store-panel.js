@@ -537,10 +537,10 @@ function renderItem(item, storeName) {
                         onclick="spRemoveLastInstance('${uniqueId}','${storeName}')">−</button>
                 <span class="sp-item__qty-num" id="sp-qty-${_slugify(uniqueId)}">${cartQty}</span>
                 <button class="sp-item__qty-btn sp-item__qty-btn--add"
-                        onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event)">+</button>
+                        onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${imgUrl}')">+</button>
             </div>` : `
             <button class="sp-item__add-btn" id="sp-add-btn-${_slugify(uniqueId)}"
-                    onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event)">
+                    onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${imgUrl}')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2.5"
                      stroke-linecap="round" stroke-linejoin="round">
@@ -557,11 +557,11 @@ function renderItem(item, storeName) {
  * spAddItem — always adds instantly (no modal, no keyword popup).
  * Description notes are only set via the item detail popup.
  */
-function spAddItem(uniqueId, name, price, storeName, storeType, event) {
+function spAddItem(uniqueId, name, price, storeName, storeType, event, imgUrl) {
     if (!window.DelivoCart) return;
     if (event) event.stopPropagation();
     // Direct add — no notes, no modal
-    _doAddItem(uniqueId, name, price, storeName, storeType, '', uniqueId);
+    _doAddItem(uniqueId, name, price, storeName, storeType, '', uniqueId, imgUrl);
 }
 
 /* Remove the most-recently-added instance of an item */
@@ -578,9 +578,9 @@ function spRemoveLastInstance(baseId, storeName) {
     _updateSpCartBar();
 }
 
-function _doAddItem(instanceId, name, price, storeName, storeType, notes, baseId) {
+function _doAddItem(instanceId, name, price, storeName, storeType, notes, baseId, imgUrl) {
     const bId = baseId || instanceId;
-    window.DelivoCart.addItem(instanceId, name, price, storeName, storeType, notes);
+    window.DelivoCart.addItem(instanceId, name, price, storeName, storeType, notes, imgUrl);
     _updatePanelQtyDisplay(bId, storeName);
     _updateSpCartBar();
     if (window.renderCartSidebar) window.renderCartSidebar();
@@ -1171,7 +1171,9 @@ function _ipAddToCart() {
         /* Each popup add = a brand new instance carrying its notes */
         for (let i = 0; i < _ipQty; i++) {
             const instanceId = uniqueId + '__i' + (Date.now() + i);
-            window.DelivoCart.addItem(instanceId, item.name, price, storeName, storeType, notes);
+            const _pngUrl = (item.pngExist === '1' || item.pngExist === 1)
+                ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
+            window.DelivoCart.addItem(instanceId, item.name, price, storeName, storeType, notes, _pngUrl);
         }
         _updatePanelQtyDisplay(uniqueId, storeName);
     } else {
@@ -1180,12 +1182,16 @@ function _ipAddToCart() {
         const diff    = _ipQty - current;
         if (diff > 0) {
             for (let i = 0; i < diff; i++) {
-                window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '');
+                const _qi = (item.pngExist === '1' || item.pngExist === 1)
+                ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
+            window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '', _qi);
             }
         } else if (diff < 0) {
             for (let i = 0; i < Math.abs(diff); i++) window.DelivoCart.decrementItem(uniqueId, storeName);
         } else {
-            window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '');
+            const _qi = (item.pngExist === '1' || item.pngExist === 1)
+                ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
+            window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '', _qi);
         }
     }
 

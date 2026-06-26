@@ -60,25 +60,36 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 16px;
-        gap: 10px;
+        padding: 8px 12px;
+        gap: 6px;
+        min-width: 0;
     }
     .drv-nav__logo {
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 1.1rem;
+        gap: 6px;
+        font-size: 1rem;
         font-weight: 800;
         color: var(--clr-orange);
         text-decoration: none;
+        flex-shrink: 0;
     }
-    .drv-nav__logo img { width: 32px; height: 32px; border-radius: 8px; }
+    .drv-nav__logo img { width: 28px; height: 28px; border-radius: 7px; }
+    /* Hide "Driver" text label on very narrow screens — logo icon is enough */
     .drv-nav__logo span { color: var(--clr-white); }
+    @media (max-width: 340px) { .drv-nav__logo span { display: none; } }
 
-    .drv-nav__right { display: flex; align-items: center; gap: 10px; }
+    /* Right side: wraps tightly, never pushes off-screen */
+    .drv-nav__right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        flex-shrink: 1;
+    }
 
     .drv-status-dot {
-        width: 10px; height: 10px;
+        width: 9px; height: 9px;
         border-radius: 50%;
         background: var(--clr-red);
         box-shadow: 0 0 0 3px rgba(239,68,68,0.25);
@@ -95,10 +106,16 @@
         50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.10); }
     }
 
+    /* Driver name: truncates instead of overflowing */
     .drv-nav__driver-name {
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 700;
         color: var(--clr-gray-light);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 80px;   /* shrinks further if needed */
+        flex-shrink: 1;
     }
 
     .drv-btn {
@@ -120,11 +137,26 @@
     .drv-btn--ghost:hover { color: var(--clr-white); border-color: var(--clr-gray); }
     .drv-btn--red { background: var(--clr-red); color: #fff; }
 
+    /* Navbar ghost buttons shrink on small screens: show icon only */
+    @media (max-width: 420px) {
+        .drv-btn--ghost { padding: 7px 9px; font-size: 0.7rem; }
+        /* Archive btn same treatment */
+        .drv-archive-btn { padding: 6px 8px; font-size: 0.68rem; gap: 3px; }
+        /* Hide text labels, keep emoji — saves ~40px per button */
+        #drv-history-btn  .drv-btn-label,
+        #drv-docs-nav-btn .drv-btn-label,
+        #drv-logout-btn   .drv-btn-label { display: none; }
+    }
+    @media (max-width: 360px) {
+        .drv-btn--ghost { padding: 6px 7px; }
+        .drv-nav__driver-name { max-width: 54px; }
+    }
+
     /* ── Stats bar ───────────────────────────────────────────── */
     .drv-stats {
         display: flex;
-        gap: 8px;
-        padding: 10px 16px;
+        gap: 6px;
+        padding: 8px 10px;
         overflow-x: auto;
         scrollbar-width: none;
         background: var(--clr-surface);
@@ -137,11 +169,18 @@
         background: var(--clr-surface2);
         border: 1px solid var(--clr-border);
         border-radius: var(--radius-md);
-        padding: 7px 14px;
-        min-width: 72px;
-        flex-shrink: 0;
+        padding: 6px 10px;
+        min-width: 0;       /* allow shrinking */
+        flex: 1 1 0;        /* equal width, fills bar */
+        max-width: 80px;    /* cap on large screens */
         cursor: pointer;
         transition: border-color 0.18s;
+    }
+    /* Tighten font on really narrow screens */
+    @media (max-width: 360px) {
+        .drv-stat { padding: 5px 6px; }
+        .drv-stat__val   { font-size: 0.95rem; }
+        .drv-stat__label { font-size: 0.55rem; }
     }
     .drv-stat.active { border-color: var(--clr-orange); }
     .drv-stat__val {
@@ -746,8 +785,9 @@
     <div class="drv-nav__right">
         <div class="drv-status-dot" id="drv-status-dot"></div>
         <span class="drv-nav__driver-name" id="drv-name">—</span>
-        <button class="drv-archive-btn" id="drv-history-btn">📦 Archive</button>
-        <button class="drv-btn drv-btn--ghost" id="drv-logout-btn">تسجيل خروج</button>
+        <button class="drv-archive-btn" id="drv-history-btn">📦<span class="drv-btn-label"> Archive</span></button>
+        <button class="drv-btn drv-btn--ghost" id="drv-docs-nav-btn" title="تحديث وثائقي">📄<span class="drv-btn-label"> وثائقي</span></button>
+        <button class="drv-btn drv-btn--ghost" id="drv-logout-btn">🚪<span class="drv-btn-label"> تسجيل خروج</span></button>
     </div>
 </nav>
 
@@ -830,6 +870,7 @@
         <button class="drv-btn drv-btn--orange" id="drv-login-btn" style="width:100%;justify-content:center;padding:12px">
             تسجيل الدخول
         </button>
+        <p class="drv-modal__switch">ليس لديك حساب؟ <a id="drv-show-register">سجّل كسائق جديد</a></p>
     </div>
 </div>
 
@@ -888,10 +929,23 @@
             <input type="hidden" id="drv-reg-vehicle">
         </div>
 
+        <!-- Username -->
+        <div class="drv-field">
+            <label for="drv-reg-username">اسم المستخدم <span class="drv-field-required">*</span></label>
+            <input type="text" id="drv-reg-username" placeholder="مثال: ahmad_driver" dir="ltr" maxlength="30" autocapitalize="none">
+            <span class="drv-field-hint">أحرف إنجليزية، أرقام، _ فقط — 3-30 حرف</span>
+            <span class="drv-field-status" id="drv-reg-username-status"></span>
+        </div>
+
+        <!-- Password -->
+        <div class="drv-field">
+            <label for="drv-reg-password">كلمة المرور <span class="drv-field-required">*</span></label>
+            <input type="password" id="drv-reg-password" placeholder="8 أحرف على الأقل" dir="ltr" autocomplete="new-password">
+        </div>
 
         <!-- Documents (optional) -->
         <div class="drv-field">
-            <label>📄 الوثائق <span style="color:var(--clr-gray); font-weight:600;">(اختياري — يمكن إضافتها لاحقاً)</span></label>
+            <label>📄 الوثائق <span style="color:var(--clr-gray); font-weight:600;">(اختياري — يمكن إضافتها بعد تسجيل الدخول)</span></label>
 
             <label class="drv-upload-box" id="drv-id-box" for="drv-reg-id-file">
                 <div class="drv-upload-box__icon" id="drv-id-icon">🪪</div>
@@ -913,8 +967,9 @@
         </div>
 
         <button class="drv-btn drv-btn--orange" id="drv-reg-submit" style="width:100%;justify-content:center;padding:12px">
-            📨 إرسال طلب الانضمام
+            ➕ إنشاء حساب السائق
         </button>
+        <p class="drv-modal__switch">لديك حساب؟ <a id="drv-show-login">سجّل الدخول</a></p>
     </div>
 </div>
 
@@ -935,8 +990,25 @@
 <div class="drv-modal-overlay" id="drv-docs-modal" style="display:none;">
     <div class="drv-modal drv-modal--register">
         <div class="drv-modal__logo">
-            <span class="drv-modal__logo-title">📄 وثائقك</span>
-            <span class="drv-modal__logo-sub">أكمل ملفك لتسريع عملية التفعيل</span>
+            <span class="drv-modal__logo-title" id="drv-docs-modal-title">📄 وثائقك</span>
+            <span class="drv-modal__logo-sub" id="drv-docs-modal-sub">أكمل ملفك لتسريع عملية التفعيل</span>
+        </div>
+        <div id="drv-docs-current" style="display:none;margin-bottom:10px;">
+            <p style="font-size:0.7rem;color:var(--clr-gray);margin-bottom:6px;font-weight:700;">الوثائق الحالية:</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div>
+                    <p style="font-size:0.65rem;color:var(--clr-gray);margin-bottom:3px;">🗂️ الهوية</p>
+                    <img id="drv-docs-current-id" src="" alt="ID"
+                         style="width:100%;height:80px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer;"
+                         onclick="window.open(this.src,'_blank')">
+                </div>
+                <div>
+                    <p style="font-size:0.65rem;color:var(--clr-gray);margin-bottom:3px;">🚘 الرخصة</p>
+                    <img id="drv-docs-current-license" src="" alt="License"
+                         style="width:100%;height:80px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.1);cursor:pointer;"
+                         onclick="window.open(this.src,'_blank')">
+                </div>
+            </div>
         </div>
         <p class="drv-error" id="drv-docs-error"></p>
 
@@ -999,6 +1071,102 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.database();
 const fsdb = firebase.firestore();
 const storage = firebase.storage();
+
+// -- Device UUID helpers (mirrors firebase-init.js) ---------------------------
+// Same fingerprint + UUID logic as the main app so standard users and driver
+// accounts share the same device identity. Cap: 3 driver accounts per device,
+// counting pending and inactive ones. Collection: driverDevices/{uuid}.
+
+const _DRV_MAX_ACCOUNTS = 3;
+
+async function _drvGetFingerprint() {
+    const parts = [
+        navigator.language || '',
+        (navigator.languages || []).join(','),
+        navigator.platform || '',
+        String(navigator.hardwareConcurrency || ''),
+        screen.width + 'x' + screen.height,
+        String(screen.colorDepth || ''),
+        Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+        navigator.userAgent || '',
+    ];
+    try {
+        const cv = document.createElement('canvas');
+        const cx = cv.getContext('2d');
+        cx.textBaseline = 'top'; cx.font = '14px Arial';
+        cx.fillStyle = '#FF5C00'; cx.fillText('Delivo', 2, 2);
+        parts.push(cv.toDataURL());
+    } catch (_) {}
+    const hash = await crypto.subtle.digest(
+        'SHA-256', new TextEncoder().encode(parts.join('|')));
+    const hex = Array.from(new Uint8Array(hash))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+    return 'fp_' + hex.slice(0, 32);
+}
+
+function _drvGenUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+async function _drvGetOrCreateUUID() {
+    const stored = localStorage.getItem('delivo_device_uuid');
+    try {
+        const fp    = await _drvGetFingerprint();
+        const fpDoc = await fsdb.collection('device_fingerprints').doc(fp).get();
+        if (fpDoc.exists) {
+            const uuid = fpDoc.data().uuid;
+            localStorage.setItem('delivo_device_uuid', uuid);
+            return uuid;
+        }
+        const uuid = stored || _drvGenUUID();
+        await fsdb.collection('device_fingerprints').doc(fp).set({
+            uuid, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        localStorage.setItem('delivo_device_uuid', uuid);
+        return uuid;
+    } catch (_) {
+        if (stored) return stored;
+        const uuid = _drvGenUUID();
+        localStorage.setItem('delivo_device_uuid', uuid);
+        return uuid;
+    }
+}
+
+// Returns { allowed, count, uuid, message? }
+// Counts ALL driver records for this UUID — active, inactive, or pending.
+async function _drvCheckUUIDLimit() {
+    if (localStorage.getItem('delivo_dev_bypass') === '1')
+        return { allowed: true, count: 0, uuid: 'dev-bypass' };
+    try {
+        const uuid  = await _drvGetOrCreateUUID();
+        const doc   = await fsdb.collection('driverDevices').doc(uuid).get();
+        const count = doc.exists ? (doc.data().count || 0) : 0;
+        if (count >= _DRV_MAX_ACCOUNTS) {
+            return { allowed: false, count, uuid,
+                message: '\u0647\u0630\u0627 \u0627\u0644\u062c\u0647\u0627\u0632 \u0648\u0635\u0644 \u0625\u0644\u0649 \u0627\u0644\u062d\u062f \u0627\u0644\u0623\u0642\u0635\u0649 (' + _DRV_MAX_ACCOUNTS + ' \u062d\u0633\u0627\u0628\u0627\u062a \u0633\u0627\u0626\u0642). \u062a\u0648\u0627\u0635\u0644 \u0645\u0639 \u0627\u0644\u062f\u0639\u0645.' };
+        }
+        return { allowed: true, count, uuid };
+    } catch (e) {
+        console.error('[Delivo Driver] UUID limit check:', e);
+        return { allowed: false, count: _DRV_MAX_ACCOUNTS, uuid: 'unknown',
+            message: '\u062a\u0639\u0630\u0651\u0631 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u062c\u0647\u0627\u0632. \u062d\u0627\u0648\u0644 \u0645\u062c\u062f\u062f\u0627\u064b.' };
+    }
+}
+
+async function _drvIncrementUUIDCount(uuid) {
+    if (!uuid || uuid === 'unknown' || uuid === 'dev-bypass') return;
+    try {
+        await fsdb.collection('driverDevices').doc(uuid).set({
+            count:    firebase.firestore.FieldValue.increment(1),
+            lastUsed: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    } catch (e) {
+        console.error('[Delivo Driver] incrementUUIDCount:', e);
+    }
+}
 
 // ── State ─────────────────────────────────────────────────────
 let driverData    = null;   // { id, username, owner }
@@ -1155,10 +1323,8 @@ function showLoginModalFromRegister() {
 }
 
 function setupRegisterSwitchLinks() {
-    // Auto-open register form when coming from landing page
-    if (new URLSearchParams(window.location.search).get('register') === '1') {
-        showRegisterModal();
-    }
+    document.getElementById('drv-show-register')?.addEventListener('click', showRegisterModal);
+    document.getElementById('drv-show-login')?.addEventListener('click', showLoginModalFromRegister);
 }
 
 /* ── Vehicle type picker ─────────────────────────────────────── */
@@ -1410,12 +1576,7 @@ async function uploadDriverDoc(file, driverId, docName) {
     const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `driverDocs/${driverId}/${docName}.${ext}`;
     const ref  = storage.ref(path);
-    // Race against 15s timeout — Firebase Storage CORS fails on localhost
-    // but works fine on Firebase Hosting (production). Docs can be added later.
-    await Promise.race([
-        ref.put(file),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('upload timeout — CORS on localhost')), 15000))
-    ]);
+    await ref.put(file);
     return await ref.getDownloadURL();
 }
 
@@ -1438,6 +1599,8 @@ function setupRegisterForm() {
         const lat      = document.getElementById('drv-reg-lat').value;
         const lng      = document.getElementById('drv-reg-lng').value;
         const vehicle  = document.getElementById('drv-reg-vehicle').value;
+        const username = document.getElementById('drv-reg-username').value.trim().toLowerCase();
+        const password = document.getElementById('drv-reg-password').value;
 
         // ── Validation ──────────────────────────────────────────
         if (!fullname || fullname.length < 2) {
@@ -1452,64 +1615,103 @@ function setupRegisterForm() {
         if (!vehicle) {
             return showRegError('يرجى اختيار نوع المركبة.');
         }
+        if (!/^[a-z0-9_]{3,30}$/.test(username)) {
+            return showRegError('اسم المستخدم: 3-30 حرف إنجليزي، أرقام أو _ فقط.');
+        }
+        if (!password || password.length < 8) {
+            return showRegError('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
+        }
 
         submitBtn.disabled = true;
         submitBtn.textContent = '…';
 
         try {
+            // 0. Device UUID limit check (max 3 driver accounts per device)
+            //    Runs first so we don't waste Firebase reads on a capped device.
+            submitBtn.textContent = 'جاري التحقق…';
+            const _uuidResult = await _drvCheckUUIDLimit();
+            if (!_uuidResult.allowed) {
+                return showRegError(_uuidResult.message);
+            }
+            const _deviceUUID = _uuidResult.uuid;
+
+            // Final username uniqueness re-check (race-condition guard)
+            const drvSnap = await db.ref('drivers').get();
+            let taken = false;
+            if (drvSnap.exists()) {
+                drvSnap.forEach(child => {
+                    const d = child.val();
+                    if (d && d.username === username) taken = true;
+                });
+            }
+            if (!taken) {
+                try {
+                    const custDoc = await fsdb.collection('usernames').doc(username).get();
+                    if (custDoc.exists) taken = true;
+                } catch (_) {}
+            }
+            if (taken) {
+                return showRegError('اسم المستخدم محجوز. اختر اسماً آخر.');
+            }
+
             const phoneFormatted = '+961' + phoneRaw.replace(/^0/, '');
 
-            // Save to driverApplications (not drivers) — admin reviews and creates account later
-            const newRef   = db.ref('driverApplications').push();
-            const appId    = newRef.key;
+            // Create the driver record first (without doc images) to get an ID
+            const newRef = db.ref('drivers').push();
+            const driverId = newRef.key;
 
-            const application = {
-                fullname    : fullname,
-                phone       : phoneFormatted,
-                vehicleType : vehicle,
-                address     : { lat: parseFloat(lat), lng: parseFloat(lng) },
-                status      : 'pending',   // admin sets to 'approved' then creates driver account
-                createdAt   : Date.now(),
+            const driverRecord = {
+                owner          : fullname,
+                fullname       : fullname,
+                username       : username,
+                password       : password,
+                phone          : phoneFormatted,
+                vehicleType    : vehicle,
+                address        : { lat: parseFloat(lat), lng: parseFloat(lng) },
+                status         : 'offline',
+                active         : false,          // ← admin must activate before receiving orders
+                pendingApproval: true,
+                deviceUUID     : _deviceUUID,
+                createdAt      : Date.now(),
             };
-            await newRef.set(application);
+            await newRef.set(driverRecord);
+            await _drvIncrementUUIDCount(_deviceUUID);
 
-            // Upload optional documents
+            // Upload optional documents (non-blocking for registration success)
             const docUpdates = {};
             if (_regIdFile) {
-                try { docUpdates.idImage = await uploadDriverDoc(_regIdFile, appId, 'id'); }
+                try { docUpdates.idImage = await uploadDriverDoc(_regIdFile, driverId, 'id'); }
                 catch (e) { console.error('[Delivo] ID upload failed:', e); }
             }
             if (_regLicenseFile) {
-                try { docUpdates.licenseImage = await uploadDriverDoc(_regLicenseFile, appId, 'license'); }
+                try { docUpdates.licenseImage = await uploadDriverDoc(_regLicenseFile, driverId, 'license'); }
                 catch (e) { console.error('[Delivo] License upload failed:', e); }
             }
             if (Object.keys(docUpdates).length) {
                 await newRef.update(docUpdates);
             }
 
-            // Show success — no login, just confirmation
+            // Log the driver in immediately
+            driverData = {
+                id:       driverId,
+                username: username,
+                owner:    fullname,
+                active:   false,
+                idImage:      docUpdates.idImage      || null,
+                licenseImage: docUpdates.licenseImage || null,
+            };
+            localStorage.setItem('delivoDriver', JSON.stringify(driverData));
+
             document.getElementById('drv-register-modal').style.display = 'none';
-            // Show full-screen thank-you message
-            const thanks = document.createElement('div');
-            thanks.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0d0d0d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center;font-family:Almarai,sans-serif;';
-            thanks.innerHTML =
-                '<div style="font-size:3.5rem;">🛵</div>' +
-                '<h2 style="color:#FF5C00;font-size:1.4rem;font-weight:900;margin:0;">تم إرسال طلبك!</h2>' +
-                '<p style="color:rgba(255,255,255,0.8);font-size:0.95rem;max-width:300px;line-height:1.6;margin:0;">' +
-                    'شكراً <strong style="color:#fff;">' + fullname + '</strong>، استلمنا طلب انضمامك كسائق.<br>' +
-                    'سيتواصل معك فريق Delivo قريباً على رقم هاتفك لتأكيد القبول وإنشاء حسابك.' +
-                '</p>' +
-                '<a href="index.html" style="background:#FF5C00;color:#fff;border:none;border-radius:14px;padding:13px 32px;font-size:0.95rem;font-weight:800;font-family:Almarai,sans-serif;text-decoration:none;margin-top:8px;">' +
-                    'العودة للرئيسية' +
-                '</a>';
-            document.body.appendChild(thanks);
+            showToast('🎉 تم إنشاء حسابك بنجاح!');
+            startDriverSession();
 
         } catch (e) {
             console.error('[Delivo] registration error:', e);
             showRegError('حدث خطأ أثناء إنشاء الحساب. حاول مجدداً.');
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = '📨 إرسال طلب الانضمام';
+            submitBtn.textContent = '➕ إنشاء حساب السائق';
         }
     });
 
@@ -1517,7 +1719,7 @@ function setupRegisterForm() {
         errorEl.textContent = msg;
         errorEl.classList.add('visible');
         submitBtn.disabled = false;
-        submitBtn.textContent = '📨 إرسال طلب الانضمام';
+        submitBtn.textContent = '➕ إنشاء حساب السائق';
     }
 }
 
@@ -1525,13 +1727,66 @@ function setupRegisterForm() {
 let _docsIdFile      = null;
 let _docsLicenseFile = null;
 
+/* Opens the docs modal in first-upload or update mode.
+   isUpdate=true  shows current images + "update" title.
+   isUpdate=false shows a blank form for first-time upload.      */
+function openDocsModal(isUpdate) {
+    if (!driverData) return;
+
+    // Reset file pickers and upload-box UI
+    _docsIdFile = null;
+    _docsLicenseFile = null;
+    ['drv-docs-id-file', 'drv-docs-license-file'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    [
+        ['drv-docs-id-box',      'drv-docs-id-icon',      'drv-docs-id-title',
+         'drv-docs-id-sub',      '\uD83D\uDDC2\uFE0F', '\u0635\u0648\u0631\u0629 \u0627\u0644\u0647\u0648\u064a\u0629',
+         '\u0627\u0636\u063a\u0637 \u0644\u0631\u0641\u0639 \u0635\u0648\u0631\u0629 \u0628\u0637\u0627\u0642\u0629 \u0627\u0644\u0647\u0648\u064a\u0629'],
+        ['drv-docs-license-box', 'drv-docs-license-icon', 'drv-docs-license-title',
+         'drv-docs-license-sub', '\uD83D\uDE98', '\u0631\u062e\u0635\u0629 \u0627\u0644\u0642\u064a\u0627\u062f\u0629',
+         '\u0627\u0636\u063a\u0637 \u0644\u0631\u0641\u0639 \u0635\u0648\u0631\u0629 \u0631\u062e\u0635\u0629 \u0627\u0644\u0642\u064a\u0627\u062f\u0629'],
+    ].forEach(([boxId, iconId, titleId, subId, emoji, title, sub]) => {
+        document.getElementById(boxId)?.classList.remove('has-file');
+        const icon = document.getElementById(iconId); if (icon) icon.textContent = emoji;
+        const t    = document.getElementById(titleId); if (t)    t.textContent    = title;
+        const s    = document.getElementById(subId);   if (s)    s.textContent    = sub;
+    });
+
+    const titleEl = document.getElementById('drv-docs-modal-title');
+    const subEl   = document.getElementById('drv-docs-modal-sub');
+    const currDiv = document.getElementById('drv-docs-current');
+
+    if (isUpdate) {
+        if (titleEl) titleEl.textContent = '\uD83D\uDD04 \u062a\u062d\u062f\u064a\u062b \u0627\u0644\u0648\u062b\u0627\u0626\u0642';
+        if (subEl)   subEl.textContent   = '\u0627\u0631\u0641\u0639 \u0635\u0648\u0631\u0627\u064b \u062c\u062f\u064a\u062f\u0629 \u0644\u0627\u0633\u062a\u0628\u062f\u0627\u0644 \u0627\u0644\u0648\u062b\u0627\u0626\u0642 \u0627\u0644\u062d\u0627\u0644\u064a\u0629';
+        if (currDiv) {
+            const hasAny = driverData.idImage || driverData.licenseImage;
+            currDiv.style.display = hasAny ? 'block' : 'none';
+            const idImg  = document.getElementById('drv-docs-current-id');
+            const licImg = document.getElementById('drv-docs-current-license');
+            if (idImg)  { idImg.src  = driverData.idImage  || ''; idImg.style.display  = driverData.idImage  ? 'block' : 'none'; }
+            if (licImg) { licImg.src = driverData.licenseImage || ''; licImg.style.display = driverData.licenseImage ? 'block' : 'none'; }
+        }
+    } else {
+        if (titleEl) titleEl.textContent = '\uD83D\uDCC4 \u0648\u062b\u0627\u0626\u0642\u0643';
+        if (subEl)   subEl.textContent   = '\u0623\u0643\u0645\u0644 \u0645\u0644\u0641\u0643 \u0644\u062a\u0633\u0631\u064a\u0639 \u0639\u0645\u0644\u064a\u0629 \u0627\u0644\u062a\u0641\u0639\u064a\u0644';
+        if (currDiv) currDiv.style.display = 'none';
+    }
+    document.getElementById('drv-docs-error').classList.remove('visible');
+    document.getElementById('drv-docs-modal').style.display = 'flex';
+}
+
 function setupDocsModal() {
     setupDocPreview('drv-docs-id-file',      'drv-docs-id-box',      'drv-docs-id-icon',      'drv-docs-id-title',      'drv-docs-id-sub',      f => _docsIdFile = f);
     setupDocPreview('drv-docs-license-file', 'drv-docs-license-box', 'drv-docs-license-icon', 'drv-docs-license-title', 'drv-docs-license-sub', f => _docsLicenseFile = f);
 
-    document.getElementById('drv-pending-docs-btn')?.addEventListener('click', () => {
-        document.getElementById('drv-docs-modal').style.display = 'flex';
-    });
+    // Pending-banner button: first-time upload
+    document.getElementById('drv-pending-docs-btn')?.addEventListener('click', () => openDocsModal(false));
+    // Navbar button: update existing docs — always accessible after login
+    document.getElementById('drv-docs-nav-btn')?.addEventListener('click',  () => openDocsModal(true));
+
     document.getElementById('drv-docs-close')?.addEventListener('click', () => {
         document.getElementById('drv-docs-modal').style.display = 'none';
     });
@@ -1541,39 +1796,35 @@ function setupDocsModal() {
 
     document.getElementById('drv-docs-save').addEventListener('click', async () => {
         if (!driverData) return;
-        const btn = document.getElementById('drv-docs-save');
+        const btn     = document.getElementById('drv-docs-save');
         const errorEl = document.getElementById('drv-docs-error');
         errorEl.classList.remove('visible');
 
         if (!_docsIdFile && !_docsLicenseFile) {
-            errorEl.textContent = 'اختر صورة واحدة على الأقل لرفعها.';
+            errorEl.textContent = '\u0627\u062e\u062a\u0631 \u0635\u0648\u0631\u0629 \u0648\u0627\u062d\u062f\u0629 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 \u0644\u0631\u0641\u0639\u0647\u0627.';
             errorEl.classList.add('visible');
             return;
         }
 
-        btn.disabled = true;
-        btn.textContent = '…';
-
+        btn.disabled    = true;
+        btn.textContent = '\u062c\u0627\u0631\u064a \u0627\u0644\u0631\u0641\u0639\u2026';
         try {
             const updates = {};
-            if (_docsIdFile)      updates.idImage      = await uploadDriverDoc(_docsIdFile, driverData.id, 'id');
+            if (_docsIdFile)      updates.idImage      = await uploadDriverDoc(_docsIdFile,      driverData.id, 'id');
             if (_docsLicenseFile) updates.licenseImage = await uploadDriverDoc(_docsLicenseFile, driverData.id, 'license');
-
             await db.ref(`drivers/${driverData.id}`).update(updates);
-
             driverData.idImage      = updates.idImage      || driverData.idImage;
             driverData.licenseImage = updates.licenseImage || driverData.licenseImage;
             localStorage.setItem('delivoDriver', JSON.stringify(driverData));
-
-            showToast('✅ تم حفظ الوثائق بنجاح');
+            showToast('\u2705 \u062a\u0645 \u062a\u062d\u062f\u064a\u062b \u0627\u0644\u0648\u062b\u0627\u0626\u0642 \u0628\u0646\u062c\u0627\u062d');
             document.getElementById('drv-docs-modal').style.display = 'none';
             updatePendingBanner();
-        } catch (e) {
-            errorEl.textContent = 'فشل رفع الوثائق. حاول مجدداً.';
+        } catch(e) {
+            errorEl.textContent = '\u0641\u0634\u0644 \u0631\u0641\u0639 \u0627\u0644\u0648\u062b\u0627\u0626\u0642. \u062d\u0627\u0648\u0644 \u0645\u062c\u062f\u062f\u0627\u064b.';
             errorEl.classList.add('visible');
         } finally {
-            btn.disabled = false;
-            btn.textContent = '💾 حفظ الوثائق';
+            btn.disabled    = false;
+            btn.textContent = '\uD83D\uDCBE \u062d\u0641\u0638 \u0627\u0644\u0648\u062b\u0627\u0626\u0642';
         }
     });
 }
@@ -1587,8 +1838,11 @@ function updatePendingBanner() {
         return;
     }
     banner.classList.add('visible');
-    const hasDocs = driverData.idImage && driverData.licenseImage;
-    docsBtn.style.display = hasDocs ? 'none' : 'inline-flex';
+    // Always show so the driver can update papers at any time
+    docsBtn.style.display = 'inline-flex';
+    docsBtn.textContent = (driverData.idImage || driverData.licenseImage)
+        ? '🔄 تحديث الوثائق'
+        : '📄 إضافة الوثائق الآن';
 }
 
 // ── Session start ─────────────────────────────────────────────
@@ -2060,10 +2314,15 @@ function buildOrderCard(key, order) {
     const state     = order.state || '0';
     const stateInfo = STATE_MAP[state] || STATE_MAP["0"];
     const tracking  = order.trackorder === '1' || order.trackorder === 1;
-    const compDone  = isCompanyDone(order);           // state === '8'
-    const drvActok  = isDriverActionable(order);      // state 0 or 3
-    const isCompState = STATE_MAP[state]?.company;    // company-managed state (6,7,8)
-    const isFinalState = ['1','2','5'].includes(state); // delivered / cancelled
+    const compDone    = isCompanyDone(order);           // state === '8'
+    const drvActok    = isDriverActionable(order);      // state 0 or 3
+    const isCompState = STATE_MAP[state]?.company;      // company-managed state (6,7,8)
+    const isFinalState  = ['1','2','5'].includes(state); // delivered / cancelled
+    // Lock most actions until store has acknowledged the order.
+    // States 0 (new) and 3 (delayed by driver) both mean the store hasn't
+    // started yet — driver may only toggle متأخر; delivery/cancel/track
+    // are blocked until the store moves to state 6, 7, or 8.
+    const isStoreUnstarted = state === '0' || state === '3';
     const etaMs     = order.standbyUntil ? (order.standbyUntil - Date.now()) : null;
     const etaMins   = etaMs !== null ? Math.ceil(etaMs / 60000) : null;
 
@@ -2170,9 +2429,11 @@ function buildOrderCard(key, order) {
                 }
             </div>` : ''}
 
-            <!-- State buttons:
-                 - Locked ONLY during active company states (6,7) — company is processing
-                 - Always available for driver states (0,1,2,3,5) and when ready (8) -->
+            <!-- State buttons lock rules:
+                 1. Company processing (state 6,7): fully locked — store is working
+                 2. New order (state 0):            partial lock — only متأخر (3) allowed
+                    until store confirms receipt (state 6/7/8)
+                 3. Ready (state 8) or driver states (1,2,3,5): fully unlocked -->
             ${isCompState && !compDone ? `
             <div class="drv-locked-note">
                 🔒 بانتظار إنهاء الشركة تحضير الطلب
@@ -2182,6 +2443,21 @@ function buildOrderCard(key, order) {
                     <button class="drv-state-btn ${state === s ? 'active' : ''}" disabled data-s="${s}">
                         ${STATE_MAP[s].label}
                     </button>`).join('')}
+            </div>` : isStoreUnstarted ? `
+            <div class="drv-locked-note">
+                ⏳ بانتظار استلام المتجر للطلب — يمكنك فقط وضع علامة «متأخر»
+            </div>
+            <div class="drv-order__actions">
+                ${['0','1','3','2','5'].map(s => {
+                    const isDelayBtn  = s === '3';
+                    const isCurrent   = state === s;
+                    const isLocked    = !isDelayBtn && !isCurrent;
+                    return `<button class="drv-state-btn ${isCurrent ? 'active' : ''}"
+                            ${isLocked ? 'disabled style="opacity:.3;cursor:not-allowed;"' : ''}
+                            data-id="${key}" data-uid="${order.delivryplusid || ''}" data-s="${s}">
+                        ${STATE_MAP[s].label}
+                    </button>`;
+                }).join('')}
             </div>` : `
             <div class="drv-order__actions">
                 ${['0','1','3','2','5'].map(s => `
@@ -2195,9 +2471,9 @@ function buildOrderCard(key, order) {
                  - Available when order is ready (state 8) OR active driver state (0,3)
                  - Locked during company processing (6,7)
                  - Disabled on final states (1,2,5) — shown greyed out so driver knows why -->
-            ${isCompState && !compDone ? `
+            ${(isCompState && !compDone) || isStoreUnstarted ? `
             <div class="drv-locked-note" style="margin-top:0;">
-                📍 التتبع متاح فقط بعد جاهزية الطلب
+                📍 التتبع متاح فقط بعد استلام المتجر وجاهزية الطلب
             </div>` : isFinalState ? `
             <div class="drv-locked-note" style="margin-top:0;">
                 📍 الطلب منتهٍ — التتبع غير متاح
@@ -2231,6 +2507,7 @@ function buildOrderCard(key, order) {
             card.querySelector('.drv-state-badge').className = `drv-state-badge drv-state-badge--${newState}`;
             card.querySelector('.drv-state-badge').textContent = STATE_MAP[newState].short;
 
+            const _prevState = ordersCache[id]?.state || '0'; // capture BEFORE Firebase update
             const updates = {};
             updates[`/requests/${id}/state`] = newState;
             // Also update historyRequests for customer
@@ -2239,7 +2516,59 @@ function buildOrderCard(key, order) {
             }
             try {
                 await db.ref().update(updates);
-                showToast(`✅ تم تحديث الحالة: ${STATE_MAP[newState].label}`);
+                if (ordersCache[id]) ordersCache[id].state = newState;
+
+                // ── Points: award on delivery, subtract on revert ────────
+                // Uses /requests/{id}/pointsAwarded as idempotency flag.
+                // Shared with admin — whichever entity acts first sets the flag.
+                const wasDelivered = _prevState === '1';
+                const nowDelivered = newState   === '1';
+                if (uid && uid !== 'undefined' && uid !== '') {
+                    try {
+                        if (nowDelivered && !wasDelivered) {
+                            // Transitioning INTO delivered — award only if not yet awarded
+                            const snap = await db.ref(`requests/${id}/pointsAwarded`).once('value');
+                            if (!snap.val()) {
+                                const userSnap = await db.ref(`users/${uid}/points`).once('value');
+                                const curPts   = parseInt(userSnap.val()) || 0;
+                                const ptUpd    = {};
+                                ptUpd[`/users/${uid}/points`]               = curPts + 10;
+                                ptUpd[`/requests/${id}/pointsAwarded`]      = true;
+                                ptUpd[`/historyRequests/${uid}/${id}/pointsAwarded`] = true;
+                                await db.ref().update(ptUpd);
+                                if (ordersCache[id]) ordersCache[id].pointsAwarded = true;
+                                showToast('⭐ 10 نقاط أضيفت للعميل');
+                            } else {
+                                // Flag already set — no double-award
+                                showToast(`✅ تم تحديث الحالة: ${STATE_MAP[newState].label}`);
+                            }
+                        } else if (wasDelivered && !nowDelivered) {
+                            // Transitioning OUT of delivered — subtract if flag was set
+                            const snap = await db.ref(`requests/${id}/pointsAwarded`).once('value');
+                            if (snap.val()) {
+                                const userSnap = await db.ref(`users/${uid}/points`).once('value');
+                                const curPts   = parseInt(userSnap.val()) || 0;
+                                const ptUpd    = {};
+                                ptUpd[`/users/${uid}/points`]               = Math.max(0, curPts - 10);
+                                ptUpd[`/requests/${id}/pointsAwarded`]      = null;
+                                ptUpd[`/historyRequests/${uid}/${id}/pointsAwarded`] = null;
+                                await db.ref().update(ptUpd);
+                                if (ordersCache[id]) ordersCache[id].pointsAwarded = false;
+                                showToast('↩ تم خصم 10 نقاط من العميل (تم إرجاع الطلب)');
+                            } else {
+                                showToast(`✅ تم تحديث الحالة: ${STATE_MAP[newState].label}`);
+                            }
+                        } else {
+                            showToast(`✅ تم تحديث الحالة: ${STATE_MAP[newState].label}`);
+                        }
+                    } catch (pErr) {
+                        console.error('[Driver] Points update failed:', pErr);
+                        showToast(`✅ تم تحديث الحالة: ${STATE_MAP[newState].label}`);
+                    }
+                } else {
+                    showToast(`✅ تم تحديث الحالة: ${STATE_MAP[newState].label}`);
+                }
+                // ─────────────────────────────────────────────────────
 
                 // Auto-disable tracking on final states (delivered/cancelled)
                 // Keep tracking alive for state 8 (ready) and re-allow for state 0 (new/reset)

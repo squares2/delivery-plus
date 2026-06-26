@@ -130,8 +130,7 @@ function initNavbar() {
         if (typeof openCartSidebar === 'function') openCartSidebar();
     });
     document.getElementById('bb-order-btn').addEventListener('click', () => {
-        const t = document.getElementById('categories') || document.getElementById('stores-section');
-        if (t) t.scrollIntoView({ behavior: 'smooth' });
+        if (typeof window._extOpenModal === 'function') window._extOpenModal();
     });
     document.getElementById('bb-search-btn').addEventListener('click', () => {
         openSearchOverlay();
@@ -475,14 +474,32 @@ function _injectSearchOverlay() {
     });
 
     // Chip clicks fill input and search
-    document.querySelectorAll('.bbs__chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-            document.getElementById('bbs-input').value = chip.textContent;
-            const clr = document.getElementById('bbs-clear');
-            if (clr) clr.style.opacity = '1';
-            _bbs_onInput();
+    function _wireChips() {
+        document.querySelectorAll('.bbs__chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.getElementById('bbs-input').value = chip.textContent.trim();
+                const clr = document.getElementById('bbs-clear');
+                if (clr) clr.style.opacity = '1';
+                _bbs_onInput();
+            });
         });
-    });
+    }
+    _wireChips();
+
+    // Load trending chips from Firebase settings/trendingSearch (array of strings)
+    // Falls back to the hardcoded defaults already in the DOM
+    fetch(`${_BBS_RTDB}/settings/trendingSearch.json`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!Array.isArray(data) || !data.length) return;
+            const container = document.getElementById('bbs-trending');
+            if (!container) return;
+            container.innerHTML = data
+                .map(term => `<button class="bbs__chip">${term}</button>`)
+                .join('');
+            _wireChips(); // re-wire new chips
+        })
+        .catch(() => {}); // silently fall back to defaults
 
     // Quick card clicks browse by store type
     document.querySelectorAll('.bbs__quick-card').forEach(card => {
@@ -499,6 +516,13 @@ function _injectSearchOverlay() {
 
 /* ── Search index ─────────────────────────────────────────── */
 
+// Convert raw price to USD for fair cross-currency comparison.
+// Prices < 1000 are already in USD; prices >= 1000 are Lebanese Lira (÷ 90,000).
+function _toSearchUSD(rawPrice) {
+    const v = parseFloat(rawPrice) || 0;
+    return v < 1000 ? v : v / (window._LBP_RATE || 90000);
+}
+
 async function _bbsSearchByType(fbType, label) {
     _bbs_showLoading();
     const stores = await _bbsLoadStores();
@@ -513,19 +537,21 @@ async function _bbsSearchByType(fbType, label) {
                 const price   = parseFloat(item.price) || 0;
                 const sale    = parseFloat(item.sale)  || 0;
                 const hasSale = sale > 0 && sale < price;
+                const dp = hasSale ? sale : price;
                 results.push({
                     item,
                     storeName   : store.companyname,
                     storeNameAr : store.nameAr || store.companyname,
                     storeType   : store.type,
                     price, sale, hasSale,
-                    dispPrice   : hasSale ? sale : price,
+                    dispPrice   : dp,
+                    priceUSD    : _toSearchUSD(dp),   // normalized for fair sorting
                     matchScore  : 1,
                 });
             });
         }));
     }
-    results.sort((a, b) => a.dispPrice - b.dispPrice);
+    results.sort((a, b) => a.priceUSD - b.priceUSD);
     _bbs_showResults(results, label);
 }
 
@@ -579,9 +605,16 @@ async function _bbsSearch(q) {
     _bbs_showLoading();
     const stores = await _bbsLoadStores();
 
-    // Search all stores in parallel — limit concurrent fetches
+    // 1. Match stores by name (companyname / nameAr)
+    const storeMatches = stores.filter(s => {
+        const en = (s.companyname || '').toLowerCase();
+        const ar = (s.nameAr     || '').toLowerCase();
+        return en.includes(query) || ar.includes(query);
+    });
+
+    // 2. Search items across all stores
     const CHUNK = 6;
-    const results = [];
+    const itemResults = [];
 
     for (let i = 0; i < stores.length; i += CHUNK) {
         const chunk = stores.slice(i, i + CHUNK);
@@ -591,10 +624,11 @@ async function _bbsSearch(q) {
                 const nameLower = (item.name || '').toLowerCase();
                 const catLower  = (item.cat || item.catmain || '').toLowerCase();
                 if (nameLower.includes(query) || catLower.includes(query)) {
-                    const price  = parseFloat(item.price) || 0;
-                    const sale   = parseFloat(item.sale)  || 0;
+                    const price   = parseFloat(item.price) || 0;
+                    const sale    = parseFloat(item.sale)  || 0;
                     const hasSale = sale > 0 && sale < price;
-                    results.push({
+                    const _dp = hasSale ? sale : price;
+                    itemResults.push({
                         item,
                         storeName    : store.companyname,
                         storeNameAr  : store.nameAr || store.companyname,
@@ -602,7 +636,8 @@ async function _bbsSearch(q) {
                         price,
                         sale,
                         hasSale,
-                        dispPrice    : hasSale ? sale : price,
+                        dispPrice    : _dp,
+                        priceUSD     : _toSearchUSD(_dp),  // normalized for fair sorting
                         matchScore   : nameLower === query ? 3
                                      : nameLower.startsWith(query) ? 2 : 1,
                     });
@@ -611,9 +646,8 @@ async function _bbsSearch(q) {
         }));
     }
 
-    // Sort: exact match first, then by price ascending for easy comparison
-    results.sort((a, b) => (b.matchScore - a.matchScore) || (a.dispPrice - b.dispPrice));
-    _bbs_showResults(results);
+    itemResults.sort((a, b) => (b.matchScore - a.matchScore) || (a.priceUSD - b.priceUSD));
+    _bbs_showResults(itemResults, null, storeMatches);
 }
 
 let _bbsDebounce = null;
@@ -647,11 +681,14 @@ function _bbs_showLoading() {
     }
 }
 
-function _bbs_showResults(results, sectionLabel) {
+function _bbs_showResults(results, sectionLabel, storeMatches) {
     document.getElementById('bbs-loading')?.remove();
     document.getElementById('bbs-initial').style.display = 'none';
 
-    if (!results || results.length === 0) {
+    const hasStores = storeMatches && storeMatches.length > 0;
+    const hasItems  = results && results.length > 0;
+
+    if (!hasStores && !hasItems) {
         document.getElementById('bbs-results').style.display = 'none';
         document.getElementById('bbs-empty').style.display   = '';
         return;
@@ -659,6 +696,55 @@ function _bbs_showResults(results, sectionLabel) {
 
     document.getElementById('bbs-results').style.display = '';
     document.getElementById('bbs-empty').style.display   = 'none';
+
+    // Build store-name matches section
+    let storeHtml = '';
+    if (hasStores) {
+        const TYPE_LABELS = {
+            Restaurants: 'مطعم', BakeryShops: 'مخبز', ButcherShops: 'ملحمة',
+            Markets: 'سوبرماركت', GroceryShops: 'بقالة', SweetsShops: 'حلويات',
+            FishShops: 'أسماك', CoffeeShops: 'قهوة', ChickenShops: 'دجاج',
+            DairyShops: 'ألبان', FlowerShops: 'زهور', TobaccoShops: 'تبغ',
+        };
+        const TYPE_EMOJIS = {
+            Restaurants: '&#127829;', BakeryShops: '&#129366;', ButcherShops: '&#129385;',
+            Markets: '&#128722;', GroceryShops: '&#129530;', SweetsShops: '&#127856;',
+            FishShops: '&#128031;', CoffeeShops: '&#9749;', ChickenShops: '&#127831;',
+            DairyShops: '&#129371;', FlowerShops: '&#128144;', TobaccoShops: '&#128684;',
+        };
+        const storeRows = storeMatches.map(s => {
+            const display = (s.nameAr && s.nameAr.trim()) ? s.nameAr.trim()
+                : s.companyname.replace(/[-_]/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+            const slug = s.companyname.toLowerCase()
+                .replace(/[^\x00-\x7F]/g,'').replace(/\s+/g,'-')
+                .replace(/-+/g,'-').replace(/^-|-$/g,'') || 'store';
+            const emoji = TYPE_EMOJIS[s.type] || '&#127978;';
+            const label = TYPE_LABELS[s.type]  || s.type;
+            const safeDisplay = display.replace(/'/g, '\\x27');
+            return `
+            <div class="bbs__store-row"
+                 data-store-slug="${slug}"
+                 data-store-name="${display}"
+                 data-store-type="${s.type}"
+                 data-store-rtdb="${s.companyname}">
+                <div class="bbs__store-img">
+                    <img src="assets/${slug}.webp" alt="${display}"
+                         onerror="if(this.src.includes('.webp')){this.src=this.src.replace('.webp','.png');return;}this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <div class="bbs__store-img-fb" style="display:none">${emoji}</div>
+                </div>
+                <div class="bbs__item-info">
+                    <span class="bbs__item-store">${display}</span>
+                    <span class="bbs__item-cat">${label}</span>
+                </div>
+                <span class="bbs__result-arrow">&#8250;</span>
+            </div>`;
+        }).join('');
+        storeHtml = `
+        <div class="bbs__store-section">
+            <p class="bbs__section-label" style="margin-bottom:8px;">🏪 متاجر</p>
+            ${storeRows}
+        </div>`;
+    }
 
     // Show section label if browsing by type
     let headerHtml = '';
@@ -674,6 +760,8 @@ function _bbs_showResults(results, sectionLabel) {
         const key = (r.item.name || '').trim().toLowerCase();
         if (!groups[key]) groups[key] = { name: r.item.name, entries: [] };
         groups[key].entries.push(r);
+        // Keep entries sorted by USD-normalized price so idx===0 is truly cheapest
+        groups[key].entries.sort((a, b) => (a.priceUSD || a.dispPrice) - (b.priceUSD || b.dispPrice));
     });
 
     const html = Object.values(groups).map(group => {
@@ -724,7 +812,21 @@ function _bbs_showResults(results, sectionLabel) {
         </div>`;
     }).join('');
 
-    document.getElementById('bbs-results-list').innerHTML = (headerHtml || '') + html;
+    document.getElementById('bbs-results-list').innerHTML = storeHtml + (headerHtml || '') + html;
+
+    // Wire store-row clicks
+    document.querySelectorAll('.bbs__store-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const slug  = row.dataset.storeSlug;
+            const name  = row.dataset.storeName;
+            const type  = row.dataset.storeType;
+            const rtdb  = row.dataset.storeRtdb;
+            closeSearchOverlay();
+            setTimeout(() => {
+                if (typeof openStorePanel === 'function') openStorePanel(slug, name, type, rtdb);
+            }, 300);
+        });
+    });
 }
 
 /* Open item popup from search — injects storeType into _currentStore so

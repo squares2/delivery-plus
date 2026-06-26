@@ -208,6 +208,7 @@ async function renderTopStores() {
         <div class="store-card ${isTop ? 'store-card--top' : ''} ${store._closed ? 'store-card--closed' : ''}"
              data-store-id="${store.id}"
              data-store-rtdbkey="${store.rtdbKey}"
+             data-store-name="${store.name}"
              data-store-firetype="${store.fireType}"
              style="${store._closed ? 'pointer-events:none;cursor:not-allowed;' : ''}">
 
@@ -291,11 +292,12 @@ function renderSkeletons(section) {
 function wireStoreEvents(section) {
     section.querySelectorAll('.store-card:not(.store-card--skeleton):not(.store-card--closed)').forEach(card => {
         card.addEventListener('click', () => {
-            const storeId  = card.getAttribute('data-store-id');
-            const rtdbKey  = card.getAttribute('data-store-rtdbkey');
-            const fireType = card.getAttribute('data-store-firetype');
+            const storeId   = card.getAttribute('data-store-id');
+            const storeName = card.getAttribute('data-store-name') || card.getAttribute('data-store-rtdbkey');
+            const rtdbKey   = card.getAttribute('data-store-rtdbkey');
+            const fireType  = card.getAttribute('data-store-firetype');
             if (storeId && typeof openStorePanel === 'function') {
-                openStorePanel(storeId, rtdbKey, fireType);
+                openStorePanel(storeId, storeName, fireType, rtdbKey);
             }
         });
     });

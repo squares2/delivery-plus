@@ -305,6 +305,8 @@ function onFirebaseReady() {
         // Trigger bottom bar logo state update
         if (window.DelivoUser) {
             if (typeof window.refreshActiveOrders === 'function') window.refreshActiveOrders();
+            // Trigger reward reminder (once per session, 8s delay, defined in index.html)
+            if (typeof window._checkRewardReminder === 'function') window._checkRewardReminder();
         } else {
             if (typeof window._resetLogoToDefault === 'function') window._resetLogoToDefault();
         }
@@ -760,6 +762,20 @@ function _showBlockedScreen(reason) {
 // ── Firebase init failure guard ───────────────────────────────
 // If Firebase fails to load (network error, SDK quota, etc.),
 // DelivoAuth and DelivoDB won't be defined. This stub prevents
+// ── Dollar/LBP exchange rate — loaded from /settings/dollarRate ──────────
+// Default 90,000 until Firebase responds. All scripts read window._LBP_RATE.
+window._LBP_RATE = 90000;
+(function _initLBPRate() {
+    const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+    fetch(`${RTDB}/settings/dollarRate.json`)
+        .then(r => r.ok ? r.json() : null)
+        .then(val => {
+            const n = parseFloat(val);
+            if (n && n > 0) window._LBP_RATE = n;
+        })
+        .catch(() => {});
+})();
+
 // JS exceptions and shows a friendly error instead.
 (function installFailsafeStub() {
     const STUB_MSG = 'الخدمة غير متاحة حالياً. تحقق من اتصالك وأعد المحاولة.';

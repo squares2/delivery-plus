@@ -9,6 +9,43 @@ const RTDB_CART_URL    = 'https://deliveryonline-300f7-default-rtdb.firebaseio.c
 let DELIVERY_FEE_PER_STORE = 2; // $2 default — overwritten by settings/deliveryFee on load
 const POINTS_PER_ORDER = 10;    // loyalty points awarded per store order
 
+/* ── Prefetch admin phone for the warning link in cart footer ────────── */
+function _applyAdminPhoneLink(phone) {
+    const clean = String(phone).replace(/[^0-9]/g, '');
+    if (!clean || clean.length < 7) return;
+    const link = document.getElementById('cart-warning-admin-link');
+    if (!link) return;
+    link.href   = `https://wa.me/${clean}`;
+    link.target = '_blank';
+    link.rel    = 'noopener';
+    link.title  = `واتساب: +${clean}`;
+    link.textContent = 'واتسآب';
+    if (!document.getElementById('cart-warning-call-link')) {
+        link.insertAdjacentHTML('afterend',
+            ` / <a id="cart-warning-call-link" href="tel:+${clean}"
+               style="color:#d97706;font-weight:800;text-decoration:underline;"
+               title="اتصال مباشر">اتصال</a>`
+        );
+    }
+}
+
+async function _loadAdminPhoneLink() {
+    // Apply from cache immediately (instant) then refresh from Firebase
+    try {
+        const cached = localStorage.getItem('delivo_admin_phone');
+        if (cached) _applyAdminPhoneLink(cached);
+    } catch (_) {}
+
+    try {
+        const r = await fetch(`${RTDB_CART_URL}/settings/adminPhone.json`);
+        if (!r.ok) return;
+        const phone = await r.json();
+        if (!phone) return;
+        _applyAdminPhoneLink(phone);
+        try { localStorage.setItem('delivo_admin_phone', String(phone)); } catch (_) {}
+    } catch (_) {}
+}
+
 /* ── Load flat delivery fee from Firebase settings once per session ─── */
 (async function _initFlatFee() {
     try {
@@ -136,51 +173,6 @@ function _getCustomerCoords() {
 window._calcSmartFee = _calcSmartFee;
 window._loadSmartCfg = _loadSmartCfg;
 
-/* ── First-free-delivery state (resolved once per session) ── */
-let _isFirstOrder       = false;  // true  → this checkout qualifies for free delivery
-let _firstOrderChecked  = false;  // true  → check already ran, don't re-fetch
-let _firstOrderPromise  = null;   // pending fetch — prevent duplicate requests
-
-/**
- * Returns a promise that resolves to true if the signed-in user
- * has never placed an order before (historyRequests/{uid} is empty/absent).
- * Result is cached for the session so we only hit RTDB once.
- */
-async function _checkIsFirstOrder() {
-    const user = window.DelivoUser;
-    if (!user) return false;
-
-    if (_firstOrderChecked) return _isFirstOrder;
-
-    if (_firstOrderPromise) return _firstOrderPromise;
-
-    _firstOrderPromise = (async () => {
-        try {
-            const resp = await fetch(
-                `${RTDB_CART_URL}/historyRequests/${user.uid}.json?shallow=true`
-            );
-            const data = await resp.json();
-            // data is null (no history) or an object of keys → user has orders
-            const hasOrders = data !== null && typeof data === 'object' && Object.keys(data).length > 0;
-            _isFirstOrder      = !hasOrders;
-            _firstOrderChecked = true;
-        } catch (_) {
-            _isFirstOrder      = false;
-            _firstOrderChecked = true;
-        }
-        return _isFirstOrder;
-    })();
-
-    return _firstOrderPromise;
-}
-
-/** Reset cached first-order check (called after successful checkout) */
-function _resetFirstOrderCache() {
-    _isFirstOrder      = false;
-    _firstOrderChecked = true;  // keep checked=true so we never show free delivery again
-    _firstOrderPromise = null;
-}
-
 /* ══════════════════════════════════════════════════════════════
    LOYALTY REWARD QUEUE
    /users/{uid}/rewardQueue  → FIFO array of one-time reward objects:
@@ -210,7 +202,12 @@ async function _checkActiveReward() {
             const r = await fetch(`${RTDB_CART_URL}/users/${user.uid}/rewardQueue.json`);
             const queue = await r.json();
             if (Array.isArray(queue)) {
-                _activeReward = queue.find(it => it && ['free_delivery','discount_fixed','discount_percent'].includes(it.type)) || null;
+                // Skip rewards the user deferred this session via "تخطّ" button
+                _activeReward = queue.find(it =>
+                    it &&
+                    ['free_delivery','discount_fixed','discount_percent'].includes(it.type) &&
+                    !sessionStorage.getItem('delivo_reward_skipped_' + it.pts)
+                ) || null;
             } else {
                 _activeReward = null;
             }
@@ -221,6 +218,29 @@ async function _checkActiveReward() {
 
     return _activeRewardPromise;
 }
+
+/** Expose reward cache reset so loyalty modal can call it after reordering queue */
+window._resetRewardCache = function() {
+    _activeReward        = null;
+    _activeRewardChecked = false;
+    _activeRewardPromise = null;
+};
+
+/** Skip (defer) the currently active reward — it stays in queue but won't auto-apply
+    this session. Cart banner is hidden and totals refresh without the reward.     */
+window._skipCartReward = function() {
+    // Mark this reward as skipped for this session only (not permanently removed)
+    if (_activeReward) {
+        sessionStorage.setItem('delivo_reward_skipped_' + _activeReward.pts, '1');
+    }
+    _activeReward        = null;
+    _activeRewardChecked = true; // prevent re-fetch
+    _activeRewardPromise = null;
+    const bannerEl = document.getElementById('cart-reward-banner');
+    if (bannerEl) bannerEl.style.display = 'none';
+    if (typeof _refreshTotals === 'function') _refreshTotals();
+    if (typeof _refreshTotalsAsync === 'function') _refreshTotalsAsync();
+};
 
 /** Remove the given reward from the user's queue (after it's been used at checkout) */
 async function _consumeActiveReward(item) {
@@ -328,7 +348,7 @@ function initCart() {
             return this.items.reduce((s, i) => s + i.price * i.qty, 0);
         },
 
-        addItem(id, name, price, storeName, storeType, notes) {
+        addItem(id, name, price, storeName, storeType, notes, imgUrl) {
             const isInstance = id.includes('__i');
             const existing   = !isInstance
                 ? this.items.find(i => i.id === id && i.storeName === storeName)
@@ -345,6 +365,7 @@ function initCart() {
                     storeName: storeName || '',
                     storeType: storeType || '',
                     notes    : notes || '',
+                    imgUrl   : imgUrl  || '',   // pre-resolved image URL from store panel
                 });
             }
             this.save();
@@ -404,15 +425,18 @@ function initCart() {
         const sidebar = document.getElementById('cart-sidebar');
         if (!overlay || !sidebar) return;
         // Load Arabic store names in background before rendering
-        _loadNameArCache().then(() => renderCartSidebar());
+        _loadNameArCache().then(() => {
+            renderCartSidebar();
+            _loadAdminPhoneLink();
+        });
         overlay.classList.add('active');
         sidebar.classList.add('active');
         document.body.classList.add('modal-open');
         if (typeof window._cartLocationRefresh === 'function') window._cartLocationRefresh();
 
-        // Kick off first-order check + active reward check in background so they're ready by checkout time
+        // Kick off active reward check in background so it's ready by checkout time
         if (window.DelivoUser) {
-            Promise.all([_checkIsFirstOrder(), _checkActiveReward()]).then(() => _refreshTotals());
+            _checkActiveReward().then(() => _refreshTotals());
         }
     };
 
@@ -422,6 +446,7 @@ function initCart() {
         if (overlay) overlay.classList.remove('active');
         if (sidebar) sidebar.classList.remove('active');
         document.body.classList.remove('modal-open');
+
     };
 
     /* ── Render sidebar ─────────────────────────────────────── */
@@ -491,10 +516,7 @@ function initCart() {
     }
 
     function _renderStoreGroup(storeName, items) {
-        const freeDelivery = _isFirstOrder;
-        const feeDisplay = freeDelivery
-            ? `<span style="text-decoration:line-through;color:#aaa;margin-left:4px;">$${DELIVERY_FEE_PER_STORE.toFixed(2)}</span> <span style="color:#22c55e;font-weight:800;">مجاناً 🎁</span>`
-            : `<span class="fee-loading" style="color:var(--clr-gray-400);font-size:0.75em;">…</span>`;
+        const feeDisplay = `<span class="fee-loading" style="color:var(--clr-gray-400);font-size:0.75em;">…</span>`;
         const displayName = (_nameArCache[storeName] && _nameArCache[storeName]) || storeName;
 
         return `
@@ -525,7 +547,6 @@ function initCart() {
             const subtotal = _storeUSD(items);
             const hintEl   = document.getElementById(`fee-hint-${_cslug(storeName)}`);
             if (!hintEl) continue;
-            if (_isFirstOrder) continue; // banner already shown
             try {
                 const fee = await _getStoreFee(storeName, coords.lat, coords.lng, subtotal);
                 const cfg = await _loadSmartCfg();
@@ -545,15 +566,18 @@ function initCart() {
         const baseItemId  = item.id.replace(/__i\d+$/, '');
         const idParts     = baseItemId.split('__');
         const rawId       = idParts[idParts.length - 1];
-        const imgUrl      = `./items2/${rawId.toLowerCase()}.webp`;
+        // Use the pre-resolved imgUrl stored on the item (set by store panel when pngExist=1).
+        // Never guess a path from the item id — that causes 404s for numeric/Arabic ids.
+        const resolvedImg = item.imgUrl || '';
+        const imgHtml     = resolvedImg
+            ? `<img class="cart-item__img" src="${resolvedImg}" alt="${item.name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="cart-item__img-fallback" style="display:none">🛒</div>`
+            : `<div class="cart-item__img-fallback" style="display:flex">🛒</div>`;
         const uniqueKey   = `${item.storeName}__${item.id}`;
         const isInstance  = item.id.includes('__i');
 
         return `
         <div class="cart-item${item.notes ? ' cart-item--noted' : ''}" id="ci-${_cslug(uniqueKey)}">
-            <img class="cart-item__img" src="${imgUrl}" alt="${item.name}"
-                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-            <div class="cart-item__img-fallback" style="display:none">🛍️</div>
+            ${imgHtml}
             <div class="cart-item__info">
                 <div class="cart-item__name">${item.name}</div>
                 ${item.notes
@@ -707,14 +731,12 @@ function initCart() {
         const subtotalUSD  = _cartTotalUSD();
         const storeCount   = cart.getStores().length;
 
-        let deliveryFee = _isFirstOrder ? 0 : storeCount * DELIVERY_FEE_PER_STORE;
-        const { grandTotal } = _applyActiveRewardToTotals(subtotalUSD, deliveryFee, _isFirstOrder);
+        let deliveryFee = storeCount * DELIVERY_FEE_PER_STORE;
+        const { grandTotal } = _applyActiveRewardToTotals(subtotalUSD, deliveryFee, false);
 
         if (subtotalEl)   subtotalEl.textContent   = '$' + subtotalUSD.toFixed(2);
         if (deliveryEl) {
-            if (_isFirstOrder) {
-                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${(storeCount * DELIVERY_FEE_PER_STORE).toFixed(2)}</span> <span style="color:#22c55e;font-weight:800;">مجاناً 🎁</span>`;
-            } else if (_activeReward && _activeReward.type === 'free_delivery') {
+            if (_activeReward && _activeReward.type === 'free_delivery') {
                 deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${(storeCount * DELIVERY_FEE_PER_STORE).toFixed(2)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
             } else {
                 deliveryEl.textContent = deliveryFee > 0 ? '$' + deliveryFee.toFixed(2) : 'مجاناً';
@@ -722,8 +744,7 @@ function initCart() {
         }
         if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);
 
-        // Show/hide first-order banner
-        if (bannerEl) bannerEl.style.display = _isFirstOrder ? 'flex' : 'none';
+        if (bannerEl) bannerEl.style.display = 'none';
 
         // Trigger async smart-fee update (non-blocking)
         _updateStoreFeeHints().catch(() => {});
@@ -740,15 +761,7 @@ function initCart() {
         const coords       = _getCustomerCoords();
 
         if (subtotalEl) subtotalEl.textContent = '$' + subtotalUSD.toFixed(2);
-        if (bannerEl)   bannerEl.style.display = _isFirstOrder ? 'flex' : 'none';
-
-        if (_isFirstOrder) {
-            const flatTotal = stores.length * DELIVERY_FEE_PER_STORE;
-            if (deliveryEl) deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${flatTotal.toFixed(2)}</span> <span style="color:#22c55e;font-weight:800;">مجاناً 🎁</span>`;
-            const { grandTotal } = _applyActiveRewardToTotals(subtotalUSD, 0, true);
-            if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);
-            return;
-        }
+        if (bannerEl)   bannerEl.style.display = 'none';
 
         // Sum per-store fees
         let totalDelivery = 0;
@@ -800,19 +813,16 @@ function initCart() {
         if (!userPhone) {
             closeCartSidebar();
             setTimeout(() => {
-                _showToast('⚠️ يجب إضافة رقم هاتفك أولاً لإتمام الطلب', 'error');
+                _showToast('⚠️ يجب إضافة رقم هاتفك أولاً لإرسال الطلب', 'error');
                 if (typeof openModal === 'function') openModal('modal-account');
             }, 200);
             return;
         }
 
         const btn = document.getElementById('cart-checkout-btn');
-        if (btn) { btn.disabled = true; btn.innerHTML = '<span>جاري الإرسال…</span>'; }
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span>جاري…</span>'; }
 
         try {
-            // Re-check first-order status right before writing (definitive check)
-            const isFirstOrderNow = await _checkIsFirstOrder();
-
             // Get current counter
             const counterResp = await fetch(`${RTDB_CART_URL}/globalCounter.json`);
             const counterData = await counterResp.json();
@@ -842,10 +852,10 @@ function initCart() {
             for (const storeName of stores) {
                 const storeItems     = cart.getStoreItems(storeName);
                 const storeSub       = _storeUSD(storeItems);
-                let   smartFee       = isFirstOrderNow ? 0 : await _getStoreFee(storeName, coords.lat, coords.lng, storeSub);
+                let   smartFee       = await _getStoreFee(storeName, coords.lat, coords.lng, storeSub);
 
-                // Apply free-delivery reward (if first-order discount didn't already zero it)
-                if (activeRewardNow && activeRewardNow.type === 'free_delivery' && !isFirstOrderNow) {
+                // Apply free-delivery reward
+                if (activeRewardNow && activeRewardNow.type === 'free_delivery') {
                     smartFee = 0;
                 }
 
@@ -869,7 +879,6 @@ function initCart() {
                     date         : dateStr,
                     delivryplusid: user.uid || '',
                     driver       : '0',
-                    freeDelivery : isFirstOrderNow ? '1' : '0',  // ← flag for admin/driver
                     rewardApplied: activeRewardNow ? `${activeRewardNow.type}:${activeRewardNow.value || ''}` : '',
                     fullname     : userProfile.displayName || user.displayName || user.email || '',
                     lat          : String(orderLat),
@@ -909,9 +918,6 @@ function initCart() {
                 body    : JSON.stringify(nextId - 1),
             });
 
-            // Invalidate first-order cache so it never applies again this session
-            _resetFirstOrderCache();
-
             // Consume the queued reward (one-time use) now that it's been applied
             if (activeRewardNow) {
                 await _consumeActiveReward(activeRewardNow);
@@ -938,7 +944,8 @@ function initCart() {
                         ];
                         const waMsg  = encodeURIComponent(msgLines.join('\n'));
                         const waLink = `https://wa.me/${adminPhone}?text=${waMsg}`;
-                        window.open(waLink, '_blank', 'noopener,noreferrer');
+                        // Store notification in RTDB for admin — do NOT redirect customer
+                        fetch(RTDB_CART_URL + '/pendingWaNotifications.json', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ waLink, orderTime:new Date().toISOString(), customer:name, phone:'+961'+phone, stores:storeList, read:false }) }).catch(function(){});
                     }
                 }
             } catch (_) { /* non-critical — order is already saved */ }
@@ -970,9 +977,7 @@ function initCart() {
             closeCartSidebar();
 
             let successMsg;
-            if (isFirstOrderNow) {
-                successMsg = `🎉 مبروك! طلبك الأول وصل مجاناً — بدون رسوم توصيل!`;
-            } else if (activeRewardNow) {
+            if (activeRewardNow) {
                 successMsg = `🎉 تم تطبيق مكافأتك (${activeRewardNow.reward || 'مكافأة'}) على هذا الطلب! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
             } else {
                 successMsg = `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
@@ -988,12 +993,13 @@ function initCart() {
         } finally {
             if (btn) {
                 btn.disabled  = false;
-                btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg> إتمام الطلب`;
+                btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg> إرسال الطلب`;
             }
         }
     };
 
     /* ── Toast ──────────────────────────────────────────────── */
+    let _toastTimer = null;
     function _showToast(msg, type = 'success') {
         let toast = document.getElementById('cart-toast');
         if (!toast) {
@@ -1002,10 +1008,13 @@ function initCart() {
             toast.className = 'cart-toast';
             document.body.appendChild(toast);
         }
+        // Clear pending dismiss so old timer can't freeze the toast
+        if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+        toast.classList.remove('visible');
         toast.textContent = msg;
         toast.className   = `cart-toast cart-toast--${type}`;
         requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('visible')));
-        setTimeout(() => toast.classList.remove('visible'), 3200);
+        _toastTimer = setTimeout(() => { toast.classList.remove('visible'); _toastTimer = null; }, 4000);
     }
 
     /* ── Wire events ────────────────────────────────────────── */
@@ -1321,7 +1330,7 @@ function _fmt(n) {
 function _toUSD(n) {
     const v = parseFloat(n);
     if (isNaN(v)) return 0;
-    return v < 1000 ? v : v / 90000;
+    return v < 1000 ? v : v / (window._LBP_RATE || 90000);
 }
 
 function _storeUSD(items) {

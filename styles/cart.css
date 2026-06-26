@@ -273,6 +273,27 @@
 .cart-total-val   { font-weight: 700; }
 
 /* ── Checkout button ──────────────────────────────────────── */
+.cart-checkout-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    border-radius: 10px;
+    padding: 8px 11px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #92400e;
+    direction: rtl;
+    line-height: 1.45;
+    margin-bottom: 2px;
+}
+.cart-checkout-warning svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: #d97706;
+}
+
 .cart-checkout-btn {
     width: 100%;
     padding: 14px;

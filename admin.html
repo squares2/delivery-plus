@@ -218,10 +218,6 @@ input, select, textarea { font-family: var(--font); }
 
 /* Stats chips in topbar */
 .topbar-stats { display: flex; gap: 6px; align-items: center; }
-@keyframes appsPulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(255,92,0,0.4); }
-    50%      { box-shadow: 0 0 0 6px rgba(255,92,0,0); }
-}
 .tstat {
     display: flex; align-items: center; gap: 5px;
     background: var(--surface2); border: 1px solid var(--border);
@@ -403,7 +399,10 @@ input, select, textarea { font-family: var(--font); }
 .state-badge-1 { background: var(--green-glow);     color: var(--green);  }
 .state-badge-2 { background: var(--red-glow);        color: var(--red);    }
 .state-badge-3 { background: rgba(245,158,11,0.15); color: var(--yellow); }
-.state-badge-5 { background: rgba(168,85,247,0.15); color: var(--purple); }
+.state-badge-5 { background: rgba(168,85,247,0.15); color: #a855f7; }
+.state-badge-6 { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.state-badge-7 { background: rgba(99,102,241,0.15); color: #818cf8; }
+.state-badge-8 { background: rgba(34,197,94,0.12);  color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
 .oc-toggle { font-size: 0.7rem; color: var(--gray); transition: transform 0.2s; flex-shrink: 0; }
 .order-card.expanded .oc-toggle { transform: rotate(180deg); }
 .oc-body {
@@ -452,7 +451,11 @@ input, select, textarea { font-family: var(--font); }
 
 /* Late — yellow/orange */
 .oc-action-btn.btn-late { border-color: var(--yellow, #f59e0b); color: var(--yellow, #f59e0b); }
-.oc-action-btn.btn-late--active { background: var(--yellow, #f59e0b); border-color: var(--yellow, #f59e0b); color: #fff; font-weight: 700; cursor: default; }
+.oc-action-btn.btn-late--active { background: var(--yellow, #f59e0b); border-color: var(--yellow, #f59e0b); color: #000; font-weight: 700; cursor: default; }
+.oc-action-btn.btn-new  { border-color: var(--orange, #ff5c00); color: var(--orange, #ff5c00); }
+.oc-action-btn.btn-new--active  { background: var(--orange, #ff5c00); border-color: var(--orange, #ff5c00); color: #fff; font-weight: 700; cursor: default; }
+.oc-action-btn.btn-canc-paid  { border-color: #a855f7; color: #a855f7; }
+.oc-action-btn.btn-canc-paid--active { background: #a855f7; border-color: #a855f7; color: #fff; font-weight: 700; cursor: default; }
 
 /* Track — blue, always last */
 .oc-action-btn.btn-track { border-color: #60a5fa; color: #60a5fa; }
@@ -953,11 +956,7 @@ input, select, textarea { font-family: var(--font); }
 }
 
 /* ─── DRIVERS PANEL ─────────────────────────────────────────── */
-.drivers-grid { padding: var(--pad-md) var(--pad-lg); display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr)); gap: var(--gap-md); overflow-y: auto; align-content: start; }
-.drivers-grid::-webkit-scrollbar { width: 5px; }
-.drivers-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-#driver-applications-grid::-webkit-scrollbar { width: 4px; }
-#driver-applications-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.drivers-grid { padding: var(--pad-md) var(--pad-lg); display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr)); gap: var(--gap-md); overflow-y: auto; }
 .driver-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-lg); padding: var(--pad-md);
@@ -1006,6 +1005,33 @@ input, select, textarea { font-family: var(--font); }
 }
 .dc-delete-btn:hover { border-color: var(--red); color: var(--red); }
 .dc-phone { font-size: 0.7rem; color: var(--gray); font-family: var(--mono); margin-top: 2px; direction: ltr; }
+.dc-uuid-row {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 5px 8px; margin-top: 8px;
+    direction: ltr;
+}
+.dc-uuid-label { font-size: 0.58rem; font-weight: 800; color: var(--gray); white-space: nowrap; }
+.dc-uuid-val {
+    font-family: var(--mono); font-size: 0.6rem; color: var(--gray-light);
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-uuid-none { font-family: var(--mono); font-size: 0.6rem; color: var(--gray); font-style: italic; flex: 1; }
+.dc-uuid-copy {
+    flex-shrink: 0; background: none; border: none; cursor: pointer;
+    color: var(--gray); padding: 0 2px; font-size: 0.75rem; line-height: 1;
+    transition: color 0.15s;
+}
+.dc-uuid-copy:hover { color: var(--orange); }
+
+/* Admin driver-edit doc upload labels */
+.adm-doc-upload-label {
+    display: block; padding: 7px 10px; border-radius: var(--radius-sm);
+    border: 1.5px dashed var(--border); color: var(--gray); font-size: 0.68rem;
+    font-weight: 700; text-align: center; cursor: pointer; transition: all 0.15s;
+}
+.adm-doc-upload-label:hover { border-color: var(--orange); color: var(--orange); }
+.adm-doc-upload-label.has-file { border-color: var(--green); color: var(--green); border-style: solid; }
 
 /* Pending-review driver cards */
 .driver-card.pending-review { border-color: rgba(255,92,0,0.35); background: linear-gradient(180deg, rgba(255,92,0,0.05), transparent 40%); }
@@ -1024,174 +1050,6 @@ input, select, textarea { font-family: var(--font); }
     border-radius: 50px; padding: 3px 10px;
 }
 .dc-address-pill:hover { border-color: var(--orange); color: var(--orange); }
-
-/* ── Driver Application Cards (dapp) ─────────────────────── */
-.dapp-card {
-    background: var(--surface2);
-    border: 1.5px solid rgba(255,92,0,0.28);
-    border-radius: 12px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    direction: rtl;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-.dapp-card:hover { border-color: rgba(255,92,0,0.55); box-shadow: 0 4px 20px rgba(255,92,0,0.07); }
-.dapp-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.dapp-avatar {
-    width: 34px; height: 34px; border-radius: 50%;
-    background: rgba(255,92,0,0.12); border: 1.5px solid rgba(255,92,0,0.3);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.1rem; flex-shrink: 0;
-}
-.dapp-info { flex: 1; min-width: 0; }
-.dapp-name { font-weight: 900; color: var(--white); font-size: 0.85rem; }
-.dapp-meta { font-size: 0.68rem; color: var(--gray); font-family: var(--mono); margin-top: 1px; }
-.dapp-time { font-size: 0.62rem; color: var(--gray); margin-top: 1px; }
-.dapp-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
-.dapp-pill {
-    font-size: 0.62rem; font-weight: 700;
-    background: var(--surface3); border: 1px solid var(--border);
-    border-radius: 50px; padding: 2px 7px; color: var(--gray-light);
-}
-.dapp-pill--vehicle { background: rgba(255,92,0,0.1); border-color: rgba(255,92,0,0.3); color: var(--orange); }
-.dapp-docs { display: flex; gap: 6px; flex-wrap: wrap; }
-.dapp-doc-link {
-    font-size: 0.67rem; font-weight: 700;
-    background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
-    border-radius: 7px; padding: 3px 9px; color: #60a5fa;
-    text-decoration: none; cursor: pointer; transition: background 0.15s;
-    display: inline-flex; align-items: center; gap: 4px;
-}
-.dapp-doc-link:hover { background: rgba(59,130,246,0.2); }
-.dapp-doc-missing {
-    font-size: 0.62rem; color: var(--gray);
-    background: var(--surface3); border: 1px solid var(--border);
-    border-radius: 7px; padding: 3px 9px;
-    display: inline-flex; align-items: center; gap: 4px;
-}
-.dapp-actions { display: flex; gap: 6px; }
-.dapp-btn {
-    flex: 1; min-width: 80px; padding: 6px 10px; border-radius: 8px;
-    font-family: var(--font); font-size: 0.76rem; font-weight: 800;
-    border: 1.5px solid; cursor: pointer; transition: all 0.15s;
-    display: flex; align-items: center; justify-content: center; gap: 5px;
-}
-.dapp-btn--reject {
-    background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.3); color: #f87171;
-}
-.dapp-btn--reject:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.55); }
-.dapp-btn--approve {
-    background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.4); color: #4ade80;
-    flex: 2;
-}
-.dapp-btn--approve:hover { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.7); }
-.dapp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.dapp-detail-btn {
-    background: none; border: none; color: var(--gray);
-    font-size: 0.7rem; cursor: pointer; padding: 3px 6px; border-radius: 6px;
-    font-family: var(--font); transition: color 0.15s;
-}
-.dapp-detail-btn:hover { color: var(--white); }
-
-/* ── Driver Approval Modal (dam) ─────────────────────────── */
-.dam-overlay {
-    position: fixed; inset: 0; z-index: 99999;
-    background: rgba(0,0,0,0.78); backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px; animation: damFadeIn 0.2s ease;
-}
-@keyframes damFadeIn { from { opacity: 0; } to { opacity: 1; } }
-.dam-panel {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 22px; padding: 0; width: 100%; max-width: 460px;
-    font-family: var(--font); direction: rtl; overflow: hidden;
-    animation: damSlideUp 0.25s cubic-bezier(0.34,1.56,0.64,1);
-    max-height: 92vh; overflow-y: auto;
-}
-@keyframes damSlideUp { from { opacity: 0; transform: translateY(30px) scale(0.97); } to { opacity: 1; transform: none; } }
-.dam-header {
-    padding: 22px 24px 18px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 14px;
-    background: linear-gradient(135deg, rgba(34,197,94,0.06), transparent);
-}
-.dam-header-icon {
-    width: 48px; height: 48px; border-radius: 50%;
-    background: rgba(34,197,94,0.13); border: 1.5px solid rgba(34,197,94,0.35);
-    display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;
-}
-.dam-header-title { font-weight: 900; color: var(--white); font-size: 1.05rem; }
-.dam-header-sub { font-size: 0.76rem; color: var(--gray); margin-top: 3px; }
-.dam-header-sub strong { color: var(--orange); }
-.dam-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 18px; }
-.dam-applicant-summary {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 14px; padding: 14px 16px;
-    display: flex; flex-direction: column; gap: 8px;
-}
-.dam-summary-row { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; }
-.dam-summary-label { color: var(--gray); min-width: 80px; font-size: 0.72rem; font-weight: 700; }
-.dam-summary-val { color: var(--white); font-weight: 700; }
-.dam-summary-val--mono { font-family: var(--mono); }
-.dam-docs-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.dam-section-label {
-    font-size: 0.7rem; font-weight: 800; color: var(--gray);
-    letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 10px;
-}
-.dam-field { display: flex; flex-direction: column; gap: 6px; }
-.dam-field label { font-size: 0.72rem; font-weight: 800; color: var(--gray); }
-.dam-field-hint { font-size: 0.64rem; color: var(--gray); margin-top: 3px; }
-.dam-input {
-    width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
-    border-radius: 11px; padding: 11px 14px; color: var(--white);
-    font-family: var(--mono); font-size: 0.9rem; outline: none;
-    box-sizing: border-box; transition: border-color 0.15s;
-}
-.dam-input:focus { border-color: var(--orange); }
-.dam-input-wrap { position: relative; }
-.dam-input-wrap .dam-input { padding-left: 40px; }
-.dam-pwd-toggle {
-    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; color: var(--gray); cursor: pointer;
-    padding: 4px; display: flex; align-items: center; transition: color 0.15s;
-}
-.dam-pwd-toggle:hover { color: var(--white); }
-.dam-error {
-    font-size: 0.76rem; color: #f87171; padding: 9px 13px;
-    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
-    border-radius: 9px; display: none;
-}
-.dam-footer {
-    padding: 18px 24px 22px; border-top: 1px solid var(--border);
-    display: flex; gap: 10px;
-}
-.dam-footer-btn {
-    padding: 12px 18px; border-radius: 12px; font-family: var(--font);
-    font-size: 0.88rem; font-weight: 800; cursor: pointer; border: 1.5px solid;
-    transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 7px;
-}
-.dam-footer-btn--cancel {
-    flex: 1; background: var(--surface2); border-color: var(--border); color: var(--gray);
-}
-.dam-footer-btn--cancel:hover { border-color: var(--gray); color: var(--white); }
-.dam-footer-btn--confirm {
-    flex: 2.5; background: rgba(34,197,94,0.88); border-color: rgba(34,197,94,0.7); color: #fff;
-}
-.dam-footer-btn--confirm:hover { background: rgba(34,197,94,1); }
-.dam-footer-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.dam-spinner {
-    width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
-}
-.dam-success-banner {
-    background: rgba(34,197,94,0.1); border: 1.5px solid rgba(34,197,94,0.35);
-    border-radius: 13px; padding: 14px 16px;
-    display: flex; align-items: center; gap: 12px;
-    font-size: 0.82rem; color: #4ade80;
-    margin-bottom: 4px;
-}
 
 /* Document thumbnails */
 .dc-docs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
@@ -1862,11 +1720,6 @@ input, select, textarea { font-family: var(--font); }
                 <span id="stat-drivers" class="tstat__val">0</span>
                 <span style="color:var(--gray);font-size:0.65rem;">سائق نشط</span>
             </div>
-            <div class="tstat" id="apps-topbar-chip" style="display:none;cursor:pointer;background:rgba(255,92,0,0.12);border:1.5px solid rgba(255,92,0,0.35);border-radius:50px;animation:appsPulse 1.8s ease-in-out infinite;" onclick="document.querySelector('[data-nav=\'drivers\']')?.click();" title="طلبات انضمام سائقين جدد — انقر للمراجعة">
-                <span style="font-size:0.75rem;">🛵</span>
-                <span id="apps-topbar-count" style="color:#FF5C00;font-weight:900;font-size:0.75rem;">0</span>
-                <span style="color:var(--orange);font-size:0.65rem;font-weight:700;">طلب جديد</span>
-            </div>
             <div class="tstat tstat--usr">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 <span id="stat-users" class="tstat__val">0</span>
@@ -1878,6 +1731,7 @@ input, select, textarea { font-family: var(--font); }
                 <span style="color:var(--gray);font-size:0.65rem;">متصل الآن</span>
             </div>
         </div>
+        <button id="wa-notif-btn" title="WA" onclick="toggleWaNotifPanel()" style="position:relative;background:none;border:none;cursor:pointer;padding:7px 10px;border-radius:10px;font-size:1.15rem;color:var(--gray);display:none;align-items:center;gap:4px;">📲<span id="wa-notif-count" style="position:absolute;top:4px;right:4px;background:#22c55e;color:#fff;font-size:0.58rem;font-weight:900;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;line-height:1;"></span></button>
         <div class="topbar__user" id="topbar-user-btn">
             <div class="topbar__avatar" id="topbar-avatar">A</div>
             <div>
@@ -1954,6 +1808,7 @@ input, select, textarea { font-family: var(--font); }
                     <button class="filter-pill" data-filter="1">🟢 وُصِّل</button>
                     <button class="filter-pill" data-filter="3">🟡 متأخر</button>
                     <button class="filter-pill" data-filter="2">🔴 ملغي</button>
+                    <button class="filter-pill" data-filter="5">💜 ملغي/مدفوع</button>
                     <button class="filter-pill" data-filter="archived" style="border-color:rgba(156,163,175,0.4);color:#9ca3af;">📦 مؤرشف</button>
                     <input type="text" class="search-box" id="orders-search" placeholder="بحث باسم العميل أو المتجر…">
                 </div>
@@ -1987,18 +1842,7 @@ input, select, textarea { font-family: var(--font); }
                     <button class="filter-pill" data-driver-filter="offline">⚫ غير نشط</button>
                     <button class="filter-pill" data-driver-filter="pending" style="color:var(--orange);">🆕 قيد المراجعة</button>
                 </div>
-                <div id="driver-applications-section" style="display:none;padding:8px 16px 0;flex-shrink:0;">
-                    <details id="dapp-details">
-                        <summary style="display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;margin-bottom:8px;user-select:none;padding:4px 0;">
-                            <span style="font-size:0.7rem;font-weight:800;color:var(--orange);letter-spacing:0.06em;text-transform:uppercase;">📋 طلبات انضمام</span>
-                            <span id="dapp-section-count" style="font-size:0.65rem;background:rgba(255,92,0,0.15);color:var(--orange);border:1px solid rgba(255,92,0,0.3);border-radius:50px;padding:1px 8px;font-weight:800;"></span>
-                            <span style="font-size:0.63rem;color:var(--gray);margin-right:auto;">اضغط لعرض / طي</span>
-                        </summary>
-                        <div id="driver-applications-grid" style="display:flex;flex-direction:column;gap:7px;max-height:420px;overflow-y:auto;padding-left:2px;"></div>
-                    </details>
-                    <div style="height:1px;background:var(--border);margin:8px 0 0;"></div>
-                </div>
-                <div class="drivers-grid" id="drivers-grid" style="flex:1;overflow-y:auto;min-height:0;"></div>
+                <div class="drivers-grid" id="drivers-grid"></div>
             </div>
 
             <!-- CUSTOMERS panel -->
@@ -2372,41 +2216,38 @@ input, select, textarea { font-family: var(--font); }
 
         <input type="hidden" id="driver-edit-key">
 
-        <!-- Documents -->
-        <div class="modal-field" id="driver-docs-section" style="display:none;">
-            <label style="margin-bottom:8px;display:block;">الوثائق</label>
+        <!-- Document images -->
+        <div class="modal-field" style="margin-top:14px;">
+            <label style="margin-bottom:8px;display:block;">📎 الوثائق</label>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <!-- ID -->
-                <div style="display:flex;flex-direction:column;gap:6px;">
-                    <div id="driver-doc-id-preview" style="height:80px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:0.72rem;color:var(--gray);cursor:pointer;position:relative;">
-                        <span id="driver-doc-id-empty">🪪 لا توجد هوية</span>
-                        <img id="driver-doc-id-img" src="" alt="ID" style="display:none;width:100%;height:100%;object-fit:cover;">
+                <div>
+                    <p style="font-size:0.68rem;color:var(--gray);margin-bottom:5px;font-weight:700;">🪪 صورة الهوية</p>
+                    <div id="adm-drv-id-preview" style="display:none;position:relative;margin-bottom:6px;">
+                        <img id="adm-drv-id-img" src="" alt="ID"
+                             style="width:100%;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;">
+                        <button id="adm-drv-id-remove" title="إزالة الصورة"
+                                style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--red);border:none;color:#fff;font-size:0.65rem;cursor:pointer;line-height:1;padding:0;">✕</button>
                     </div>
-                    <div style="display:flex;gap:5px;">
-                        <label style="flex:1;cursor:pointer;">
-                            <input type="file" id="driver-doc-id-file" accept="image/*" style="display:none;">
-                            <span style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:0.68rem;font-weight:700;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;border-radius:7px;padding:5px 0;cursor:pointer;">📤 تحديث</span>
-                        </label>
-                        <button type="button" id="driver-doc-id-remove" style="font-size:0.68rem;font-weight:700;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:#f87171;border-radius:7px;padding:5px 8px;cursor:pointer;">🗑</button>
-                    </div>
-                    <span style="font-size:0.62rem;color:var(--gray);text-align:center;">🪪 صورة الهوية</span>
+                    <label class="adm-doc-upload-label" id="adm-drv-id-label" for="adm-drv-id-file">
+                        <span id="adm-drv-id-upload-text">➕ رفع صورة هوية</span>
+                    </label>
+                    <input type="file" id="adm-drv-id-file" accept="image/*" style="display:none;">
                 </div>
-                <!-- License -->
-                <div style="display:flex;flex-direction:column;gap:6px;">
-                    <div id="driver-doc-lic-preview" style="height:80px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:0.72rem;color:var(--gray);cursor:pointer;position:relative;">
-                        <span id="driver-doc-lic-empty">🚘 لا توجد رخصة</span>
-                        <img id="driver-doc-lic-img" src="" alt="License" style="display:none;width:100%;height:100%;object-fit:cover;">
+                <div>
+                    <p style="font-size:0.68rem;color:var(--gray);margin-bottom:5px;font-weight:700;">🚘 رخصة القيادة</p>
+                    <div id="adm-drv-lic-preview" style="display:none;position:relative;margin-bottom:6px;">
+                        <img id="adm-drv-lic-img" src="" alt="License"
+                             style="width:100%;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;">
+                        <button id="adm-drv-lic-remove" title="إزالة الصورة"
+                                style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--red);border:none;color:#fff;font-size:0.65rem;cursor:pointer;line-height:1;padding:0;">✕</button>
                     </div>
-                    <div style="display:flex;gap:5px;">
-                        <label style="flex:1;cursor:pointer;">
-                            <input type="file" id="driver-doc-lic-file" accept="image/*" style="display:none;">
-                            <span style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:0.68rem;font-weight:700;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;border-radius:7px;padding:5px 0;cursor:pointer;">📤 تحديث</span>
-                        </label>
-                        <button type="button" id="driver-doc-lic-remove" style="font-size:0.68rem;font-weight:700;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:#f87171;border-radius:7px;padding:5px 8px;cursor:pointer;">🗑</button>
-                    </div>
-                    <span style="font-size:0.62rem;color:var(--gray);text-align:center;">🚘 رخصة القيادة</span>
+                    <label class="adm-doc-upload-label" id="adm-drv-lic-label" for="adm-drv-lic-file">
+                        <span id="adm-drv-lic-upload-text">➕ رفع رخصة قيادة</span>
+                    </label>
+                    <input type="file" id="adm-drv-lic-file" accept="image/*" style="display:none;">
                 </div>
             </div>
+            <p id="adm-drv-doc-status" style="font-size:0.68rem;color:var(--gray);margin-top:6px;display:none;"></p>
         </div>
 
         <div class="modal-actions">
@@ -2501,39 +2342,32 @@ const FS_ADMIN_EMAIL = 'admin@delivivo.app';  // ← your Firebase Auth email
 const FS_ADMIN_PASS  = 'delivo2025';           // ← that user's password
 
 // ── Firebase Auth token (for Firestore reads) ─────────────────
-let _fsToken        = null;
-let _fsTokenExpiry  = 0;
-let _fsTokenPromise = null;   // singleton — prevents parallel sign-in floods
+let _fsToken       = null;
+let _fsTokenExpiry = 0;
 
 async function getFsToken() {
-    // Return cached token if still valid
+    // Re-use cached token if still valid (refresh 60s before expiry)
     if (_fsToken && Date.now() < _fsTokenExpiry) return _fsToken;
-    // If a sign-in is already in flight, wait for it instead of firing another
-    if (_fsTokenPromise) return _fsTokenPromise;
-
-    _fsTokenPromise = (async () => {
-        console.log('[Auth] Signing into Firebase Auth as:', FS_ADMIN_EMAIL);
-        const r = await fetch(FB_AUTH_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email:             FS_ADMIN_EMAIL,
-                password:          FS_ADMIN_PASS,
-                returnSecureToken: true,
-            }),
-        });
-        const d = await r.json();
-        if (!r.ok) {
-            console.error('[Auth] Firebase sign-in failed:', d?.error?.message, '| email:', FS_ADMIN_EMAIL);
-            throw new Error('Firebase Auth: ' + (d?.error?.message || r.status));
-        }
-        console.log('[Auth] ✅ Got Firestore token, expires in', d.expiresIn, 's');
-        _fsToken       = d.idToken;
-        _fsTokenExpiry = Date.now() + (parseInt(d.expiresIn) - 60) * 1000;
-        return _fsToken;
-    })().finally(() => { _fsTokenPromise = null; });
-
-    return _fsTokenPromise;
+    // Sign in with the admin panel's Firebase Auth account
+    console.log('[Auth] Signing into Firebase Auth as:', FS_ADMIN_EMAIL);
+    const r = await fetch(FB_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            email:             FS_ADMIN_EMAIL,
+            password:          FS_ADMIN_PASS,
+            returnSecureToken: true,
+        }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+        console.error('[Auth] Firebase sign-in failed:', d?.error?.message, '| email:', FS_ADMIN_EMAIL);
+        throw new Error('Firebase Auth: ' + (d?.error?.message || r.status));
+    }
+    console.log('[Auth] ✅ Got Firestore token, expires in', d.expiresIn, 's');
+    _fsToken       = d.idToken;
+    _fsTokenExpiry = Date.now() + (parseInt(d.expiresIn) - 60) * 1000;
+    return _fsToken;
 }
 
 // ── Admin accounts stored in Firebase at /adminUsers ──────────
@@ -2795,68 +2629,34 @@ async function renderAdminFilterBar() {
     });
 }
 
-async function _rtdbAuthParam() {
-    try {
-        const t = await getFsToken();
-        return t ? `?auth=${t}` : '';
-    } catch(e) {
-        console.warn('[Delivo] RTDB proceeding without auth token:', e.message);
-        return '';
-    }
-}
-function _rtdbCtrl(ms = 20000) {
-    const c = new AbortController();
-    const t = setTimeout(() => c.abort(), ms);
-    return { signal: c.signal, clear: () => clearTimeout(t) };
-}
 async function fbGet(path) {
-    const auth = await _rtdbAuthParam();
-    const { signal, clear } = _rtdbCtrl();
-    try {
-        const r = await fetch(`${RTDB}/${path}.json${auth}`, { signal });
-        if (!r.ok) throw new Error(`RTDB ${r.status}: ${path}`);
-        return r.json();
-    } finally { clear(); }
+    const r = await fetch(`${RTDB}/${path}.json`);
+    if (!r.ok) throw new Error(`RTDB ${r.status}: ${path}`);
+    return r.json();
 }
 async function fbSet(path, data) {
-    const auth = await _rtdbAuthParam();
-    const { signal, clear } = _rtdbCtrl();
-    try {
-        const r = await fetch(`${RTDB}/${path}.json${auth}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data), signal,
-        });
-        if (!r.ok) throw new Error(`RTDB PUT ${r.status}: ${path}`);
-        return r.json();
-    } finally { clear(); }
+    const r = await fetch(`${RTDB}/${path}.json`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!r.ok) throw new Error(`RTDB PUT ${r.status}: ${path}`);
+    return r.json();
 }
 async function fbUpdate(path, data) {
-    const auth = await _rtdbAuthParam();
-    const { signal, clear } = _rtdbCtrl();
-    try {
-        const r = await fetch(`${RTDB}/${path}.json${auth}`, {
-            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data), signal,
-        });
-        if (!r.ok) throw new Error(`RTDB PATCH ${r.status}: ${path}`);
-        return r.json();
-    } finally { clear(); }
+    const r = await fetch(`${RTDB}/${path}.json`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!r.ok) throw new Error(`RTDB PATCH ${r.status}: ${path}`);
+    return r.json();
 }
 async function fbPush(path, data) {
-    const auth = await _rtdbAuthParam();
-    const { signal, clear } = _rtdbCtrl();
-    try {
-        const r = await fetch(`${RTDB}/${path}.json${auth}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data), signal,
-        });
-        if (!r.ok) {
-            let msg = `RTDB POST ${r.status}: ${path}`;
-            try { const err = await r.json(); msg += ' — ' + JSON.stringify(err); } catch(_) {}
-            throw new Error(msg);
-        }
-        return r.json();
-    } finally { clear(); }
+    const r = await fetch(`${RTDB}/${path}.json`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!r.ok) throw new Error(`RTDB POST ${r.status}: ${path}`);
+    return r.json();
 }
 
 // ── Firestore helpers ─────────────────────────────────────────
@@ -2988,7 +2788,7 @@ function startApp() {
         if (id === 'map')        renderMap();
         if (id === 'orders')     renderOrders();
         if (id === 'online-req') renderOnlineRequests();
-        if (id === 'drivers')    { renderDrivers(); loadDriverApplications(); }
+        if (id === 'drivers')    renderDrivers();
         if (id === 'customers')  renderCustomers();
         if (id === 'stores')     renderStores();
         if (id === 'employees')  renderEmployees();
@@ -3514,7 +3314,7 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, _cvPrefetch] = await Promise.all([
+        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll] = await Promise.all([
             fbGet('requests'),
             fbGet('drivers'),
             fsGetCollection('users'),
@@ -3523,7 +3323,6 @@ async function loadAllData() {
             fbGet('adminUsers').catch(()  => null),
             fbGet('blacklist').catch(()   => null),
             fbGet('storeStatus').catch(() => null),
-            fbGet('companydatas').then(d => { companyVars = d || {}; }).catch(() => { companyVars = {}; }),
         ]);
 
         allOrders    = orders    || {};
@@ -3583,12 +3382,8 @@ async function loadAllData() {
         updateNavBadge();
 
     } catch(e) {
-        if (e.name === 'AbortError') {
-            console.warn('[Admin] loadAllData: request timed out, retrying with cached data');
-        } else {
-            console.error('[Admin] loadAllData:', e);
-            toast('خطأ في تحميل البيانات', true);
-        }
+        console.error('[Admin] loadAllData:', e);
+        toast('خطأ في تحميل البيانات', true);
     }
 }
 
@@ -3614,8 +3409,6 @@ function startAutoRefresh() {
     // ── Real-time driver listener ──────────────────────────────
     // Uses the already-initialised `db` reference (not `firebase.database()`)
     // so it works regardless of when the SDK fully loads.
-    loadDriverApplications();  // start realtime SSE listener for driver applications
-
     if (typeof db !== 'undefined' && db) {
         db.ref('drivers').on('value', snap => {
             if (!snap.exists()) { allDrivers = []; }
@@ -4431,7 +4224,7 @@ function renderMap() {
 // ═══════════════════════════════════════════════════════════════
 // ORDERS PANEL
 // ═══════════════════════════════════════════════════════════════
-const STATE_LABELS = { '0':'جديد','1':'تم التوصيل','2':'ملغي','3':'متأخر','5':'ملغي/مدفوع' };
+const STATE_LABELS = { '0':'جديد','1':'وُصِّل','2':'ملغي','3':'متأخر','5':'ملغي/مدفوع','6':'استُلم','7':'قيد التحضير','8':'جاهز ✓' };
 
 function renderOrders() {
     const list    = document.getElementById('orders-list');
@@ -4510,7 +4303,6 @@ function buildOrderCard(key, order) {
             <span class="oc-store">${order.store || '—'}</span>
             <span class="oc-customer">${order.fullname || order.username || '—'}</span>
             <span class="oc-total">$${order.total || '0'}</span>
-            ${order.freeDelivery === '1' ? `<span class="oc-meta-chip" style="color:#22c55e;border-color:rgba(34,197,94,0.35);background:rgba(34,197,94,0.1);font-size:0.72rem;padding:2px 7px;">🎁 توصيل مجاني</span>` : ''}
             <span class="oc-state state-badge-${state}">${STATE_LABELS[state] || state}</span>
             <span class="oc-toggle">▾</span>
         </div>
@@ -4542,6 +4334,7 @@ function buildOrderCard(key, order) {
                 ${order.claimStatus === 'assigned' ? `<span class="oc-meta-chip" style="color:var(--orange);border-color:rgba(255,92,0,0.35);background:rgba(255,92,0,0.08);font-size:0.68rem;">👤 عيّنه الإدارة</span>` : ''}
                 ${!driverAssigned && !order.claimStatus ? `<span class="oc-meta-chip" style="color:var(--red);border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.07);font-size:0.68rem;">⏳ بانتظار سائق</span>` : ''}
                 ${order.vault && order.vault !== '0' ? `<span class="oc-meta-chip" style="color:var(--yellow);border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);">💰 دفع نقدي: $${order.vault}</span>` : ''}
+                ${order.externalOrder === '1' ? `<span class="oc-meta-chip" style="color:#fb923c;border-color:rgba(251,146,60,0.35);background:rgba(251,146,60,0.1);font-size:0.72rem;">🛍️ طلب خارجي${order.storeAddress ? ' · ' + order.storeAddress : ''}</span>` : ''}
                 ${order.trackorder==1 ? `<span class="oc-meta-chip" style="color:var(--blue);">📡 تتبع نشط</span>` : ''}
                 ${order.xnote ? `<span class="oc-meta-chip" style="flex-basis:100%;">💬 ${order.xnote}</span>` : ''}
             </div>
@@ -4553,9 +4346,21 @@ function buildOrderCard(key, order) {
                 </select>
                 <button class="oc-action-btn primary" data-assign="${key}">✔ تعيين</button>
                 ` : ''}
-                <button class="oc-action-btn btn-delivered ${state==='1'?'btn-delivered--active':''}" data-state="${key}" data-val="1">✅ وُصِّل</button>
-                <button class="oc-action-btn btn-cancelled ${state==='2'||state==='5'?'btn-cancelled--active':''}" data-state="${key}" data-val="2">✕ إلغاء</button>
-                <button class="oc-action-btn btn-late ${state==='3'?'btn-late--active':''}" data-state="${key}" data-val="3">⏳ متأخر</button>
+                <button class="oc-action-btn btn-new  ${state==='0'?'btn-new--active':''}"
+                        data-state="${key}" data-val="0"
+                        title="إعادة الطلب لحالة جديد">🔵 جديد</button>
+                <button class="oc-action-btn btn-delivered ${state==='1'?'btn-delivered--active':''}"
+                        data-state="${key}" data-val="1"
+                        title="تم التوصيل">✅ وُصِّل</button>
+                <button class="oc-action-btn btn-late ${state==='3'?'btn-late--active':''}"
+                        data-state="${key}" data-val="3"
+                        title="تأخير الطلب">⏳ متأخر</button>
+                <button class="oc-action-btn btn-cancelled ${state==='2'?'btn-cancelled--active':''}"
+                        data-state="${key}" data-val="2"
+                        title="إلغاء الطلب">✕ ملغي</button>
+                <button class="oc-action-btn btn-canc-paid ${state==='5'?'btn-canc-paid--active':''}"
+                        data-state="${key}" data-val="5"
+                        title="ملغي ومدفوع">💜 ملغي/مدفوع</button>
                 ${order.lat && order.lat !== '0' ? `<button class="oc-action-btn" data-locate="${order.lat},${order.lng}">🗺 الخريطة</button>` : ''}
                 ${ (['1','2','5'].includes(state))
                     ? `<button class="oc-action-btn btn-track" disabled title="الطلب منتهٍ — التتبع غير متاح" style="opacity:.4;cursor:not-allowed;">📡 التتبع</button>`
@@ -4712,23 +4517,65 @@ async function changeState(orderId, newState) {
     try {
         const uid = allOrders[orderId]?.delivryplusid;
         const updates = {};
+        const _prevState = allOrders[orderId]?.state || '0'; // capture BEFORE mutation
         updates[`/requests/${orderId}/state`] = newState;
         if (uid) updates[`/historyRequests/${uid}/${orderId}/state`] = newState;
         allOrders[orderId].state = newState; // update local BEFORE await so any re-render is correct
         await fbUpdate('', updates);
 
-        // ── Award 10 points on delivery ──────────────────────
-        if (newState === '1' && uid) {
+        // ── Points: award on delivery, subtract on revert ─────────
+        // Uses /requests/{id}/pointsAwarded as an idempotency flag so that:
+        //  • Pressing وُصِّل multiple times never double-awards
+        //  • Reverting from وُصِّل back to any state subtracts the points
+        //  • Both admin and driver share the same flag — whichever entity acts
+        //    first sets the flag; the other entity's press is a no-op
+        if (uid) {
             try {
-                const ptsResp = await fetch(`${RTDB}/users/${uid}/points.json`);
-                const curPts  = parseInt(await ptsResp.json()) || 0;
-                await fetch(`${RTDB}/users/${uid}/points.json`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(curPts + 10),
-                });
-                toast(`✅ تم توصيل الطلب #${orderId.replace('id_','')} — 10 نقاط أضيفت للعميل ⭐`);
-            } catch (_) {
+                const prevState   = _prevState;   // state BEFORE this update (captured before mutation)
+                const wasDelivered = prevState === '1';                    // were we already delivered?
+                const nowDelivered = newState  === '1';
+
+                if (nowDelivered && !wasDelivered) {
+                    // Transition INTO delivered — award ONLY if flag not already set
+                    const flagResp = await fetch(`${RTDB}/requests/${orderId}/pointsAwarded.json`);
+                    const alreadyAwarded = await flagResp.json();
+                    if (!alreadyAwarded) {
+                        const ptsResp = await fetch(`${RTDB}/users/${uid}/points.json`);
+                        const curPts  = parseInt(await ptsResp.json()) || 0;
+                        const ptUpd   = {};
+                        ptUpd[`/users/${uid}/points`]                     = curPts + 10;
+                        ptUpd[`/requests/${orderId}/pointsAwarded`]       = true;
+                        if (allOrders[orderId]?.delivryplusid)
+                            ptUpd[`/historyRequests/${uid}/${orderId}/pointsAwarded`] = true;
+                        await fbUpdate('', ptUpd);
+                        allOrders[orderId].pointsAwarded = true;
+                        toast(`✅ تم توصيل الطلب #${orderId.replace('id_','')} — 10 نقاط أضيفت للعميل ⭐`);
+                    } else {
+                        toast(`✅ تم توصيل الطلب #${orderId.replace('id_','')} — النقاط سبق احتسابها`);
+                    }
+                } else if (wasDelivered && !nowDelivered) {
+                    // Transition OUT of delivered — subtract ONLY if flag was set
+                    const flagResp = await fetch(`${RTDB}/requests/${orderId}/pointsAwarded.json`);
+                    const wasAwarded = await flagResp.json();
+                    if (wasAwarded) {
+                        const ptsResp = await fetch(`${RTDB}/users/${uid}/points.json`);
+                        const curPts  = parseInt(await ptsResp.json()) || 0;
+                        const ptUpd   = {};
+                        ptUpd[`/users/${uid}/points`]                     = Math.max(0, curPts - 10);
+                        ptUpd[`/requests/${orderId}/pointsAwarded`]       = null;  // clear flag
+                        if (allOrders[orderId]?.delivryplusid)
+                            ptUpd[`/historyRequests/${uid}/${orderId}/pointsAwarded`] = null;
+                        await fbUpdate('', ptUpd);
+                        allOrders[orderId].pointsAwarded = false;
+                        toast(`↩ تم إرجاع 10 نقاط من العميل (الطلب لم يعد موصَّلاً)`);
+                    } else {
+                        toast(`✅ تم تحديث حالة الطلب #${orderId.replace('id_','')}`);
+                    }
+                } else {
+                    toast(`✅ تم تحديث حالة الطلب #${orderId.replace('id_','')}`);
+                }
+            } catch (e) {
+                console.error('[Admin] Points update failed:', e);
                 toast(`✅ تم تحديث حالة الطلب #${orderId.replace('id_','')}`);
             }
         } else {
@@ -4760,18 +4607,21 @@ async function changeState(orderId, newState) {
                 // Remove state, locate AND track buttons — rebuild all in correct fixed order
                 actionsDiv.querySelectorAll('[data-state], [data-locate], [data-trackorder]').forEach(b => b.remove());
 
-                // Always show all 3 state buttons so admin can re-change any time
+                // Rebuild all 5 state buttons matching the driver page
                 const btnDefs = [
-                    { val:'1', label:'✅ وُصِّل', cls: ' btn-delivered' + (newState==='1' ? ' btn-delivered--active' : '') },
-                    { val:'2', label:'✕ إلغاء',  cls: ' btn-cancelled' + ((newState==='2'||newState==='5') ? ' btn-cancelled--active' : '') },
-                    { val:'3', label:'⏳ متأخر',  cls: ' btn-late'      + (newState==='3' ? ' btn-late--active' : '') },
+                    { val:'0', label:'🔵 جديد',        cls: ' btn-new'       + (newState==='0' ? ' btn-new--active' : ''), title:'إعادة الطلب لحالة جديد' },
+                    { val:'1', label:'✅ وُصِّل',       cls: ' btn-delivered' + (newState==='1' ? ' btn-delivered--active' : ''), title:'تم التوصيل' },
+                    { val:'3', label:'⏳ متأخر',        cls: ' btn-late'      + (newState==='3' ? ' btn-late--active' : ''), title:'تأخير الطلب' },
+                    { val:'2', label:'✕ ملغي',         cls: ' btn-cancelled' + (newState==='2' ? ' btn-cancelled--active' : ''), title:'إلغاء الطلب' },
+                    { val:'5', label:'💜 ملغي/مدفوع',  cls: ' btn-canc-paid' + (newState==='5' ? ' btn-canc-paid--active' : ''), title:'ملغي ومدفوع' },
                 ];
-                btnDefs.forEach(({ val, label, cls }) => {
+                btnDefs.forEach(({ val, label, cls, title }) => {
                     const b = document.createElement('button');
                     b.className = `oc-action-btn${cls}`;
                     b.dataset.state = key;
                     b.dataset.val   = val;
                     b.textContent   = label;
+                    if (title) b.title = title;
                     b.addEventListener('click', async () => await changeState(key, val));
                     actionsDiv.appendChild(b);
                 });
@@ -4867,515 +4717,6 @@ const VEHICLE_LABELS = {
     bicycle:    { emoji: '🚲', label: 'دراجة هوائية' },
 };
 
-/* ── Driver Applications — SSE realtime listener ──────────────
-   Uses Firebase SSE (same pattern as storeStatus) — no SDK needed  */
-let _driverAppsSSE   = null;
-let _driverAppsCache = {};   // module-level so rejectDriverApp / approveDriverApp can update it immediately
-
-function _updateAppsTopbarBadge(count) {
-    const chip    = document.getElementById('apps-topbar-chip');
-    const countEl = document.getElementById('apps-topbar-count');
-    if (!chip) return;
-    if (count > 0) {
-        if (countEl) countEl.textContent = count;
-        chip.style.display = 'flex';
-    } else {
-        chip.style.display = 'none';
-    }
-}
-
-function _renderDriverApplications(data) {
-    const section = document.getElementById('driver-applications-section');
-    const grid    = document.getElementById('driver-applications-grid');
-
-    if (!data || typeof data !== 'object') {
-        if (section) section.style.display = 'none';
-        _updateAppsTopbarBadge(0);
-        return;
-    }
-
-    const vehicleMap = { motorcycle:'🛵 دراجة نارية', car:'🚗 سيارة', tuktuk:'🛺 توك توك', bicycle:'🚲 دراجة هوائية' };
-
-    const apps = Object.entries(data)
-        .map(([k, v]) => v && typeof v === 'object' ? { ...v, _key: k } : null)
-        .filter(a => a && a.status === 'pending')
-        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-    _updateAppsTopbarBadge(apps.length);
-
-    if (!section || !grid) return;
-    if (!apps.length) { section.style.display = 'none'; return; }
-
-    section.style.display = 'block';
-
-    const pill = document.querySelector('[data-driver-filter="pending"]');
-    if (pill) pill.textContent = '🆕 قيد المراجعة (' + apps.length + ')';
-
-    const countBadge = document.getElementById('dapp-section-count');
-    if (countBadge) countBadge.textContent = apps.length + ' طلب';
-
-    grid.innerHTML = apps.map(a => {
-        const key       = a._key;
-        const name      = a.fullname || '—';
-        const phone     = a.phone ? formatPhone(a.phone) : '—';
-        const vehicle   = vehicleMap[a.vehicleType] || a.vehicleType || '—';
-        const hasId     = !!a.idImage;
-        const hasLic    = !!a.licenseImage;
-        const hasAddr   = !!(a.address && a.address.lat);
-        const dateStr   = a.createdAt
-            ? new Date(a.createdAt).toLocaleDateString('ar-LB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
-            : '';
-
-        return '<div class="dapp-card" id="dapp-' + key + '">' +
-            '<div class="dapp-top">' +
-                '<div class="dapp-avatar">🛵</div>' +
-                '<div class="dapp-info">' +
-                    '<div class="dapp-name">' + name + '</div>' +
-                    '<div class="dapp-meta" dir="ltr">' + phone + '</div>' +
-                    '<div class="dapp-pills">' +
-                        '<span class="dapp-pill dapp-pill--vehicle">' + vehicle + '</span>' +
-                        (hasAddr ? '<span class="dapp-pill">📍 موقع محدد</span>' : '') +
-                    '</div>' +
-                '</div>' +
-                (dateStr ? '<div style="font-size:0.64rem;color:var(--gray);white-space:nowrap;align-self:flex-start;">' + dateStr + '</div>' : '') +
-            '</div>' +
-            '<div class="dapp-docs">' +
-                (hasId  ? '<a class="dapp-doc-link" href="' + a.idImage      + '" target="_blank" rel="noopener">🪪 صورة الهوية</a>'   : '<span class="dapp-doc-missing">🪪 لا توجد هوية</span>') +
-                (hasLic ? '<a class="dapp-doc-link" href="' + a.licenseImage + '" target="_blank" rel="noopener">🚘 رخصة القيادة</a>' : '<span class="dapp-doc-missing">🚘 لا توجد رخصة</span>') +
-            '</div>' +
-            '<div class="dapp-actions">' +
-                '<button class="dapp-btn dapp-btn--reject"  onclick="rejectDriverApp(\'' + key + '\', this)">❌ رفض</button>' +
-                '<button class="dapp-btn dapp-btn--approve" onclick="approveDriverApp(\'' + key + '\', this)">✅ قبول وإنشاء حساب</button>' +
-            '</div>' +
-        '</div>';
-    }).join('');
-}
-
-function loadDriverApplications() {
-    if (_driverAppsSSE) return;   // already connected
-
-    let _cache = _driverAppsCache;   // alias to module-level so external functions can update it
-
-    async function _connect() {
-        if (_driverAppsSSE) { try { _driverAppsSSE.close(); } catch(_) {} }
-        const auth = await _rtdbAuthParam();
-        _driverAppsSSE = new EventSource(`${RTDB}/driverApplications.json?accept=text/event-stream${auth ? '&auth=' + auth.slice(6) : ''}`);
-
-        _driverAppsSSE.addEventListener('put', e => {
-            try {
-                const msg = JSON.parse(e.data);
-                if (msg.path === '/') {
-                    _driverAppsCache = msg.data && typeof msg.data === 'object' ? msg.data : {};
-                    _cache = _driverAppsCache;
-                } else {
-                    const key = msg.path.replace(/^\//, '');
-                    if (msg.data === null) delete _driverAppsCache[key];
-                    else _driverAppsCache[key] = typeof msg.data === 'object' ? { ..._driverAppsCache[key], ...msg.data } : msg.data;
-                    _cache = _driverAppsCache;
-                }
-                _renderDriverApplications(_driverAppsCache);
-            } catch(err) { console.error('[Delivo] driverApps SSE parse error', err); }
-        });
-
-        _driverAppsSSE.addEventListener('patch', e => {
-            try {
-                const msg = JSON.parse(e.data);
-                if (msg.data && typeof msg.data === 'object') {
-                    Object.entries(msg.data).forEach(([k, v]) => {
-                        if (v === null) delete _driverAppsCache[k];
-                        else _driverAppsCache[k] = { ..._driverAppsCache[k], ...v };
-                    });
-                    _cache = _driverAppsCache;
-                }
-                _renderDriverApplications(_driverAppsCache);
-            } catch(err) {}
-        });
-
-        _driverAppsSSE.onerror = () => {
-            _driverAppsSSE.close();
-            _driverAppsSSE = null;
-            setTimeout(_connect, 5000);
-        };
-    }
-
-    // Fetch initial snapshot first, then open SSE stream
-    fbGet('driverApplications').then(data => {
-        _driverAppsCache = data && typeof data === 'object' ? data : {};
-        _cache = _driverAppsCache;
-        _renderDriverApplications(_driverAppsCache);
-        _connect();
-    }).catch(() => { _connect(); });
-}
-
-
-async function rejectDriverApp(key, btnEl) {
-    const card = document.getElementById('dapp-' + key);
-    const name = card?.querySelector('.dapp-name')?.textContent || 'هذا الطلب';
-
-    const confirmed = await showConfirm({
-        title: 'رفض الطلب',
-        msg: `هل تريد رفض طلب انضمام <b>${name}</b>؟<br><span style="color:var(--gray);font-size:0.82rem;">سيتم حذف الطلب نهائياً.</span>`,
-        type: 'danger',
-        icon: '❌',
-    });
-    if (!confirmed) return;
-
-    // ── Optimistic: remove from UI immediately, no waiting ────
-    delete _driverAppsCache[key];
-    _renderDriverApplications(_driverAppsCache);
-    if (card) {
-        card.style.transition = 'opacity 0.25s, transform 0.25s';
-        card.style.opacity    = '0';
-        card.style.transform  = 'scale(0.96)';
-        setTimeout(() => { if (card.parentNode) card.remove(); }, 280);
-    }
-    toast('🗑 تم رفض وحذف الطلب');
-
-    // ── Fire Firebase delete in background (don't block UI) ───
-    _rtdbDelete(`driverApplications/${key}`).catch(e => {
-        console.warn('[Delivo] reject background delete failed:', e.message);
-        // Fallback: mark as rejected so it won't show again
-        fbUpdate(`driverApplications/${key}`, { status: 'rejected' }).catch(() => {});
-    });
-}
-
-async function _storageUpload(file, pathNoExt) {
-    const ext    = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path   = `${pathNoExt}.${ext}`;
-    const bucket = 'deliveryonline-300f7.firebasestorage.app';
-    const token  = await getFsToken().catch(() => '');
-    const encPath = encodeURIComponent(path);
-    const ctrl   = new AbortController();
-    const tid    = setTimeout(() => ctrl.abort(), 20000);
-    try {
-        const r = await fetch(
-            `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encPath}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': file.type || 'application/octet-stream',
-                    ...(token ? { 'Authorization': `Firebase ${token}` } : {}),
-                },
-                body: file,
-                signal: ctrl.signal,
-            }
-        );
-        if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || r.status); }
-        // Build public download URL
-        return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encPath}?alt=media`;
-    } finally { clearTimeout(tid); }
-}
-
-
-async function _rtdbDelete(path) {
-    const auth = await _rtdbAuthParam();
-    const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), 8000);  // 8s timeout
-    try {
-        const r = await fetch(`${RTDB}/${path}.json${auth}`, {
-            method: 'DELETE',
-            signal: ctrl.signal,
-        });
-        if (!r.ok) throw new Error(`RTDB DELETE ${r.status}: ${path}`);
-    } finally {
-        clearTimeout(tid);
-    }
-}
-
-/* ── Approve Driver: full modal with applicant summary + account setup ── */
-async function approveDriverApp(key, btnEl) {
-    // Use cached application data (already loaded via SSE) — no network round trip
-    const app = _driverAppsCache[key] || {};
-
-    const vehicleMap = { motorcycle:'🛵 دراجة نارية', car:'🚗 سيارة', tuktuk:'🛺 توك توك', bicycle:'🚲 دراجة هوائية' };
-    const fullname   = app.fullname    || '';
-    const phone      = app.phone       ? formatPhone(app.phone) : '—';
-    const vehicle    = vehicleMap[app.vehicleType] || app.vehicleType || '—';
-    const hasAddr    = !!(app.address && app.address.lat);
-    const hasId      = !!app.idImage;
-    const hasLic     = !!app.licenseImage;
-
-    // Auto-suggest username from full name
-    const defaultUser = fullname.toLowerCase()
-        .replace(/\s+/g, '.')
-        .replace(/[^a-z0-9._]/g, '')
-        .replace(/\.+/g, '.')
-        .replace(/^\.|\.$/, '')
-        .slice(0, 25) || 'driver';
-
-    const result = await _showDriverApprovalModal({ fullname, phone, vehicle, hasAddr, hasId, hasLic, idImage: app.idImage, licenseImage: app.licenseImage, defaultUser });
-    if (!result) return;
-
-    const { username, password } = result;
-
-    // Disable the approve button on the card while we save
-    if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="dam-spinner"></span> جاري الإنشاء…'; }
-
-    try {
-        // ── Duplicate username check ──────────────────────────────
-        const usernameConflict = allDrivers.find(d => d && d.username === username);
-        if (usernameConflict) {
-            if (btnEl) { btnEl.disabled = false; btnEl.textContent = '✅ قبول وإنشاء حساب'; }
-            await _showDriverApprovalModal({ fullname, phone, vehicle, hasAddr, hasId, hasLic, idImage: app.idImage, licenseImage: app.licenseImage, defaultUser, prefillUsername: username, prefillError: `اسم المستخدم "${username}" مستخدم بالفعل من قِبل سائق آخر. اختر اسماً مختلفاً.` });
-            return;
-        }
-
-        // ── Build driver record ───────────────────────────────────
-        const newDriver = {
-            owner          : fullname,
-            fullname       : fullname,
-            username       : username,
-            password       : password,
-            phone          : app.phone || '',
-            vehicleType    : app.vehicleType || '',
-            address        : app.address     || null,
-            idImage        : app.idImage     || null,
-            licenseImage   : app.licenseImage|| null,
-            status         : 'offline',
-            active         : true,
-            pendingApproval: false,
-            createdAt      : Date.now(),
-            fromApplication: key,
-        };
-
-        // ── Write to /drivers ─────────────────────────────────────
-        const hasNumeric = allDrivers.some(d => d._isNumeric);
-        if (hasNumeric) {
-            const current = await fbGet('drivers');
-            const arr = (Array.isArray(current) ? current : Object.values(current || {}))
-                .filter(v => v && typeof v === 'object');
-            arr.push(newDriver);
-            await fbSet('drivers', arr);
-        } else {
-            await fbPush('drivers', newDriver);
-        }
-
-        // ── Remove pending application ────────────────────────────
-        await fbSet(`driverApplications/${key}`, null).catch(() =>
-            fbUpdate(`driverApplications/${key}`, { status: 'approved' })
-        );
-
-        // ── Update local cache immediately — don't wait for SSE ──
-        delete _driverAppsCache[key];
-        _renderDriverApplications(_driverAppsCache);
-
-        // ── Show success & animate card out ──────────────────────
-        const card = document.getElementById('dapp-' + key);
-        if (card) {
-            card.style.transition = 'opacity 0.35s, transform 0.35s';
-            card.style.opacity = '0';
-            card.style.transform = 'scale(0.95)';
-            setTimeout(() => card.remove(), 380);
-        }
-
-        toast(`✅ تم إنشاء حساب السائق "${fullname}" — @${username}`);
-        await loadAllData();
-        renderDrivers();
-
-    } catch (e) {
-        console.error('[Delivo] approveDriverApp error:', e);
-        if (btnEl) { btnEl.disabled = false; btnEl.textContent = '✅ قبول وإنشاء حساب'; }
-        const friendly = (e.message || '').includes('401') || (e.message || '').includes('403')
-            ? 'صلاحيات RTDB غير كافية للكتابة على /drivers. راجع Firebase Console → Realtime Database → Rules.'
-            : 'حدث خطأ: ' + (e.message || e);
-        toast('❌ ' + friendly, true);
-    }
-}
-
-function _showDriverApprovalModal({ fullname, phone, vehicle, hasAddr, hasId, hasLic, idImage, licenseImage, defaultUser, prefillUsername, prefillError }) {
-    return new Promise(resolve => {
-        const existing = document.getElementById('dam-overlay');
-        if (existing) existing.remove();
-
-        const overlay = document.createElement('div');
-        overlay.className = 'dam-overlay';
-        overlay.id = 'dam-overlay';
-
-        overlay.innerHTML = `
-        <div class="dam-panel">
-            <div class="dam-header">
-                <div class="dam-header-icon">🛵</div>
-                <div>
-                    <div class="dam-header-title">قبول السائق وإنشاء حسابه</div>
-                    <div class="dam-header-sub">سيتمكن <strong>${fullname || 'السائق'}</strong> من تسجيل الدخول بالبيانات التالية</div>
-                </div>
-            </div>
-
-            <div class="dam-body">
-                <!-- Applicant summary -->
-                <div>
-                    <div class="dam-section-label">📋 بيانات المتقدم</div>
-                    <div class="dam-applicant-summary">
-                        <div class="dam-summary-row">
-                            <span class="dam-summary-label">الاسم</span>
-                            <span class="dam-summary-val">${fullname || '—'}</span>
-                        </div>
-                        <div class="dam-summary-row">
-                            <span class="dam-summary-label">الهاتف</span>
-                            <span class="dam-summary-val dam-summary-val--mono" dir="ltr">${phone}</span>
-                        </div>
-                        <div class="dam-summary-row">
-                            <span class="dam-summary-label">المركبة</span>
-                            <span class="dam-summary-val">${vehicle}</span>
-                        </div>
-                        <div class="dam-summary-row">
-                            <span class="dam-summary-label">الموقع</span>
-                            <span class="dam-summary-val">${hasAddr ? '✅ محدد' : '❌ غير محدد'}</span>
-                        </div>
-                        <div class="dam-docs-row" style="margin-top:4px;">
-                            ${hasId  ? '<a class="dapp-doc-link" href="' + idImage  + '" target="_blank" rel="noopener">🪪 صورة الهوية</a>'    : '<span class="dapp-doc-missing">🪪 لا توجد هوية</span>'}
-                            ${hasLic ? '<a class="dapp-doc-link" href="' + licenseImage + '" target="_blank" rel="noopener">🚘 رخصة القيادة</a>' : '<span class="dapp-doc-missing">🚘 لا توجد رخصة</span>'}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Account setup -->
-                <div>
-                    <div class="dam-section-label">🔐 بيانات الحساب</div>
-                    <div style="display:flex;flex-direction:column;gap:14px;">
-                        <div class="dam-field">
-                            <label for="dam-username">اسم المستخدم</label>
-                            <input id="dam-username" class="dam-input" type="text" dir="ltr"
-                                value="${prefillUsername || defaultUser}"
-                                maxlength="30" autocapitalize="none" autocomplete="off"
-                                placeholder="مثال: ahmad.driver">
-                            <span id="dam-username-status" style="font-size:0.68rem;margin-top:4px;display:flex;align-items:center;gap:5px;min-height:18px;"></span>
-                        </div>
-                        <div class="dam-field">
-                            <label for="dam-password">كلمة المرور</label>
-                            <div class="dam-input-wrap">
-                                <input id="dam-password" class="dam-input" type="password" dir="ltr"
-                                    placeholder="8 أحرف على الأقل" autocomplete="new-password">
-                                <button type="button" class="dam-pwd-toggle" id="dam-pwd-toggle" title="إظهار/إخفاء">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                                    </svg>
-                                </button>
-                            </div>
-                            <span class="dam-field-hint">ستُحفظ كما هي — تأكد أنها قوية وسهلة التذكر للسائق</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dam-error" id="dam-error"></div>
-            </div>
-
-            <div class="dam-footer">
-                <button class="dam-footer-btn dam-footer-btn--cancel" id="dam-cancel">إلغاء</button>
-                <button class="dam-footer-btn dam-footer-btn--confirm" id="dam-confirm">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    إنشاء الحساب
-                </button>
-            </div>
-        </div>`;
-
-        document.body.appendChild(overlay);
-
-        // Show pre-filled error if any
-        if (prefillError) {
-            const errEl = overlay.querySelector('#dam-error');
-            if (errEl) { errEl.textContent = prefillError; errEl.style.display = 'block'; }
-        }
-
-        const usernameEl = overlay.querySelector('#dam-username');
-        const passwordEl = overlay.querySelector('#dam-password');
-        const errEl      = overlay.querySelector('#dam-error');
-        const confirmBtn = overlay.querySelector('#dam-confirm');
-        const cancelBtn  = overlay.querySelector('#dam-cancel');
-        const pwdToggle  = overlay.querySelector('#dam-pwd-toggle');
-
-        // Focus username field (select all if pre-filled)
-        setTimeout(() => { usernameEl.focus(); usernameEl.select(); }, 80);
-
-        // ── Live username availability check ─────────────────────
-        const statusEl = overlay.querySelector('#dam-username-status');
-        let _checkTimer = null;
-
-        function _checkUsername(val) {
-            if (!statusEl) return;
-            val = val.trim().toLowerCase();
-
-            if (!val) {
-                statusEl.innerHTML = '';
-                return;
-            }
-            if (!/^[a-z0-9._]{3,30}$/.test(val)) {
-                statusEl.innerHTML = '<span style="color:#f87171;">⚠️ أحرف إنجليزية صغيرة، أرقام، نقطة أو _ فقط (3–30 حرف)</span>';
-                return;
-            }
-
-            const taken = allDrivers.find(d => d && d.username === val);
-            if (taken) {
-                statusEl.innerHTML = '<span style="color:#f87171;">✗ محجوز — مستخدم من قِبل السائق <b>' + (taken.fullname || taken.owner || taken.username) + '</b></span>';
-                confirmBtn.disabled = true;
-            } else {
-                statusEl.innerHTML = '<span style="color:#4ade80;">✓ متاح</span>';
-                confirmBtn.disabled = false;
-            }
-        }
-
-        // Run check on current value immediately
-        _checkUsername(usernameEl.value);
-
-        usernameEl.addEventListener('input', () => {
-            statusEl.innerHTML = '<span style="color:var(--gray);">…</span>';
-            clearTimeout(_checkTimer);
-            _checkTimer = setTimeout(() => _checkUsername(usernameEl.value), 300);
-        });
-
-        // Password show/hide
-        pwdToggle.addEventListener('click', () => {
-            passwordEl.type = passwordEl.type === 'password' ? 'text' : 'password';
-        });
-
-        function _close(result) { overlay.remove(); resolve(result); }
-
-        cancelBtn.addEventListener('click', () => _close(null));
-        overlay.addEventListener('click', e => { if (e.target === overlay) _close(null); });
-
-        overlay.addEventListener('keydown', e => {
-            if (e.key === 'Escape') _close(null);
-            if (e.key === 'Enter')  confirmBtn.click();
-        });
-
-        confirmBtn.addEventListener('click', () => {
-            const username = (usernameEl.value || '').trim().toLowerCase();
-            const password =  passwordEl.value;
-
-            errEl.style.display = 'none';
-
-            if (!/^[a-z0-9._]{3,30}$/.test(username)) {
-                errEl.textContent = '⚠️ اسم المستخدم: 3–30 حرف إنجليزي صغير، أرقام، نقطة أو _ فقط';
-                errEl.style.display = 'block';
-                usernameEl.focus();
-                return;
-            }
-            if (!password || password.length < 8) {
-                errEl.textContent = '⚠️ كلمة المرور يجب أن تكون 8 أحرف على الأقل';
-                errEl.style.display = 'block';
-                passwordEl.focus();
-                return;
-            }
-
-            // Check duplicate locally before closing modal
-            const dup = allDrivers.find(d => d && d.username === username);
-            if (dup) {
-                errEl.textContent = `⚠️ اسم المستخدم "@${username}" محجوز بالفعل — اختر اسماً مختلفاً`;
-                errEl.style.display = 'block';
-                usernameEl.focus();
-                usernameEl.select();
-                return;
-            }
-
-            // Visual feedback on confirm
-            confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<span class="dam-spinner"></span>';
-
-            _close({ username, password });
-        });
-    });
-}
-
 function renderDrivers() {
     const grid    = document.getElementById('drivers-grid');
     const countEl = document.getElementById('drivers-count-label');
@@ -5394,7 +4735,8 @@ function renderDrivers() {
         const q = driverSearch.toLowerCase();
         drivers = drivers.filter(d =>
             (d.owner || '').toLowerCase().includes(q) ||
-            (d.username || '').toLowerCase().includes(q)
+            (d.username || '').toLowerCase().includes(q) ||
+            (d.deviceUUID || '').toLowerCase().includes(q)
         );
     }
 
@@ -5452,6 +4794,14 @@ function renderDrivers() {
                 ${vehicle ? `<span class="dc-info-pill">${vehicle.emoji} ${vehicle.label}</span>` : ''}
                 ${hasAddress ? `<span class="dc-info-pill dc-address-pill" data-lat="${d.address.lat}" data-lng="${d.address.lng}" style="cursor:pointer;">🏠 عنوان السائق</span>` : ''}
             </div>` : ''}
+            <div class="dc-uuid-row">
+                <span class="dc-uuid-label">UUID</span>
+                ${d.deviceUUID
+                    ? `<span class="dc-uuid-val" title="${d.deviceUUID}">${d.deviceUUID}</span>
+                       <button class="dc-uuid-copy" title="نسخ UUID" data-uuid="${d.deviceUUID}">&#9112;</button>`
+                    : '<span class="dc-uuid-none">غير مرتبط</span>'
+                }
+            </div>
             <div class="dc-stats">
                 <div class="dc-stat">
                     <div class="dc-stat-val">${ordCount}</div>
@@ -5515,6 +4865,22 @@ function renderDrivers() {
         card.querySelectorAll('.dc-doc-thumb[data-src]').forEach(thumb => {
             thumb.addEventListener('click', () => openImagePreview(thumb.dataset.src));
         });
+        const uuidCopyBtn = card.querySelector('.dc-uuid-copy');
+        if (uuidCopyBtn) {
+            uuidCopyBtn.addEventListener('click', () => {
+                const uuid = uuidCopyBtn.dataset.uuid;
+                if (!uuid) return;
+                navigator.clipboard.writeText(uuid).then(() => {
+                    const orig = uuidCopyBtn.textContent;
+                    uuidCopyBtn.textContent = '✓';
+                    uuidCopyBtn.style.color = 'var(--green)';
+                    setTimeout(() => {
+                        uuidCopyBtn.textContent = orig;
+                        uuidCopyBtn.style.color = '';
+                    }, 1500);
+                }).catch(() => toast('فشل النسخ'));
+            });
+        }
         const activateBtn = card.querySelector('.dc-activate-btn');
         if (activateBtn) activateBtn.addEventListener('click', () => activateDriver(d));
         const deactivateBtn = card.querySelector('.dc-deactivate-btn');
@@ -5550,70 +4916,88 @@ function openDriverEditModal(driver) {
             ? `— كلمة المرور الحالية: <code style="color:var(--orange);background:var(--surface3);padding:1px 5px;border-radius:4px;font-family:monospace;">${driver.password}</code>`
             : '';
     }
+
+    // Pre-populate document images
+    _admDrvIdFile  = null;
+    _admDrvLicFile = null;
+    _admDrvIdRemoved  = false;
+    _admDrvLicRemoved = false;
+    _admSetDocPreview('id',  driver?.idImage  || null);
+    _admSetDocPreview('lic', driver?.licenseImage || null);
+    document.getElementById('adm-drv-doc-status').style.display = 'none';
+    // Wire file inputs (reset listeners by cloning)
+    ['adm-drv-id-file', 'adm-drv-lic-file'].forEach(fid => {
+        const old = document.getElementById(fid);
+        const neo = old.cloneNode(true);
+        old.parentNode.replaceChild(neo, old);
+    });
+    document.getElementById('adm-drv-id-file').addEventListener('change', e => {
+        const f = e.target.files[0]; if (!f) return;
+        _admDrvIdFile = f; _admDrvIdRemoved = false;
+        _admSetDocPreview('id', URL.createObjectURL(f), true);
+    });
+    document.getElementById('adm-drv-lic-file').addEventListener('change', e => {
+        const f = e.target.files[0]; if (!f) return;
+        _admDrvLicFile = f; _admDrvLicRemoved = false;
+        _admSetDocPreview('lic', URL.createObjectURL(f), true);
+    });
+
     document.getElementById('modal-driver-edit').classList.add('open');
+}
 
-    // Click preview to open full size
-    ['id', 'lic'].forEach(type => {
-        document.getElementById('driver-doc-' + type + '-preview').addEventListener('click', () => {
-            const img = document.getElementById('driver-doc-' + type + '-img');
-            if (img.style.display !== 'none' && img.src) openImagePreview(img.src);
-        });
-    });
+// State for admin doc editing
+let _admDrvIdFile  = null, _admDrvLicFile  = null;
+let _admDrvIdRemoved = false, _admDrvLicRemoved = false;
+let _admDrvCurrentIdUrl = null, _admDrvCurrentLicUrl = null;
 
-    // ── Documents section (edit only) ────────────────────────
-    const docsSection = document.getElementById('driver-docs-section');
-    docsSection.style.display = isNew ? 'none' : 'block';
+function _admSetDocPreview(type, url, isNew) {
+    const prefix   = type === 'id' ? 'adm-drv-id' : 'adm-drv-lic';
+    const preview  = document.getElementById(prefix + '-preview');
+    const img      = document.getElementById(prefix + '-img');
+    const label    = document.getElementById(prefix + '-label');
+    const txtSpan  = document.getElementById(prefix + '-upload-text');
+    const removeBtn = document.getElementById(prefix + '-remove');
 
-    function _setDocPreview(imgEl, emptyEl, url) {
-        if (url) {
-            imgEl.src = url; imgEl.style.display = 'block';
-            emptyEl.style.display = 'none';
-        } else {
-            imgEl.src = ''; imgEl.style.display = 'none';
-            emptyEl.style.display = '';
-        }
+    if (type === 'id')  _admDrvCurrentIdUrl  = url;
+    else                _admDrvCurrentLicUrl = url;
+
+    if (url) {
+        if (img) { img.src = url; img.onclick = () => window.open(url, '_blank'); }
+        if (preview) preview.style.display = 'block';
+        if (label)   label.classList.add('has-file');
+        if (txtSpan) txtSpan.textContent = isNew ? '✓ تم اختيار صورة جديدة' : '🔄 تغيير الصورة';
+        if (removeBtn) removeBtn.onclick = () => {
+            if (type === 'id')  { _admDrvIdFile = null;  _admDrvIdRemoved  = true; }
+            else                { _admDrvLicFile = null;  _admDrvLicRemoved = true; }
+            _admSetDocPreview(type, null);
+        };
+    } else {
+        if (img) img.src = '';
+        if (preview) preview.style.display = 'none';
+        if (label)   label.classList.remove('has-file');
+        if (txtSpan) txtSpan.textContent = type === 'id' ? '➕ رفع صورة هوية' : '➕ رفع رخصة قيادة';
     }
+}
 
-    _setDocPreview(
-        document.getElementById('driver-doc-id-img'),
-        document.getElementById('driver-doc-id-empty'),
-        driver?.idImage || ''
-    );
-    _setDocPreview(
-        document.getElementById('driver-doc-lic-img'),
-        document.getElementById('driver-doc-lic-empty'),
-        driver?.licenseImage || ''
-    );
+// Upload helper for admin panel — uses Firebase Storage REST API
+// (admin.html has no Firebase SDK, everything goes through REST)
+async function _admUploadDriverDoc(file, driverKey, docName) {
+    const ext     = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path    = encodeURIComponent(`driverDocs/${driverKey}/${docName}.${ext}`);
+    const bucket  = 'deliveryonline-300f7.firebasestorage.app';
+    const token   = await getFsToken();   // reuse the Firestore auth token
+    const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${path}`;
+    const mimeType  = file.type || 'image/jpeg';
 
-    // Preview selected file before upload
-    ['id', 'lic'].forEach(type => {
-        const fileInput = document.getElementById('driver-doc-' + type + '-file');
-        const imgEl     = document.getElementById('driver-doc-' + type + '-img');
-        const emptyEl   = document.getElementById('driver-doc-' + type + '-empty');
-        // Reset file input
-        fileInput.value = '';
-        const newInput  = fileInput.cloneNode(true);
-        fileInput.parentNode.replaceChild(newInput, fileInput);
-        newInput.addEventListener('change', () => {
-            const file = newInput.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = e => { imgEl.src = e.target.result; imgEl.style.display = 'block'; emptyEl.style.display = 'none'; };
-            reader.readAsDataURL(file);
-        });
+    const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': mimeType },
+        body: file,
     });
-
-    // Remove buttons — mark for removal
-    document.getElementById('driver-doc-id-remove').onclick = () => {
-        _setDocPreview(document.getElementById('driver-doc-id-img'), document.getElementById('driver-doc-id-empty'), '');
-        document.getElementById('driver-doc-id-file').value = '';
-        document.getElementById('driver-doc-id-remove').dataset.cleared = '1';
-    };
-    document.getElementById('driver-doc-lic-remove').onclick = () => {
-        _setDocPreview(document.getElementById('driver-doc-lic-img'), document.getElementById('driver-doc-lic-empty'), '');
-        document.getElementById('driver-doc-lic-file').value = '';
-        document.getElementById('driver-doc-lic-remove').dataset.cleared = '1';
-    };
+    if (!res.ok) { const e = await res.text(); throw new Error('Storage upload failed: ' + e); }
+    const data = await res.json();
+    // Build the download URL with the media token
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${path}?alt=media&token=${data.downloadTokens}`;
 }
 
 document.getElementById('driver-edit-cancel').addEventListener('click', () => {
@@ -5656,6 +5040,27 @@ document.getElementById('driver-edit-save').addEventListener('click', async () =
     try {
         const phoneFormatted = phone ? '+961' + phone.replace(/^0/, '') : '';
 
+        // Handle document image uploads/removals
+        const docUpdates = {};
+        const statusEl   = document.getElementById('adm-drv-doc-status');
+        const hasDocs    = _admDrvIdFile || _admDrvLicFile || _admDrvIdRemoved || _admDrvLicRemoved;
+        if (hasDocs && !isNew) {
+            if (statusEl) { statusEl.textContent = 'جاري رفع الوثائق…'; statusEl.style.display = 'block'; }
+            if (_admDrvIdFile) {
+                try { docUpdates.idImage = await _admUploadDriverDoc(_admDrvIdFile, key, 'id'); }
+                catch(e) { console.error('[Admin] ID upload failed:', e); }
+            } else if (_admDrvIdRemoved) {
+                docUpdates.idImage = null;
+            }
+            if (_admDrvLicFile) {
+                try { docUpdates.licenseImage = await _admUploadDriverDoc(_admDrvLicFile, key, 'license'); }
+                catch(e) { console.error('[Admin] License upload failed:', e); }
+            } else if (_admDrvLicRemoved) {
+                docUpdates.licenseImage = null;
+            }
+            if (statusEl) statusEl.style.display = 'none';
+        }
+
         if (isNew) {
             const newDriver = {
                 owner    : name,
@@ -5664,6 +5069,9 @@ document.getElementById('driver-edit-save').addEventListener('click', async () =
                 phone    : phoneFormatted,
                 status   : 'offline',
             };
+            // If existing drivers use numeric indices, append to the array
+            // to stay consistent with the driver app's expected format.
+            // Otherwise (all auto-keys) use fbPush for a proper named key.
             const hasNumeric = allDrivers.some(d => d._isNumeric);
             if (hasNumeric) {
                 const current = await fbGet('drivers');
@@ -5676,37 +5084,10 @@ document.getElementById('driver-edit-save').addEventListener('click', async () =
             }
             toast('✅ تمت إضافة السائق بنجاح');
         } else {
+            // Patch existing driver fields
             const updates = { owner: name, username: username, phone: phoneFormatted };
             if (password) updates.password = password;
-
-            // ── Handle document changes ───────────────────────────
-            const idFileInput  = document.getElementById('driver-doc-id-file');
-            const licFileInput = document.getElementById('driver-doc-lic-file');
-            const idRemove     = document.getElementById('driver-doc-id-remove');
-            const licRemove    = document.getElementById('driver-doc-lic-remove');
-
-            saveBtn.textContent = 'جاري رفع الوثائق…';
-
-            // Upload new files if selected
-            if (idFileInput?.files[0]) {
-                try {
-                    updates.idImage = await _storageUpload(idFileInput.files[0], `driverDocs/${key}/id`);
-                } catch(e) { console.warn('ID upload failed:', e.message); }
-            } else if (idRemove?.dataset.cleared === '1') {
-                updates.idImage = null;
-                idRemove.dataset.cleared = '';
-            }
-
-            if (licFileInput?.files[0]) {
-                try {
-                    updates.licenseImage = await _storageUpload(licFileInput.files[0], `driverDocs/${key}/license`);
-                } catch(e) { console.warn('License upload failed:', e.message); }
-            } else if (licRemove?.dataset.cleared === '1') {
-                updates.licenseImage = null;
-                licRemove.dataset.cleared = '';
-            }
-
-            saveBtn.textContent = 'جاري الحفظ…';
+            Object.assign(updates, docUpdates);
             await fbUpdate(`drivers/${key}`, updates);
             toast('✅ تم حفظ التغييرات بنجاح');
         }
@@ -7590,6 +6971,50 @@ function renderSettings() {
     const el = document.getElementById('settings-content');
     el.innerHTML = `
         <div class="settings-section">
+            <div class="settings-section-title">💱 سعر صرف الدولار (ل.ل)</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">كم ليرة لبنانية = 1 دولار</div>
+                    <div class="setting-sub">يُستخدم لمقارنة الأسعار في نتائج البحث — المبالغ ≥ 1000 تُعدّ بالليرة</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;">
+                <input type="number" id="dollar-rate-input" placeholder="90000" min="1000" step="1000"
+                       style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                              font-family:var(--mono);font-size:0.85rem;direction:ltr;">
+                <button id="dollar-rate-save"
+                        style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ
+                </button>
+            </div>
+            <div id="dollar-rate-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-section-title">📞 رقم تواصل الإدارة (واتساب / اتصال)</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">رقم واتساب / هاتف الإدارة</div>
+                    <div class="setting-sub">يظهر للعميل في سلّة الشراء — بالصيغة الدولية بدون + (مثال: 96176884643)</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;">
+                <input type="tel" id="admin-phone-input" placeholder="96176884643"
+                       style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                              font-family:var(--mono);font-size:0.85rem;direction:ltr;">
+                <button id="admin-phone-save"
+                        style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ
+                </button>
+            </div>
+            <div id="admin-phone-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+        </div>
+
+        <div class="settings-section">
             <div class="settings-section-title">🧪 وضع التجربة</div>
             <div class="setting-row">
                 <div>
@@ -7746,7 +7171,25 @@ function renderSettings() {
             </div>
         </div>
         <div class="settings-section">
-            <div class="settings-section-title">📝 خصائص الطلبات — Keywords</div>
+            <!-- Collapsible header — starts closed, + expands to show all store keyword editors -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;"
+                 onclick="(function(btn,body){
+                     const open = body.style.display !== 'none';
+                     body.style.display = open ? 'none' : 'block';
+                     btn.textContent = open ? '+' : '−';
+                     btn.style.transform = open ? 'rotate(0deg)' : 'rotate(0deg)';
+                 })(this.querySelector('.kw-toggle-btn'), document.getElementById('kw-body'))">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:0.72rem;font-weight:800;color:var(--gray);letter-spacing:1px;text-transform:uppercase;">📝 خصائص الطلبات — Keywords</span>
+                    <span style="font-size:0.65rem;color:var(--gray);font-weight:600;">(اضغط لعرض / إخفاء)</span>
+                </div>
+                <button class="kw-toggle-btn"
+                        style="width:26px;height:26px;border-radius:50%;background:var(--orange);color:#fff;
+                               border:none;font-size:1.1rem;font-weight:900;cursor:pointer;line-height:1;
+                               display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
+            </div>
+            <!-- Collapsible body — hidden by default -->
+            <div id="kw-body" style="display:none;border-top:1px solid var(--border);">
             <div class="setting-row setting-row--col" style="padding:14px 16px;">
                 <div>
                     <div class="setting-label">خصائص المطاعم</div>
@@ -7791,10 +7234,25 @@ function renderSettings() {
                                    font-weight:700;cursor:pointer;font-size:0.82rem;">💾 حفظ خصائص المخابز</button>
                 </div>
             </div>
+            </div><!-- /kw-body -->
         </div>
         <div class="settings-section">
-            <div class="settings-section-title">🏷️ ترتيب أقسام المتاجر</div>
-            <div class="setting-row setting-row--col" style="padding:14px 16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;"
+                 onclick="(function(btn,body){
+                     const open = body.style.display !== 'none';
+                     body.style.display = open ? 'none' : 'block';
+                     btn.textContent = open ? '+' : '−';
+                 })(this.querySelector('.typeorder-toggle-btn'), document.getElementById('typeorder-body'))">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:0.72rem;font-weight:800;color:var(--gray);letter-spacing:1px;text-transform:uppercase;">🏷️ ترتيب أقسام المتاجر</span>
+                    <span style="font-size:0.65rem;color:var(--gray);font-weight:600;">(اضغط لعرض / إخفاء)</span>
+                </div>
+                <button class="typeorder-toggle-btn"
+                        style="width:26px;height:26px;border-radius:50%;background:var(--orange);color:#fff;
+                               border:none;font-size:1.1rem;font-weight:900;cursor:pointer;line-height:1;
+                               display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
+            </div>
+            <div id="typeorder-body" style="display:none;border-top:1px solid var(--border);padding:14px 16px;">
                 <div>
                     <div class="setting-label">اسحب وأفلت لإعادة ترتيب الأقسام</div>
                     <div class="setting-sub">يؤثر على شريط الفلتر في لوحة الإدارة وأيقونات الأقسام في التطبيق</div>
@@ -7803,6 +7261,118 @@ function renderSettings() {
                 <button onclick="saveTypeOrder()" class="ph-btn ph-btn--primary" style="margin-top:12px;width:100%;justify-content:center;">
                     💾 حفظ الترتيب
                 </button>
+            </div>
+        </div>
+        <div class="settings-section">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;"
+                 onclick="(function(btn,body){
+                     const open = body.style.display !== 'none';
+                     body.style.display = open ? 'none' : 'block';
+                     btn.textContent = open ? '+' : '−';
+                 })(this.querySelector('.mealtime-toggle-btn'), document.getElementById('mealtime-body'))">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:0.72rem;font-weight:800;color:var(--gray);letter-spacing:1px;text-transform:uppercase;">🍽️ أوقات الوجبات</span>
+                    <span style="font-size:0.65rem;color:var(--gray);font-weight:600;">(اضغط لعرض / إخفاء)</span>
+                </div>
+                <button class="mealtime-toggle-btn"
+                        style="width:26px;height:26px;border-radius:50%;background:var(--orange);color:#fff;
+                               border:none;font-size:1.1rem;font-weight:900;cursor:pointer;line-height:1;
+                               display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
+            </div>
+            <div id="mealtime-body" style="display:none;border-top:1px solid var(--border);padding:14px 16px;">
+                <div class="setting-sub" style="margin-bottom:14px;">
+                    حدّد الساعات التي يظهر فيها كل قسم وجبة في التطبيق. الساعات بصيغة 24h (0–23). كل وجبة تظهر من ساعة البداية حتى ساعة قبل ساعة النهاية.
+                </div>
+
+                <!-- Breakfast -->
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span style="font-size:1.4rem;width:32px;text-align:center;">🍳</span>
+                    <div style="flex:1;">
+                        <div class="setting-label">الفطور</div>
+                        <div class="setting-sub">وقت الفطور</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;">من</label>
+                        <input type="number" id="mt-breakfast-from" min="0" max="23" value="6"
+                               style="width:52px;padding:5px 6px;background:var(--surface2);border:1px solid var(--border-bright);
+                                      border-radius:var(--radius-sm);color:var(--white);font-size:0.85rem;text-align:center;
+                                      font-family:var(--mono);outline:none;">
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;">إلى</label>
+                        <input type="number" id="mt-breakfast-to" min="1" max="24" value="11"
+                               style="width:52px;padding:5px 6px;background:var(--surface2);border:1px solid var(--border-bright);
+                                      border-radius:var(--radius-sm);color:var(--white);font-size:0.85rem;text-align:center;
+                                      font-family:var(--mono);outline:none;">
+                    </div>
+                </div>
+
+                <!-- Lunch -->
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span style="font-size:1.4rem;width:32px;text-align:center;">🍽</span>
+                    <div style="flex:1;">
+                        <div class="setting-label">الغداء</div>
+                        <div class="setting-sub">وقت الغداء</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;">من</label>
+                        <input type="number" id="mt-lunch-from" min="0" max="23" value="11"
+                               style="width:52px;padding:5px 6px;background:var(--surface2);border:1px solid var(--border-bright);
+                                      border-radius:var(--radius-sm);color:var(--white);font-size:0.85rem;text-align:center;
+                                      font-family:var(--mono);outline:none;">
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;">إلى</label>
+                        <input type="number" id="mt-lunch-to" min="1" max="24" value="16"
+                               style="width:52px;padding:5px 6px;background:var(--surface2);border:1px solid var(--border-bright);
+                                      border-radius:var(--radius-sm);color:var(--white);font-size:0.85rem;text-align:center;
+                                      font-family:var(--mono);outline:none;">
+                    </div>
+                </div>
+
+                <!-- Snack -->
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span style="font-size:1.4rem;width:32px;text-align:center;">☕</span>
+                    <div style="flex:1;">
+                        <div class="setting-label">السناك</div>
+                        <div class="setting-sub">وقت الاستراحة</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;">من</label>
+                        <input type="number" id="mt-snack-from" min="0" max="23" value="16"
+                               style="width:52px;padding:5px 6px;background:var(--surface2);border:1px solid var(--border-bright);
+                                      border-radius:var(--radius-sm);color:var(--white);font-size:0.85rem;text-align:center;
+                                      font-family:var(--mono);outline:none;">
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;">إلى</label>
+                        <input type="number" id="mt-snack-to" min="1" max="24" value="19"
+                               style="width:52px;padding:5px 6px;background:var(--surface2);border:1px solid var(--border-bright);
+                                      border-radius:var(--radius-sm);color:var(--white);font-size:0.85rem;text-align:center;
+                                      font-family:var(--mono);outline:none;">
+                    </div>
+                </div>
+
+                <!-- Dinner -->
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span style="font-size:1.4rem;width:32px;text-align:center;">🌙</span>
+                    <div style="flex:1;">
+                        <div class="setting-label">العشاء</div>
+                        <div class="setting-sub">وقت العشاء</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;">من</label>
+                        <input type="number" id="mt-dinner-from" min="0" max="23" value="19"
+                               style="width:52px;padding:5px 6px;background:var(--surface2);border:1px solid var(--border-bright);
+                                      border-radius:var(--radius-sm);color:var(--white);font-size:0.85rem;text-align:center;
+                                      font-family:var(--mono);outline:none;">
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;">إلى</label>
+                        <input type="number" id="mt-dinner-to" min="1" max="24" value="24"
+                               style="width:52px;padding:5px 6px;background:var(--surface2);border:1px solid var(--border-bright);
+                                      border-radius:var(--radius-sm);color:var(--white);font-size:0.85rem;text-align:center;
+                                      font-family:var(--mono);outline:none;">
+                    </div>
+                </div>
+
+                <div id="mealtime-status" style="display:none;font-size:0.78rem;font-weight:700;margin-top:10px;"></div>
+                <button onclick="saveMealTimes()"
+                        style="margin-top:12px;width:100%;padding:9px;background:rgba(255,92,0,0.12);color:var(--orange);
+                               border:1px solid rgba(255,92,0,0.3);border-radius:var(--radius-md);font-family:'Almarai',sans-serif;
+                               font-weight:700;cursor:pointer;font-size:0.85rem;">💾 حفظ أوقات الوجبات</button>
             </div>
         </div>
         <div class="settings-section">
@@ -7825,6 +7395,52 @@ function renderSettings() {
     // Load test mode state  ← FIX: was never loaded after DOM injection
     renderTypeOrderList();
     renderAdminFilterBar();
+    // Load dollarRate
+    fbGet('settings/dollarRate').then(val => {
+        const inp = document.getElementById('dollar-rate-input');
+        if (inp && val) inp.value = val;
+    }).catch(() => {});
+
+    document.getElementById('dollar-rate-save')?.addEventListener('click', async () => {
+        const inp    = document.getElementById('dollar-rate-input');
+        const status = document.getElementById('dollar-rate-status');
+        const rate   = parseFloat(inp?.value || '');
+        if (!rate || rate < 1000) {
+            if (status) { status.textContent = '⚠️ أدخل سعراً صحيحاً (أكثر من 1000)'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        try {
+            await fbSet('settings/dollarRate', rate);
+            if (status) { status.textContent = `✅ تم حفظ — 1$ = ${rate.toLocaleString('ar')} ل.ل`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        }
+    });
+
+    // Load adminPhone
+    fbGet('settings/adminPhone').then(val => {
+        const inp = document.getElementById('admin-phone-input');
+        if (inp && val) inp.value = val;
+    }).catch(() => {});
+
+    document.getElementById('admin-phone-save')?.addEventListener('click', async () => {
+        const inp    = document.getElementById('admin-phone-input');
+        const status = document.getElementById('admin-phone-status');
+        const phone  = (inp?.value || '').replace(/[^0-9]/g, '');
+        if (!phone || phone.length < 7) {
+            if (status) { status.textContent = '⚠️ رقم غير صحيح'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        try {
+            await fbSet('settings/adminPhone', phone);
+            if (status) { status.textContent = '✅ تم الحفظ'; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 3000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        }
+    });
+
     fbGet('settings/testMode').then(val => {
         const isTest  = val === true || val === 'true';
         const toggle  = document.getElementById('toggle-test-mode');
@@ -7848,6 +7464,8 @@ function renderSettings() {
     sdLoad();
     // Load keyword chips
     kwLoad();
+    // Load mealtime boundaries
+    mtLoad();
 }
 
 
@@ -7912,6 +7530,60 @@ async function kwSave(type) {
 window.kwAddChip    = kwAddChip;
 window.kwRemoveChip = kwRemoveChip;
 window.kwSave       = kwSave;
+
+/* ═══════════════════════════════════════════════════════
+   MEAL TIME BOUNDARIES
+   Firebase path: settings/mealTimes
+   Structure: { breakfast:[6,11], lunch:[11,16], snack:[16,19], dinner:[19,24] }
+═══════════════════════════════════════════════════════ */
+async function mtLoad() {
+    try {
+        const data = await fbGet('settings/mealTimes');
+        if (!data || typeof data !== 'object') return;
+        const meals = ['breakfast','lunch','snack','dinner'];
+        meals.forEach(key => {
+            const hours = data[key];
+            if (!Array.isArray(hours) || hours.length < 2) return;
+            const fromEl = document.getElementById(`mt-${key}-from`);
+            const toEl   = document.getElementById(`mt-${key}-to`);
+            if (fromEl) fromEl.value = hours[0];
+            if (toEl)   toEl.value   = hours[1];
+        });
+    } catch(_) {}
+}
+
+window.saveMealTimes = async function() {
+    const status = document.getElementById('mealtime-status');
+    const meals  = ['breakfast','lunch','snack','dinner'];
+
+    const payload = {};
+    for (const key of meals) {
+        const from = parseInt(document.getElementById(`mt-${key}-from`)?.value ?? '');
+        const to   = parseInt(document.getElementById(`mt-${key}-to`)?.value ?? '');
+        if (isNaN(from) || isNaN(to) || from < 0 || to > 24 || from >= to) {
+            if (status) {
+                status.textContent = `⚠️ قيم غير صحيحة في ${key === 'breakfast' ? 'الفطور' : key === 'lunch' ? 'الغداء' : key === 'snack' ? 'السناك' : 'العشاء'} — تأكد أن البداية < النهاية`;
+                status.style.color   = 'var(--red)';
+                status.style.display = 'block';
+            }
+            return;
+        }
+        payload[key] = [from, to];
+    }
+
+    try {
+        await fbSet('settings/mealTimes', payload);
+        if (status) {
+            status.textContent   = '✅ تم حفظ أوقات الوجبات';
+            status.style.color   = 'var(--green)';
+            status.style.display = 'block';
+            setTimeout(() => { status.style.display = 'none'; }, 3500);
+        }
+        toast('✅ أوقات الوجبات محدّثة');
+    } catch(e) {
+        if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+    }
+};
 
 window.setDeliveryFee = async function(val) {
     try {
@@ -8436,7 +8108,7 @@ async function rwLoadInbox() {
             const queue = Array.isArray(u?.rewardQueue) ? u.rewardQueue : [];
             queue.forEach((item, idx) => {
                 if (item && item.type === 'manual') {
-                    entries.push({ uid, idx, item, userName: u.displayName || u.username || u.phone || uid.slice(0,8) });
+                    entries.push({ uid, idx, item, userName: u.displayName || u.username || u.phone || uid.slice(0,8), userPhone: u.phone || u.mobile || '' });
                 }
             });
         });
@@ -8446,19 +8118,30 @@ async function rwLoadInbox() {
             return;
         }
 
-        box.innerHTML = entries.map(e => `
-            <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
-                <div style="font-size:1.5rem;line-height:1;">${e.item.icon || '🎁'}</div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:0.85rem;font-weight:700;color:var(--white);">${e.item.reward || 'مكافأة'}</div>
-                    <div style="font-size:0.72rem;color:var(--gray-light);margin-top:2px;">العميل: ${e.userName} · عتبة ${e.item.pts} نقطة</div>
-                </div>
-                <button onclick="rwFulfill('${e.uid}', ${e.idx})"
-                        style="padding:7px 16px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.3);border-radius:8px;font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.78rem;flex-shrink:0;">
-                    ✓ تم التنفيذ
-                </button>
-            </div>
-        `).join('');
+        box.innerHTML = entries.map(function(e) {
+            var ph = (e.userPhone||'').replace(/[^0-9]/g,'');
+            var waPh = ph?(ph.indexOf('961')===0?ph:'961'+ph.replace(/^0/,'')): '';
+            var waTxt = 'مرحبا ' + e.userName
+                + '!\nلديك مكافأة: ' + (e.item.reward||'مكافأة')
+                + '\n' + (e.item.desc?'تفاصيل: '+e.item.desc+'\n':'')
+                + 'سيتواصل معك فريقنا قريبا';
+            var waLink = waPh?'https://wa.me/'+waPh+'?text='+encodeURIComponent(waTxt):'';
+            var html = '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;">';
+            html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+            html += '<span style="font-size:1.8rem;">'+(e.item.icon||'🎁')+'</span>';
+            html += '<div style="flex:1;"><div style="font-size:0.88rem;font-weight:800;color:var(--white);">'+(e.item.reward||'مكافأة')+'</div>';
+            if(e.item.desc) html += '<div style="font-size:0.7rem;color:var(--gray);margin-top:2px;">'+e.item.desc+'</div>';
+            html += '</div><span style="font-size:0.65rem;font-weight:800;color:var(--orange);background:rgba(255,92,0,0.1);padding:3px 8px;border-radius:20px;">'+e.item.pts+' نقطة</span></div>';
+            html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:0.75rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">';
+            html += '<span style="font-weight:800;color:var(--white);">&#128100; '+e.userName+'</span>';
+            html += e.userPhone ? '<span style="color:var(--gray);font-family:var(--mono);">&#128222; '+e.userPhone+'</span>' : '<span style="color:var(--red);">&#9888; لا يوجد رقم</span>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:8px;">';
+            html += waLink ? '<a href="'+waLink+'" target="_blank" rel="noopener" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;background:#25D366;color:#fff;text-decoration:none;border-radius:8px;padding:8px;font-size:0.75rem;font-weight:800;">&#128172; تواصل</a>' : '<div style="flex:1;text-align:center;padding:8px;font-size:0.72rem;color:var(--gray);background:var(--surface);border:1px solid var(--border);border-radius:8px;">لا يوجد رقم</div>';
+            html += '<button onclick="rwFulfill(\'' + e.uid + '\', ' + e.idx + ')" style="flex:1;padding:8px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.3);border-radius:8px;font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.75rem;">✓ تم التنفيذ</button>';
+            html += '</div></div>';
+            return html;
+        }).join('');
     } catch (e) {
         box.innerHTML = `<div style="text-align:center;color:var(--red);font-size:0.78rem;padding:14px;">فشل تحميل الصندوق</div>`;
     }
@@ -9650,10 +9333,7 @@ let driversData  = null;  // cached drivers array for cost lookup
 async function fetchCompanyVars() {
     if (companyVars) return companyVars;
     try {
-        const data = await Promise.race([
-            fbGet('companydatas'),
-            new Promise(res => setTimeout(() => res(null), 3000))
-        ]);
+        const data = await fbGet('companydatas');
         companyVars = data || {};
     } catch(e) { companyVars = {}; }
     return companyVars;
@@ -9724,8 +9404,7 @@ async function renderOnlineRequests() {
 
     tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--gray);padding:24px;font-size:var(--fs-xs);">جارٍ التحميل…</td></tr>';
 
-    fetchCompanyVars(); // pre-warm cache, non-blocking
-    const cv = companyVars || {};
+    const cv = await fetchCompanyVars();
 
     // Build entries from allOrders
     let entries = Object.entries(allOrders)
@@ -9939,10 +9618,81 @@ document.getElementById('or-search')?.addEventListener('input', e => {
 
 document.getElementById('or-refresh-btn')?.addEventListener('click', () => {
     companyVars = null; driversData = null;
-    loadAllData().then(() => renderOnlineRequests());
+    loadData();
 });
 
 
 </script>
 </body>
 </html>
+    <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->
+    <div id="wa-notif-panel"
+         style="display:none;position:fixed;top:62px;right:16px;width:310px;max-height:440px;
+                overflow-y:auto;background:var(--surface);border:1px solid var(--border);
+                border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:9100;">
+        <div style="padding:10px 14px;font-weight:800;font-size:0.8rem;position:sticky;top:0;
+                    background:var(--surface);border-bottom:1px solid var(--border);
+                    display:flex;align-items:center;justify-content:space-between;">
+            <span>&#128242; WhatsApp</span>
+            <button onclick="clearAllWaNotifs()"
+                    style="background:none;border:none;color:var(--red);font-size:0.7rem;font-weight:800;cursor:pointer;">
+                    Clear All
+            </button>
+        </div>
+        <div id="wa-notif-list" style="padding:4px 0;min-height:60px;"></div>
+    </div>
+
+    <script>
+    var _waNotifCache={}, _waNotifWired=false;
+    function _initWaNotifListener(){
+        if(_waNotifWired)return; _waNotifWired=true;
+        db.ref('pendingWaNotifications').on('value',function(snap){
+            _waNotifCache=snap.val()||{};
+            _refreshWaBell();
+        });
+    }
+    function _refreshWaBell(){
+        var unread=Object.values(_waNotifCache).filter(function(n){return n&&!n.read;}).length;
+        var btn=document.getElementById('wa-notif-btn');
+        var count=document.getElementById('wa-notif-count');
+        if(btn){btn.style.display=unread>0?'inline-flex':'none';}
+        if(count){count.textContent=unread>0?unread:'';}
+        _renderWaNotifList();
+    }
+    function _renderWaNotifList(){
+        var list=document.getElementById('wa-notif-list');
+        if(!list)return;
+        var entries=Object.entries(_waNotifCache).sort(function(a,b){return new Date(b[1].orderTime||0)-new Date(a[1].orderTime||0);});
+        if(!entries.length){list.innerHTML='<div style="padding:20px;text-align:center;color:var(--gray);font-size:0.78rem;">No notifications</div>';return;}
+        list.innerHTML=entries.map(function(e){
+            var key=e[0],n=e[1];
+            var time=n.orderTime?new Date(n.orderTime).toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'}):'';
+            return '<div style="padding:10px 14px;border-bottom:1px solid var(--border);background:'+(n.read?'transparent':'rgba(34,197,94,0.07)')+'">'
+                +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px;">'
+                +'<span style="font-size:0.78rem;font-weight:800;color:var(--text);">'+(n.customer||'Customer')+' &mdash; '+(n.stores||'')+'</span>'
+                +'<span style="font-size:0.63rem;color:var(--gray);">'+time+'</span>'
+                +'</div>'
+                +'<div style="font-size:0.7rem;color:var(--gray);margin-bottom:8px;">'+(n.phone||'')+'</div>'
+                +'<div style="display:flex;gap:7px;">'
+                +'<a href="'+(n.waLink||'#')+'" target="_blank" rel="noopener" onclick="markWaNotifRead(\''+key+'\')" style="flex:1;text-align:center;background:#25D366;color:#fff;text-decoration:none;border-radius:8px;padding:6px;font-size:0.72rem;font-weight:800;">&#128172; Open WhatsApp</a>'
+                +'<button onclick="deleteWaNotif(\''+key+'\')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--gray);font-size:0.72rem;">&times;</button>'
+                +'</div></div>';
+        }).join('');
+    }
+    function toggleWaNotifPanel(){
+        var panel=document.getElementById('wa-notif-panel');
+        if(!panel)return;
+        var open=panel.style.display!=='none';
+        panel.style.display=open?'none':'block';
+        if(!open){Object.keys(_waNotifCache).forEach(function(k){if(!_waNotifCache[k]||!_waNotifCache[k].read)markWaNotifRead(k);});}
+    }
+    function markWaNotifRead(key){db.ref('pendingWaNotifications/'+key+'/read').set(true).catch(function(){});}
+    function deleteWaNotif(key){db.ref('pendingWaNotifications/'+key).remove().catch(function(){});}
+    function clearAllWaNotifs(){if(!confirm('Clear all WA notifications?'))return;db.ref('pendingWaNotifications').remove().catch(function(){});document.getElementById('wa-notif-panel').style.display='none';}
+    document.addEventListener('click',function(e){
+        var panel=document.getElementById('wa-notif-panel');
+        var btn=document.getElementById('wa-notif-btn');
+        if(panel&&btn&&!panel.contains(e.target)&&!btn.contains(e.target)){panel.style.display='none';}
+    });
+    setTimeout(_initWaNotifListener,3000);
+    </script>

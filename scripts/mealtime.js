@@ -60,12 +60,30 @@
     };
 
     /* ── Detect current meal period ────────────────────────── */
+    /* ── Load time boundaries from Firebase (overrides hardcoded hours) ── */
+    async function _loadMealTimes() {
+        try {
+            const r    = await fetch(`${RTDB}/settings/mealTimes.json`);
+            const data = await r.json();
+            if (!data || typeof data !== 'object') return;
+            const keys = ['breakfast','lunch','snack','dinner'];
+            keys.forEach(key => {
+                const hours = data[key];
+                if (Array.isArray(hours) && hours.length === 2 &&
+                    typeof hours[0] === 'number' && typeof hours[1] === 'number' &&
+                    hours[0] >= 0 && hours[1] <= 24 && hours[0] < hours[1]) {
+                    if (MEALS[key]) MEALS[key].hours = [hours[0], hours[1]];
+                }
+            });
+        } catch (_) { /* keep defaults on error */ }
+    }
+
     function _currentMeal() {
         const h = new Date().getHours();
         for (const [key, m] of Object.entries(MEALS)) {
             if (h >= m.hours[0] && h < m.hours[1]) return { key, ...m };
         }
-        return null; // e.g. midnight → 05:59: no section
+        return null; // outside all meal windows: no section
     }
 
     /* ── Format clock ──────────────────────────────────────── */
@@ -194,8 +212,11 @@
         const section = document.getElementById('mealtime-section');
         if (!section) return;
 
+        // Load admin-configured time boundaries before checking current period
+        await _loadMealTimes();
+
         const meal = _currentMeal();
-        if (!meal) return; // off-hours — keep hidden
+        if (!meal) return; // outside all meal windows — keep hidden
 
         const { stores, isFallback } = await _fetchTaggedStores(meal.key);
         if (!stores.length) return; // nothing to show — keep hidden

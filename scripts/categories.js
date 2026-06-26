@@ -59,7 +59,7 @@ async function _renderCategoryBar() {
     const container = document.querySelector('.categories__scroll');
     if (!container) return;
 
-    const order = await _getTypeOrder();
+    const [order] = await Promise.all([ _getTypeOrder() ]);
 
     // Re-order DOM nodes: for each fbKey in saved order, find the matching .category-item and append
     order.forEach(fbKey => {
@@ -68,43 +68,64 @@ async function _renderCategoryBar() {
         const el = container.querySelector(`.category-item[data-category="${localKey}"]`);
         if (el) container.appendChild(el); // moves it to end = preserves saved order
     });
+
+    // Check which categories have active (non-disabled) stores and mark empty ones
+    _markEmptyCategories(container, fbKeyToLocal);
 }
 
-async function _markEmptyCategories() {
+/* ── Mark categories that have no active stores as empty (قريباً) ──────────
+   Fetches the full /pattern.json and counts stores where disabled is NOT set.
+   shallow=true is NOT used because it returns true even when every store is
+   disabled — we need to inspect the actual entries.
+   Runs async after bar renders so there is zero layout delay.               */
+async function _markEmptyCategories(container, fbKeyToLocal) {
     try {
-        const res  = await fetch(`${RTDB_BASE}/pattern.json`);
-        const data = await res.json();
-        if (!data || typeof data !== 'object') return;
+        const res     = await fetch(`${RTDB_BASE}/pattern.json`);
+        const pattern = await res.json();   // { Restaurants: { 0: {...}, 1: {...} }, … }
 
-        // Build set of types that have at least one active store
-        const hasStores = new Set();
-        for (const [type, entries] of Object.entries(data)) {
-            if (!entries || typeof entries !== 'object') continue;
-            const arr = Array.isArray(entries) ? entries : Object.values(entries);
-            const active = arr.filter(s => s && s.companyname
-                && s.disabled !== '1' && s.disabled !== 1 && s.disabled !== true);
-            if (active.length > 0) hasStores.add(type);
+        // Build a set of fbKeys that have at least one genuinely active store.
+        // A store is disabled when its disabled field is truthy in the Firebase sense:
+        // true, 1, or "1". Anything else (false, 0, "0", null, undefined, missing)
+        // means the store is active. We use a helper to keep this consistent with
+        // how _fetchStores filters stores throughout the rest of the app.
+        const _isDisabled = s =>
+            s.disabled === true || s.disabled === 1 || s.disabled === '1';
+
+        const activeKeys = new Set();
+        if (pattern && typeof pattern === 'object') {
+            Object.entries(pattern).forEach(([fbKey, entries]) => {
+                if (!entries || typeof entries !== 'object') return;
+                const list = Array.isArray(entries) ? entries : Object.values(entries);
+                const hasActive = list.some(s => s && s.companyname && !_isDisabled(s));
+                if (hasActive) activeKeys.add(fbKey);
+            });
         }
 
-        // Mark each category-item as empty if its fbKey has no stores
-        document.querySelectorAll('.category-item[data-category]').forEach(el => {
-            const localKey = el.dataset.category;
-            const meta     = CAT_MAP[localKey];
-            if (!meta) return;
-            if (!hasStores.has(meta.fbKey)) {
+        // Apply or remove empty state on each category button
+        Object.entries(CAT_MAP).forEach(([localKey, meta]) => {
+            const el = container.querySelector(`.category-item[data-category="${localKey}"]`);
+            if (!el) return;
+
+            const hasActive = activeKeys.has(meta.fbKey);
+            if (!hasActive) {
                 el.classList.add('category-item--empty');
             } else {
                 el.classList.remove('category-item--empty');
             }
         });
-    } catch(e) {}
+    } catch (_) {
+        // Network failure — leave all categories active rather than blocking
+    }
 }
 
 function initCategories() {
     _renderCategoryBar();
-    _markEmptyCategories();
     document.querySelectorAll('.category-item[data-category]').forEach(item => {
-        item.addEventListener('click', () => _toggleCategory(item.dataset.category));
+        item.addEventListener('click', () => {
+            // Silently block click if this category is empty
+            if (item.classList.contains('category-item--empty')) return;
+            _toggleCategory(item.dataset.category);
+        });
     });
     _initDragScroll(document.getElementById('cat-dropdown-scroll'));
 }
@@ -112,6 +133,9 @@ function initCategories() {
 function _toggleCategory(cat) {
     const catMeta = CAT_MAP[cat];
     if (!catMeta) return;
+    // Block if this category has been marked as empty
+    const el = document.querySelector(`.category-item[data-category="${cat}"]`);
+    if (el && el.classList.contains('category-item--empty')) return;
     const dropdown = document.getElementById('cat-stores-dropdown');
     if (!dropdown) return;
 
@@ -155,9 +179,9 @@ async function _fetchStores(fbKey) {
     if (!data) { _cache[fbKey] = []; return []; }
 
     // Flatten — guard against non-object/null entries
+    const _isDis = s => s.disabled === true || s.disabled === 1 || s.disabled === '1';
     const raw = Object.values(data)
-        .filter(s => s && typeof s === 'object' && s.companyname
-                  && s.disabled !== '1' && s.disabled !== 1 && s.disabled !== true);
+        .filter(s => s && typeof s === 'object' && s.companyname && !_isDis(s));
 
     // Deduplicate by companyname within the same path (shouldn't normally
     // happen, but safe guard). When duplicates exist, keep the one with
@@ -213,8 +237,12 @@ function _renderStores(stores, catKey, catMeta) {
         if (card.classList.contains('store-card--soon'))   return;
         if (card.classList.contains('store-card--closed')) return;
         card.addEventListener('click', () => {
-            if (typeof openStorePanel === 'function')
-                openStorePanel(card.dataset.storeId, card.dataset.storeName, card.dataset.fbType);
+            if (typeof openStorePanel === 'function') {
+                const displayName = (card.dataset.nameAr && card.dataset.nameAr.trim())
+                    ? card.dataset.nameAr.trim()
+                    : card.dataset.storeName;
+                openStorePanel(card.dataset.storeId, displayName, card.dataset.fbType, card.dataset.storeRtdbkey || card.dataset.storeName);
+            }
         });
     });
     _initDragScroll(scrollEl);
