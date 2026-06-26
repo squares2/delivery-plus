@@ -1723,6 +1723,14 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
                             `proximity-${_trackOrderId}`
                         );
                     }
+                    if (typeof window._showOrderBanner === 'function') {
+                        window._showOrderBanner(
+                            '📍',
+                            'السائق على وشك الوصول!',
+                            `أقل من 500 متر — طلب ${reqNum} من ${store}`,
+                            _trackOrderId, order.delivryplusid || ''
+                        );
+                    }
                 }
             } else {
                 _setTrackStatus(`🛵 السائق في الطريق إليك${ageStr}`, 'ok');

@@ -197,6 +197,154 @@ window._sendDelivoNotif = function(title, body, tag, icon) {
     }
 };
 
+// ── In-app order banner (rich popup bar — slides from top) ──
+(function() {
+    let _bannerTimer   = null;
+    let _bannerEl      = null;
+    let _bannerStyleEl = null;
+
+    function _ensureBanner() {
+        if (_bannerEl) return;
+
+        if (!_bannerStyleEl) {
+            _bannerStyleEl = document.createElement('style');
+            _bannerStyleEl.textContent = `
+            #delivo-order-banner {
+                position: fixed;
+                top: 0; left: 0; right: 0;
+                z-index: 99999;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 14px 16px 14px 18px;
+                background: #1c1c2e;
+                border-bottom: 2px solid var(--orange, #ff5c00);
+                box-shadow: 0 4px 24px rgba(0,0,0,0.45);
+                cursor: pointer;
+                transform: translateY(-110%);
+                transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+                font-family: 'Almarai', sans-serif;
+                direction: rtl;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+            #delivo-order-banner.banner-visible {
+                transform: translateY(0);
+            }
+            #delivo-order-banner__icon {
+                font-size: 2rem;
+                flex-shrink: 0;
+                line-height: 1;
+            }
+            #delivo-order-banner__body {
+                flex: 1;
+                min-width: 0;
+            }
+            #delivo-order-banner__title {
+                font-size: 0.88rem;
+                font-weight: 900;
+                color: #fff;
+                line-height: 1.3;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            #delivo-order-banner__sub {
+                font-size: 0.73rem;
+                font-weight: 600;
+                color: rgba(255,255,255,0.55);
+                margin-top: 2px;
+                line-height: 1.35;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            #delivo-order-banner__action {
+                font-size: 0.72rem;
+                font-weight: 800;
+                color: var(--orange, #ff5c00);
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            #delivo-order-banner__close {
+                background: none;
+                border: none;
+                color: rgba(255,255,255,0.4);
+                font-size: 1rem;
+                cursor: pointer;
+                padding: 4px;
+                line-height: 1;
+                flex-shrink: 0;
+            }
+            `;
+            document.head.appendChild(_bannerStyleEl);
+        }
+
+        _bannerEl = document.createElement('div');
+        _bannerEl.id = 'delivo-order-banner';
+        _bannerEl.innerHTML = `
+            <div id="delivo-order-banner__icon">🛵</div>
+            <div id="delivo-order-banner__body">
+                <div id="delivo-order-banner__title"></div>
+                <div id="delivo-order-banner__sub"></div>
+            </div>
+            <span id="delivo-order-banner__action">اضغط للتتبع</span>
+            <button id="delivo-order-banner__close" aria-label="إغلاق">✕</button>
+        `;
+        document.body.appendChild(_bannerEl);
+
+        // Close button
+        _bannerEl.querySelector('#delivo-order-banner__close').addEventListener('click', (e) => {
+            e.stopPropagation();
+            _hideBanner();
+        });
+    }
+
+    function _hideBanner() {
+        if (!_bannerEl) return;
+        _bannerEl.classList.remove('banner-visible');
+        clearTimeout(_bannerTimer);
+        _bannerTimer = null;
+    }
+
+    window._showOrderBanner = function(icon, title, sub, orderId, uid) {
+        _ensureBanner();
+
+        _bannerEl.querySelector('#delivo-order-banner__icon').textContent  = icon;
+        _bannerEl.querySelector('#delivo-order-banner__title').textContent = title;
+        _bannerEl.querySelector('#delivo-order-banner__sub').textContent   = sub;
+
+        // Show / hide action label
+        const actionEl = _bannerEl.querySelector('#delivo-order-banner__action');
+        if (orderId) {
+            actionEl.style.display = 'block';
+            // Tap banner body → open track modal
+            const _openTrack = () => {
+                _hideBanner();
+                if (typeof window._openTrackModal === 'function') {
+                    window._openTrackModal(orderId, uid || '');
+                }
+            };
+            // Remove old listener and re-add
+            _bannerEl._openTrack = _openTrack;
+            _bannerEl.onclick = (e) => {
+                if (e.target.id === 'delivo-order-banner__close') return;
+                _openTrack();
+            };
+        } else {
+            actionEl.style.display = 'none';
+            _bannerEl.onclick = null;
+        }
+
+        // Slide in
+        clearTimeout(_bannerTimer);
+        _bannerEl.classList.add('banner-visible');
+
+        // Auto-dismiss after 6 seconds
+        _bannerTimer = setTimeout(_hideBanner, 6000);
+    };
+})();
+
 // Check for state/trackorder changes and fire appropriate notifications
 function _checkOrderNotifications(ordersCache) {
     if (!ordersCache || typeof ordersCache !== 'object') return;
@@ -216,6 +364,14 @@ function _checkOrderNotifications(ordersCache) {
                 `طلب ${reqNum} من ${store} جاهز وبانتظار السائق`,
                 `ready-${id}`
             );
+            if (typeof window._showOrderBanner === 'function') {
+                window._showOrderBanner(
+                    '✅',
+                    'طلبك جاهز!',
+                    `طلب ${reqNum} من ${store} جاهز وبانتظار السائق`,
+                    id, order.delivryplusid || ''
+                );
+            }
         }
 
         // Case 2 — Driver tracking started (trackorder → '1')
@@ -225,6 +381,14 @@ function _checkOrderNotifications(ordersCache) {
                 `السائق انطلق بطلبك ${reqNum} — يمكنك تتبعه الآن`,
                 `tracking-${id}`
             );
+            if (typeof window._showOrderBanner === 'function') {
+                window._showOrderBanner(
+                    '🛵',
+                    'السائق في الطريق!',
+                    `انطلق بطلبك ${reqNum} — اضغط لتتبعه`,
+                    id, order.delivryplusid || ''
+                );
+            }
         }
 
         // Update prev snapshot
