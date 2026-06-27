@@ -85,6 +85,49 @@ async function loadAll() {
     if (typeof initOnboarding === 'function') initOnboarding();
     console.log('[Delivo] All components loaded ✓');
 
+    /* ── Pick up pending sale from sales.html ────────────────
+       When customer taps "أضف للسلة" on sales.html, we store
+       the bundle in sessionStorage and redirect to index.html.
+       Here we pick it up, add it to the cart, and open the sidebar. */
+    (function _pickUpPendingSale() {
+        const raw = sessionStorage.getItem('pendingSaleCart');
+        if (!raw) return;
+        try {
+            const sale = JSON.parse(raw);
+            if (Date.now() - (sale.ts || 0) > 30000) { sessionStorage.removeItem('pendingSaleCart'); return; }
+            sessionStorage.removeItem('pendingSaleCart');
+
+            const { storeName, storeType, saleTitle, salePrice, items, image } = sale;
+            const cart = window.DelivoCart;
+            if (!cart || typeof cart.addItem !== 'function') return;
+
+            // Single bundle item at sale price — name includes contents summary
+            const bundleId   = `sale__${Date.now()}__i`;
+            const summary    = (items || []).map(i => {
+                const q = parseInt(i.qty) || 1;
+                return i.name ? (q > 1 ? `${q}× ${i.name}` : i.name) : '';
+            }).filter(Boolean).join(' + ');
+            const bundleName = saleTitle + (summary ? ` (${summary})` : '');
+
+            cart.addItem(bundleId, bundleName, salePrice, storeName, storeType, 'عرض خاص', image);
+
+            // Open cart sidebar after short delay (let DOM settle)
+            setTimeout(() => {
+                if (typeof openCartSidebar === 'function') openCartSidebar();
+            }, 500);
+
+            // Show success toast
+            setTimeout(() => {
+                let toastEl = document.getElementById('cart-toast');
+                if (!toastEl) { toastEl = document.createElement('div'); toastEl.id = 'cart-toast'; toastEl.className = 'cart-toast'; document.body.appendChild(toastEl); }
+                toastEl.textContent = `✅ ${saleTitle} أُضيف للسلة`;
+                toastEl.className   = 'cart-toast cart-toast--success visible';
+                setTimeout(() => toastEl.classList.remove('visible'), 3000);
+            }, 600);
+
+        } catch(e) { sessionStorage.removeItem('pendingSaleCart'); }
+    })();
+
     /* ── Real-time settings stream ───────────────────────────
        Opens a Firebase SSE stream on /settings.json so any
        change the admin makes (testMode, maintenance, etc.)

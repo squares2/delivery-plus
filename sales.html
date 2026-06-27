@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ff5c00">
+    <title>عروض المتاجر — Delivo</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --orange: #ff5c00;
+            --bg: #0f0f1a;
+            --surface: #1a1a2e;
+            --surface2: #22223a;
+            --border: rgba(255,255,255,0.08);
+            --white: #fff;
+            --gray: rgba(255,255,255,0.45);
+            --radius-md: 14px;
+            --radius-lg: 18px;
+            --blue: #1a56db;
+        }
+
+        body {
+            font-family: 'Almarai', sans-serif;
+            background: var(--bg);
+            color: var(--white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Top bar ─────────────────────────────────────────── */
+        .sales-topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(15,15,26,0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 16px 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sales-topbar__back {
+            background: var(--surface2);
+            border: none;
+            color: var(--white);
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .sales-topbar__title {
+            flex: 1;
+            font-size: 1rem;
+            font-weight: 900;
+        }
+        .sales-topbar__sub {
+            font-size: 0.68rem;
+            color: var(--gray);
+            font-weight: 600;
+        }
+
+        /* ── Category filter strip ───────────────────────────── */
+        .sales-cats {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 12px 16px;
+            scrollbar-width: none;
+            border-bottom: 1px solid var(--border);
+        }
+        .sales-cats::-webkit-scrollbar { display: none; }
+        .sales-cat-btn {
+            flex-shrink: 0;
+            padding: 7px 16px;
+            border-radius: 50px;
+            border: 1.5px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.55);
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .15s;
+            white-space: nowrap;
+        }
+        .sales-cat-btn.active {
+            background: var(--orange);
+            border-color: var(--orange);
+            color: #fff;
+        }
+
+        /* ── Content ─────────────────────────────────────────── */
+        .sales-content {
+            padding: 16px 16px 100px;
+        }
+
+        /* ── Store group ─────────────────────────────────────── */
+        .store-group {
+            margin-bottom: 28px;
+        }
+        .store-group__header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+        .store-group__img {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            object-fit: cover;
+            background: var(--surface2);
+            flex-shrink: 0;
+        }
+        .store-group__img-placeholder {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            background: var(--surface2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+        .store-group__name {
+            font-size: 0.95rem;
+            font-weight: 900;
+        }
+        .store-group__type {
+            font-size: 0.65rem;
+            color: var(--gray);
+            margin-top: 2px;
+        }
+        .store-group__rank {
+            margin-right: auto;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 3px 10px;
+            border-radius: 50px;
+        }
+
+        /* ── Sale cards ─────────────────────────────────────── */
+        .sales-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+        }
+        .sale-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: border-color .15s, transform .15s;
+            cursor: default;
+        }
+        .sale-card:hover { border-color: rgba(255,92,0,0.35); transform: translateY(-2px); }
+        .sale-card__img-wrap {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: var(--surface2);
+            overflow: hidden;
+            position: relative;
+        }
+        .sale-card__img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .sale-card__no-img {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem;
+            background: linear-gradient(135deg,#1a1a2e,#22223a);
+        }
+        .sale-card__badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #dc2626;
+            color: #fff;
+            font-size: 0.62rem;
+            font-weight: 900;
+            padding: 3px 8px;
+            border-radius: 50px;
+            letter-spacing: 0.03em;
+        }
+        .sale-card__body {
+            padding: 10px 12px 12px;
+        }
+        .sale-card__title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            line-height: 1.35;
+            margin-bottom: 6px;
+        }
+        .sale-card__items {
+            font-size: 0.68rem;
+            color: var(--gray);
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        .sale-card__price-row {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .sale-card__price-sale {
+            font-size: 1rem;
+            font-weight: 900;
+            color: var(--orange);
+        }
+        .sale-card__price-orig {
+            font-size: 0.72rem;
+            color: var(--gray);
+            text-decoration: line-through;
+        }
+        .sale-card__price-pct {
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #4ade80;
+            margin-right: auto;
+        }
+
+        /* ── Empty / loading states ─────────────────────────── */
+        .sales-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray);
+        }
+        .sales-empty__icon { font-size: 3rem; margin-bottom: 12px; }
+        .sales-empty__text { font-size: 0.9rem; font-weight: 700; }
+
+        .sales-loader {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            padding: 60px 0;
+        }
+        .sales-loader span {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--orange);
+            animation: bounce .6s ease-in-out infinite;
+        }
+        .sales-loader span:nth-child(2) { animation-delay: .1s; }
+        .sales-loader span:nth-child(3) { animation-delay: .2s; }
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+
+    .sale-card__add-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        background: var(--orange, #ff5c00);
+        border: none;
+        border-radius: 12px;
+        color: #fff;
+        font-family: 'Almarai', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: opacity .15s, transform .1s;
+    }
+    .sale-card__add-btn:hover  { opacity: 0.9; }
+    .sale-card__add-btn:active { transform: scale(0.97); }
+    .sale-card__add-btn--added {
+        background: #16a34a;
+        pointer-events: none;
+    }
+
+    /* Toast */
+    #sales-toast {
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%) translateY(60px);
+        background: #1c1c2e;
+        color: #fff;
+        padding: 11px 22px;
+        border-radius: 50px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        white-space: nowrap;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,92,0,0.3);
+        z-index: 9999;
+        opacity: 0;
+        transition: transform .3s cubic-bezier(.34,1.2,.64,1), opacity .3s;
+        pointer-events: none;
+    }
+    #sales-toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+
+        /* ── Rank badge colors ──────────────────────────────── */
+        .rank-1 { background:#FFD700; color:#7a5800; }
+        .rank-2 { background:#C0C0C0; color:#444; }
+        .rank-3 { background:#CD7F32; color:#fff; }
+        .rank-other { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.4); }
+    </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="sales-topbar">
+    <button class="sales-topbar__back" onclick="history.back()" aria-label="رجوع">‹</button>
+    <div>
+        <div class="sales-topbar__title">🏷️ عروض المتاجر</div>
+        <div class="sales-topbar__sub" id="sales-count-label">جاري التحميل…</div>
+    </div>
+</div>
+
+<!-- Category filter -->
+<div class="sales-cats" id="sales-cats">
+    <button class="sales-cat-btn active" data-cat="all">الكل</button>
+</div>
+
+<!-- Main content -->
+<div class="sales-content" id="sales-content">
+    <div class="sales-loader">
+        <span></span><span></span><span></span>
+    </div>
+</div>
+
+<script>
+const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+const TYPE_AR = {
+    Restaurants:'مطعم', ButcherShops:'ملحمة', BakeryShops:'مخبز',
+    Markets:'سوبرماركت', GroceryShops:'بقالة', SweetsShops:'حلويات',
+    FishShops:'أسماك', CoffeeShops:'قهوة', ChickenShops:'دجاج',
+    DairyShops:'ألبان', FlowerShops:'زهور', TobaccoShops:'تبغ',
+};
+const TYPE_EMOJI = {
+    Restaurants:'🍽️', ButcherShops:'🥩', BakeryShops:'🥖',
+    Markets:'🛒', GroceryShops:'🧺', SweetsShops:'🍰',
+    FishShops:'🐟', CoffeeShops:'☕', ChickenShops:'🍗',
+    DairyShops:'🥛', FlowerShops:'💐', TobaccoShops:'🚬',
+};
+const RANK_META = [
+    {cls:'rank-1',icon:'🥇'},{cls:'rank-2',icon:'🥈'},
+    {cls:'rank-3',icon:'🥉'},{cls:'rank-other',icon:''},
+];
+
+let _allData    = [];  // [{store, rank, type, nameAr, sales:[...]}]
+let _activeCat  = 'all';
+
+function _slug(name) {
+    return (name || '').toLowerCase()
+        .replace(/[^\x00-\x7F]/g,'').replace(/\s+/g,'-')
+        .replace(/-+/g,'-').replace(/^-|-$/g,'') || 'store';
+}
+function _fmtPrice(v) {
+    const n = parseFloat(v) || 0;
+    return n < 1000 ? `$${n}` : `${(n/1000).toFixed(0)}k ل.ل`;
+}
+
+function _showSalesToast(msg) {
+    const t = document.getElementById('sales-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function _addSaleToCart(btn, encodedPayload) {
+    try {
+        const payload = JSON.parse(decodeURIComponent(encodedPayload));
+        const { storeName, storeType, saleTitle, salePrice, items, image } = payload;
+
+        // Try to use the shared cart if we're in the same origin (opened via window.open or same tab)
+        // We store the sale in sessionStorage so index.html can pick it up on load
+        const saleEntry = {
+            storeName,
+            storeType,
+            saleTitle,
+            salePrice,
+            items,
+            image,
+            ts: Date.now(),
+        };
+        sessionStorage.setItem('pendingSaleCart', JSON.stringify(saleEntry));
+
+        // Visual feedback
+        btn.classList.add('sale-card__add-btn--added');
+        btn.textContent = '✅ تمت الإضافة — جاري التوجيه…';
+        _showSalesToast(`✅ ${saleTitle} — تمت الإضافة للسلة`);
+
+        // Navigate back to index where the cart will auto-open
+        setTimeout(() => {
+            window.location.href = 'index.html#open-cart';
+        }, 900);
+    } catch(e) {
+        console.error('[Sale cart]', e);
+        _showSalesToast('❌ حدث خطأ، حاول مجدداً');
+    }
+}
+
+async function _load() {
+    try {
+        const [patternRes, salesRes] = await Promise.all([
+            fetch(`${RTDB}/pattern.json`),
+            fetch(`${RTDB}/sales.json`),
+        ]);
+        const pattern = await patternRes.json();
+        const sales   = await salesRes.json();
+
+        if (!sales || typeof sales !== 'object') {
+            _render([]);
+            return;
+        }
+
+        // Build store map from pattern with rank
+        const storeMap = {};
+        if (pattern && typeof pattern === 'object') {
+            for (const [type, entries] of Object.entries(pattern)) {
+                const arr = Array.isArray(entries) ? entries : Object.values(entries || {});
+                arr.forEach((s, idx) => {
+                    if (!s?.companyname) return;
+                    const key = s.companyname.trim();
+                    if (!storeMap[key]) {
+                        storeMap[key] = { type, rank: s.rank ?? idx, nameAr: s.nameAr || '', imgSlug: s.imgSlug || '', disabled: !!s.disabled };
+                    }
+                });
+            }
+        }
+
+        // Merge sales with store info
+        const result = [];
+        for (const [companyname, storeSales] of Object.entries(sales)) {
+            if (!storeSales || typeof storeSales !== 'object') continue;
+            const saleList = Object.entries(storeSales)
+                .map(([id, s]) => ({ id, ...s }))
+                .filter(s => s.active !== false);
+            if (!saleList.length) continue;
+
+            const info = storeMap[companyname] || {};
+            result.push({
+                companyname,
+                nameAr : info.nameAr || companyname,
+                type   : info.type   || '',
+                rank   : info.rank   ?? 999,
+                imgSlug: info.imgSlug|| _slug(companyname),
+                sales  : saleList,
+            });
+        }
+
+        // Sort by store rank ascending
+        result.sort((a, b) => a.rank - b.rank);
+        _allData = result;
+        _buildCatFilter();
+        _render(result);
+    } catch(e) {
+        console.error('[Sales]', e);
+        document.getElementById('sales-content').innerHTML = `
+            <div class="sales-empty">
+                <div class="sales-empty__icon">⚠️</div>
+                <div class="sales-empty__text">تعذّر تحميل العروض</div>
+            </div>`;
+    }
+}
+
+function _buildCatFilter() {
+    const cats = [...new Set(_allData.map(s => s.type).filter(Boolean))];
+    const strip = document.getElementById('sales-cats');
+    cats.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'sales-cat-btn';
+        btn.dataset.cat = cat;
+        btn.textContent = (TYPE_EMOJI[cat] || '') + ' ' + (TYPE_AR[cat] || cat);
+        btn.onclick = () => _filterCat(cat);
+        strip.appendChild(btn);
+    });
+
+    strip.querySelectorAll('.sales-cat-btn').forEach(b => {
+        b.addEventListener('click', () => {
+            strip.querySelectorAll('.sales-cat-btn').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+        });
+    });
+}
+
+function _filterCat(cat) {
+    _activeCat = cat;
+    const filtered = cat === 'all' ? _allData : _allData.filter(s => s.type === cat);
+    _render(filtered);
+}
+
+function _render(data) {
+    const content = document.getElementById('sales-content');
+    const label   = document.getElementById('sales-count-label');
+    const total   = data.reduce((n, s) => n + s.sales.length, 0);
+    label.textContent = `${total} عرض في ${data.length} متجر`;
+
+    if (!data.length) {
+        content.innerHTML = `
+            <div class="sales-empty">
+                <div class="sales-empty__icon">🏷️</div>
+                <div class="sales-empty__text">لا توجد عروض في هذا القسم حالياً</div>
+            </div>`;
+        return;
+    }
+
+    content.innerHTML = data.map((store, idx) => {
+        const rankMeta = RANK_META[Math.min(idx, 3)];
+        const imgSrc   = `assets/stores/${store.imgSlug}.png`;
+        const emoji    = TYPE_EMOJI[store.type] || '🏪';
+        const typeAr   = TYPE_AR[store.type] || '';
+
+        const salesHTML = store.sales.map(s => {
+            const salePrice = parseFloat(s.salePrice) || 0;
+            const origPrice = parseFloat(s.origPrice) || 0;
+            const pct = origPrice > 0 && salePrice < origPrice
+                ? Math.round((1 - salePrice/origPrice)*100) : 0;
+
+            const itemsLine = Array.isArray(s.items)
+                ? s.items.map(i => {
+                    const qty  = parseInt(i.qty) || 1;
+                    const name = i.name || '';
+                    return name ? (qty > 1 ? `${qty}× ${name}` : name) : '';
+                  }).filter(Boolean).join(' + ')
+                : (s.items || '');
+
+            const imgHTML = s.image
+                ? `<img class="sale-card__img" src="${s.image}" alt="${s.title || ''}" onerror="this.parentNode.innerHTML='<div class=\\'sale-card__no-img\\'>${emoji}</div>'">`
+                : `<div class="sale-card__no-img">${emoji}</div>`;
+
+            // Build a safe payload for the add-to-cart onclick
+            const safePayload = encodeURIComponent(JSON.stringify({
+                storeName : store.companyname,
+                storeType : store.type || '',
+                saleTitle : s.title || 'عرض خاص',
+                salePrice : salePrice,
+                items     : Array.isArray(s.items) ? s.items : [],
+                image     : s.image || '',
+            }));
+
+            return `
+            <div class="sale-card">
+                <div class="sale-card__img-wrap">
+                    ${imgHTML}
+                    ${pct > 0 ? `<div class="sale-card__badge">خصم ${pct}%</div>` : ''}
+                </div>
+                <div class="sale-card__body">
+                    <div class="sale-card__title">${s.title || 'عرض خاص'}</div>
+                    ${itemsLine ? `<div class="sale-card__items">${itemsLine}</div>` : ''}
+                    <div class="sale-card__price-row">
+                        <span class="sale-card__price-sale">${_fmtPrice(salePrice)}</span>
+                        ${origPrice > salePrice ? `<span class="sale-card__price-orig">${_fmtPrice(origPrice)}</span>` : ''}
+                        ${pct > 0 ? `<span class="sale-card__price-pct">وفّر ${pct}%</span>` : ''}
+                    </div>
+                    <button class="sale-card__add-btn" onclick="_addSaleToCart(this,'${safePayload}')">
+                        🛒 أضف للسلة
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+
+        return `
+        <div class="store-group">
+            <div class="store-group__header">
+                <img class="store-group__img" src="${imgSrc}" alt="${store.nameAr}"
+                     onerror="this.outerHTML='<div class=\\'store-group__img-placeholder\\'>${emoji}</div>'">
+                <div>
+                    <div class="store-group__name">${store.nameAr || store.companyname}</div>
+                    ${typeAr ? `<div class="store-group__type">${typeAr}</div>` : ''}
+                </div>
+                ${rankMeta.icon ? `<div class="store-group__rank ${rankMeta.cls}">${rankMeta.icon}</div>` : ''}
+            </div>
+            <div class="sales-grid">${salesHTML}</div>
+        </div>`;
+    }).join('');
+}
+
+// Wire category strip "all" button
+document.querySelector('.sales-cat-btn[data-cat="all"]').onclick = () => {
+    _activeCat = 'all';
+    _render(_allData);
+};
+
+_load();
+</script>
+<div id="sales-toast"></div>
+</body>
+</html>

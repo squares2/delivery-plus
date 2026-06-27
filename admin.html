@@ -1898,6 +1898,30 @@ input, select, textarea { font-family: var(--font); }
             </div>
 
             <!-- EMPLOYEES panel -->
+            <!-- ═══════════════════════════════════════════════════════
+                 SALES PANEL — عروض المتاجر
+            ═══════════════════════════════════════════════════════ -->
+            <div class="panel" id="panel-sales">
+                <div class="panel-header">
+                    <div>
+                        <h2>🏷️ عروض المتاجر</h2>
+                        <span class="panel-header-sub" id="sales-admin-count">اختر متجراً</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <select id="sales-store-select" style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.82rem;min-width:160px;">
+                            <option value="">— اختر متجراً —</option>
+                        </select>
+                        <button class="ph-btn ph-btn--primary" id="sales-add-btn" style="display:none;" onclick="openSaleModal()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            إضافة عرض
+                        </button>
+                    </div>
+                </div>
+                <div id="sales-admin-grid" style="padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;overflow-y:auto;flex:1;">
+                    <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);font-size:0.85rem;">اختر متجراً لعرض عروضه</div>
+                </div>
+            </div>
+
             <div class="panel" id="panel-employees">
                 <div class="panel-header">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -2059,6 +2083,10 @@ input, select, textarea { font-family: var(--font); }
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             منتجاتي
         </button>
+        <button class="cp-tab" id="cp-tab-sales" onclick="cpSwitchTab('sales')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            عروضي
+        </button>
     </div>
 
     <!-- ── Orders view ────────────────────────────────────── -->
@@ -2100,6 +2128,21 @@ input, select, textarea { font-family: var(--font); }
         <!-- Items grid -->
         <div class="cpi-grid" id="cpi-grid"></div>
     </div>
+
+    <!-- ── عروضي view ──────────────────────────────────────── -->
+    <div id="cp-view-sales" class="cp-view" style="display:none;padding:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0;">
+            <div>
+                <div style="font-size:0.95rem;font-weight:900;">🏷️ عروضي</div>
+                <div style="font-size:0.7rem;color:var(--gray);margin-top:2px;" id="cp-sales-count"></div>
+            </div>
+            <button onclick="cpOpenSaleModal()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--orange);border:none;border-radius:var(--radius-md);color:#fff;font-family:inherit;font-size:0.82rem;font-weight:800;cursor:pointer;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                إضافة عرض
+            </button>
+        </div>
+        <div id="cp-sales-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;padding-bottom:20px;overflow-y:auto;flex:1;"></div>
+    </div>
 </div>
 
 <!-- ══ STANDBY TIME MODAL ═══════════════════════════════════════ -->
@@ -2123,6 +2166,96 @@ input, select, textarea { font-family: var(--font); }
         </div>
     </div>
 </div>
+
+
+<!-- ═══════════════ SALE MODAL ═══════════════ -->
+<div id="sale-modal-overlay" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeSaleModal()">
+    <div style="background:var(--surface);border-radius:var(--radius-lg);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:24px;border:1px solid var(--border-bright);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <div style="font-size:1rem;font-weight:900;" id="sale-modal-title">إضافة عرض جديد</div>
+            <button onclick="closeSaleModal()" style="background:none;border:none;color:var(--gray);font-size:1.3rem;cursor:pointer;">✕</button>
+        </div>
+        <input type="hidden" id="sale-edit-id">
+
+        <div class="modal-field">
+            <label>عنوان العرض <span style="color:var(--red)">*</span></label>
+            <input type="text" id="sale-title" placeholder="مثال: وجبة العائلة، عرض الغداء…">
+        </div>
+
+        <div class="modal-field">
+            <label style="margin-bottom:8px;display:block;">📦 محتويات العرض</label>
+            <!-- Column headers -->
+            <div style="display:grid;grid-template-columns:52px 1fr 80px 28px;gap:6px;margin-bottom:4px;padding:0 2px;">
+                <span style="font-size:0.65rem;font-weight:800;color:var(--gray);text-align:center;">الكمية</span>
+                <span style="font-size:0.65rem;font-weight:800;color:var(--gray);">اسم الصنف</span>
+                <span style="font-size:0.65rem;font-weight:800;color:var(--gray);text-align:center;">سعر الوحدة</span>
+                <span></span>
+            </div>
+            <div id="sale-items-rows"></div>
+            <button onclick="addSaleItemRow()" style="margin-top:8px;width:100%;padding:8px;background:rgba(255,255,255,0.04);border:1.5px dashed rgba(255,255,255,0.15);border-radius:10px;color:var(--gray);font-family:inherit;font-size:0.8rem;cursor:pointer;">+ إضافة صنف</button>
+            <!-- Live subtotal -->
+            <div id="sale-subtotal-row" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.04);border-radius:10px;display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:0.75rem;color:var(--gray);font-weight:700;">المجموع الأصلي للأصناف</span>
+                <span id="sale-subtotal-val" style="font-size:0.88rem;font-weight:900;color:var(--white);">0.00</span>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="modal-field">
+                <label>السعر الأصلي <span style="font-size:0.65rem;color:var(--gray);">(يُحسب تلقائياً)</span></label>
+                <input type="number" id="sale-orig-price" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div class="modal-field">
+                <label>سعر العرض <span style="color:var(--red)">*</span></label>
+                <input type="number" id="sale-sale-price" min="0" step="0.01" placeholder="0.00" oninput="_saleRecalc()">
+                <div id="sale-discount-preview" style="font-size:0.68rem;color:#4ade80;font-weight:800;margin-top:4px;"></div>
+            </div>
+        </div>
+
+        <div class="modal-field">
+            <label>العملة</label>
+            <select id="sale-currency" style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;" onchange="_saleRecalc()">
+                <option value="USD">دولار أمريكي ($)</option>
+                <option value="LBP">ليرة لبنانية (ل.ل)</option>
+            </select>
+        </div>
+
+        <div class="modal-field">
+            <label>صورة العرض <span style="color:var(--gray);font-size:0.7rem;">(اختياري)</span></label>
+            <!-- Upload button -->
+            <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:8px;">
+                <label for="sale-image-file" id="sale-upload-label"
+                       style="display:flex;align-items:center;gap:7px;padding:9px 14px;background:rgba(255,92,0,0.1);border:1.5px dashed rgba(255,92,0,0.35);border-radius:12px;cursor:pointer;color:var(--orange);font-size:0.8rem;font-weight:800;transition:background .15s;flex-shrink:0;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span id="sale-upload-label-text">رفع صورة</span>
+                </label>
+                <input type="file" id="sale-image-file" accept="image/*" style="display:none;" onchange="_saleUploadImage(this)">
+                <input type="url" id="sale-image" placeholder="أو الصق رابط الصورة هنا…"
+                       style="flex:1;padding:9px 12px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.1);border-radius:12px;color:#fff;font-family:inherit;font-size:0.82rem;outline:none;"
+                       oninput="_saleImageUrlChanged(this.value)">
+            </div>
+            <!-- Preview -->
+            <div id="sale-image-preview" style="display:none;position:relative;width:100%;height:130px;border-radius:12px;overflow:hidden;background:var(--surface2);">
+                <img id="sale-image-preview-img" src="" style="width:100%;height:100%;object-fit:cover;">
+                <button onclick="_saleClearImage()" style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,0.6);border:none;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            <div id="sale-upload-progress" style="display:none;font-size:0.72rem;color:var(--orange);font-weight:700;margin-top:4px;">⏳ جاري رفع الصورة…</div>
+        </div>
+
+        <div class="modal-field" style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="sale-active" checked style="width:18px;height:18px;accent-color:var(--orange);">
+            <label for="sale-active" style="font-weight:700;cursor:pointer;">العرض نشط (يظهر للعملاء)</label>
+        </div>
+
+        <div id="sale-modal-err" style="display:none;color:var(--red);font-size:0.78rem;margin-bottom:10px;"></div>
+
+        <div style="display:flex;gap:10px;margin-top:4px;">
+            <button onclick="closeSaleModal()" style="flex:1;padding:11px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            <button onclick="saveSale()" style="flex:2;padding:11px;background:var(--orange);border:none;border-radius:var(--radius-md);color:#fff;font-family:inherit;font-size:0.9rem;font-weight:900;cursor:pointer;" id="sale-save-btn">💾 حفظ العرض</button>
+        </div>
+    </div>
+</div>
+<!-- ════════════════════════════════════════ -->
 
 <!-- Add employee modal -->
 <div class="modal-overlay" id="modal-emp">
@@ -2417,11 +2550,13 @@ const NAV_ITEMS = [
     { id: 'customers', label: 'العملاء',            icon: usersIcon(),  perm: 'customers' },
     { id: 'stores',    label: 'المتاجر',            icon: storeIcon(),  perm: 'stores'    },
     { id: 'catalog',   label: 'المنتجات',            icon: catalogIcon(), perm: 'stores'   },
+    { id: 'sales',     label: 'عروض المتاجر',         icon: salesIcon(),   perm: 'stores'   },
     { id: 'employees', label: 'الموظفون',           icon: empIcon(),    perm: 'employees' },
     { id: 'rewards',   label: 'نظام النقاط',        icon: rewardsIcon(),perm: 'settings'  },
     { id: 'settings',  label: 'الإعدادات',          icon: settingsIcon(),perm: 'settings' },
 ];
 
+function salesIcon()   { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`; }
 function mapIcon()     { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>`; }
 function ordersIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 17H5a2 2 0 0 0-2 2"/><path d="M9 3H5a2 2 0 0 0-2 2v14"/><rect x="9" y="3" width="12" height="18" rx="2"/></svg>`; }
 function driverIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`; }
@@ -2858,11 +2993,12 @@ function switchPanel(id) {
     const btn = document.querySelector(`[data-panel="${id}"]`);
     if (btn) btn.classList.add('active');
 
-    const labels = { map:'الخريطة', orders:'الطلبات', drivers:'السائقون', customers:'العملاء', stores:'المتاجر', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط' };
+    const labels = { map:'الخريطة', orders:'الطلبات', drivers:'السائقون', customers:'العملاء', stores:'المتاجر', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط', sales:'عروض المتاجر' };
     document.getElementById('topbar-panel-name').textContent = labels[id] || '';
 
     if (id === 'map' && adminMap) setTimeout(() => adminMap.invalidateSize(), 100);
     if (id === 'map')       renderMap();
+    if (id === 'sales')     document.dispatchEvent(new CustomEvent('panelOpen', { detail: 'sales' }));
     if (id === 'orders')    renderOrders();
     if (id === 'online-req') renderOnlineRequests();
     if (id === 'drivers')   renderDrivers();
@@ -3408,30 +3544,7 @@ function updateNavBadge() {
 
 function startAutoRefresh() {
 
-    // ── Real-time driver listener ──────────────────────────────
-    // Uses the already-initialised `db` reference (not `firebase.database()`)
-    // so it works regardless of when the SDK fully loads.
-    if (typeof db !== 'undefined' && db) {
-        db.ref('drivers').on('value', snap => {
-            if (!snap.exists()) { allDrivers = []; }
-            else {
-                const raw  = snap.val();
-                const _raw = Array.isArray(raw)
-                    ? raw.reduce((acc, v, i) => { acc[String(i)] = v; return acc; }, {})
-                    : raw;
-                allDrivers = Object.entries(_raw)
-                    .map(([k, v]) => (v && typeof v === 'object') ? { ...v, _key: k, _isNumeric: /^\d+$/.test(k) } : null)
-                    .filter(Boolean);
-            }
-            updateTopbarStats();
-            updateNavBadge();
-            const ap = document.querySelector('.panel.active');
-            if (!ap) return;
-            const pid = ap.id.replace('panel-', '');
-            if (pid === 'map')     _refreshDriverMarkers(); // live pin update, no full rebuild
-            if (pid === 'drivers') _refreshDrivers();
-        });
-    }
+    // ── Real-time driver listener — uses REST polling (db SDK not available) ──
 
     // ── Polling interval — full data refresh every 12s ────────
     refreshTimer = setInterval(async () => {
@@ -7573,6 +7686,348 @@ async function mtLoad() {
     } catch(_) {}
 }
 
+/* ═══════════════════════════════════════════════════════
+   SALES MANAGEMENT — عروض المتاجر
+   Firebase path: sales/{companyname}/{saleId}
+   Each sale: { title, items:[{name}], origPrice, salePrice, currency, image, active }
+═══════════════════════════════════════════════════════ */
+
+let _salesCurrentStore = '';
+
+// Populate store dropdown when panel opens
+async function salesPanelInit() {
+    const sel = document.getElementById('sales-store-select');
+    if (!sel || sel.dataset.loaded) return;
+    try {
+        const res  = await fetch(`${RTDB}/pattern.json`);
+        const data = await res.json();
+        if (!data) return;
+        // Collect stores with rank for sorting (same approach as catalog panel)
+        const stores = [];
+        Object.entries(data).forEach(([type, storesObj]) => {
+            const arr = Array.isArray(storesObj) ? storesObj : Object.values(storesObj || {});
+            arr.forEach(s => {
+                if (s && s.companyname) {
+                    stores.push({ name: s.companyname.trim(), nameAr: s.nameAr || s.companyname.trim(), rank: s.rank ?? 999 });
+                }
+            });
+        });
+        // Sort by rank then alpha, deduplicate
+        const seen = new Set();
+        stores.sort((a, b) => (a.rank - b.rank) || a.name.localeCompare(b.name))
+              .forEach(s => {
+                  if (seen.has(s.name)) return;
+                  seen.add(s.name);
+                  const opt = document.createElement('option');
+                  opt.value = s.name;
+                  opt.textContent = s.nameAr !== s.name ? `${s.nameAr} (${s.name})` : s.name;
+                  sel.appendChild(opt);
+              });
+        sel.dataset.loaded = '1';
+    } catch(e) { console.error('[Sales panel]', e); }
+}
+
+document.addEventListener('panelOpen', async (e) => {
+    if (e.detail === 'sales') {
+        await salesPanelInit();
+        document.getElementById('sales-add-btn').style.display = 'none';
+    }
+});
+
+document.getElementById('sales-store-select')?.addEventListener('change', function() {
+    _salesCurrentStore = this.value;
+    document.getElementById('sales-add-btn').style.display = this.value ? 'flex' : 'none';
+    if (this.value) loadStoreSales(this.value);
+    else document.getElementById('sales-admin-grid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);font-size:0.85rem;">اختر متجراً لعرض عروضه</div>';
+});
+
+async function loadStoreSales(store) {
+    const grid  = document.getElementById('sales-admin-grid');
+    const count = document.getElementById('sales-admin-count');
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--gray);">⏳ جاري التحميل…</div>';
+    try {
+        const res  = await fetch(`${RTDB}/sales/${encodeURIComponent(store)}.json`);
+        const data = await res.json();
+        if (!data || typeof data !== 'object') {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);">لا توجد عروض بعد. اضغط إضافة عرض.</div>';
+            count.textContent = '0 عروض';
+            return;
+        }
+        const sales = Object.entries(data).map(([id, s]) => ({ id, ...s }));
+        count.textContent = `${sales.length} عرض`;
+        grid.innerHTML = sales.map(s => {
+            const saleP = parseFloat(s.salePrice) || 0;
+            const origP = parseFloat(s.origPrice) || 0;
+            const curr  = s.currency === 'LBP' ? 'ل.ل' : '$';
+            const pct   = origP > saleP && origP > 0 ? Math.round((1 - saleP/origP)*100) : 0;
+            const itemsStr = Array.isArray(s.items) ? s.items.map(i => { const q=parseInt(i.qty)||1; return i.name ? (q>1?`${q}× ${i.name}`:i.name) : ''; }).filter(Boolean).join(' + ') : '';
+            return `
+            <div style="background:var(--surface2);border:1px solid var(--border-bright);border-radius:14px;overflow:hidden;">
+                ${s.image ? `<img src="${s.image}" style="width:100%;height:120px;object-fit:cover;" onerror="this.style.display='none'">` : ''}
+                <div style="padding:12px 14px;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                        <span style="font-size:0.88rem;font-weight:900;flex:1;">${s.title || 'عرض'}</span>
+                        <span style="font-size:0.65rem;padding:2px 7px;border-radius:50px;font-weight:800;background:${s.active===false?'rgba(239,68,68,0.15)':'rgba(74,222,128,0.12)'};color:${s.active===false?'var(--red)':'#4ade80'};">${s.active===false?'متوقف':'نشط'}</span>
+                    </div>
+                    ${itemsStr ? `<div style="font-size:0.68rem;color:var(--gray);margin-bottom:8px;">${itemsStr}</div>` : ''}
+                    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:1rem;font-weight:900;color:var(--orange);">${saleP}${curr}</span>
+                        ${origP > saleP ? `<span style="font-size:0.72rem;color:var(--gray);text-decoration:line-through;">${origP}${curr}</span>` : ''}
+                        ${pct > 0 ? `<span style="font-size:0.7rem;font-weight:800;color:#4ade80;">خصم ${pct}%</span>` : ''}
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick='editSale(${JSON.stringify(s)})' style="flex:1;padding:7px;background:rgba(255,92,0,0.1);border:1px solid rgba(255,92,0,0.25);border-radius:9px;color:var(--orange);font-family:inherit;font-size:0.78rem;font-weight:700;cursor:pointer;">✏️ تعديل</button>
+                        <button onclick="deleteSale('${s.id}')" style="flex:1;padding:7px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:9px;color:var(--red);font-family:inherit;font-size:0.78rem;font-weight:700;cursor:pointer;">🗑 حذف</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--red);">حدث خطأ في التحميل</div>';
+    }
+}
+
+// Sale item rows helpers
+function _saleItemRowHTML(item) {
+    return `
+    <div class="sale-item-row" style="display:grid;grid-template-columns:52px 1fr 80px 28px;gap:6px;align-items:center;margin-bottom:6px;">
+        <input type="number" min="1" max="99" value="${item.qty||1}" placeholder="1"
+               class="sir-qty"
+               style="padding:7px 4px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:9px;color:var(--white);font-family:inherit;font-size:0.82rem;text-align:center;width:100%;"
+               oninput="_saleRecalc()">
+        <input type="text" value="${item.name||''}" placeholder="اسم الصنف…"
+               class="sir-name"
+               style="padding:7px 10px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:9px;color:var(--white);font-family:inherit;font-size:0.82rem;width:100%;">
+        <input type="number" min="0" step="0.01" value="${item.unitPrice||''}" placeholder="0.00"
+               class="sir-price"
+               style="padding:7px 6px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:9px;color:var(--white);font-family:inherit;font-size:0.82rem;text-align:center;width:100%;"
+               oninput="_saleRecalc()">
+        <button onclick="this.closest('.sale-item-row').remove();_saleRecalc();"
+                style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--red);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">×</button>
+    </div>`;
+}
+
+function _renderSaleItemRows(items) {
+    const wrap = document.getElementById('sale-items-rows');
+    if (!wrap) return;
+    wrap.innerHTML = (items.length ? items : [{}]).map(i => _saleItemRowHTML(i)).join('');
+    _saleRecalc();
+}
+
+window.addSaleItemRow = function() {
+    const wrap = document.getElementById('sale-items-rows');
+    if (!wrap) return;
+    wrap.insertAdjacentHTML('beforeend', _saleItemRowHTML({}));
+};
+
+// Live recalc — sums qty×unitPrice, updates orig price field + discount preview
+window._saleRecalc = function() {
+    const rows   = document.querySelectorAll('#sale-items-rows .sale-item-row');
+    let total = 0;
+    rows.forEach(row => {
+        const qty   = parseFloat(row.querySelector('.sir-qty')?.value)   || 0;
+        const price = parseFloat(row.querySelector('.sir-price')?.value) || 0;
+        total += qty * price;
+    });
+
+    // Show subtotal
+    const subRow = document.getElementById('sale-subtotal-row');
+    const subVal = document.getElementById('sale-subtotal-val');
+    const curr   = document.getElementById('sale-currency')?.value || 'USD';
+    const sym    = curr === 'LBP' ? ' ل.ل' : '$';
+    if (subRow && subVal) {
+        subRow.style.display = total > 0 ? 'flex' : 'none';
+        subVal.textContent   = total < 1000 ? sym + total.toFixed(2) : (total/1000).toFixed(0) + 'k' + sym;
+    }
+
+    // Auto-fill orig price if empty
+    const origEl = document.getElementById('sale-orig-price');
+    if (origEl && (!origEl.value || origEl.dataset.autoFilled === '1') && total > 0) {
+        origEl.value = total.toFixed(2);
+        origEl.dataset.autoFilled = '1';
+    }
+
+    // Discount preview
+    const saleEl = document.getElementById('sale-sale-price');
+    const discEl = document.getElementById('sale-discount-preview');
+    if (saleEl && discEl) {
+        const saleP = parseFloat(saleEl.value) || 0;
+        const origP = parseFloat(origEl?.value) || 0;
+        if (saleP > 0 && origP > saleP) {
+            const pct = Math.round((1 - saleP/origP)*100);
+            discEl.textContent = `✅ توفير ${pct}% عن السعر الأصلي`;
+        } else {
+            discEl.textContent = '';
+        }
+    }
+};
+
+window.openSaleModal = function() {
+    document.getElementById('sale-modal-title').textContent = 'إضافة عرض جديد';
+    document.getElementById('sale-edit-id').value   = '';
+    document.getElementById('sale-title').value     = '';
+    document.getElementById('sale-orig-price').value = '';
+    document.getElementById('sale-sale-price').value = '';
+    document.getElementById('sale-currency').value  = 'USD';
+    document.getElementById('sale-image').value     = '';
+    document.getElementById('sale-active').checked  = true;
+    document.getElementById('sale-modal-err').style.display = 'none';
+    _renderSaleItemRows([]);
+    const _origEl = document.getElementById('sale-orig-price'); if (_origEl) _origEl.dataset.autoFilled = '';
+    document.getElementById('sale-modal-overlay').style.display = 'flex';
+};
+
+window.closeSaleModal = function() {
+    document.getElementById('sale-modal-overlay').style.display = 'none';
+};
+
+window.editSale = function(s) {
+    document.getElementById('sale-modal-title').textContent = 'تعديل العرض';
+    document.getElementById('sale-edit-id').value    = s.id;
+    document.getElementById('sale-title').value      = s.title || '';
+    document.getElementById('sale-orig-price').value = s.origPrice || '';
+    document.getElementById('sale-sale-price').value = s.salePrice || '';
+    document.getElementById('sale-currency').value   = s.currency || 'USD';
+    document.getElementById('sale-image').value      = s.image || '';
+    document.getElementById('sale-active').checked   = s.active !== false;
+    document.getElementById('sale-modal-err').style.display = 'none';
+    const _oEl = document.getElementById('sale-orig-price'); if (_oEl) _oEl.dataset.autoFilled = '';
+    _renderSaleItemRows(Array.isArray(s.items) ? s.items : []);
+    document.getElementById('sale-modal-overlay').style.display = 'flex';
+};
+
+// ── Sale image upload helpers ──────────────────────────────────
+window._saleUploadImage = async function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const prog  = document.getElementById('sale-upload-progress');
+    const label = document.getElementById('sale-upload-label-text');
+    if (prog)  prog.style.display = 'block';
+    if (label) label.textContent  = 'جاري الرفع…';
+    try {
+        const token = await getFsToken();
+        const ext   = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const path  = encodeURIComponent(`saleImages/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`);
+        const bucket = 'deliveryonline-300f7.firebasestorage.app';
+        const res = await fetch(`https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${path}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': file.type || 'image/jpeg' },
+            body: file,
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        const url  = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${path}?alt=media&token=${data.downloadTokens}`;
+        const imgEl = document.getElementById('sale-image');
+        if (imgEl) imgEl.value = url;
+        _saleShowPreview(url);
+        if (label) label.textContent = '✅ تم الرفع';
+    } catch(e) {
+        console.error('[SaleUpload]', e);
+        if (label) label.textContent = '❌ فشل الرفع';
+        toast('❌ فشل رفع الصورة');
+    }
+    if (prog) prog.style.display = 'none';
+    input.value = '';
+};
+
+window._saleImageUrlChanged = function(url) {
+    if (url && url.startsWith('http')) _saleShowPreview(url);
+    else _saleClearImagePreview();
+};
+
+window._saleShowPreview = function(url) {
+    const wrap = document.getElementById('sale-image-preview');
+    const img  = document.getElementById('sale-image-preview-img');
+    if (!wrap || !img) return;
+    img.src = url;
+    img.onerror = () => { wrap.style.display = 'none'; };
+    wrap.style.display = 'block';
+};
+
+window._saleClearImage = function() {
+    const imgEl = document.getElementById('sale-image');
+    if (imgEl) imgEl.value = '';
+    _saleClearImagePreview();
+    const label = document.getElementById('sale-upload-label-text');
+    if (label) label.textContent = 'رفع صورة';
+};
+
+function _saleClearImagePreview() {
+    const wrap = document.getElementById('sale-image-preview');
+    if (wrap) wrap.style.display = 'none';
+}
+
+// Reset image field when modal opens
+const _origOpenSaleModal = window.openSaleModal;
+window.openSaleModal = function() {
+    _origOpenSaleModal();
+    _saleClearImagePreview();
+    const label = document.getElementById('sale-upload-label-text');
+    if (label) label.textContent = 'رفع صورة';
+};
+
+const _origEditSale = window.editSale;
+window.editSale = function(s) {
+    _origEditSale(s);
+    if (s.image) _saleShowPreview(s.image);
+    else _saleClearImagePreview();
+};
+
+window.saveSale = async function() {
+    const errEl   = document.getElementById('sale-modal-err');
+    const saveBtn = document.getElementById('sale-save-btn');
+    const title   = document.getElementById('sale-title').value.trim();
+    const saleP   = document.getElementById('sale-sale-price').value.trim();
+    const origP   = document.getElementById('sale-orig-price').value.trim();
+    const curr    = document.getElementById('sale-currency').value;
+    const image   = document.getElementById('sale-image').value.trim();
+    const active  = document.getElementById('sale-active').checked;
+    const editId  = document.getElementById('sale-edit-id').value;
+
+    if (!title)  { errEl.textContent = 'أدخل عنوان العرض'; errEl.style.display='block'; return; }
+    if (!saleP)  { errEl.textContent = 'أدخل سعر العرض'; errEl.style.display='block'; return; }
+    if (!_salesCurrentStore) { errEl.textContent = 'اختر متجراً أولاً'; errEl.style.display='block'; return; }
+
+    // Collect item rows with qty + name + unitPrice
+    const items = [...document.querySelectorAll('#sale-items-rows .sale-item-row')].map(row => ({
+        qty      : parseInt(row.querySelector('.sir-qty')?.value)   || 1,
+        name     : row.querySelector('.sir-name')?.value.trim()     || '',
+        unitPrice: parseFloat(row.querySelector('.sir-price')?.value) || 0,
+    })).filter(i => i.name);
+
+    const payload = { title, items, origPrice: origP || '0', salePrice: saleP, currency: curr, active };
+    if (image) payload.image = image;
+
+    saveBtn.disabled = true; saveBtn.textContent = '⏳ جاري الحفظ…';
+    try {
+        const store   = encodeURIComponent(_salesCurrentStore);
+        const saleId  = editId || `sale_${Date.now()}`;
+        await fetch(`${RTDB}/sales/${store}/${saleId}.json`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        toast('✅ تم حفظ العرض');
+        closeSaleModal();
+        loadStoreSales(_salesCurrentStore);
+    } catch(e) {
+        errEl.textContent = '❌ فشل الحفظ، حاول مجدداً';
+        errEl.style.display = 'block';
+    }
+    saveBtn.disabled = false; saveBtn.textContent = '💾 حفظ العرض';
+};
+
+window.deleteSale = async function(saleId) {
+    if (!confirm('هل تريد حذف هذا العرض نهائياً؟')) return;
+    try {
+        const store = encodeURIComponent(_salesCurrentStore);
+        await fetch(`${RTDB}/sales/${store}/${saleId}.json`, { method: 'DELETE' });
+        toast('🗑 تم حذف العرض');
+        loadStoreSales(_salesCurrentStore);
+    } catch(e) {
+        toast('❌ فشل الحذف');
+    }
+};
+
 window.saveMealTimes = async function() {
     const status = document.getElementById('mealtime-status');
     const meals  = ['breakfast','lunch','snack','dinner'];
@@ -8777,11 +9232,13 @@ let _cpiStoreType   = '';
 
 /* ── Tab switching ─────────────────────────────────────────── */
 function cpSwitchTab(tab) {
-    document.getElementById('cp-view-orders').style.display = tab === 'orders' ? 'flex' : 'none';
-    document.getElementById('cp-view-items').style.display  = tab === 'items'  ? 'flex' : 'none';
-    document.getElementById('cp-tab-orders').classList.toggle('active', tab === 'orders');
-    document.getElementById('cp-tab-items').classList.toggle('active',  tab === 'items');
-    if (tab === 'items' && !Object.keys(_cpiAllItems).length) cpLoadItems();
+    ['orders','items','sales'].forEach(t => {
+        const view = document.getElementById(`cp-view-${t}`);
+        if (view) view.style.display = t === tab ? 'flex' : 'none';
+        document.getElementById(`cp-tab-${t}`)?.classList.toggle('active', t === tab);
+    });
+    if (tab === 'items'  && !Object.keys(_cpiAllItems).length) cpLoadItems();
+    if (tab === 'sales') cpLoadSales();
 }
 
 /* ── Load items for this company's store ───────────────────── */
@@ -9286,6 +9743,136 @@ function _cpiSkeleton(n) {
 
 // ═══════════════════════════════════════════════════════════════
 
+/* ══════════════════════════════════════════════════════════
+   COMPANY PORTAL — SALES MANAGEMENT
+══════════════════════════════════════════════════════════ */
+async function cpLoadSales() {
+    const store   = currentAdmin?.linkedStore || '';
+    const grid    = document.getElementById('cp-sales-grid');
+    const countEl = document.getElementById('cp-sales-count');
+
+    if (!grid) return;
+
+    // No store linked — show clear message
+    if (!store) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);font-size:0.85rem;">⚠️ لم يتم ربط متجر بهذا الحساب</div>';
+        if (countEl) countEl.textContent = '';
+        return;
+    }
+
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);">⏳ جاري التحميل…</div>';
+
+    try {
+        const url = `${RTDB}/sales/${encodeURIComponent(store)}.json`;
+        const res  = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data || typeof data !== 'object') {
+            grid.innerHTML = `
+                <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;gap:12px;">
+                    <div style="font-size:2.5rem;">🏷️</div>
+                    <div style="font-size:0.9rem;font-weight:800;color:var(--white);">لا توجد عروض بعد</div>
+                    <div style="font-size:0.75rem;color:var(--gray);">اضغط "إضافة عرض" لإنشاء أول عرض لمتجرك</div>
+                </div>`;
+            if (countEl) countEl.textContent = '0 عروض';
+            return;
+        }
+
+        const sales = Object.entries(data).map(([id, s]) => ({ id, ...s }));
+        if (countEl) countEl.textContent = `${sales.length} ${sales.length === 1 ? 'عرض' : 'عروض'}`;
+
+        grid.innerHTML = sales.map(s => {
+            const saleP  = parseFloat(s.salePrice) || 0;
+            const origP  = parseFloat(s.origPrice)  || 0;
+            const curr   = s.currency === 'LBP' ? 'ل.ل' : '$';
+            const pct    = origP > saleP && origP > 0 ? Math.round((1 - saleP/origP)*100) : 0;
+            const items  = Array.isArray(s.items)
+                ? s.items.map(i => { const q=parseInt(i.qty)||1; return i.name?(q>1?`${q}× ${i.name}`:i.name):''; }).filter(Boolean).join(' + ')
+                : '';
+            const active = s.active !== false;
+            const safeS  = JSON.stringify(s).replace(/'/g, "\'");
+            return `
+            <div style="background:var(--surface2);border:1px solid var(--border-bright);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;">
+                ${s.image ? `<div style="width:100%;height:110px;overflow:hidden;"><img src="${s.image}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.style.display='none'"></div>` : ''}
+                <div style="padding:12px 13px;display:flex;flex-direction:column;flex:1;">
+                    <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;">
+                        <span style="font-size:0.88rem;font-weight:900;flex:1;line-height:1.3;">${s.title || 'عرض'}</span>
+                        <button onclick="cpToggleSaleActive('${s.id}',${active})" title="${active?'إيقاف العرض':'تفعيل العرض'}"
+                                style="flex-shrink:0;padding:3px 8px;border-radius:50px;font-size:0.62rem;font-weight:800;cursor:pointer;border:1px solid;
+                                       background:${active?'rgba(74,222,128,0.12)':'rgba(239,68,68,0.08)'};
+                                       border-color:${active?'rgba(74,222,128,0.3)':'rgba(239,68,68,0.25)'};
+                                       color:${active?'#4ade80':'var(--red)'};">
+                            ${active ? '✅ نشط' : '⏸ متوقف'}
+                        </button>
+                    </div>
+                    ${items ? `<div style="font-size:0.68rem;color:var(--gray);margin-bottom:8px;line-height:1.5;">${items}</div>` : ''}
+                    <div style="display:flex;align-items:baseline;gap:7px;margin-bottom:10px;flex-wrap:wrap;">
+                        <span style="font-size:1.05rem;font-weight:900;color:var(--orange);">${saleP}${curr}</span>
+                        ${origP > saleP ? `<span style="font-size:0.72rem;color:var(--gray);text-decoration:line-through;">${origP}${curr}</span>` : ''}
+                        ${pct > 0 ? `<span style="font-size:0.7rem;font-weight:800;color:#4ade80;background:rgba(74,222,128,0.1);padding:2px 7px;border-radius:50px;">خصم ${pct}%</span>` : ''}
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:auto;">
+                        <button onclick='cpEditSale(JSON.parse(decodeURIComponent("${encodeURIComponent(JSON.stringify(s))}")))' style="flex:1;padding:8px;background:rgba(255,92,0,0.1);border:1px solid rgba(255,92,0,0.25);border-radius:10px;color:var(--orange);font-family:inherit;font-size:0.8rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">✏️ تعديل</button>
+                        <button onclick="cpDeleteSale('${s.id}')" style="flex:1;padding:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;color:var(--red);font-family:inherit;font-size:0.8rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">🗑 حذف</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        console.error('[cpLoadSales]', e);
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--red);font-size:0.82rem;">❌ تعذّر تحميل العروض<br><small style="color:var(--gray);">${e.message}</small></div>`;
+    }
+}
+
+// Toggle active/inactive without opening modal
+window.cpToggleSaleActive = async function(saleId, currentlyActive) {
+    const store = currentAdmin?.linkedStore || '';
+    if (!store) return;
+    try {
+        await fetch(`${RTDB}/sales/${encodeURIComponent(store)}/${saleId}/active.json`, {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(!currentlyActive),
+        });
+        toast(currentlyActive ? '⏸ تم إيقاف العرض' : '✅ تم تفعيل العرض');
+        cpLoadSales();
+    } catch(e) { toast('❌ فشل التحديث'); }
+};
+
+window.cpOpenSaleModal = function() {
+    _salesCurrentStore = currentAdmin?.linkedStore || '';
+    window._cpSaleAfterSave = true;
+    openSaleModal();
+};
+
+window.cpEditSale = function(s) {
+    _salesCurrentStore = currentAdmin?.linkedStore || '';
+    window._cpSaleAfterSave = true;
+    editSale(s);
+};
+
+window.cpDeleteSale = async function(saleId) {
+    if (!confirm('هل تريد حذف هذا العرض نهائياً؟')) return;
+    const store = currentAdmin?.linkedStore || '';
+    if (!store) return;
+    try {
+        await fetch(`${RTDB}/sales/${encodeURIComponent(store)}/${saleId}.json`, { method: 'DELETE' });
+        toast('🗑 تم حذف العرض');
+        cpLoadSales();
+    } catch(e) { toast('❌ فشل الحذف'); }
+};
+
+// Patch closeSaleModal to reload cp sales after save
+const _cpOrigClose = window.closeSaleModal;
+window.closeSaleModal = function() {
+    if (typeof _cpOrigClose === 'function') _cpOrigClose();
+    if (window._cpSaleAfterSave) {
+        window._cpSaleAfterSave = false;
+        const view = document.getElementById('cp-view-sales');
+        if (view && view.style.display !== 'none') setTimeout(cpLoadSales, 300);
+    }
+};
+
 // Filter pills inside company portal
 document.addEventListener('click', e => {
     const pill = e.target.closest('[data-cp-filter]');
@@ -9667,10 +10254,16 @@ document.getElementById('or-refresh-btn')?.addEventListener('click', () => {
     var _waNotifCache={}, _waNotifWired=false;
     function _initWaNotifListener(){
         if(_waNotifWired)return; _waNotifWired=true;
-        db.ref('pendingWaNotifications').on('value',function(snap){
-            _waNotifCache=snap.val()||{};
+        // Poll via REST every 8s (avoids SDK db reference)
+        async function _pollWa(){
+            try {
+                const r = await fetch(`${RTDB}/pendingWaNotifications.json`);
+                _waNotifCache = (await r.json()) || {};
+            } catch(_) { _waNotifCache = {}; }
             _refreshWaBell();
-        });
+        }
+        _pollWa();
+        setInterval(_pollWa, 8000);
     }
     function _refreshWaBell(){
         var unread=Object.values(_waNotifCache).filter(function(n){return n&&!n.read;}).length;
@@ -9707,9 +10300,23 @@ document.getElementById('or-refresh-btn')?.addEventListener('click', () => {
         panel.style.display=open?'none':'block';
         if(!open){Object.keys(_waNotifCache).forEach(function(k){if(!_waNotifCache[k]||!_waNotifCache[k].read)markWaNotifRead(k);});}
     }
-    function markWaNotifRead(key){db.ref('pendingWaNotifications/'+key+'/read').set(true).catch(function(){});}
-    function deleteWaNotif(key){db.ref('pendingWaNotifications/'+key).remove().catch(function(){});}
-    function clearAllWaNotifs(){if(!confirm('Clear all WA notifications?'))return;db.ref('pendingWaNotifications').remove().catch(function(){});document.getElementById('wa-notif-panel').style.display='none';}
+    function markWaNotifRead(key){
+        fetch(`${RTDB}/pendingWaNotifications/${key}/read.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:'true'}).catch(function(){});
+        if(_waNotifCache[key]) _waNotifCache[key].read=true;
+        _refreshWaBell();
+    }
+    function deleteWaNotif(key){
+        fetch(`${RTDB}/pendingWaNotifications/${key}.json`,{method:'DELETE'}).catch(function(){});
+        delete _waNotifCache[key];
+        _refreshWaBell();
+    }
+    function clearAllWaNotifs(){
+        if(!confirm('Clear all WA notifications?'))return;
+        fetch(`${RTDB}/pendingWaNotifications.json`,{method:'DELETE'}).catch(function(){});
+        _waNotifCache={};
+        _refreshWaBell();
+        document.getElementById('wa-notif-panel').style.display='none';
+    }
     document.addEventListener('click',function(e){
         var panel=document.getElementById('wa-notif-panel');
         var btn=document.getElementById('wa-notif-btn');

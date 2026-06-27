@@ -595,6 +595,11 @@
 .offer-card--dark {
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
 }
+.offer-card--blue {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1a56db 60%, #1e40af 100%);
+    border: 1px solid rgba(59,130,246,0.4);
+}
+.offer-card--blue:hover { border-color: rgba(59,130,246,0.7); }
 .offer-card--green {
     background: linear-gradient(135deg, #134e2a 0%, #1a6b3a 50%, #22943e 100%);
 }
@@ -999,8 +1004,8 @@
 }
 .store-btn__soon-badge {
     position: absolute;
-    top: 7px;
-    left: 10px;
+    top: -9px;
+    left: -6px;
     background: var(--orange, #ff5c00);
     color: #fff;
     font-size: 0.6rem;
