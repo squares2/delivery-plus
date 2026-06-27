@@ -442,7 +442,160 @@ function initStores() {
 }
 
 /* ── Offers carousel ─────────────────────────────────────── */
-function initOffersCarousel() {
+
+const RTDB_SALES_URL = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+// Gradient palettes for sale cards — cycle through these
+const SALE_GRADIENTS = [
+    'linear-gradient(135deg,#7c2d12 0%,#dc2626 55%,#b91c1c 100%)',  // red
+    'linear-gradient(135deg,#1e3a5f 0%,#1a56db 60%,#1d4ed8 100%)', // blue
+    'linear-gradient(135deg,#14532d 0%,#16a34a 60%,#15803d 100%)', // green
+    'linear-gradient(135deg,#4a1d96 0%,#7c3aed 60%,#6d28d9 100%)', // purple
+    'linear-gradient(135deg,#78350f 0%,#d97706 60%,#b45309 100%)', // amber
+    'linear-gradient(135deg,#0f172a 0%,#0e7490 60%,#0891b2 100%)', // cyan
+];
+
+async function _fetchAndInjectSaleCards() {
+    const track = document.getElementById('offers-track');
+    if (!track) return;
+
+    try {
+        const res  = await fetch(`${RTDB_SALES_URL}/sales.json?shallow=false`);
+        const data = await res.json();
+        if (!data || typeof data !== 'object') return;
+
+        // Collect all active sales across all stores
+        const allSales = [];
+        for (const [storeName, storeSales] of Object.entries(data)) {
+            if (!storeSales || typeof storeSales !== 'object') continue;
+            for (const [id, s] of Object.entries(storeSales)) {
+                if (s && s.active !== false && s.title) {
+                    allSales.push({ id, storeName, ...s });
+                }
+            }
+        }
+
+        if (!allSales.length) return;
+
+        // Fetch store types from pattern for storeType lookup
+        let storeTypeMap = {};
+        try {
+            const pr = await fetch(`${RTDB_SALES_URL}/pattern.json`);
+            const pd = await pr.json();
+            if (pd && typeof pd === 'object') {
+                for (const [type, entries] of Object.entries(pd)) {
+                    const arr = Array.isArray(entries) ? entries : Object.values(entries || {});
+                    arr.forEach(s => { if (s?.companyname) storeTypeMap[s.companyname] = type; });
+                }
+            }
+        } catch(_) {}
+
+        // Insert cards before the loyalty card (last card) so static cards stay first
+        const loyaltyCard = track.querySelector('.offer-card--loyalty, #loyalty-card');
+        let gradIdx = 0;
+
+        allSales.forEach(sale => {
+            const saleP   = parseFloat(sale.salePrice) || 0;
+            const origP   = parseFloat(sale.origPrice)  || 0;
+            const curr    = sale.currency === 'LBP' ? 'ل.ل' : '$';
+            const pct     = origP > saleP && origP > 0 ? Math.round((1 - saleP/origP)*100) : 0;
+            const storeType = storeTypeMap[sale.storeName] || '';
+
+            // Items summary (max 2 items shown)
+            const itemsSummary = Array.isArray(sale.items)
+                ? sale.items.slice(0,2).map(i => { const q=parseInt(i.qty)||1; return i.name?(q>1?`${q}× ${i.name}`:i.name):''; }).filter(Boolean).join(' + ')
+                  + (sale.items.length > 2 ? ` +${sale.items.length-2}` : '')
+                : '';
+
+            const grad = SALE_GRADIENTS[gradIdx % SALE_GRADIENTS.length];
+            gradIdx++;
+
+            // Build sale payload for cart
+            const payload = encodeURIComponent(JSON.stringify({
+                storeName : sale.storeName,
+                storeType,
+                saleTitle : sale.title,
+                salePrice : saleP,
+                items     : Array.isArray(sale.items) ? sale.items : [],
+                image     : sale.image || '',
+            }));
+
+            const card = document.createElement('div');
+            card.className = 'offer-card offer-card--sale-dynamic';
+            card.dataset.saleId = sale.id;
+            card.style.cssText = `background:${grad};cursor:pointer;position:relative;overflow:hidden;`;
+
+            card.innerHTML = `
+                ${sale.image ? `
+                <div class="offer-card__img-wrap" style="opacity:0.25;position:absolute;inset:0;width:100%;height:100%;">
+                    <img src="${sale.image}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.style.display='none'">
+                </div>` : ''}
+                <div class="offer-card__content" style="position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;height:100%;padding:10px 14px 10px 10px;">
+                    <div>
+                        ${pct > 0 ? `<div style="display:inline-block;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);border-radius:50px;padding:2px 10px;font-size:0.62rem;font-weight:900;color:#fff;margin-bottom:5px;letter-spacing:0.03em;">خصم ${pct}%</div>` : ''}
+                        <div class="offer-card__title" style="font-size:clamp(0.82rem,3.5vw,1rem);margin-bottom:3px;">${sale.title}</div>
+                        ${itemsSummary ? `<div style="font-size:0.65rem;color:rgba(255,255,255,0.7);font-weight:600;line-height:1.3;">${itemsSummary}</div>` : ''}
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+                        <div style="display:flex;align-items:baseline;gap:5px;">
+                            <span style="font-size:1.05rem;font-weight:900;color:#fff;">${saleP}${curr}</span>
+                            ${origP > saleP ? `<span style="font-size:0.68rem;color:rgba(255,255,255,0.55);text-decoration:line-through;">${origP}${curr}</span>` : ''}
+                        </div>
+                        <button class="offer-sale-add-btn" onclick="event.stopPropagation();_addSaleFromCarousel(this,'${payload}')"
+                                style="display:flex;align-items:center;gap:4px;padding:5px 12px;background:rgba(255,255,255,0.2);backdrop-filter:blur(6px);border:1.5px solid rgba(255,255,255,0.35);border-radius:50px;color:#fff;font-family:inherit;font-size:0.72rem;font-weight:800;cursor:pointer;transition:background .15s;white-space:nowrap;">
+                            🛒 أضف
+                        </button>
+                    </div>
+                    <div style="position:absolute;top:6px;left:8px;font-size:0.58rem;color:rgba(255,255,255,0.5);font-weight:700;">${sale.storeName}</div>
+                </div>
+                <!-- decorative circle -->
+                <div style="position:absolute;bottom:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.07);pointer-events:none;"></div>
+                <div style="position:absolute;top:-20px;left:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.05);pointer-events:none;"></div>
+            `;
+
+            if (loyaltyCard) {
+                track.insertBefore(card, loyaltyCard);
+            } else {
+                track.appendChild(card);
+            }
+        });
+
+    } catch(e) {
+        console.warn('[Sales carousel]', e);
+    }
+}
+
+// Add sale to cart from the carousel button
+window._addSaleFromCarousel = function(btn, encodedPayload) {
+    try {
+        const sale = JSON.parse(decodeURIComponent(encodedPayload));
+        const cart = window.DelivoCart;
+        if (!cart || typeof cart.addItem !== 'function') {
+            // Not on index — redirect with session storage
+            const { storeName, storeType, saleTitle, salePrice, items, image } = sale;
+            sessionStorage.setItem('pendingSaleCart', JSON.stringify({ storeName, storeType, saleTitle, salePrice, items, image, ts: Date.now() }));
+            window.location.href = 'index.html#open-cart';
+            return;
+        }
+        const { storeName, storeType, saleTitle, salePrice, items, image } = sale;
+        const summary = (items || []).map(i => { const q=parseInt(i.qty)||1; return i.name?(q>1?`${q}× ${i.name}`:i.name):''; }).filter(Boolean).join(' + ');
+        const bundleName = saleTitle + (summary ? ` (${summary})` : '');
+        cart.addItem(`sale__${Date.now()}__i`, bundleName, salePrice, storeName, storeType, 'عرض خاص', image);
+
+        // Feedback
+        btn.textContent = '✅ أُضيف!';
+        btn.style.background = 'rgba(34,197,94,0.4)';
+        setTimeout(() => { btn.textContent = '🛒 أضف'; btn.style.background = 'rgba(255,255,255,0.2)'; }, 2000);
+
+        // Open cart
+        setTimeout(() => { if (typeof openCartSidebar === 'function') openCartSidebar(); }, 300);
+    } catch(e) { console.error('[carousel cart]', e); }
+};
+
+async function initOffersCarousel() {
+    // First inject sale cards, then start carousel
+    await _fetchAndInjectSaleCards();
+
     const scroll = document.getElementById('offers-scroll');
     const dotsEl = document.getElementById('offers-dots');
     if (!scroll || !dotsEl) return;
@@ -471,7 +624,7 @@ function initOffersCarousel() {
         updateDots();
     }
     function next() { goTo(current + 1); }
-    function startAuto() { stopAuto(); if (!isPhone()) return; autoTimer = setInterval(next, 3000); }
+    function startAuto() { stopAuto(); if (!isPhone()) return; autoTimer = setInterval(next, 3500); }
     function stopAuto() { if (autoTimer) { clearInterval(autoTimer); autoTimer = null; } }
     scroll.addEventListener('touchstart', stopAuto, { passive: true });
     scroll.addEventListener('mousedown', stopAuto);

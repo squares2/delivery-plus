@@ -600,6 +600,18 @@
     border: 1px solid rgba(59,130,246,0.4);
 }
 .offer-card--blue:hover { border-color: rgba(59,130,246,0.7); }
+
+/* ── Dynamic sale cards injected from Firebase ──────────── */
+.offer-card--sale-dynamic {
+    border: 1px solid rgba(255,255,255,0.15);
+}
+.offer-card--sale-dynamic:hover {
+    border-color: rgba(255,255,255,0.35);
+    transform: translateY(-2px);
+}
+.offer-sale-add-btn:hover {
+    background: rgba(255,255,255,0.35) !important;
+}
 .offer-card--green {
     background: linear-gradient(135deg, #134e2a 0%, #1a6b3a 50%, #22943e 100%);
 }
