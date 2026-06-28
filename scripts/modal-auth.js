@@ -101,6 +101,108 @@ function initModalAuth() {
         return code;
     }
 
+    // ── Real-time username availability check ───────────────────
+    const FS_BASE = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
+    let _usernameCheckTimer = null;
+    let _usernameAvailable  = false;
+    let _phoneAvailable     = true;
+
+    const regUsernameEl = document.getElementById('reg-username');
+    if (regUsernameEl) {
+        regUsernameEl.addEventListener('input', () => {
+            clearTimeout(_usernameCheckTimer);
+            const val = regUsernameEl.value.trim().toLowerCase();
+            const hint = regUsernameEl.closest('.modal-field')?.querySelector('.field-hint');
+
+            if (!val || val.length < 3) {
+                _usernameAvailable = false;
+                _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
+                return;
+            }
+            if (!/^[a-z0-9_]{3,30}$/.test(val)) {
+                _usernameAvailable = false;
+                _setFieldState(regUsernameEl, 'error', hint, 'أحرف إنجليزية صغيرة، أرقام، _ فقط (3-30 حرف)');
+                return;
+            }
+
+            _setFieldState(regUsernameEl, 'loading', hint, '⏳ جاري التحقق…');
+            _usernameCheckTimer = setTimeout(async () => {
+                try {
+                    const resp = await fetch(`${FS_BASE}/usernames/${encodeURIComponent(val)}`);
+                    if (resp.status === 404) {
+                        _usernameAvailable = true;
+                        _setFieldState(regUsernameEl, 'success', hint, '✅ اسم المستخدم متاح');
+                    } else if (resp.ok) {
+                        _usernameAvailable = false;
+                        _setFieldState(regUsernameEl, 'error', hint, '❌ اسم المستخدم محجوز، اختر اسماً آخر');
+                    } else {
+                        _usernameAvailable = true; // allow on network error
+                        _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
+                    }
+                } catch (_) {
+                    _usernameAvailable = true;
+                    _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
+                }
+            }, 500);
+        });
+    }
+
+    // ── Real-time phone uniqueness check ─────────────────────────
+    let _phoneCheckTimer = null;
+    const regPhoneEl = document.getElementById('reg-phone');
+    if (regPhoneEl) {
+        regPhoneEl.addEventListener('input', () => {
+            clearTimeout(_phoneCheckTimer);
+            const digits = regPhoneEl.value.replace(/[\s\-]/g, '');
+            const hint   = regPhoneEl.closest('.modal-field')?.querySelector('.field-hint');
+
+            if (!digits || digits.length < 7) {
+                _phoneAvailable = true;
+                _setFieldState(regPhoneEl, 'idle', hint, 'مثال: 03 123 456 أو 71 123 456');
+                return;
+            }
+            if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(digits)) {
+                _phoneAvailable = false;
+                _setFieldState(regPhoneEl, 'error', hint, 'رقم لبناني غير صحيح. مثال: 71 123 456');
+                return;
+            }
+
+            _setFieldState(regPhoneEl, 'loading', hint, '⏳ جاري التحقق…');
+            _phoneCheckTimer = setTimeout(async () => {
+                try {
+                    // Query Firestore users where phone == digits
+                    const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                    const resp = await fetch(`${RTDB}/phoneIndex/${digits}.json`);
+                    const data = await resp.json();
+                    if (data && data !== null) {
+                        _phoneAvailable = false;
+                        _setFieldState(regPhoneEl, 'error', hint, '❌ هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك');
+                    } else {
+                        _phoneAvailable = true;
+                        _setFieldState(regPhoneEl, 'success', hint, '✅ الرقم متاح');
+                    }
+                } catch (_) {
+                    _phoneAvailable = true;
+                    _setFieldState(regPhoneEl, 'idle', hint, 'مثال: 03 123 456 أو 71 123 456');
+                }
+            }, 600);
+        });
+    }
+
+    function _setFieldState(inputEl, state, hintEl, msg) {
+        inputEl.style.borderColor = state === 'success' ? '#22c55e'
+                                  : state === 'error'   ? '#ef4444'
+                                  : state === 'loading' ? 'rgba(255,255,255,0.25)'
+                                  : '';
+        if (hintEl) {
+            hintEl.textContent = msg;
+            hintEl.style.color = state === 'success' ? '#22c55e'
+                               : state === 'error'   ? '#ef4444'
+                               : state === 'loading' ? 'rgba(255,255,255,0.45)'
+                               : '';
+        }
+    }
+
     // ── Restore OTP state after refresh ──────────────────────
     function _restoreOtpState() {
         const state = _loadOtpState();
@@ -183,8 +285,10 @@ function initModalAuth() {
                 // Step 1 — send OTP
                 if (!saved || otpStep?.style.display === 'none') {
                     if (!username)           { showError(errorEl, 'اسم المستخدم مطلوب'); return; }
+                    if (!_usernameAvailable) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
                     if (!displayName)        { showError(errorEl, 'الاسم الظاهر مطلوب'); return; }
                     if (password.length < 8) { showError(errorEl, 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
+                    if (!_phoneAvailable)    { showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
 
                     setLoading(regBtn, true, '⏳ جاري الإرسال...');
                     try {
@@ -225,6 +329,8 @@ function initModalAuth() {
             }
 
             // ── Direct mode ───────────────────────────────────
+            if (!_usernameAvailable) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
+            if (!_phoneAvailable)    { showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
             setLoading(regBtn, true, 'جاري الإنشاء...');
             const result = await window.DelivoAuth.register({ username, displayName, password, phone: phoneDigits, lat, lng });
             setLoading(regBtn, false, 'إنشاء الحساب');

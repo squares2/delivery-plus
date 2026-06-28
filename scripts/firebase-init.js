@@ -399,6 +399,17 @@ function onFirebaseReady() {
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 });
 
+                // Index phone for uniqueness checks (RTDB for fast REST lookup)
+                try {
+                    const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                    // Index by digits only (no country code) — matches modal-auth check
+                    await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}.json`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(user.uid),
+                    });
+                } catch(_) {}
+
                 // Increment device account count
                 await incrementDeviceCount(deviceCheck.uuid);
 
