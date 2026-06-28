@@ -704,7 +704,8 @@ function initCart() {
         }
 
         if (bannerEl && titleEl && iconEl) {
-            bannerEl.style.display = 'flex';
+            // Hide reward banner when loyalty system is hidden by admin
+            bannerEl.style.display = (window._loyaltyUiVisible === false) ? 'none' : 'flex';
             iconEl.textContent = item.icon || '🎉';
             titleEl.textContent = item.reward || 'مكافأة';
         }

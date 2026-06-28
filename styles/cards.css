@@ -603,14 +603,50 @@
 
 /* ── Dynamic sale cards injected from Firebase ──────────── */
 .offer-card--sale-dynamic {
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.12);
+    cursor: pointer;
 }
 .offer-card--sale-dynamic:hover {
-    border-color: rgba(255,255,255,0.35);
-    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.3);
 }
-.offer-sale-add-btn:hover {
-    background: rgba(255,255,255,0.35) !important;
+
+/* Add-to-cart pill button inside sale card */
+.offer-sale-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 4px 12px;
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 50px;
+    color: #fff;
+    font-family: 'Almarai', sans-serif;
+    font-size: clamp(0.58rem, 1.6vw, 0.7rem);
+    font-weight: 800;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    white-space: nowrap;
+    align-self: flex-end;
+}
+.offer-sale-add-btn:hover  { background: rgba(255,255,255,0.32); }
+.offer-sale-add-btn:active { transform: scale(0.95); }
+
+/* Shimmer sweep — same animation as loyalty card */
+.offer-card__sale-shimmer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.15) 50%, transparent 80%);
+    background-size: 200% 100%;
+    animation: sale-card-shimmer 2.8s infinite;
+    border-radius: inherit;
+}
+@keyframes sale-card-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 .offer-card--green {
     background: linear-gradient(135deg, #134e2a 0%, #1a6b3a 50%, #22943e 100%);

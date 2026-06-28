@@ -520,37 +520,37 @@ async function _fetchAndInjectSaleCards() {
                 image     : sale.image || '',
             }));
 
+            // Pick symbol based on gradient index
+            const SALE_SYMBOLS = ['assets/cat_sweets.png','assets/cat_meat.png','assets/cat_burger.png','assets/cat_bread.png','assets/cat_chicken.png','assets/cat_grocery.png'];
+            const symbolSrc = SALE_SYMBOLS[gradIdx % SALE_SYMBOLS.length];
+
             const card = document.createElement('div');
             card.className = 'offer-card offer-card--sale-dynamic';
             card.dataset.saleId = sale.id;
-            card.style.cssText = `background:${grad};cursor:pointer;position:relative;overflow:hidden;`;
+            card.style.cssText = `background:${grad};`;
 
             card.innerHTML = `
-                ${sale.image ? `
-                <div class="offer-card__img-wrap" style="opacity:0.25;position:absolute;inset:0;width:100%;height:100%;">
-                    <img src="${sale.image}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.style.display='none'">
-                </div>` : ''}
-                <div class="offer-card__content" style="position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;height:100%;padding:10px 14px 10px 10px;">
-                    <div>
-                        ${pct > 0 ? `<div style="display:inline-block;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);border-radius:50px;padding:2px 10px;font-size:0.62rem;font-weight:900;color:#fff;margin-bottom:5px;letter-spacing:0.03em;">خصم ${pct}%</div>` : ''}
-                        <div class="offer-card__title" style="font-size:clamp(0.82rem,3.5vw,1rem);margin-bottom:3px;">${sale.title}</div>
-                        ${itemsSummary ? `<div style="font-size:0.65rem;color:rgba(255,255,255,0.7);font-weight:600;line-height:1.3;">${itemsSummary}</div>` : ''}
-                    </div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
-                        <div style="display:flex;align-items:baseline;gap:5px;">
-                            <span style="font-size:1.05rem;font-weight:900;color:#fff;">${saleP}${curr}</span>
-                            ${origP > saleP ? `<span style="font-size:0.68rem;color:rgba(255,255,255,0.55);text-decoration:line-through;">${origP}${curr}</span>` : ''}
-                        </div>
-                        <button class="offer-sale-add-btn" onclick="event.stopPropagation();_addSaleFromCarousel(this,'${payload}')"
-                                style="display:flex;align-items:center;gap:4px;padding:5px 12px;background:rgba(255,255,255,0.2);backdrop-filter:blur(6px);border:1.5px solid rgba(255,255,255,0.35);border-radius:50px;color:#fff;font-family:inherit;font-size:0.72rem;font-weight:800;cursor:pointer;transition:background .15s;white-space:nowrap;">
-                            🛒 أضف
-                        </button>
-                    </div>
-                    <div style="position:absolute;top:6px;left:8px;font-size:0.58rem;color:rgba(255,255,255,0.5);font-weight:700;">${sale.storeName}</div>
+                <!-- Symbol image — right side like old cards -->
+                <div class="offer-card__img-wrap">
+                    <img src="${symbolSrc}" alt="" class="offer-card__img" onerror="this.src='assets/cat_burger.png'">
                 </div>
-                <!-- decorative circle -->
-                <div style="position:absolute;bottom:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.07);pointer-events:none;"></div>
-                <div style="position:absolute;top:-20px;left:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.05);pointer-events:none;"></div>
+
+                <!-- Text content — left side -->
+                <div class="offer-card__content">
+                    ${pct > 0 ? `<div class="offer-card__code">خصم ${pct}%</div>` : ''}
+                    <p class="offer-card__title">${sale.title}</p>
+                    ${itemsSummary ? `<p class="offer-card__sub">${itemsSummary}</p>` : ''}
+                    <div style="display:flex;align-items:baseline;gap:5px;margin-top:2px;">
+                        <span style="font-size:clamp(0.82rem,3vw,1rem);font-weight:900;color:#fff;">${saleP}${curr}</span>
+                        ${origP > saleP ? `<span style="font-size:0.62rem;color:rgba(255,255,255,0.55);text-decoration:line-through;">${origP}${curr}</span>` : ''}
+                    </div>
+                    <button class="offer-sale-add-btn" onclick="event.stopPropagation();_addSaleFromCarousel(this,'${payload}')">
+                        🛒 أضف للسلة
+                    </button>
+                </div>
+
+                <!-- Shimmer shine — same as loyalty card -->
+                <div class="offer-card__sale-shimmer"></div>
             `;
 
             if (loyaltyCard) {

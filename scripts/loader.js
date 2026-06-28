@@ -185,9 +185,65 @@ document.addEventListener('DOMContentLoaded', loadAll);
         const overlay  = document.getElementById('maintenance-overlay');
         if (overlay) {
             overlay.style.display = isMaint ? 'flex' : 'none';
-            // Block body scroll when in maintenance
             document.body.style.overflow = isMaint ? 'hidden' : '';
         }
+
+        /* regType — switch register modal between direct and OTP */
+        window._regType          = settings.regType          || 'direct';
+        window._ultraMsgInstance = settings.ultraMsgInstance || '';
+        window._ultraMsgToken    = settings.ultraMsgToken    || '';
+        _applyRegType(window._regType);
+
+        /* loyaltyVisible — hide/show all reward UI; points still accumulate silently */
+        const loyaltyOn = settings.loyaltyVisible === undefined
+                       || settings.loyaltyVisible === null
+                       || settings.loyaltyVisible === true
+                       || settings.loyaltyVisible === 'true';
+        window._loyaltyVisible = loyaltyOn;
+        _applyLoyaltyVisibility(loyaltyOn);
+    }
+
+    function _applyRegType(type) {
+        const otpStep  = document.getElementById('otp-step');
+        const submitBtn = document.getElementById('reg-submit');
+        if (!otpStep) return;
+        const isOtp = type === 'otp';
+        // In OTP mode the OTP step is shown only after phone is verified
+        // Reset to hidden on each settings change
+        otpStep.style.display = 'none';
+        if (submitBtn) submitBtn.textContent = isOtp ? 'إرسال كود التحقق' : 'إنشاء الحساب';
+    }
+
+    function _applyLoyaltyVisibility(visible) {
+        // Offers carousel — loyalty card
+        const loyaltyCard = document.getElementById('loyalty-card');
+        if (loyaltyCard) loyaltyCard.style.display = visible ? '' : 'none';
+
+        // Profile — points card
+        const pointsCard = document.getElementById('acct-points-card');
+        if (pointsCard) pointsCard.style.display = visible ? '' : 'none';
+
+        // Cart — reward banner
+        const rewardBanner = document.getElementById('cart-reward-banner');
+        if (rewardBanner) rewardBanner.style.display = visible ? '' : 'none';
+
+        // Reward reminder toast — hide entirely when invisible
+        const reminderToast = document.getElementById('reward-reminder-toast');
+        if (reminderToast && !visible) reminderToast.style.display = 'none';
+
+        // Loyalty modal backdrop + sheet
+        const loyaltyOverlay = document.getElementById('loyalty-overlay');
+        const loyaltySheet   = document.getElementById('loyalty-sheet');
+        if (!visible) {
+            if (loyaltyOverlay) { loyaltyOverlay.classList.remove('open'); loyaltyOverlay.style.display = 'none'; }
+            if (loyaltySheet)   { loyaltySheet.classList.remove('open');   loyaltySheet.style.display   = 'none'; }
+        } else {
+            if (loyaltyOverlay) loyaltyOverlay.style.display = '';
+            if (loyaltySheet)   loyaltySheet.style.display   = '';
+        }
+
+        // Disable/enable _checkRewardReminder so toast never fires when hidden
+        window._loyaltyUiVisible = visible;
     }
 
     /* ── Open SSE connection ────────────────────────────────── */

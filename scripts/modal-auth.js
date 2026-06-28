@@ -27,7 +27,137 @@ function initModalAuth() {
     }
 
     // ── Register ────────────────────────────────────────────
-    const regBtn = document.getElementById('reg-submit');
+    // OTP state — persisted in sessionStorage to survive page refreshes
+    const OTP_SS_KEY  = 'delivo_otp_state';
+    const OTP_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
+    function _saveOtpState(state) { sessionStorage.setItem(OTP_SS_KEY, JSON.stringify(state)); }
+    function _loadOtpState()      { try { return JSON.parse(sessionStorage.getItem(OTP_SS_KEY)||'null'); } catch(_){ return null; } }
+    function _clearOtpState()     { sessionStorage.removeItem(OTP_SS_KEY); }
+
+    let _otpResendTimer = null;
+    let _otpExpireTimer = null;
+
+    function _generateOtp() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+
+    function _startOtpCountdown(seconds) {
+        const timerEl   = document.getElementById('otp-timer');
+        const resendBtn = document.getElementById('otp-resend-btn');
+        if (resendBtn) resendBtn.disabled = true;
+        clearInterval(_otpResendTimer);
+        let rem = seconds;
+        _otpResendTimer = setInterval(() => {
+            rem--;
+            if (timerEl) timerEl.textContent = `إعادة الإرسال متاحة بعد ${rem} ثانية`;
+            if (rem <= 0) { clearInterval(_otpResendTimer); if(timerEl)timerEl.textContent=''; if(resendBtn)resendBtn.disabled=false; }
+        }, 1000);
+    }
+
+    function _startExpireCountdown(expiresAt) {
+        clearTimeout(_otpExpireTimer);
+        const _tick = () => {
+            const left = expiresAt - Date.now();
+            if (left <= 0) { _cancelOtpStep(); return; }
+            const timerEl = document.getElementById('otp-timer');
+            const resendRunning = document.getElementById('otp-resend-btn')?.disabled;
+            if (timerEl && !resendRunning) {
+                const m = Math.floor(left/60000), s = Math.floor((left%60000)/1000);
+                timerEl.textContent = `⏰ ينتهي الكود بعد ${m}:${s.toString().padStart(2,'0')}`;
+            }
+            _otpExpireTimer = setTimeout(_tick, 1000);
+        };
+        _otpExpireTimer = setTimeout(_tick, 1000);
+        // Hard cancel when expired
+        setTimeout(_cancelOtpStep, Math.max(0, expiresAt - Date.now()));
+    }
+
+    function _cancelOtpStep() {
+        clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer); _clearOtpState();
+        const otpStep   = document.getElementById('otp-step');
+        const regBtn    = document.getElementById('reg-submit');
+        const cancelBtn = document.getElementById('otp-cancel-btn');
+        const timerEl   = document.getElementById('otp-timer');
+        if (otpStep)   otpStep.style.display   = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        if (regBtn)    regBtn.textContent       = 'إرسال كود التحقق';
+        if (timerEl)   timerEl.textContent      = '';
+        const errorEl = document.getElementById('reg-error');
+        showError(errorEl, '⌛ انتهت صلاحية كود التحقق. يمكنك إرسال كود جديد.');
+    }
+
+    async function _sendOtpWhatsapp(phone) {
+        const instance = window._ultraMsgInstance || '';
+        const token    = window._ultraMsgToken    || '';
+        if (!instance || !token) throw new Error('UltraMsg غير مهيأ. تحقق من إعدادات الأدمن.');
+        const code    = _generateOtp();
+        const waPhone = '961' + phone;
+        const body    = `🔐 كود تفعيل حسابك في Delivo:\n\n*${code}*\n\nصالح لمدة 5 دقائق. لا تشاركه مع أحد.`;
+        const resp = await fetch(`https://api.ultramsg.com/${instance}/messages/chat`, {
+            method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ token, to: waPhone, body }),
+        });
+        const data = await resp.json();
+        if (data.sent !== 'true' && data.sent !== true) throw new Error(data.error || 'فشل إرسال كود OTP');
+        return code;
+    }
+
+    // ── Restore OTP state after refresh ──────────────────────
+    function _restoreOtpState() {
+        const state = _loadOtpState();
+        if (!state || Date.now() > state.expiresAt) { _clearOtpState(); return; }
+
+        // Re-fill fields
+        const fillField = (id, val) => { const el=document.getElementById(id); if(el&&val) el.value=val; };
+        fillField('reg-username',   state.username);
+        fillField('reg-displayname',state.displayName);
+        fillField('reg-password',   state.password);
+        fillField('reg-phone',      state.phone);
+        fillField('reg-lat',        state.lat);
+        fillField('reg-lng',        state.lng);
+
+        // Open modal and show OTP step
+        document.getElementById('modal-subscribe')?.classList.add('active');
+        const otpStep = document.getElementById('otp-step');
+        if (otpStep) {
+            otpStep.style.display = 'block';
+            const hint = document.getElementById('otp-hint');
+            if (hint) hint.textContent = `تم إرسال كود إلى واتساب رقم 961${state.phone} — أدخله أدناه`;
+        }
+        const regBtn = document.getElementById('reg-submit');
+        if (regBtn) regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
+        const cancelBtn = document.getElementById('otp-cancel-btn');
+        if (cancelBtn) cancelBtn.style.display = 'flex';
+
+        const remainSec = Math.floor((state.expiresAt - Date.now()) / 1000);
+        _startOtpCountdown(Math.min(60, remainSec));
+        _startExpireCountdown(state.expiresAt);
+    }
+    setTimeout(_restoreOtpState, 650);
+
+    const regBtn    = document.getElementById('reg-submit');
+    const resendBtn = document.getElementById('otp-resend-btn');
+    const cancelBtn = document.getElementById('otp-cancel-btn');
+
+    if (cancelBtn) cancelBtn.addEventListener('click', _cancelOtpStep);
+
+    if (resendBtn) {
+        resendBtn.addEventListener('click', async () => {
+            const state   = _loadOtpState();
+            const phone   = state?.phone || document.getElementById('reg-phone')?.value.replace(/[\s\-]/g,'') || '';
+            const errorEl = document.getElementById('reg-error');
+            try {
+                setLoading(resendBtn, true, '⏳');
+                const code      = await _sendOtpWhatsapp(phone);
+                const expiresAt = Date.now() + OTP_TIMEOUT;
+                _saveOtpState({ ...(state||{}), code, expiresAt });
+                _startOtpCountdown(60); _startExpireCountdown(expiresAt);
+                const hint = document.getElementById('otp-hint');
+                if (hint) hint.textContent = `✅ أُعيد إرسال الكود إلى واتساب رقم 961${phone}`;
+            } catch(e) { showError(errorEl, e.message); }
+            setLoading(resendBtn, false, 'إعادة الإرسال');
+        });
+    }
+
     if (regBtn) {
         regBtn.addEventListener('click', async () => {
             const username    = document.getElementById('reg-username')?.value    || '';
@@ -38,30 +168,68 @@ function initModalAuth() {
             const lng         = document.getElementById('reg-lng')?.value         || null;
             const errorEl     = document.getElementById('reg-error');
 
-            // Client-side Lebanese phone validation
             const phoneDigits = phoneRaw.replace(/[\s\-]/g, '');
-            if (!phoneDigits) {
-                showError(errorEl, 'رقم الهاتف مطلوب. أدخل رقمك اللبناني.');
-                document.getElementById('reg-phone')?.focus();
-                return;
-            }
+            if (!phoneDigits) { showError(errorEl, 'رقم الهاتف مطلوب. أدخل رقمك اللبناني.'); return; }
             if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits)) {
-                showError(errorEl, 'رقم الهاتف غير صحيح. مثال: 03 123 456 أو 71 123 456');
-                document.getElementById('reg-phone')?.focus();
-                return;
+                showError(errorEl, 'رقم الهاتف غير صحيح. مثال: 03 123 456 أو 71 123 456'); return;
             }
-
-            setLoading(regBtn, true, 'جاري الإنشاء...');
             hideError(errorEl);
 
-            const result = await window.DelivoAuth.register({
-                username, displayName, password, phone: phoneDigits, lat, lng
-            });
+            const isOtpMode = window._regType === 'otp';
+            const otpStep   = document.getElementById('otp-step');
+            const saved     = _loadOtpState();
 
+            if (isOtpMode) {
+                // Step 1 — send OTP
+                if (!saved || otpStep?.style.display === 'none') {
+                    if (!username)           { showError(errorEl, 'اسم المستخدم مطلوب'); return; }
+                    if (!displayName)        { showError(errorEl, 'الاسم الظاهر مطلوب'); return; }
+                    if (password.length < 8) { showError(errorEl, 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
+
+                    setLoading(regBtn, true, '⏳ جاري الإرسال...');
+                    try {
+                        const code      = await _sendOtpWhatsapp(phoneDigits);
+                        const expiresAt = Date.now() + OTP_TIMEOUT;
+                        _saveOtpState({ username, displayName, password, phone: phoneDigits, lat, lng, code, expiresAt });
+                        if (otpStep) { otpStep.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${phoneDigits}`; }
+                        if (cancelBtn) cancelBtn.style.display = 'flex';
+                        regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
+                        _startOtpCountdown(60); _startExpireCountdown(expiresAt);
+                        document.getElementById('reg-otp')?.focus();
+                    } catch(e) { showError(errorEl, e.message); }
+                    setLoading(regBtn, false, regBtn.textContent);
+                    return;
+                }
+
+                // Step 2 — verify code
+                const entered = document.getElementById('reg-otp')?.value.trim() || '';
+                if (!entered)      { showError(errorEl, 'أدخل كود التحقق المُرسَل على واتساب'); return; }
+                if (!saved?.code)  { showError(errorEl, 'انتهت صلاحية الكود. اضغط إعادة الإرسال'); return; }
+                if (Date.now() > saved.expiresAt) { _cancelOtpStep(); return; }
+                if (entered !== saved.code) { showError(errorEl, '❌ الكود غير صحيح. تحقق من واتساب وحاول مجدداً'); document.getElementById('reg-otp')?.select(); return; }
+
+                setLoading(regBtn, true, '⏳ جاري إنشاء الحساب...');
+                _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
+                const result = await window.DelivoAuth.register({ username: saved.username, displayName: saved.displayName, password: saved.password, phone: saved.phone, lat: saved.lat, lng: saved.lng });
+                setLoading(regBtn, false, 'تأكيد الكود وإنشاء الحساب');
+                if (result.error) { showError(errorEl, result.message); }
+                else {
+                    closeModal('modal-subscribe');
+                    clearFields(['reg-username','reg-displayname','reg-password','reg-phone','reg-otp']);
+                    resetLocationBtn();
+                    if (otpStep)   otpStep.style.display   = 'none';
+                    if (cancelBtn) cancelBtn.style.display = 'none';
+                    regBtn.textContent = 'إرسال كود التحقق';
+                }
+                return;
+            }
+
+            // ── Direct mode ───────────────────────────────────
+            setLoading(regBtn, true, 'جاري الإنشاء...');
+            const result = await window.DelivoAuth.register({ username, displayName, password, phone: phoneDigits, lat, lng });
             setLoading(regBtn, false, 'إنشاء الحساب');
-            if (result.error) {
-                showError(errorEl, result.message);
-            } else {
+            if (result.error) { showError(errorEl, result.message); }
+            else {
                 closeModal('modal-subscribe');
                 clearFields(['reg-username','reg-displayname','reg-password','reg-phone']);
                 resetLocationBtn();

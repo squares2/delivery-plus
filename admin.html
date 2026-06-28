@@ -7148,6 +7148,58 @@ function renderSettings() {
             <div id="admin-phone-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
         </div>
 
+        <!-- ═══════════ REGISTRATION TYPE ═══════════ -->
+        <div class="settings-section">
+            <div class="settings-section-title">📝 نوع التسجيل</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">طريقة تفعيل الحساب</div>
+                    <div class="setting-sub">اختر كيف يتحقق النظام من هوية العميل عند إنشاء الحساب</div>
+                </div>
+            </div>
+            <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:10px;padding:12px 16px;">
+                <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border-radius:12px;border:2px solid transparent;cursor:pointer;transition:border-color .15s;" id="reg-type-direct-label">
+                    <input type="radio" name="reg-type" id="reg-type-direct" value="direct" onchange="setRegType('direct')" style="accent-color:var(--orange);width:16px;height:16px;flex-shrink:0;">
+                    <div>
+                        <div style="font-weight:800;font-size:0.85rem;">✅ التسجيل المباشر (الحالي)</div>
+                        <div style="font-size:0.7rem;color:var(--gray);margin-top:2px;">العميل يملأ البيانات ويسجل مباشرة بدون تحقق</div>
+                    </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border-radius:12px;border:2px solid transparent;cursor:pointer;transition:border-color .15s;" id="reg-type-otp-label">
+                    <input type="radio" name="reg-type" id="reg-type-otp" value="otp" onchange="setRegType('otp')" style="accent-color:var(--orange);width:16px;height:16px;flex-shrink:0;">
+                    <div>
+                        <div style="font-weight:800;font-size:0.85rem;">🔐 تفعيل بـ OTP عبر واتساب</div>
+                        <div style="font-size:0.7rem;color:var(--gray);margin-top:2px;">يرسل كود تحقق للعميل على واتساب عبر UltraMsg قبل إنشاء الحساب</div>
+                    </div>
+                </label>
+            </div>
+
+            <!-- UltraMsg credentials — shown only when OTP selected -->
+            <div id="ultramsg-section" style="display:none;border-top:1px solid var(--border);padding:14px 16px;">
+                <div style="font-size:0.72rem;font-weight:800;color:var(--gray);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">⚙️ إعدادات UltraMsg</div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div>
+                        <label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:4px;">Instance ID</label>
+                        <input type="text" id="ultramsg-instance" placeholder="مثال: instance12345" dir="ltr"
+                               style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border-bright);border-radius:10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;">
+                    </div>
+                    <div>
+                        <label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:4px;">Token</label>
+                        <input type="text" id="ultramsg-token" placeholder="الـ token من لوحة UltraMsg" dir="ltr"
+                               style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border-bright);border-radius:10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;">
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="saveUltraMsgConfig()" style="flex:1;padding:9px;background:var(--orange);border:none;border-radius:10px;color:#fff;font-family:inherit;font-weight:800;font-size:0.82rem;cursor:pointer;">💾 حفظ الإعدادات</button>
+                        <button onclick="testUltraMsg()" style="flex:1;padding:9px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);border-radius:10px;color:#25d366;font-family:inherit;font-weight:800;font-size:0.82rem;cursor:pointer;">🧪 اختبار الإرسال</button>
+                    </div>
+                    <div id="ultramsg-status" style="display:none;font-size:0.75rem;font-weight:700;padding:8px 12px;border-radius:8px;"></div>
+                    <div style="font-size:0.68rem;color:var(--gray);line-height:1.6;">
+                        🔗 احصل على Instance ID و Token من <a href="https://app.ultramsg.com" target="_blank" style="color:var(--orange);">app.ultramsg.com</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="settings-section">
             <div class="settings-section-title">🧪 وضع التجربة</div>
             <div class="setting-row">
@@ -7182,6 +7234,16 @@ function renderSettings() {
                 </div>
                 <label class="toggle">
                     <input type="checkbox" id="toggle-maintenance" onchange="setMaintenance(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">⭐ إظهار نظام النقاط والمكافآت</div>
+                    <div class="setting-sub">عند الإخفاء تستمر النقاط بالتجمع لكن العميل لا يراها. عند الإظهار تعود جميع النقاط والمكافآت المتراكمة</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-loyalty" onchange="setLoyaltyVisible(this.checked)" checked>
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -7520,6 +7582,24 @@ function renderSettings() {
             </div>
         </div>
     `;
+    // Load registration type
+    Promise.all([
+        fbGet('settings/regType'),
+        fbGet('settings/ultraMsgInstance'),
+        fbGet('settings/ultraMsgToken'),
+    ]).then(([regType, uInst, uToken]) => {
+        _syncRegTypeUI(regType || 'direct');
+        const instEl = document.getElementById('ultramsg-instance');
+        const tokEl  = document.getElementById('ultramsg-token');
+        if (instEl && uInst) instEl.value = uInst;
+        if (tokEl  && uToken) tokEl.value = uToken;
+    });
+
+    // Load loyalty visibility state
+    fbGet('settings/loyaltyVisible').then(val => {
+        const toggle = document.getElementById('toggle-loyalty');
+        if (toggle) toggle.checked = (val === null || val === undefined || val === true || val === 'true');
+    });
     // Load current maintenance state — reads from settings/maintenance (same path setMaintenance writes to)
     fbGet('settings/maintenance').then(val => {
         const isOn = val === true || val === 'true';
@@ -8091,6 +8171,8 @@ async function loadSettings() {
         if (!s) return;
         const maint = document.getElementById('toggle-maintenance');
         if (maint) maint.checked = s.maintenance === true || s.maintenance === 'true';
+        const loyTog = document.getElementById('toggle-loyalty');
+        if (loyTog) loyTog.checked = (s.loyaltyVisible === null || s.loyaltyVisible === undefined || s.loyaltyVisible === true || s.loyaltyVisible === 'true');
         // Test mode
         const testToggle = document.getElementById('toggle-test-mode');
         const testBadge  = document.getElementById('test-mode-badge');
@@ -8111,6 +8193,78 @@ async function setMaintenance(val) {
         await fbSet('settings/maintenance', val);
         toast(val ? '🔧 وضع الصيانة مفعّل' : '✅ الموقع يعمل بشكل طبيعي');
     } catch(e) { toast('فشل تحديث وضع الصيانة', true); }
+}
+
+/* ══════════════════════════════════════════════════════════
+   REGISTRATION TYPE — direct | otp
+══════════════════════════════════════════════════════════ */
+function _syncRegTypeUI(type) {
+    const directLabel  = document.getElementById('reg-type-direct-label');
+    const otpLabel     = document.getElementById('reg-type-otp-label');
+    const ultraSection = document.getElementById('ultramsg-section');
+    const directRadio  = document.getElementById('reg-type-direct');
+    const otpRadio     = document.getElementById('reg-type-otp');
+    const isOtp = type === 'otp';
+
+    if (directRadio) directRadio.checked = !isOtp;
+    if (otpRadio)    otpRadio.checked    =  isOtp;
+    if (directLabel) directLabel.style.borderColor = isOtp ? 'transparent' : 'var(--orange)';
+    if (otpLabel)    otpLabel.style.borderColor    = isOtp ? 'var(--orange)' : 'transparent';
+    if (ultraSection) ultraSection.style.display   = isOtp ? 'block' : 'none';
+}
+
+window.setRegType = async function(type) {
+    try {
+        await fbSet('settings/regType', type);
+        _syncRegTypeUI(type);
+        toast(type === 'otp' ? '🔐 تم التحويل لتسجيل OTP عبر واتساب' : '✅ تم التحويل للتسجيل المباشر');
+    } catch(e) { toast('❌ فشل الحفظ', true); }
+};
+
+window.saveUltraMsgConfig = async function() {
+    const instance = document.getElementById('ultramsg-instance')?.value.trim();
+    const token    = document.getElementById('ultramsg-token')?.value.trim();
+    const statusEl = document.getElementById('ultramsg-status');
+    if (!instance || !token) {
+        if (statusEl) { statusEl.textContent = '⚠️ أدخل Instance ID والـ Token'; statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = 'var(--red)'; statusEl.style.display = 'block'; }
+        return;
+    }
+    try {
+        await fbSet('settings/ultraMsgInstance', instance);
+        await fbSet('settings/ultraMsgToken', token);
+        if (statusEl) { statusEl.textContent = '✅ تم الحفظ'; statusEl.style.background = 'rgba(74,222,128,0.1)'; statusEl.style.color = '#4ade80'; statusEl.style.display = 'block'; setTimeout(() => statusEl.style.display = 'none', 3000); }
+        toast('✅ إعدادات UltraMsg محفوظة');
+    } catch(e) { toast('❌ فشل الحفظ', true); }
+};
+
+window.testUltraMsg = async function() {
+    const instance = document.getElementById('ultramsg-instance')?.value.trim() || await fbGet('settings/ultraMsgInstance');
+    const token    = document.getElementById('ultramsg-token')?.value.trim()    || await fbGet('settings/ultraMsgToken');
+    const phone    = document.getElementById('admin-phone-input')?.value.trim();
+    const statusEl = document.getElementById('ultramsg-status');
+    if (!instance || !token) { if (statusEl) { statusEl.textContent = '⚠️ أدخل الإعدادات أولاً'; statusEl.style.display = 'block'; } return; }
+    if (!phone) { if (statusEl) { statusEl.textContent = '⚠️ أدخل رقم الأدمن أولاً للاختبار'; statusEl.style.display = 'block'; } return; }
+    if (statusEl) { statusEl.textContent = '⏳ جاري الإرسال…'; statusEl.style.display = 'block'; }
+    try {
+        const resp = await fetch(`https://api.ultramsg.com/${instance}/messages/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ token, to: phone, body: '✅ اختبار Delivo OTP — UltraMsg يعمل بشكل صحيح 🎉' }),
+        });
+        const data = await resp.json();
+        if (data.sent === 'true' || data.sent === true) {
+            if (statusEl) { statusEl.textContent = '✅ أُرسلت رسالة اختبار على واتساب'; statusEl.style.background='rgba(74,222,128,0.1)'; statusEl.style.color='#4ade80'; }
+        } else {
+            if (statusEl) { statusEl.textContent = '❌ فشل الإرسال: ' + (data.error || JSON.stringify(data)); statusEl.style.background='rgba(239,68,68,0.1)'; statusEl.style.color='var(--red)'; }
+        }
+    } catch(e) { if (statusEl) { statusEl.textContent = '❌ خطأ: ' + e.message; statusEl.style.background='rgba(239,68,68,0.1)'; statusEl.style.color='var(--red)'; } }
+};
+
+async function setLoyaltyVisible(checked) {
+    try {
+        await fbSet('settings/loyaltyVisible', checked);
+        toast(checked ? '⭐ نظام النقاط مُفعَّل للعملاء' : '🙈 نظام النقاط مخفي عن العملاء');
+    } catch(e) { toast('فشل تحديث إعداد النقاط', true); }
 }
 
 async function setTestMode(val) {
