@@ -191,13 +191,17 @@ function onFirebaseReady() {
         }
     }
 
+    // Device limit uses RTDB (no Firestore auth rules issues for new users)
+    const _RTDB_DEVICES = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com/devices';
+
     async function checkDeviceLimit() {
         if (isDevBypass()) return { allowed: true, count: 0, uuid: 'dev-bypass' };
         try {
             const uuid = await getOrCreateDeviceUUID();
-            const snap = await db.collection('devices').doc(uuid).get();
-            if (!snap.exists) return { allowed: true, count: 0, uuid };
-            const count = snap.data().accountCount || 0;
+            const r    = await fetch(`${_RTDB_DEVICES}/${uuid}.json`);
+            const data = r.ok ? await r.json() : null;
+            if (!data) return { allowed: true, count: 0, uuid };
+            const count = data.accountCount || 0;
             if (count >= MAX_ACCOUNTS_PER_DEVICE) {
                 return {
                     allowed: false,
@@ -208,8 +212,7 @@ function onFirebaseReady() {
             }
             return { allowed: true, count, uuid };
         } catch (e) {
-            // Log clearly — do NOT fail open (don't allow if check fails)
-            console.error('[Delivo] checkDeviceLimit failed:', e.code, e.message);
+            console.error('[Delivo] checkDeviceLimit failed:', e.message);
             return {
                 allowed: false,
                 count:   MAX_ACCOUNTS_PER_DEVICE,
@@ -222,12 +225,17 @@ function onFirebaseReady() {
     async function incrementDeviceCount(uuid) {
         if (!uuid || uuid === 'unknown') return;
         try {
-            await db.collection('devices').doc(uuid).set({
-                accountCount: firebase.firestore.FieldValue.increment(1),
-                lastUsed:     firebase.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
+            // Read current count, increment, write back
+            const r     = await fetch(`${_RTDB_DEVICES}/${uuid}.json`);
+            const data  = r.ok ? await r.json() : null;
+            const count = (data?.accountCount || 0) + 1;
+            await fetch(`${_RTDB_DEVICES}/${uuid}.json`, {
+                method:  'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ accountCount: count, lastUsed: new Date().toISOString() }),
+            });
         } catch (e) {
-            console.error('[Delivo] incrementDeviceCount:', e);
+            console.error('[Delivo] incrementDeviceCount:', e.message);
         }
     }
 
@@ -320,7 +328,7 @@ function onFirebaseReady() {
     window.DelivoAuth = {
 
         // ── Register with username + password ──────────────────
-        async register({ username, displayName, password, phone, lat, lng }) {
+        async register({ username, displayName, password, phone, lat, lng, skipDeviceLimit = false }) {
 
             // Validate username
             username = (username || '').toLowerCase().trim();
@@ -347,12 +355,12 @@ function onFirebaseReady() {
             if (!rateLimit('register', 3, 60_000))
                 return { error: true, message: 'حاولت كثيراً. انتظر دقيقة.' };
 
-            // Check device limit (max 3 accounts per device)
+            // Check device limit — enforced for standard registration, bypassed for OTP-verified
             const deviceCheck = await checkDeviceLimit();
-            if (!deviceCheck.allowed)
+            if (!skipDeviceLimit && !deviceCheck.allowed)
                 return { error: true, message: deviceCheck.message };
 
-            // Check if device UUID is blacklisted
+            // Check if device UUID is blacklisted (always enforced, even for OTP)
             if (deviceCheck.uuid) {
                 try {
                     const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
@@ -365,16 +373,50 @@ function onFirebaseReady() {
                 } catch (_) {}
             }
 
-            // Check username not already taken
+            // ── Check Firestore username reservation ──────────────────
+            const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
             try {
                 const taken = await db.collection('usernames').doc(username).get();
                 if (taken.exists)
                     return { error: true, message: 'اسم المستخدم محجوز. اختر اسماً آخر.' };
             } catch (e) {}
 
+            // ── Find a free Firebase Auth email slot and create account ──
+            // Even when Firestore shows the username as free, the old Auth account
+            // (username@delivo.internal) may still exist if it was never fully deleted.
+            // Strategy: attempt createUserWithEmailAndPassword on each slot in order.
+            // If auth/email-already-in-use -> try the next slot. First success wins.
+            //   slot 0 -> username@delivo.internal
+            //   slot 1 -> username~1@delivo.internal ... up to slot 19
+            let _cred = null;
+            let _email = null;
+            const _slots = [
+                username + '@delivo.internal',
+                ...Array.from({ length: 19 }, (_, i) => username + '~' + (i + 1) + '@delivo.internal'),
+            ];
+            for (const _slot of _slots) {
+                try {
+                    _cred  = await auth.createUserWithEmailAndPassword(_slot, password);
+                    _email = _slot;
+                    break;
+                } catch (_slotErr) {
+                    if (_slotErr.code === 'auth/email-already-in-use') continue;
+                    console.error('[Delivo] register:', _slotErr.code, _slotErr.message);
+                    return { error: true, message: authMsg(_slotErr.code) };
+                }
+            }
+            if (!_cred || !_email) {
+                try {
+                    _email = username + '~' + Date.now() + '@delivo.internal';
+                    _cred  = await auth.createUserWithEmailAndPassword(_email, password);
+                } catch(_fb) {
+                    return { error: true, message: authMsg(_fb.code) };
+                }
+            }
+
             try {
-                const email = usernameToEmail(username);
-                const cred  = await auth.createUserWithEmailAndPassword(email, password);
+                const email = _email;
+                const cred  = _cred;
                 const user  = cred.user;
 
                 // Set display name in Auth
@@ -382,27 +424,32 @@ function onFirebaseReady() {
 
                 // Save user profile to Firestore
                 const userData = {
-                    username:    username,
-                    displayName: sanitize(displayName.trim()),
-                    phone:       safePhone,
-                    deviceUUID:  deviceCheck.uuid,
-                    createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
+                    username:           username,
+                    displayName:        sanitize(displayName.trim()),
+                    phone:              safePhone,
+                    deviceUUID:         deviceCheck.uuid,
+                    authEmail:          email,   // stored so admin can delete the Auth account later
+                    registrationMethod: skipDeviceLimit ? 'otp' : 'standard',
+                    createdAt:          firebase.firestore.FieldValue.serverTimestamp(),
                 };
                 if (lat && lng) {
                     userData.location = { lat: Number(lat), lng: Number(lng) };
                 }
                 await db.collection('users').doc(user.uid).set(userData);
 
-                // Reserve username
+                // Reserve username in Firestore
                 await db.collection('usernames').doc(username).set({
                     uid:       user.uid,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 });
 
+                // Always clean up any leftover deletedUsernames marker
+                try {
+                    await fetch(`${RTDB_BASE}/deletedUsernames/${encodeURIComponent(username)}.json`, { method: 'DELETE' });
+                } catch(_) {}
+
                 // Index phone for uniqueness checks (RTDB for fast REST lookup)
                 try {
-                    const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-                    // Index by digits only (no country code) — matches modal-auth check
                     await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}.json`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -413,14 +460,35 @@ function onFirebaseReady() {
                 // Increment device account count
                 await incrementDeviceCount(deviceCheck.uuid);
 
-                // Update local user state with phone immediately
-                if (window.DelivoUser) window.DelivoUser.phone = safePhone;
+                // ── Immediately populate DelivoUser with full profile ─────
+                // onAuthStateChanged fires as soon as createUserWithEmailAndPassword
+                // completes — BEFORE the Firestore write above. So DelivoUser ends up
+                // with partial/empty data. We overwrite it now with the real values.
+                window.DelivoUser = {
+                    uid:                user.uid,
+                    username:           username,
+                    displayName:        sanitize(displayName.trim()),
+                    phone:              safePhone,
+                    deviceUUID:         deviceCheck.uuid,
+                    authEmail:          email,
+                    registrationMethod: skipDeviceLimit ? 'otp' : 'standard',
+                };
+                if (lat && lng) {
+                    window.DelivoUser.location = { lat: Number(lat), lng: Number(lng) };
+                }
+
+                // Re-render account modal and navbar with the correct data
+                if (typeof window.__renderAccountModal === 'function') {
+                    window.__renderAccountModal();
+                }
+                const bbBtn2  = document.getElementById('bb-account-btn');
+                const acctBtn2 = document.getElementById('account-btn');
+                if (bbBtn2)   bbBtn2.classList.add('logged-in');
+                if (acctBtn2) acctBtn2.classList.add('logged-in');
 
                 return { success: true };
             } catch (e) {
                 console.error('[Delivo] register:', e.code, e.message);
-                if (e.code === 'auth/email-already-in-use')
-                    return { error: true, message: 'اسم المستخدم محجوز. اختر اسماً آخر.' };
                 return { error: true, message: authMsg(e.code) };
             }
         },

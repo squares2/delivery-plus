@@ -62,7 +62,7 @@ function initModalAuth() {
             const resendRunning = document.getElementById('otp-resend-btn')?.disabled;
             if (timerEl && !resendRunning) {
                 const m = Math.floor(left/60000), s = Math.floor((left%60000)/1000);
-                timerEl.textContent = `⏰ ينتهي الكود بعد ${m}:${s.toString().padStart(2,'0')}`;
+                timerEl.textContent = `⏰ ينتهي الكود بعد ${m}:${s.toString().padStart(2,"0")}`;
             }
             _otpExpireTimer = setTimeout(_tick, 1000);
         };
@@ -104,7 +104,7 @@ function initModalAuth() {
     // ── Real-time username availability check ───────────────────
     const FS_BASE = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
     let _usernameCheckTimer = null;
-    let _usernameAvailable  = false;
+    let _usernameAvailable  = null;  // null=unchecked, true=available, false=taken
     let _phoneAvailable     = true;
 
     const regUsernameEl = document.getElementById('reg-username');
@@ -128,24 +128,38 @@ function initModalAuth() {
             _setFieldState(regUsernameEl, 'loading', hint, '⏳ جاري التحقق…');
             _usernameCheckTimer = setTimeout(async () => {
                 try {
-                    const resp = await fetch(`${FS_BASE}/usernames/${encodeURIComponent(val)}`);
-                    if (resp.status === 404) {
+                    const RTDB_CHECK = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+                    // Step 1: RTDB deletedUsernames — admin-deleted usernames are always re-available
+                    try {
+                        const delResp = await fetch(`${RTDB_CHECK}/deletedUsernames/${encodeURIComponent(val)}.json`);
+                        const delData = delResp.ok ? await delResp.json() : null;
+                        if (delData && delData.deletedAt) {
+                            _usernameAvailable = true;
+                            _setFieldState(regUsernameEl, 'success', hint, '✅ اسم المستخدم متاح');
+                            return;
+                        }
+                    } catch(_) {}
+
+                    // Step 2: Firestore usernames collection
+                    const resp = await fetch(`${FS_BASE}/usernames/${encodeURIComponent(val)}`).catch(() => ({ status: 0 }));
+                    if (resp.status === 404 || resp.status === 0) {
                         _usernameAvailable = true;
                         _setFieldState(regUsernameEl, 'success', hint, '✅ اسم المستخدم متاح');
-                    } else if (resp.ok) {
+                    } else if (resp.status === 200) {
                         _usernameAvailable = false;
                         _setFieldState(regUsernameEl, 'error', hint, '❌ اسم المستخدم محجوز، اختر اسماً آخر');
                     } else {
-                        _usernameAvailable = true; // allow on network error
+                        _usernameAvailable = null;
                         _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
                     }
                 } catch (_) {
-                    _usernameAvailable = true;
+                    _usernameAvailable = null;
                     _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
                 }
             }, 500);
-        });
-    }
+        });  // end regUsernameEl.addEventListener
+    }  // end if (regUsernameEl)
 
     // ── Real-time phone uniqueness check ─────────────────────────
     let _phoneCheckTimer = null;
@@ -216,6 +230,9 @@ function initModalAuth() {
         fillField('reg-phone',      state.phone);
         fillField('reg-lat',        state.lat);
         fillField('reg-lng',        state.lng);
+        // Username was already validated before OTP was sent — mark as available
+        _usernameAvailable = true;
+        _phoneAvailable    = true;
 
         // Open modal and show OTP step
         document.getElementById('modal-subscribe')?.classList.add('active');
@@ -229,6 +246,13 @@ function initModalAuth() {
         if (regBtn) regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
         const cancelBtn = document.getElementById('otp-cancel-btn');
         if (cancelBtn) cancelBtn.style.display = 'flex';
+
+        // Show ✅ on username field hint since it was validated before OTP
+        if (state.username) {
+            const uEl = document.getElementById('reg-username');
+            const uHint = uEl?.closest('.modal-field')?.querySelector('.field-hint');
+            _setFieldState(uEl, 'success', uHint, '✅ اسم المستخدم متاح');
+        }
 
         const remainSec = Math.floor((state.expiresAt - Date.now()) / 1000);
         _startOtpCountdown(Math.min(60, remainSec));
@@ -285,7 +309,7 @@ function initModalAuth() {
                 // Step 1 — send OTP
                 if (!saved || otpStep?.style.display === 'none') {
                     if (!username)           { showError(errorEl, 'اسم المستخدم مطلوب'); return; }
-                    if (!_usernameAvailable) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
+                    if (_usernameAvailable === false) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
                     if (!displayName)        { showError(errorEl, 'الاسم الظاهر مطلوب'); return; }
                     if (password.length < 8) { showError(errorEl, 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
                     if (!_phoneAvailable)    { showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
@@ -314,7 +338,7 @@ function initModalAuth() {
 
                 setLoading(regBtn, true, '⏳ جاري إنشاء الحساب...');
                 _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
-                const result = await window.DelivoAuth.register({ username: saved.username, displayName: saved.displayName, password: saved.password, phone: saved.phone, lat: saved.lat, lng: saved.lng });
+                const result = await window.DelivoAuth.register({ username: saved.username, displayName: saved.displayName, password: saved.password, phone: saved.phone, lat: saved.lat, lng: saved.lng, skipDeviceLimit: true });
                 setLoading(regBtn, false, 'تأكيد الكود وإنشاء الحساب');
                 if (result.error) { showError(errorEl, result.message); }
                 else {
@@ -329,7 +353,7 @@ function initModalAuth() {
             }
 
             // ── Direct mode ───────────────────────────────────
-            if (!_usernameAvailable) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
+            if (_usernameAvailable === false) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
             if (!_phoneAvailable)    { showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
             setLoading(regBtn, true, 'جاري الإنشاء...');
             const result = await window.DelivoAuth.register({ username, displayName, password, phone: phoneDigits, lat, lng });

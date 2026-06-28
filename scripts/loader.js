@@ -188,6 +188,27 @@ document.addEventListener('DOMContentLoaded', loadAll);
             document.body.style.overflow = isMaint ? 'hidden' : '';
         }
 
+        /* deleted flag — sign out immediately if account was deleted by admin */
+        if (settings.deletedUsers && typeof settings.deletedUsers === 'object') {
+            const user = window.DelivoUser;
+            if (user && user.uid && settings.deletedUsers[user.uid]) {
+                // Account deleted — sign out and show blocked screen
+                if (window.DelivoAuth && typeof window.DelivoAuth.logout === 'function') {
+                    window.DelivoAuth.logout();
+                } else if (window.firebase?.auth) {
+                    window.firebase.auth().signOut();
+                }
+                window.DelivoUser = null;
+                if (typeof _showBlockedScreen === 'function') {
+                    _showBlockedScreen('تم حذف هذا الحساب من قِبَل الإدارة.');
+                } else {
+                    alert('تم حذف حسابك. يرجى التواصل مع الدعم.');
+                    location.reload();
+                }
+                return;
+            }
+        }
+
         /* regType — switch register modal between direct and OTP */
         window._regType          = settings.regType          || 'direct';
         window._ultraMsgInstance = settings.ultraMsgInstance || '';

@@ -1109,6 +1109,48 @@ input, select, textarea { font-family: var(--font); }
 .ut-status.blocked  { background: rgba(239,68,68,0.15); color: var(--red);  }
 .ut-row--blocked td { background: rgba(239,68,68,0.04) !important; }
 .ut-row--blocked .ut-name { color: var(--red) !important; }
+/* ── Multi-account group rows ─────────────────────────────── */
+.ut-row--group-header td {
+    background: rgba(251,191,36,0.06) !important;
+    border-bottom: none !important;
+    border-top: 2px solid rgba(251,191,36,0.25) !important;
+}
+.ut-row--group-header:hover td { background: rgba(251,191,36,0.1) !important; }
+.ut-row--group-header.blocked td { background: rgba(239,68,68,0.09) !important; border-top-color: rgba(239,68,68,0.35) !important; }
+.ut-row--sub {
+    background: rgba(251,191,36,0.02) !important;
+    border-right: 3px solid rgba(251,191,36,0.35) !important;
+}
+.ut-row--sub td { background: transparent !important; border-bottom: 1px solid rgba(251,191,36,0.08) !important; }
+.ut-row--sub:hover td { background: rgba(251,191,36,0.05) !important; }
+.ut-row--sub:last-of-type td { border-bottom: 2px solid rgba(251,191,36,0.25) !important; }
+.ut-row--sub.ut-row--blocked { border-right-color: rgba(239,68,68,0.5) !important; }
+.ut-row--sub.ut-row--blocked td { background: rgba(239,68,68,0.04) !important; }
+.ut-group-count {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(251,191,36,0.15); border: 1.5px solid rgba(251,191,36,0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 800; color: #f59e0b;
+}
+.ut-group-count.blocked { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); color: var(--red); }
+.ut-sub-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(251,191,36,0.6); flex-shrink: 0;
+}
+.ut-sub-dot.blocked { background: var(--red); }
+.ut-group-tag {
+    font-size: 0.68rem; font-weight: 800; color: #f59e0b;
+    background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3);
+    border-radius: 50px; padding: 1px 8px;
+}
+.ut-group-tag.blocked { color: var(--red); background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); }
+.ut-group-arrow {
+    font-size: 0.65rem; color: #f59e0b; font-weight: 700;
+    padding: 3px 10px; border-radius: 50px; border: 1.5px solid rgba(251,191,36,0.3);
+    background: rgba(251,191,36,0.07); white-space: nowrap; transition: all 0.15s;
+}
+.ut-group-arrow.expanded { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.5); }
+.ut-group-arrow.blocked { color: var(--red); border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.07); }
 /* blacklist reason modal */
 #bl-reason-overlay {
     position:fixed;inset:0;z-index:10200;background:rgba(0,0,0,0.75);
@@ -2445,6 +2487,67 @@ input, select, textarea { font-family: var(--font); }
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+(function() {
+    const FB_CONFIG = {
+        apiKey:            "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
+        authDomain:        "deliveryonline-300f7.firebaseapp.com",
+        databaseURL:       "https://deliveryonline-300f7-default-rtdb.firebaseio.com",
+        projectId:         "deliveryonline-300f7",
+        storageBucket:     "deliveryonline-300f7.firebasestorage.app",
+        messagingSenderId: "294667842345",
+        appId:             "1:294667842345:web:delivo-admin",
+    };
+    try {
+        window._adminFbApp = firebase.apps.length
+            ? firebase.apps[0]
+            : firebase.initializeApp(FB_CONFIG, 'admin');
+        window._adminDb   = firebase.firestore(window._adminFbApp);
+        window._adminAuth = firebase.auth(window._adminFbApp);
+
+        // Sign in with admin credentials so Firestore rules pass
+        // This uses the Firebase SDK sign-in (separate from the REST getFsToken flow)
+        // and does NOT count against the REST rate limit
+        window._adminAuth.signInWithEmailAndPassword(
+            'admin@delivo.app', 'delivo26'
+        ).then(() => {
+            console.log('[Admin] Firebase SDK signed in ✅');
+        }).catch(e => {
+            console.warn('[Admin] Firebase SDK sign-in failed:', e.message,
+                '— will retry when lockout clears');
+            // Retry once after 6 minutes (Firebase lockout is usually 5 min)
+            setTimeout(() => {
+                window._adminAuth.signInWithEmailAndPassword(
+                    'admin@delivo.app', 'delivo26'
+                ).then(() => {
+                    console.log('[Admin] Firebase SDK signed in after retry ✅');
+                    // Reload data now that SDK is authenticated
+                    if (typeof loadAllData === 'function') {
+                        _fsSignInFails = 0;
+                        _resumeAutoRefresh();
+                        loadAllData();
+                    }
+                }).catch(() => {});
+            }, 6 * 60 * 1000);
+        });
+
+        // Watch SDK auth state — when signed in, resume everything
+        window._adminAuth.onAuthStateChanged(user => {
+            if (user && typeof _resumeAutoRefresh === 'function') {
+                _fsSignInFails = 0;
+                _resumeAutoRefresh();
+            }
+        });
+
+        console.log('[Admin] Firebase SDK ready');
+    } catch(e) {
+        console.warn('[Admin] Firebase SDK init failed:', e.message);
+    }
+})();
+</script>
 
     <!-- Presence UI injected dynamically by admin-presence.js -->
 <script>
@@ -2473,43 +2576,66 @@ const FB_AUTH_URL = `https://identitytoolkit.googleapis.com/v1/accounts:signInWi
 // ── Firestore Auth credentials ────────────────────────────────
 // Must match a real Firebase Auth user in your project
 // (Firebase Console → Authentication → Users → Add user)
-const FS_ADMIN_EMAIL = 'admin@delivivo.app';  // ← your Firebase Auth email
-const FS_ADMIN_PASS  = 'delivo2025';           // ← that user's password
+const FS_ADMIN_EMAIL = 'admin@delivo.app';  // ← your Firebase Auth email
+const FS_ADMIN_PASS  = 'delivo26';           // ← that user's password
 
 // ── Firebase Auth token (for Firestore reads) ─────────────────
-let _fsToken       = null;
-let _fsTokenExpiry = 0;
+let _fsToken        = null;
+let _fsTokenExpiry  = 0;
+let _fsTokenPromise = null;   // in-flight sign-in promise — prevents parallel sign-in hammering
+let _fsSignInFails  = 0;      // consecutive failure counter
+const _FS_MAX_FAILS = 3;      // stop retrying after this many consecutive failures
 
 async function getFsToken() {
     // Re-use cached token if still valid (refresh 60s before expiry)
     if (_fsToken && Date.now() < _fsTokenExpiry) return _fsToken;
-    // Sign in with the admin panel's Firebase Auth account
-    console.log('[Auth] Signing into Firebase Auth as:', FS_ADMIN_EMAIL);
-    const r = await fetch(FB_AUTH_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            email:             FS_ADMIN_EMAIL,
-            password:          FS_ADMIN_PASS,
-            returnSecureToken: true,
-        }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-        console.error('[Auth] Firebase sign-in failed:', d?.error?.message, '| email:', FS_ADMIN_EMAIL);
-        throw new Error('Firebase Auth: ' + (d?.error?.message || r.status));
+
+    // If a sign-in is already in progress, wait for it instead of firing another one
+    if (_fsTokenPromise) return _fsTokenPromise;
+
+    // Hard stop after too many consecutive failures — prevents Firebase lockout
+    if (_fsSignInFails >= _FS_MAX_FAILS) {
+        throw new Error('Firebase Auth: too many failed attempts. Reload the page.');
     }
-    console.log('[Auth] ✅ Got Firestore token, expires in', d.expiresIn, 's');
-    _fsToken       = d.idToken;
-    _fsTokenExpiry = Date.now() + (parseInt(d.expiresIn) - 60) * 1000;
-    return _fsToken;
+
+    _fsTokenPromise = (async () => {
+        try {
+            console.log('[Auth] Signing into Firebase Auth as:', FS_ADMIN_EMAIL);
+            const r = await fetch(FB_AUTH_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email:             FS_ADMIN_EMAIL,
+                    password:          FS_ADMIN_PASS,
+                    returnSecureToken: true,
+                }),
+            });
+            const d = await r.json();
+            if (!r.ok) {
+                _fsSignInFails++;
+                console.error('[Auth] Firebase sign-in failed:', d?.error?.message, '| email:', FS_ADMIN_EMAIL);
+                throw new Error('Firebase Auth: ' + (d?.error?.message || r.status));
+            }
+            _fsSignInFails  = 0;   // reset on success
+            _fsToken        = d.idToken;
+            _fsTokenExpiry  = Date.now() + (parseInt(d.expiresIn) - 60) * 1000;
+            console.log('[Auth] Got Firestore token, expires in', d.expiresIn, 's');
+            // Resume auto-refresh if it was paused due to auth failure
+            _resumeAutoRefresh();
+            return _fsToken;
+        } finally {
+            _fsTokenPromise = null;   // release lock regardless of success/failure
+        }
+    })();
+
+    return _fsTokenPromise;
 }
 
 // ── Admin accounts stored in Firebase at /adminUsers ──────────
 // Super-admin is seeded here as fallback for first boot
 const SEED_SUPERADMIN = {
     username:    'admin',
-    password:    'delivo2025',
+    password:    'delivo26',
     fullname:    'Super Admin',
     role:        'superadmin',
     permissions: ['map','orders','online-req','drivers','customers','stores','catalog','employees','settings'],
@@ -2537,7 +2663,33 @@ let storeSearch    = '';
 let mapLayers    = { stores: true, drivers: true, customers: true, orders: true };
 let adminMap     = null;
 let mapMarkers   = { stores: [], drivers: [], customers: [], orders: [] };
-let refreshTimer = null;
+let refreshTimer         = null;
+let _refreshPaused       = false;
+const REFRESH_INTERVAL   = 12_000;   // 12 seconds
+
+function _pauseAutoRefresh() {
+    if (_refreshPaused) return;
+    _refreshPaused = true;
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+    console.warn('[Admin] Auto-refresh PAUSED (auth lockout)');
+}
+
+function _resumeAutoRefresh() {
+    if (!_refreshPaused) return;
+    _refreshPaused = false;
+    const banner = document.getElementById('auth-lockout-banner');
+    if (banner) banner.remove();
+    // Restart the refresh cycle
+    if (!refreshTimer) {
+        refreshTimer = setInterval(async () => {
+            if (_refreshPaused) return;
+            await loadAllData();
+            updateTopbarStats(); updateNavBadge();
+        }, REFRESH_INTERVAL);
+    }
+    console.log('[Admin] Auto-refresh RESUMED');
+}
 let pendingAssignOrderId = null;
 let sidebarCollapsed = false;
 
@@ -2818,16 +2970,15 @@ function fsDocToObj(doc, isNested = false) {
     return obj;
 }
 
-// Fetches all docs from a Firestore collection (handles pagination)
+// Fetches all docs from a Firestore collection using Firebase SDK
 async function fsGetCollection(collection) {
+    // Use REST with fresh token — works regardless of Firestore SDK rules
     let allDocs = {};
     let pageToken = null;
     do {
         const token = await getFsToken();
         const url = `${FIRESTORE}/${collection}?pageSize=300${pageToken ? '&pageToken=' + pageToken : ''}`;
-        const r = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const r = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
         if (!r.ok) throw new Error(`Firestore ${r.status}: ${collection}`);
         const data = await r.json();
         (data.documents || []).forEach(doc => {
@@ -3480,6 +3631,20 @@ async function loadAllData() {
         allUsers   = users   || {};
         adminUsers = admins  || {};
 
+        // ── Merge RTDB points into allUsers ───────────────────
+        // Points are stored in RTDB /users/{uid}/points, not in Firestore.
+        // Fetch all at once and merge so renderCustomers() shows correct values.
+        try {
+            const rtdbUsers = await fbGet('users').catch(() => null);
+            if (rtdbUsers && typeof rtdbUsers === 'object') {
+                Object.entries(rtdbUsers).forEach(([uid, data]) => {
+                    if (allUsers[uid] && data && data.points !== undefined) {
+                        allUsers[uid].points = data.points;
+                    }
+                });
+            }
+        } catch(_) {}
+
         allDeviceGroups = {};
         Object.values(allUsers).forEach(u => {
             const uuid = u.deviceUUID;
@@ -3521,7 +3686,39 @@ async function loadAllData() {
 
     } catch(e) {
         console.error('[Admin] loadAllData:', e);
-        toast('خطأ في تحميل البيانات', true);
+        const msg = e.message || '';
+        if (msg.includes('TOO_MANY_ATTEMPTS') || msg.includes('too many failed')) {
+            // Firebase locked out — stop the auto-refresh timer immediately to prevent more hammering
+            _pauseAutoRefresh();
+            _fsToken = null; _fsTokenExpiry = 0; _fsSignInFails = _FS_MAX_FAILS;
+            const existing = document.getElementById('auth-lockout-banner');
+            if (!existing) {
+                const banner = document.createElement('div');
+                banner.id = 'auth-lockout-banner';
+                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#ef4444;color:#fff;text-align:center;padding:14px 20px;font-size:14px;font-weight:600;';
+                banner.innerHTML = '⚠️ Firebase Auth مؤقتاً محظور بسبب محاولات تسجيل دخول متكررة. انتظر 5 دقائق ثم <a href="javascript:location.reload()" style="color:#fff;text-decoration:underline;">أعِد تحميل الصفحة</a>.';
+                document.body.prepend(banner);
+            }
+            // Auto-retry after 5 minutes
+            setTimeout(() => {
+                _fsSignInFails = 0;
+                _fsToken = null; _fsTokenExpiry = 0;
+                const b = document.getElementById('auth-lockout-banner');
+                if (b) b.innerHTML = '🔄 جاري إعادة المحاولة... <a href="javascript:location.reload()" style="color:#fff;text-decoration:underline;">أو أعِد تحميل الصفحة</a>';
+                loadAllData();
+            }, 5 * 60 * 1000);
+        } else if (msg.includes('INVALID_LOGIN_CREDENTIALS')) {
+            const existing = document.getElementById('auth-lockout-banner');
+            if (!existing) {
+                const banner = document.createElement('div');
+                banner.id = 'auth-lockout-banner';
+                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;text-align:center;padding:14px 20px;font-size:14px;font-weight:600;';
+                banner.innerHTML = '⚠️ بيانات اعتماد Firebase Auth غير صحيحة (FS_ADMIN_EMAIL / FS_ADMIN_PASS). تحقق من admin.html.';
+                document.body.prepend(banner);
+            }
+        } else {
+            toast('خطأ في تحميل البيانات: ' + (msg || 'unknown'), true);
+        }
     }
 }
 
@@ -3548,6 +3745,7 @@ function startAutoRefresh() {
 
     // ── Polling interval — full data refresh every 12s ────────
     refreshTimer = setInterval(async () => {
+        if (_refreshPaused || _fsSignInFails >= _FS_MAX_FAILS) return;
         await loadAllData();
         updateTopbarStats();
         updateNavBadge();
@@ -5488,33 +5686,32 @@ function renderCustomers() {
 
         if (isGroup) {
             const groupRow = document.createElement('tr');
-            groupRow.style.cssText = `background:${uuidBlocked ? 'rgba(239,68,68,0.09)' : 'rgba(239,68,68,0.04)'};cursor:pointer;`;
-            const blInfo = uuidBlocked ? `<span class="bl-uuid-badge">\ud83d\udea7 UUID \u0645\u062d\u0638\u0648\u0631</span>` : '';
+            groupRow.className = 'ut-row--group-header' + (uuidBlocked ? ' blocked' : '');
+            groupRow.style.cursor = 'pointer';
             groupRow.innerHTML = `
-                <td colspan="8">
-                    <div style="display:flex;align-items:center;gap:10px;padding:4px 2px;">
-                        <div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;
-                                    background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.4);
-                                    display:flex;align-items:center;justify-content:center;
-                                    font-size:0.72rem;font-weight:800;color:var(--red);">${peers.length}</div>
+                <td colspan="9">
+                    <div style="display:flex;align-items:center;gap:10px;padding:5px 2px;">
+                        <div class="ut-group-count ${uuidBlocked?'blocked':''}">${peers.length}</div>
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                <span style="font-size:0.7rem;font-weight:800;color:var(--red);">\u26a0\ufe0f \u062c\u0647\u0627\u0632 \u0648\u0627\u062d\u062f \u00b7 ${peers.length} \u062d\u0633\u0627\u0628\u0627\u062a</span>
-                                ${blInfo}
-                                ${peers.map(p => `<span style="background:var(--surface2);border:1px solid var(--border);
-                                    border-radius:50px;padding:1px 8px;font-size:0.65rem;font-weight:700;color:var(--gray-light);">@${p.username||'\u2014'}</span>`).join('')}
+                                <span class="ut-group-tag ${uuidBlocked?'blocked':''}">
+                                    ${uuidBlocked?'🚫':'⚠️'} جهاز واحد · ${peers.length} حسابات
+                                </span>
+                                ${uuidBlocked ? `<span class="bl-uuid-badge">🛧 UUID محظور</span>` : ''}
+                                ${peers.map(p => `<span style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);
+                                    border-radius:50px;padding:1px 8px;font-size:0.65rem;font-weight:700;color:#f59e0b;">@${p.username||'—'}</span>`).join('')}
                             </div>
-                            <div style="font-size:0.62rem;color:var(--gray);margin-top:2px;font-family:var(--mono);">
-                                UUID: ${uuid ? uuid.slice(0,24)+'\u2026' : '\u2014'}
+                            <div style="font-size:0.61rem;color:var(--gray);margin-top:3px;font-family:var(--mono);">
+                                UUID: ${uuid ? uuid.slice(0,28)+'…' : '—'}
                             </div>
-                            ${uuidBlocked ? `<div style="font-size:0.65rem;color:var(--red);margin-top:2px;">\u26d4 \u0633\u0628\u0628: ${bl[uuid].reason||'\u2014'}</div>` : ''}
+                            ${uuidBlocked ? `<div style="font-size:0.65rem;color:var(--red);margin-top:2px;">⛔ سبب: ${bl[uuid].reason||'—'}</div>` : ''}
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
                             ${uuid ? `<button class="uuid-bl-btn ${uuidBlocked?'unblock':''}"
                                 data-uuid="${uuid}" data-action="${uuidBlocked?'unblock-uuid':'block-uuid'}">
-                                ${uuidBlocked ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631 UUID'}
+                                ${uuidBlocked ? '✅ رفع الحظر' : '🛧 حظر UUID'}
                             </button>` : ''}
-                            <span style="font-size:0.65rem;color:var(--gray);">\u25be \u0639\u0631\u0636</span>
+                            <span class="ut-group-arrow">▾ عرض</span>
                         </div>
                     </div>
                 </td>`;
@@ -5525,17 +5722,17 @@ function renderCustomers() {
                 const isActive  = p.status === 'active';
                 const ts        = p.createdAt
                     ? new Date(p.createdAt).toLocaleDateString('ar')
-                    : (p.timestamp ? new Date(p.timestamp).toLocaleDateString('ar') : '\u2014');
+                    : (p.timestamp ? new Date(p.timestamp).toLocaleDateString('ar') : '—');
                 const ordCount  = userOrders[p._id] || userOrders[p.username] || 0;
                 const tr2       = document.createElement('tr');
-                tr2.className   = pBlocked ? 'ut-row--blocked' : '';
+                tr2.className   = 'ut-row--sub' + (pBlocked ? ' ut-row--blocked' : '');
                 tr2.style.display = 'none';
                 tr2.dataset.sub = uuid;
                 tr2.innerHTML = `
                     <td style="padding-right:24px;">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span style="width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0;"></span>
-                            <span class="ut-avatar-sm" style="background:rgba(239,68,68,0.15);color:var(--red);border-color:rgba(239,68,68,0.3);">${initial}</span>
+                            <span class="ut-sub-dot ${pBlocked?'blocked':''}"></span>
+                            <span class="ut-avatar-sm" style="background:rgba(251,191,36,0.1);color:#f59e0b;border-color:rgba(251,191,36,0.3);">${initial}</span>
                             <div>
                                 <div class="ut-name">${p.displayName||p.fullname||'\u2014'}</div>
                                 ${bl[p._id] ? `<div style="font-size:0.62rem;color:var(--red);">\u26d4 ${bl[p._id].reason||'\u0645\u062d\u0638\u0648\u0631'}</div>` : ''}
@@ -5556,11 +5753,18 @@ function renderCustomers() {
                         return `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat2}" data-lng="${_lng2}" data-cname="${p.displayName||p.username||''}">📍 خريطة</button>`;
                     })()}</td>
                     <td>
-                        <button class="uuid-bl-btn ${bl[p._id]?'unblock':''}"
-                            data-uid="${p._id}" data-name="${p.displayName||p.username||''}"
-                            data-action="${bl[p._id]?'unblock-uid':'block-uid'}" style="width:100%;">
-                            ${bl[p._id] ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
-                        </button>
+                        <div style="display:flex;flex-direction:column;gap:4px;">
+                            <button class="uuid-bl-btn ${bl[p._id]?'unblock':''}"
+                                data-uid="${p._id}" data-name="${p.displayName||p.username||''}"
+                                data-action="${bl[p._id]?'unblock-uid':'block-uid'}" style="width:100%;">
+                                ${bl[p._id] ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
+                            </button>
+                            <button class="cust-delete-btn"
+                                data-uid="${p._id}" data-username="${p.username||''}" data-name="${p.displayName||p.username||''}" data-phone="${p.phone||''}"
+                                style="width:100%;padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);color:var(--red);font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                🗑 حذف الحساب
+                            </button>
+                        </div>
                     </td>`;
                 tr2.querySelectorAll('.cust-map-btn').forEach(b => b.addEventListener('click', e => {
                     e.stopPropagation();
@@ -5578,20 +5782,26 @@ function renderCustomers() {
             let expanded = uuid ? _expandedUUIDs.has(uuid) : false;
             if (expanded) {
                 subRows.forEach(r => r.style.display = '');
-                const arrow = groupRow.querySelector('span:last-of-type');
-                if (arrow) arrow.textContent = '\u25b4 \u0625\u062e\u0641\u0627\u0621';
+                const arrow = groupRow.querySelector('.ut-group-arrow');
+                if (arrow) { arrow.textContent = '▴ إخفاء'; arrow.classList.add('expanded'); }
             }
 
             groupRow.addEventListener('click', () => {
                 expanded = !expanded;
                 subRows.forEach(r => r.style.display = expanded ? '' : 'none');
-                const arrow = groupRow.querySelector('span:last-of-type');
-                if (arrow) arrow.textContent = expanded ? '\u25b4 \u0625\u062e\u0641\u0627\u0621' : '\u25be \u0639\u0631\u0636';
+                const arrow = groupRow.querySelector('.ut-group-arrow');
+                if (arrow) { arrow.textContent = expanded ? '▴ إخفاء' : '▾ عرض'; arrow.classList.toggle('expanded', expanded); }
             });
 
             subRows.forEach(r => {
                 r.querySelectorAll('[data-action]').forEach(btn =>
                     btn.addEventListener('click', e => { e.stopPropagation(); handleBlacklistAction(btn); })
+                );
+                r.querySelectorAll('.cust-delete-btn').forEach(btn =>
+                    btn.addEventListener('click', e => {
+                        e.stopPropagation();
+                        deleteUserAccount(btn.dataset.uid, btn.dataset.username, btn.dataset.name, btn.dataset.phone);
+                    })
                 );
             });
 
@@ -5634,15 +5844,27 @@ function renderCustomers() {
                     return `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat}" data-lng="${_lng}" data-cname="${u.displayName||u.username||''}">📍 خريطة</button>`;
                 })()}</td>
                 <td>
-                    <button class="uuid-bl-btn ${isBlocked?'unblock':''}"
-                        data-uid="${uid}" data-name="${u.displayName||u.username||''}"
-                        data-action="${isBlocked?'unblock-uid':'block-uid'}">
-                        ${isBlocked ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
-                    </button>
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                        <button class="uuid-bl-btn ${isBlocked?'unblock':''}"
+                            data-uid="${uid}" data-name="${u.displayName||u.username||''}"
+                            data-action="${isBlocked?'unblock-uid':'block-uid'}">
+                            ${isBlocked ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
+                        </button>
+                        <button class="cust-delete-btn"
+                            data-uid="${uid}" data-username="${u.username||''}" data-name="${u.displayName||u.username||''}" data-phone="${u.phone||''}"
+                            style="width:100%;padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);color:var(--red);font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                            🗑 حذف الحساب
+                        </button>
+                    </div>
                 </td>`;
             tr.querySelector('[data-action]').addEventListener('click', e => {
                 e.stopPropagation();
                 handleBlacklistAction(tr.querySelector('[data-action]'));
+            });
+            tr.querySelector('.cust-delete-btn')?.addEventListener('click', e => {
+                e.stopPropagation();
+                const btn = e.currentTarget;
+                deleteUserAccount(btn.dataset.uid, btn.dataset.username, btn.dataset.name, btn.dataset.phone);
             });
             const _mapBtn = tr.querySelector('.cust-map-btn');
             if (_mapBtn) _mapBtn.addEventListener('click', e => {
@@ -8259,6 +8481,176 @@ window.testUltraMsg = async function() {
         }
     } catch(e) { if (statusEl) { statusEl.textContent = '❌ خطأ: ' + e.message; statusEl.style.background='rgba(239,68,68,0.1)'; statusEl.style.color='var(--red)'; } }
 };
+
+/* ══════════════════════════════════════════════════════════
+   DELETE USER ACCOUNT — full cleanup including Firebase Auth
+   Removes:
+     • Firebase Auth account (Identity Toolkit REST)
+     • Firestore users/{uid}
+     • Firestore usernames/{username}  → username becomes free immediately
+     • RTDB phoneIndex/{phone}
+     • RTDB historyRequests/{uid}
+     • RTDB blacklist/{uid}
+     • RTDB devices/{deviceUUID} accountCount decremented
+     • All RTDB cleanup markers
+══════════════════════════════════════════════════════════ */
+async function deleteUserAccount(uid, username, displayName, phone) {
+    if (!uid) return;
+
+    const confirmed = await showConfirm({
+        title: `🗑 حذف حساب ${displayName || username}`,
+        msg:   `هل أنت متأكد من حذف هذا الحساب نهائياً؟<br><br>
+                <strong style="color:var(--red);">سيتم حذف كل شيء نهائياً:</strong><br>
+                • حساب Firebase Auth<br>
+                • بيانات المستخدم من Firestore<br>
+                • اسم المستخدم (يصبح متاحاً فوراً للتسجيل)<br>
+                • رقم الهاتف من الفهرس<br>
+                • سجل الطلبات`,
+        okLabel: '🗑 حذف نهائياً', cancelLabel: 'إلغاء', danger: true,
+    });
+    if (!confirmed) return;
+
+    const RTDB_B   = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+    const FS_B     = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
+    const AUTH_DEL = `https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${FB_API_KEY}`;
+
+    try {
+        // ── 0. Block immediately — kicks user out in real-time ────────────
+        await Promise.all([
+            fbSet(`blacklist/${uid}`, { reason: 'تم حذف الحساب من الأدمن', deletedAt: new Date().toISOString(), deleted: true }),
+            fbSet(`settings/deletedUsers/${uid}`, new Date().toISOString()),
+        ]);
+
+        // ── 1. Get admin Firestore token (needed for Auth delete) ────────
+        let token  = null;
+        let fsAuth = {};
+        try {
+            token  = await getFsToken();
+            fsAuth = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+        } catch(_) {
+            // Token locked out — proceed with SDK-based operations
+        }
+
+        // ── 2. Look up authEmail from Firestore ───────────────────────────
+        let authEmail = `${username}@delivo.internal`;
+        let deviceUUID = null;
+        // SDK first (no REST auth needed)
+        if (window._adminDb) {
+            try {
+                const doc = await window._adminDb.collection('users').doc(uid).get();
+                if (doc.exists) {
+                    authEmail  = doc.data().authEmail  || authEmail;
+                    deviceUUID = doc.data().deviceUUID || null;
+                }
+            } catch(_) {}
+        } else if (token) {
+            try {
+                const docResp = await fetch(`${FS_B}/users/${uid}`, { headers: fsAuth });
+                if (docResp.ok) {
+                    const doc = await docResp.json();
+                    authEmail  = doc?.fields?.authEmail?.stringValue  || authEmail;
+                    deviceUUID = doc?.fields?.deviceUUID?.stringValue || null;
+                }
+            } catch(_) {}
+        }
+        if (!deviceUUID && allUsers[uid]) deviceUUID = allUsers[uid].deviceUUID || null;
+
+        // ── 3. Delete Firebase Auth account via Identity Toolkit REST ─────
+        // POST accounts:delete with { localId, idToken }.
+        // If token is stale (CREDENTIAL_TOO_OLD), force a fresh token and retry.
+        let authDeleted = false;
+        for (let _attempt = 0; _attempt < 2; _attempt++) {
+            try {
+                const _tok = _attempt === 0 ? token : (() => {
+                    _fsToken = null; _fsTokenExpiry = 0;
+                    return getFsToken();
+                })();
+                const _resolvedTok = await Promise.resolve(_tok);
+                const resp = await fetch(AUTH_DEL, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ localId: uid, idToken: _resolvedTok }),
+                });
+                const data = await resp.json();
+                if (resp.ok || data?.kind === 'identitytoolkit#DeleteAccountResponse') {
+                    authDeleted = true;
+                    console.log('[deleteUser] ✅ Firebase Auth account deleted');
+                    break;
+                } else if (data?.error?.message?.includes('CREDENTIAL_TOO_OLD') && _attempt === 0) {
+                    console.warn('[deleteUser] Token stale, retrying with fresh token…');
+                    continue;
+                } else {
+                    console.warn('[deleteUser] Auth delete response:', data?.error?.message);
+                    break;
+                }
+            } catch(e) {
+                console.warn('[deleteUser] Auth delete failed:', e.message);
+                break;
+            }
+        }
+
+        // ── 4. Delete Firestore user profile ──────────────────────────────
+        try {
+            const r = await fetch(`${FS_B}/users/${uid}`, { method: 'DELETE', headers: fsAuth });
+            if (!r.ok && r.status !== 404) console.warn('[deleteUser] Firestore users/', r.status);
+        } catch(_) {}
+
+        // ── 5. Delete Firestore username reservation ──────────────────────
+        if (username) {
+            try {
+                const r = await fetch(`${FS_B}/usernames/${encodeURIComponent(username)}`, { method: 'DELETE', headers: fsAuth });
+                if (!r.ok && r.status !== 404) console.warn('[deleteUser] Firestore usernames/', r.status);
+            } catch(_) {}
+        }
+
+        // ── 6. RTDB full cleanup — all parallel ───────────────────────────
+        const cleanups = [
+            fetch(`${RTDB_B}/historyRequests/${uid}.json`,             { method: 'DELETE' }),
+            fetch(`${RTDB_B}/blacklist/${uid}.json`,                   { method: 'DELETE' }),
+            fetch(`${RTDB_B}/settings/deletedUsers/${uid}.json`,       { method: 'DELETE' }),
+            fetch(`${RTDB_B}/pendingAuthDeletion/${uid}.json`,         { method: 'DELETE' }),
+        ];
+        if (username) {
+            // Remove deletedUsernames marker — username is now truly free
+            cleanups.push(fetch(`${RTDB_B}/deletedUsernames/${encodeURIComponent(username)}.json`, { method: 'DELETE' }));
+        }
+        if (phone) {
+            const digits = phone.replace(/\D/g, '').replace(/^961/, '');
+            if (digits) cleanups.push(fetch(`${RTDB_B}/phoneIndex/${digits}.json`, { method: 'DELETE' }));
+        }
+        await Promise.allSettled(cleanups);
+
+        // ── 7. Decrement device account count ─────────────────────────────
+        if (deviceUUID) {
+            try {
+                const devResp = await fetch(`${RTDB_B}/devices/${deviceUUID}.json`);
+                if (devResp.ok) {
+                    const devData = await devResp.json();
+                    const newCount = Math.max(0, (devData?.accountCount || 1) - 1);
+                    if (newCount === 0) {
+                        await fetch(`${RTDB_B}/devices/${deviceUUID}.json`, { method: 'DELETE' });
+                    } else {
+                        await fetch(`${RTDB_B}/devices/${deviceUUID}.json`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ accountCount: newCount }),
+                        });
+                    }
+                }
+            } catch(_) {}
+        }
+
+        toast(`✅ تم حذف حساب ${displayName || username} بالكامل`);
+        showNotif('🗑 حذف كامل', `حساب ${displayName || username} وجميع بياناته حُذفت نهائياً — اسم المستخدم متاح الآن`, 'success');
+
+        await loadAllData();
+        renderCustomers();
+
+    } catch(e) {
+        console.error('[deleteUser]', e);
+        toast('❌ فشل الحذف: ' + e.message, true);
+    }
+}
 
 async function setLoyaltyVisible(checked) {
     try {
