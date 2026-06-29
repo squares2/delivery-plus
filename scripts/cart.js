@@ -952,26 +952,9 @@ function initCart() {
             } catch (_) { /* non-critical — order is already saved */ }
             // ─────────────────────────────────────────────────────────────
 
-            // ── Loyalty points — increment in RTDB ───────────────────────
-            // Done after orders are written so a checkout failure doesn't award points.
-            // Non-critical: a failure here does NOT roll back the order.
-            try {
-                const pointsEarned = stores.length * POINTS_PER_ORDER;
-                const ptsResp = await fetch(`${RTDB_CART_URL}/users/${user.uid}/points.json`);
-                const ptsNow  = parseInt((await ptsResp.json()) || 0);
-                const ptsNew  = ptsNow + pointsEarned;
-                await fetch(`${RTDB_CART_URL}/users/${user.uid}/points.json`, {
-                    method:  'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify(ptsNew),
-                });
-                // Sync local UI badge if account modal is already open
-                const balEl = document.getElementById('acct-points-balance');
-                if (balEl) balEl.textContent = ptsNew;
-
-                // Queue any newly-crossed loyalty rewards (for the order AFTER this one)
-                await _processLoyaltyThresholds(user.uid, ptsNow, ptsNew);
-            } catch (_) { /* non-critical */ }
+            // ── Loyalty points ────────────────────────────────────────────
+            // Points are awarded ONLY when the order is marked as delivered
+            // by the admin (changeState → state '1'). No points at checkout.
             // ─────────────────────────────────────────────────────────────
 
             cart.clear();
@@ -979,9 +962,9 @@ function initCart() {
 
             let successMsg;
             if (activeRewardNow) {
-                successMsg = `🎉 تم تطبيق مكافأتك (${activeRewardNow.reward || 'مكافأة'}) على هذا الطلب! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
+                successMsg = `🎉 تم تطبيق مكافأتك (${activeRewardNow.reward || 'مكافأة'}) على هذا الطلب!`;
             } else {
-                successMsg = `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح! ⭐ +${stores.length * POINTS_PER_ORDER} نقاط عند التوصيل`;
+                successMsg = `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح!`;
             }
             _showToast(successMsg, 'success');
             // Request notification permission after first order placed

@@ -38,7 +38,7 @@ function initModalAuth() {
     let _otpResendTimer = null;
     let _otpExpireTimer = null;
 
-    function _generateOtp() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+    function _generateOtp() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 
     function _startOtpCountdown(seconds) {
         const timerEl   = document.getElementById('otp-timer');
@@ -86,18 +86,36 @@ function initModalAuth() {
     }
 
     async function _sendOtpWhatsapp(phone) {
-        const instance = window._ultraMsgInstance || '';
-        const token    = window._ultraMsgToken    || '';
-        if (!instance || !token) throw new Error('UltraMsg غير مهيأ. تحقق من إعدادات الأدمن.');
+        // Try window vars first (set by firebase-init.js on load)
+        let idInstance = window._greenApiInstance || '';
+        let apiToken   = window._greenApiToken    || '';
+        // If not loaded yet, fetch directly from RTDB
+        if (!idInstance || !apiToken) {
+            try {
+                const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                const r = await fetch(`${RTDB}/settings.json`);
+                const s = r.ok ? await r.json() : null;
+                if (s?.greenApiInstance) idInstance = window._greenApiInstance = s.greenApiInstance;
+                if (s?.greenApiToken)    apiToken   = window._greenApiToken    = s.greenApiToken;
+            } catch(_) {}
+        }
+        if (!idInstance || !apiToken) throw new Error('GREEN-API غير مهيأ. تحقق من إعدادات الأدمن.');
         const code    = _generateOtp();
-        const waPhone = '961' + phone;
-        const body    = `🔐 كود تفعيل حسابك في Delivo:\n\n*${code}*\n\nصالح لمدة 5 دقائق. لا تشاركه مع أحد.`;
-        const resp = await fetch(`https://api.ultramsg.com/${instance}/messages/chat`, {
-            method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ token, to: waPhone, body }),
+        const chatId  = '961' + phone + '@c.us';
+        const message = `🔐 كود تفعيل حسابك في Delivo:
+
+*${code}*
+
+صالح لمدة 5 دقائق. لا تشاركه مع أحد.`;
+        // GREEN-API endpoint: /waInstance{id}/sendMessage/{token}
+        const apiUrl  = `https://7107.api.greenapi.com/waInstance${idInstance}/sendMessage/${apiToken}`;
+        const resp = await fetch(apiUrl, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ chatId, message }),
         });
         const data = await resp.json();
-        if (data.sent !== 'true' && data.sent !== true) throw new Error(data.error || 'فشل إرسال كود OTP');
+        if (!resp.ok || data.error) throw new Error(data.error || `فشل إرسال كود OTP (${resp.status})`);
         return code;
     }
 

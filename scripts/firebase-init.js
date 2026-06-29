@@ -843,14 +843,23 @@ function _showBlockedScreen(reason) {
 // DelivoAuth and DelivoDB won't be defined. This stub prevents
 // ── Dollar/LBP exchange rate — loaded from /settings/dollarRate ──────────
 // Default 90,000 until Firebase responds. All scripts read window._LBP_RATE.
-window._LBP_RATE = 90000;
-(function _initLBPRate() {
+window._LBP_RATE         = 90000;
+window._greenApiInstance = '';
+window._greenApiToken    = '';
+(function _initSettings() {
     const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+    // Dollar rate
     fetch(`${RTDB}/settings/dollarRate.json`)
         .then(r => r.ok ? r.json() : null)
-        .then(val => {
-            const n = parseFloat(val);
-            if (n && n > 0) window._LBP_RATE = n;
+        .then(val => { const n = parseFloat(val); if (n && n > 0) window._LBP_RATE = n; })
+        .catch(() => {});
+    // GREEN-API credentials for OTP
+    fetch(`${RTDB}/settings.json`)
+        .then(r => r.ok ? r.json() : null)
+        .then(s => {
+            if (!s) return;
+            if (s.greenApiInstance) window._greenApiInstance = s.greenApiInstance;
+            if (s.greenApiToken)    window._greenApiToken    = s.greenApiToken;
         })
         .catch(() => {});
 })();
