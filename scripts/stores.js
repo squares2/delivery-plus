@@ -557,15 +557,15 @@ async function _fetchAndInjectSaleCards() {
                         <span style="font-size:clamp(0.82rem,3vw,1rem);font-weight:900;color:#fff;">${saleP}${curr}</span>
                         ${origP > saleP ? `<span style="font-size:0.62rem;color:rgba(255,255,255,0.55);text-decoration:line-through;">${origP}${curr}</span>` : ''}
                     </div>
-                    <div class="offer-card__actions">
-                        <button class="offer-sale-store-btn" type="button" aria-label="كل عروض هذا المتجر">
-                            <img src="${logoUrl}" alt="" onerror="this.style.display='none';this.parentElement.textContent='🏪'">
-                        </button>
-                        <button class="offer-sale-add-btn" onclick="event.stopPropagation();_addSaleFromCarousel(this,'${payload}')">
-                            🛒 أضف للسلة
-                        </button>
-                    </div>
+                    <button class="offer-sale-add-btn" onclick="event.stopPropagation();_addSaleFromCarousel(this,'${payload}')">
+                        🛒 أضف للسلة
+                    </button>
                 </div>
+
+                <!-- Store-logo badge — bottom-center of the whole card, tap for all this store's sales -->
+                <button class="offer-sale-store-btn" type="button" aria-label="كل عروض هذا المتجر">
+                    <img src="${logoUrl}" alt="" onerror="this.style.display='none';this.parentElement.textContent='🏪'">
+                </button>
 
                 <!-- Shimmer shine — same as loyalty card -->
                 <div class="offer-card__sale-shimmer"></div>

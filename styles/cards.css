@@ -596,44 +596,49 @@
 .offer-card--sale-dynamic {
     border: 1px solid rgba(255,255,255,0.12);
     cursor: pointer;
+    height: auto;
+    min-height: clamp(110px, 28vw, 140px);
+    padding-bottom: clamp(30px, 8vw, 40px); /* room for the centered store-logo badge */
 }
 .offer-card--sale-dynamic:hover {
     border-color: rgba(255,255,255,0.3);
 }
-
-/* Row holding the store-logo button + add-to-cart button together */
-.offer-card__actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 7px;
-    margin-top: 5px;
-    align-self: flex-end;
+@media (min-width: 540px) {
+    .offer-card--sale-dynamic {
+        min-height: clamp(105px, 22vw, 130px);
+        height: auto;
+    }
 }
-.offer-card__actions .offer-sale-add-btn { margin-top: 0; align-self: auto; }
 
-/* Store-logo button — tap to see all this store's active sales */
+/* Store-logo badge — bottom-center of the whole card, bigger, sits fully
+   inside the card's own box (never touches the edge) so overflow:hidden
+   on .offer-card can't clip it. Tap to see all this store's active sales. */
 .offer-sale-store-btn {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(8px, 2vw, 12px);
+    transform: translateX(-50%);
+    z-index: 3;
     flex-shrink: 0;
-    width: clamp(28px, 7vw, 34px);
-    height: clamp(28px, 7vw, 34px);
+    width: clamp(40px, 11vw, 52px);
+    height: clamp(40px, 11vw, 52px);
     border-radius: 50%;
     padding: 0;
     background: #fff;
-    border: 2px solid rgba(255,255,255,0.7);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    border: 2.5px solid rgba(255,255,255,0.85);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.35);
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 1.1rem;
     line-height: 1;
     transition: transform 0.15s, box-shadow 0.15s;
     -webkit-tap-highlight-color: transparent;
 }
-.offer-sale-store-btn:hover  { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
-.offer-sale-store-btn:active { transform: scale(0.92); }
+.offer-sale-store-btn:hover  { transform: translateX(-50%) translateY(-2px) scale(1.08); box-shadow: 0 5px 16px rgba(0,0,0,0.45); }
+.offer-sale-store-btn:active { transform: translateX(-50%) scale(0.92); }
 .offer-sale-store-btn img {
     width: 100%; height: 100%;
     object-fit: cover;
