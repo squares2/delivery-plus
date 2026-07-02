@@ -598,7 +598,8 @@
         const title = document.getElementById('ext-map-title');
         title.textContent = target === 'store' ? '📍 موقع المتجر' : '🏠 موقع التوصيل';
         modal.style.display = 'flex';
-        requestAnimationFrame(() => {
+        requestAnimationFrame(async () => {
+            await _ensureLeafletLoaded();
             // Init or reuse map
             const mapEl = document.getElementById('ext-map-leaflet');
             const existingLat = target === 'store' ? (_data.storeLat || 33.8547) : (_data.destLat || 33.8547);

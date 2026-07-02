@@ -4,6 +4,46 @@
    Username + Password auth. SMS ready to re-enable later.
    ============================================================ */
 
+// ── Leaflet: lazy-loaded on first actual use ────────────────
+// Used by the registration/edit-address map pickers and the live order
+// tracking map. Loading it eagerly on every homepage visit costs every
+// visitor a third-party round-trip (unpkg.com) + payload for a feature
+// most sessions never touch. This loads it once, on demand, and caches
+// the same promise so concurrent callers don't trigger duplicate loads.
+let _leafletLoadPromise = null;
+function _ensureLeafletLoaded() {
+    if (window.L) return Promise.resolve();
+    if (_leafletLoadPromise) return _leafletLoadPromise;
+
+    _leafletLoadPromise = new Promise((resolve, reject) => {
+        let cssReady = false;
+        let jsReady  = false;
+        let failed   = false;
+        const maybeResolve = () => { if (cssReady && jsReady && !failed) resolve(); };
+        const onFail = (what) => {
+            if (failed) return;
+            failed = true;
+            _leafletLoadPromise = null;
+            reject(new Error(`Failed to load Leaflet ${what}`));
+        };
+
+        const cssLink = document.createElement('link');
+        cssLink.rel    = 'stylesheet';
+        cssLink.href   = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        cssLink.onload = () => { cssReady = true; maybeResolve(); };
+        cssLink.onerror = () => onFail('CSS');
+        document.head.appendChild(cssLink);
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.onload  = () => { jsReady = true; maybeResolve(); };
+        script.onerror = () => onFail('JS');
+        document.head.appendChild(script);
+    });
+
+    return _leafletLoadPromise;
+}
+
 function initModalAuth() {
     window.__renderAccountModal = renderAccountModal;
 
@@ -107,8 +147,9 @@ function initModalAuth() {
 *${code}*
 
 صالح لمدة 5 دقائق. لا تشاركه مع أحد.`;
-        // GREEN-API endpoint: /waInstance{id}/sendMessage/{token}
-        const apiUrl  = `https://7107.api.greenapi.com/waInstance${idInstance}/sendMessage/${apiToken}`;
+        // GREEN-API endpoint: server prefix = first 4 digits of instance ID
+        const _gaServer = String(idInstance).slice(0, 4);
+        const apiUrl  = `https://${_gaServer}.api.greenapi.com/waInstance${idInstance}/sendMessage/${apiToken}`;
         const resp = await fetch(apiUrl, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -202,11 +243,20 @@ function initModalAuth() {
             _setFieldState(regPhoneEl, 'loading', hint, '⏳ جاري التحقق…');
             _phoneCheckTimer = setTimeout(async () => {
                 try {
-                    // Query Firestore users where phone == digits
                     const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-                    const resp = await fetch(`${RTDB}/phoneIndex/${digits}.json`);
-                    const data = await resp.json();
-                    if (data && data !== null) {
+                    const [phResp, limitResp] = await Promise.all([
+                        fetch(`${RTDB}/phoneIndex/${digits}.json`),
+                        fetch(`${RTDB}/settings/maxAccountsPerPhone.json`),
+                    ]);
+                    const data  = await phResp.json();
+                    const limit = Math.max(1, parseInt(await limitResp.json()) || 1);
+                    // Count existing accounts on this number
+                    let phCount = 0;
+                    if (data !== null) {
+                        phCount = (typeof data === 'object' && !Array.isArray(data))
+                            ? Object.keys(data).length : 1;
+                    }
+                    if (phCount >= limit) {
                         _phoneAvailable = false;
                         _setFieldState(regPhoneEl, 'error', hint, '❌ هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك');
                     } else {
@@ -430,10 +480,12 @@ function initModalAuth() {
     // ── Location: Map picker button ──────────────────────────
     const mapBtn = document.getElementById('reg-location-map');
     if (mapBtn) {
-        mapBtn.addEventListener('click', () => {
+        mapBtn.addEventListener('click', async () => {
             const mapWrap = document.getElementById('reg-map-wrap');
             mapWrap.style.display = 'block';
             mapBtn.classList.add('location-opt-btn--active');
+
+            await _ensureLeafletLoaded();
 
             // Initialize Leaflet map once
             if (!window._regMap) {
@@ -629,10 +681,12 @@ function initModalAuth() {
     // ── Edit profile — Map button ─────────────────────────────
     const editMapBtn = document.getElementById('edit-location-map');
     if (editMapBtn) {
-        editMapBtn.addEventListener('click', () => {
+        editMapBtn.addEventListener('click', async () => {
             const mapWrap = document.getElementById('edit-map-wrap');
             mapWrap.style.display = 'block';
             editMapBtn.classList.add('location-opt-btn--active');
+
+            await _ensureLeafletLoaded();
 
             if (!window._editMap) {
                 const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
@@ -727,7 +781,9 @@ function initModalAuth() {
     if (editSubmit) {
         editSubmit.addEventListener('click', async () => {
             const displayName = document.getElementById('edit-displayname')?.value || '';
-            const phone       = document.getElementById('edit-phone')?.value        || '';
+            const phoneEl2    = document.getElementById('edit-phone');
+            // If phone field is locked (readonly), don't send it — keep existing value
+            const phone       = (phoneEl2?.readOnly) ? null : (phoneEl2?.value || '');
             const lat         = document.getElementById('edit-lat')?.value          || null;
             const lng         = document.getElementById('edit-lng')?.value          || null;
             const errorEl     = document.getElementById('edit-error');
@@ -915,7 +971,29 @@ function populateEditForm() {
     const latEl   = document.getElementById('edit-lat');
     const lngEl   = document.getElementById('edit-lng');
     if (nameEl)  nameEl.value  = user.displayName || '';
-    if (phoneEl) phoneEl.value = (user.phone || '').replace('+961', '').replace(/\s/g, '');
+    if (phoneEl) {
+        const digits = (user.phone || '').replace('+961', '').replace(/\s/g, '');
+        phoneEl.value = digits;
+        if (digits) {
+            // Phone is tied to the account via OTP — lock it
+            phoneEl.readOnly = true;
+            phoneEl.style.opacity      = '0.6';
+            phoneEl.style.cursor       = 'not-allowed';
+            phoneEl.style.background   = 'var(--surface3, #2a2a2a)';
+            phoneEl.title              = 'رقم الهاتف مرتبط بحسابك ولا يمكن تغييره';
+            // Show a small hint under the field if not already there
+            const hint = phoneEl.closest('.modal-field')?.querySelector('.field-hint');
+            if (hint) { hint.textContent = '🔒 رقم الهاتف مرتبط بحسابك ولا يمكن تغييره'; hint.style.color = 'var(--orange)'; }
+        } else {
+            phoneEl.readOnly = false;
+            phoneEl.style.opacity    = '';
+            phoneEl.style.cursor     = '';
+            phoneEl.style.background = '';
+            phoneEl.title            = '';
+            const hint = phoneEl.closest('.modal-field')?.querySelector('.field-hint');
+            if (hint) { hint.textContent = 'مثال: 03 123 456 أو 71 123 456'; hint.style.color = ''; }
+        }
+    }
 
     // Pre-fill existing location coords
     if (latEl && user.location?.lat) latEl.value = user.location.lat;
@@ -1026,9 +1104,12 @@ const OH_STATE = {
     "5": { label: "ملغي/مدفوع", badge: "oh-badge--5" },
 };
 
-let _ohFilter   = 'all';
-let _ohOrders   = {};
-let _ohListener = null;
+let _ohFilter      = 'all';
+let _ohOrders       = {};
+let _ohListener     = null;
+let _ohRenderLimit  = 20;     // how many cards to render at once
+const OH_PAGE_SIZE  = 20;
+const OH_FINAL_STATES = ['1', '2', '5']; // delivered / cancelled / cancelled-paid — no further changes expected
 
 // ── Open orders modal ─────────────────────────────────────────
 function openOrdersModal() {
@@ -1039,11 +1120,13 @@ function openOrdersModal() {
     overlay.classList.add('active');
     document.body.classList.add('modal-open');
     _loadOrders();
-    // Auto-refresh active orders every 15 s while sheet is open
+    // Refresh only active (non-final) orders every 15 s while sheet is open.
+    // No network call at all once every visible order is delivered/cancelled —
+    // avoids re-downloading the customer's whole order history on a timer.
     if (!window._ordersRefreshTimer) {
         window._ordersRefreshTimer = setInterval(() => {
             const s = document.getElementById('orders-sheet');
-            if (s && s.classList.contains('active')) _loadOrders();
+            if (s && s.classList.contains('active')) _refreshActiveOrders();
         }, 15000);
     }
 }
@@ -1059,7 +1142,7 @@ function closeOrdersModal() {
     window._ordersRefreshTimer = null;
 }
 
-// ── Load orders from historyRequests/{uid} ────────────────────
+// ── Load orders from historyRequests/{uid} (full fetch — once per open) ──
 async function _loadOrders() {
     const user = window.DelivoUser;
     if (!user) return;
@@ -1086,7 +1169,8 @@ async function _loadOrders() {
             return;
         }
 
-        _ohOrders = data;
+        _ohOrders      = data;
+        _ohRenderLimit = OH_PAGE_SIZE; // reset pagination on a fresh full load
         _renderOrders();
 
     } catch(e) {
@@ -1098,7 +1182,43 @@ async function _loadOrders() {
     }
 }
 
-// ── Render with current filter ────────────────────────────────
+// ── Lightweight refresh: re-check only orders still in progress ──
+// Instead of re-downloading the customer's entire order history every
+// 15 s, this fetches just the handful of orders that are still active
+// (not yet delivered/cancelled). If everything on screen is already in
+// a final state, it makes no network call at all.
+async function _refreshActiveOrders() {
+    const user = window.DelivoUser;
+    if (!user) return;
+
+    const activeKeys = Object.entries(_ohOrders)
+        .filter(([, o]) => !OH_FINAL_STATES.includes(String(o.state || '0')))
+        .map(([key]) => key);
+
+    if (activeKeys.length === 0) return; // nothing in progress — skip entirely
+
+    try {
+        const results = await Promise.all(activeKeys.map(key =>
+            fetch(`${OH_RTDB_URL}/historyRequests/${user.uid}/${key}.json`)
+                .then(r => r.ok ? r.json() : null)
+                .then(val => [key, val])
+                .catch(() => [key, null])
+        ));
+
+        let changed = false;
+        results.forEach(([key, val]) => {
+            if (!val) return; // order was deleted or fetch failed — leave last known state
+            if (JSON.stringify(val) !== JSON.stringify(_ohOrders[key])) {
+                _ohOrders[key] = val;
+                changed = true;
+            }
+        });
+
+        if (changed) _renderOrders();
+    } catch (e) { /* silent — will retry on next tick */ }
+}
+
+// ── Render with current filter (paginated) ─────────────────────
 function _renderOrders() {
     const listEl  = document.getElementById('orders-list');
     const emptyEl = document.getElementById('orders-empty');
@@ -1109,6 +1229,7 @@ function _renderOrders() {
     const expandedId   = expandedCard ? expandedCard.dataset.id : null;
 
     listEl.querySelectorAll('.oh-card').forEach(c => c.remove());
+    listEl.querySelectorAll('.oh-load-more-btn').forEach(b => b.remove());
 
     const sorted = Object.entries(_ohOrders)
         .sort(([a], [b]) => {
@@ -1124,12 +1245,28 @@ function _renderOrders() {
     }
     if (emptyEl) emptyEl.style.display = 'none';
 
-    sorted.forEach(([key, order]) => {
+    // Only render/build DOM cards up to the current page limit — keeps the
+    // sheet fast to open even for customers with a long order history.
+    const visible = sorted.slice(0, _ohRenderLimit);
+
+    visible.forEach(([key, order]) => {
         const card = _buildOrderCard(key, order);
         // Restore expanded state without animation to avoid visual jump
         if (key === expandedId) card.classList.add('expanded');
         listEl.appendChild(card);
     });
+
+    if (sorted.length > visible.length) {
+        const remaining = sorted.length - visible.length;
+        const moreBtn = document.createElement('button');
+        moreBtn.className = 'oh-load-more-btn';
+        moreBtn.textContent = `⬇ عرض المزيد (${remaining})`;
+        moreBtn.addEventListener('click', () => {
+            _ohRenderLimit += OH_PAGE_SIZE;
+            _renderOrders();
+        });
+        listEl.appendChild(moreBtn);
+    }
 }
 
 
@@ -1231,6 +1368,7 @@ function _buildOrderCard(key, order) {
 
 let _trackMap         = null;
 let _trackDriverMark  = null;
+let _trackDriverRotEl = null;   // cached rotation <div> — avoids querySelector every animation frame
 let _trackDestMark    = null;
 let _proximityNotifSent = {};  // orderId → true when 500m notif already fired this session
 let _trackRouteLine   = null;
@@ -1391,11 +1529,10 @@ function _animateDriver() {
 
     _trackDriverMark.setLatLng([lat, lng]);
 
-    // Update icon rotation by replacing the inner div's transform
-    const el = _trackDriverMark.getElement();
-    if (el) {
-        const rotDiv = el.querySelector('div');
-        if (rotDiv) rotDiv.style.transform = `rotate(${bearing}deg)`;
+    // Update icon rotation using the cached inner-div reference (avoids a
+    // DOM query on every single animation frame, up to 60x/second).
+    if (_trackDriverRotEl) {
+        _trackDriverRotEl.style.transform = `rotate(${bearing}deg)`;
     }
 
     if (t < 1) {
@@ -1468,7 +1605,8 @@ window._openTrackModal = function(orderId, uid, fromList) {
             </span>`;
     }
 
-    setTimeout(() => {
+    setTimeout(async () => {
+        await _ensureLeafletLoaded();
         if (!_trackMap) {
             _trackMap = L.map('track-map', { zoomControl: true })
                 .setView([34.004, 36.210], 14);
@@ -1478,7 +1616,7 @@ window._openTrackModal = function(orderId, uid, fromList) {
             }).addTo(_trackMap);
         } else {
             // Clean up previous session layers
-            if (_trackDriverMark) { _trackMap.removeLayer(_trackDriverMark); _trackDriverMark = null; }
+            if (_trackDriverMark) { _trackMap.removeLayer(_trackDriverMark); _trackDriverMark = null; _trackDriverRotEl = null; }
             if (_trackDestMark)   { _trackMap.removeLayer(_trackDestMark);   _trackDestMark   = null; }
             if (_trackRouteLine)  { _trackMap.removeLayer(_trackRouteLine);  _trackRouteLine  = null; }
             if (_trackPulseCircle){ _trackMap.removeLayer(_trackPulseCircle);_trackPulseCircle= null; }
@@ -1957,6 +2095,7 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
                     icon: _motoIcon(newBearing),
                     zIndexOffset: 1000,
                 }).addTo(_trackMap);
+                _trackDriverRotEl = _trackDriverMark.getElement()?.querySelector('div') || null;
                 _animFrom    = { lat: dLat, lng: dLng };
                 _animTo      = { lat: dLat, lng: dLng };
                 _animBearing = newBearing;
@@ -2102,6 +2241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.oh-filter').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             _ohFilter = btn.dataset.filter;
+            _ohRenderLimit = OH_PAGE_SIZE; // start fresh page count for the new filter
             _renderOrders();
         });
     });

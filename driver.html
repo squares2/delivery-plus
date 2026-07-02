@@ -1069,6 +1069,11 @@ const FIREBASE_CONFIG = {
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.database();
+// Store-count RTDB key (must match admin.html / scripts/stores.js).
+// RTDB path segments can't contain . # $ [ ] / so we sanitise.
+function _countKey(name) {
+    return String(name || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_');
+}
 const fsdb = firebase.firestore();
 const storage = firebase.storage();
 
@@ -2181,7 +2186,7 @@ function renderPool() {
             <div class="drv-pool-card__header">
                 <span class="drv-pool-card__id">#${shortId}</span>
                 <span class="drv-pool-card__store">🏪 ${order.store || '—'}</span>
-                <span class="drv-pool-card__total">${(v => { const n=parseFloat(v)||0; return n<1000?'$'+n:(n/1000).toFixed(0)+'k ل.ل'; })(order.total || '0')}</span>
+                <span class="drv-pool-card__total">${(v => { const n=parseFloat(v)||0; if(n<1000) return '$'+n; if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'')+' مليون ل.ل'; return (n/1000).toFixed(0)+' ألف ل.ل'; })(order.total || '0')}</span>
             </div>
             <div class="drv-pool-card__meta">
                 <div class="drv-pool-card__cell">👤 <span>${order.fullname || '—'}</span></div>
@@ -2320,8 +2325,8 @@ function buildOrderCard(key, order) {
     const drvActok    = isDriverActionable(order);      // state 0 or 3
     const isCompState = STATE_MAP[state]?.company;      // company-managed state (6,7,8)
     const isFinalState  = ['1','2','5'].includes(state); // delivered / cancelled
-    // Format a price value: < 1000 → '$X', >= 1000 → 'Xk ل.ل'
-    const _fmt = v => { const n = parseFloat(v) || 0; return n <= 0 ? '' : n < 1000 ? '$' + n : (n/1000).toFixed(0) + 'k ل.ل'; };
+    // Format a price value: < 1000 → '$X', 1000–999999 → 'X ألف ل.ل', >= 1000000 → 'X مليون ل.ل'
+    const _fmt = v => { const n = parseFloat(v) || 0; if (n <= 0) return ''; if (n < 1000) return '$' + n; if (n >= 1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'') + ' مليون ل.ل'; return (n/1000).toFixed(0) + ' ألف ل.ل'; };
     // Lock most actions until store has acknowledged the order.
     // States 0 (new) and 3 (delayed by driver) both mean the store hasn't
     // started yet — driver may only toggle متأخر; delivery/cancel/track
@@ -2551,6 +2556,38 @@ function buildOrderCard(key, order) {
             try {
                 await db.ref().update(updates);
                 if (ordersCache[id]) ordersCache[id].state = newState;
+
+                // Store order counter: keep storeOrderCounts/{store} in sync.
+                // Uses /requests/{id}/storeCounted as an idempotency flag (same
+                // pattern as pointsAwarded below) — shared with admin, whichever
+                // entity acts first sets the flag. Lets the homepage read a
+                // tiny, constant-size node instead of scanning the entire
+                // historyRequests tree to rank stores.
+                try {
+                    const storeName    = ordersCache[id]?.store || '';
+                    const wasDeliveredC = _prevState === '1';
+                    const nowDeliveredC = newState   === '1';
+                    if (storeName && (nowDeliveredC !== wasDeliveredC)) {
+                        const cSnap = await db.ref(`requests/${id}/storeCounted`).once('value');
+                        const wasCounted = cSnap.val();
+                        const cKey = _countKey(storeName);
+                        if (nowDeliveredC && !wasCounted) {
+                            const cUpd = {};
+                            cUpd[`/storeOrderCounts/${cKey}`]         = firebase.database.ServerValue.increment(1);
+                            cUpd[`/requests/${id}/storeCounted`]      = true;
+                            if (uid && uid !== 'undefined' && uid !== '') cUpd[`/historyRequests/${uid}/${id}/storeCounted`] = true;
+                            await db.ref().update(cUpd);
+                        } else if (!nowDeliveredC && wasCounted) {
+                            const cUpd = {};
+                            cUpd[`/storeOrderCounts/${cKey}`]         = firebase.database.ServerValue.increment(-1);
+                            cUpd[`/requests/${id}/storeCounted`]      = null;
+                            if (uid && uid !== 'undefined' && uid !== '') cUpd[`/historyRequests/${uid}/${id}/storeCounted`] = null;
+                            await db.ref().update(cUpd);
+                        }
+                    }
+                } catch (cErr) {
+                    console.error('[Driver] Store counter update failed:', cErr);
+                }
 
                 // ── Points: award on delivery, subtract on revert ────────
                 // Uses /requests/{id}/pointsAwarded as idempotency flag.

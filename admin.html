@@ -392,7 +392,11 @@ input, select, textarea { font-family: var(--font); }
 }
 .oc-id { font-family: var(--mono); font-size: var(--fs-sm); font-weight: 600; color: var(--orange); flex-shrink: 0; }
 .oc-store { font-size: var(--fs-md); font-weight: 800; color: var(--white); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.oc-customer { font-size: var(--fs-sm); color: var(--gray-light); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oc-customer { font-size: var(--fs-sm); color: var(--gray-light); flex: 1; min-width: 0; overflow: hidden; }
+.oc-customer-name { font-weight: 700; font-size: 0.85rem; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oc-customer-sub  { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.oc-customer-un   { font-family: var(--mono); font-size: 0.76rem; color: var(--orange); }
+.oc-customer-ph   { font-family: var(--mono); font-size: 0.76rem; color: var(--gray-light); direction: ltr; }
 .oc-total { font-family: var(--mono); font-size: var(--fs-md); font-weight: 600; color: var(--green); flex-shrink: 0; }
 .oc-state { flex-shrink: 0; padding: 3px var(--pad-sm); border-radius: 50px; font-size: var(--fs-xs); font-weight: 800; }
 .state-badge-0 { background: rgba(255,92,0,0.15);  color: var(--orange); }
@@ -2051,6 +2055,16 @@ input, select, textarea { font-family: var(--font); }
             </div>
 
 
+            <!-- ══ BACKUP PANEL ══════════════════════════════════════ -->
+            <div class="panel" id="panel-backup">
+                <div class="panel-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <h2>النسخ الاحتياطي والاستعادة</h2>
+                    <span class="panel-header-sub" id="backup-status-label">جاهز</span>
+                </div>
+                <div class="settings-scroll" id="backup-content" style="padding:20px;"></div>
+            </div>
+
             <!-- ══ CATALOG PANEL ══════════════════════════════════════ -->
             <div class="panel" id="panel-catalog">
                 <div class="panel-header">
@@ -2536,9 +2550,12 @@ input, select, textarea { font-family: var(--font); }
 
         // Watch SDK auth state — when signed in, resume everything
         window._adminAuth.onAuthStateChanged(user => {
-            if (user && typeof _resumeAutoRefresh === 'function') {
-                _fsSignInFails = 0;
-                _resumeAutoRefresh();
+            if (user) {
+                window._adminSdkUid = user.uid;   // store for deleteUserAccount guard
+                if (typeof _resumeAutoRefresh === 'function') {
+                    _fsSignInFails = 0;
+                    _resumeAutoRefresh();
+                }
             }
         });
 
@@ -2555,6 +2572,11 @@ input, select, textarea { font-family: var(--font); }
    DELIVO ADMIN — Core
 ═══════════════════════════════════════════════════════════════ */
 const RTDB        = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+// Store-count RTDB key (must match driver.html / scripts/stores.js).
+// RTDB path segments can't contain . # $ [ ] / so we sanitise.
+function _countKey(name) {
+    return String(name || '').trim().toLowerCase().replace(/[.#$\[\]\/]/g, '_');
+}
 
 // GitHub config — used for direct item-image uploads from "منتجاتي" (company portal)
 const ITEM_GH_OWNER  = 'squares2';
@@ -2706,8 +2728,10 @@ const NAV_ITEMS = [
     { id: 'employees', label: 'الموظفون',           icon: empIcon(),    perm: 'employees' },
     { id: 'rewards',   label: 'نظام النقاط',        icon: rewardsIcon(),perm: 'settings'  },
     { id: 'settings',  label: 'الإعدادات',          icon: settingsIcon(),perm: 'settings' },
+    { id: 'backup',    label: 'النسخ الاحتياطي',    icon: backupIcon(),  perm: 'settings' },
 ];
 
+function backupIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`; }
 function salesIcon()   { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`; }
 function mapIcon()     { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>`; }
 function ordersIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 17H5a2 2 0 0 0-2 2"/><path d="M9 3H5a2 2 0 0 0-2 2v14"/><rect x="9" y="3" width="12" height="18" rx="2"/></svg>`; }
@@ -3081,6 +3105,7 @@ function startApp() {
         if (id === 'stores')     renderStores();
         if (id === 'employees')  renderEmployees();
         if (id === 'settings')   renderSettings();
+        if (id === 'backup')     { renderBackupPanel(); renderSecurityLog(); }
         if (id === 'catalog')    renderCatalog();
         if (id === 'rewards')    renderRewards();
     });
@@ -3092,8 +3117,8 @@ function buildSidebar() {
     nav.innerHTML = '';
 
     const sections = {
-        'القائمة الرئيسية': NAV_ITEMS.filter(i => i.id !== 'settings' && i.id !== 'employees'),
-        'الإدارة':           NAV_ITEMS.filter(i => i.id === 'employees' || i.id === 'settings'),
+        'القائمة الرئيسية': NAV_ITEMS.filter(i => i.id !== 'settings' && i.id !== 'employees' && i.id !== 'backup'),
+        'الإدارة':           NAV_ITEMS.filter(i => i.id === 'employees' || i.id === 'settings' || i.id === 'backup'),
     };
 
     let firstPanel = null;
@@ -3157,6 +3182,7 @@ function switchPanel(id) {
     if (id === 'stores')    renderStores();
     if (id === 'employees') renderEmployees();
     if (id === 'settings')  renderSettings();
+    if (id === 'backup')    { renderBackupPanel(); renderSecurityLog(); }
     if (id === 'catalog')   renderCatalog();
     if (id === 'rewards')   renderRewards();
 
@@ -3566,6 +3592,7 @@ function _catFmtPrice(p) {
     const n = parseFloat(p);
     if (isNaN(n) || n === 0) return '—';
     if (n < 1000) return '$' + n.toFixed(n%1===0?0:2);
+    if (n >= 1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'') + ' مليون ل.ل';
     return (n/1000).toFixed(n%1000===0?0:1) + ' ألف ل.ل';
 }
 function _catTypeLabel(t) {
@@ -3683,6 +3710,8 @@ async function loadAllData() {
 
         updateTopbarStats();
         updateNavBadge();
+        // Run security checks on every data refresh
+        runSecurityChecks().catch(()=>{});
 
     } catch(e) {
         console.error('[Admin] loadAllData:', e);
@@ -3720,6 +3749,277 @@ async function loadAllData() {
             toast('خطأ في تحميل البيانات: ' + (msg || 'unknown'), true);
         }
     }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SECURITY MONITOR — Hack Detection
+//  Runs after every loadAllData() to detect tampering
+// ══════════════════════════════════════════════════════════════
+
+let _secBaseline = null;   // established on first load after login
+
+function _secHash(obj) {
+    // Simple deterministic hash of a JSON object for change detection
+    const str = JSON.stringify(obj, Object.keys(obj||{}).sort());
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+        h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+    }
+    return h;
+}
+
+async function runSecurityChecks() {
+    try {
+        const RTDB_B = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+        // ── Fetch current state ───────────────────────────────────
+        const [settingsResp, adminsResp, usersPointsResp] = await Promise.all([
+            fetch(`${RTDB_B}/settings.json`).then(r=>r.json()).catch(()=>null),
+            fetch(`${RTDB_B}/adminUsers.json`).then(r=>r.json()).catch(()=>null),
+            fetch(`${RTDB_B}/users.json`).then(r=>r.json()).catch(()=>null),
+        ]);
+
+        const now = {
+            settingsHash:  _secHash(settingsResp),
+            adminCount:    Object.keys(adminsResp||{}).length,
+            adminKeys:     Object.keys(adminsResp||{}).sort().join(','),
+            userPoints:    {},
+        };
+
+        // Build points map
+        if (usersPointsResp && typeof usersPointsResp === 'object') {
+            Object.entries(usersPointsResp).forEach(([uid, data]) => {
+                if (data?.points) now.userPoints[uid] = data.points;
+            });
+        }
+
+        // ── First run: establish baseline ─────────────────────────
+        if (!_secBaseline) {
+            _secBaseline = { ...now };
+            console.log('[Security] Baseline established. Admins:', now.adminCount, '| Settings hash:', now.settingsHash);
+            return;
+        }
+
+        const alerts = [];
+
+        // ── Check 1: Settings changed ─────────────────────────────
+        if (now.settingsHash !== _secBaseline.settingsHash) {
+            alerts.push({
+                level: 'critical',
+                icon:  '⚙️',
+                title: 'تغيّرت إعدادات النظام',
+                msg:   'تم تعديل settings في Firebase بشكل غير متوقع. قد يكون شخص ما غيّر الأسعار أو حالة المتاجر.',
+                action: 'راجع Firestore → settings فوراً',
+            });
+            _secBaseline.settingsHash = now.settingsHash; // update to avoid repeated alerts
+        }
+
+        // ── Check 2: Admin accounts changed ──────────────────────
+        if (now.adminCount !== _secBaseline.adminCount || now.adminKeys !== _secBaseline.adminKeys) {
+            const added   = now.adminCount > _secBaseline.adminCount;
+            const removed = now.adminCount < _secBaseline.adminCount;
+            alerts.push({
+                level: 'critical',
+                icon:  '👤',
+                title: added ? '⛔ تمت إضافة مدير جديد!' : '⚠️ تم حذف مدير!',
+                msg:   added
+                    ? `عدد المديرين تغيّر من ${_secBaseline.adminCount} إلى ${now.adminCount}. تحقق من adminUsers في RTDB فوراً.`
+                    : `عدد المديرين تغيّر من ${_secBaseline.adminCount} إلى ${now.adminCount}.`,
+                action: 'افتح RTDB → adminUsers وتحقق',
+            });
+            _secBaseline.adminCount = now.adminCount;
+            _secBaseline.adminKeys  = now.adminKeys;
+        }
+
+        // ── Check 3: Suspicious points spike ─────────────────────
+        Object.entries(now.userPoints).forEach(([uid, pts]) => {
+            const prev = _secBaseline.userPoints[uid] || 0;
+            const diff = pts - prev;
+            if (diff > 100) {
+                const user = allUsers[uid];
+                const name = user?.displayName || user?.username || uid;
+                alerts.push({
+                    level: 'warning',
+                    icon:  '⭐',
+                    title: `نقاط مشبوهة — ${name}`,
+                    msg:   `نقاط ${name} ارتفعت من ${prev} إلى ${pts} (+${diff}) دفعة واحدة. قد يكون تلاعب.`,
+                    action: `افتح RTDB → users → ${uid} → points`,
+                });
+            }
+        });
+        _secBaseline.userPoints = { ...now.userPoints };
+
+        // ── Show alerts ───────────────────────────────────────────
+        alerts.forEach(alert => {
+            const isCritical = alert.level === 'critical';
+            console.error(`[Security ${alert.level.toUpperCase()}]`, alert.title, '|', alert.msg);
+
+            // ── Archive to RTDB security log ──────────────────────────
+            secLogWrite(alert);
+
+            // Toast
+            toast(`${alert.icon} ${alert.title}`, isCritical);
+
+            // Persistent banner for critical alerts
+            if (isCritical) {
+                const bannerId = 'sec-alert-' + Math.random().toString(36).slice(2,7);
+                const banner   = document.createElement('div');
+                banner.id      = bannerId;
+                banner.style.cssText = `position:fixed;top:${48 + document.querySelectorAll('[id^="sec-alert-"]').length * 72}px;left:50%;transform:translateX(-50%);
+                    z-index:99998;background:#1a0a0a;border:2px solid #ef4444;border-radius:12px;
+                    padding:14px 18px;max-width:480px;width:calc(100% - 32px);
+                    box-shadow:0 8px 32px rgba(239,68,68,.3);animation:slideDown .3s ease;`;
+                banner.innerHTML = `
+                    <div style="display:flex;align-items:flex-start;gap:12px;">
+                        <span style="font-size:24px;flex-shrink:0;">${alert.icon}</span>
+                        <div style="flex:1;">
+                            <div style="color:#ef4444;font-weight:800;font-size:14px;margin-bottom:4px;">${alert.title}</div>
+                            <div style="color:#fca5a5;font-size:12.5px;line-height:1.5;">${alert.msg}</div>
+                            <div style="color:#f87171;font-size:11.5px;margin-top:6px;font-weight:700;">🔍 ${alert.action}</div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+                            <button onclick="document.getElementById('${bannerId}').remove()"
+                                style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">✕ إخفاء</button>
+                            <button onclick="bkQuickBackup()"
+                                style="background:rgba(239,68,68,.2);color:#ef4444;border:1px solid rgba(239,68,68,.4);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">💾 Backup</button>
+                            <button onclick="switchPanel('backup')"
+                                style="background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">📋 السجل</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(banner);
+            }
+        });
+
+    } catch(e) {
+        console.warn('[Security] Check failed:', e.message);
+    }
+}
+
+// ── Security Log — persisted in RTDB ─────────────────────────
+const SEC_LOG_PATH = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com/securityLog';
+const SEC_LOG_MAX  = 200; // keep last 200 entries
+
+async function secLogWrite(alert) {
+    try {
+        const entry = {
+            ts:      new Date().toISOString(),
+            level:   alert.level,
+            icon:    alert.icon,
+            title:   alert.title,
+            msg:     alert.msg,
+            action:  alert.action || '',
+            admin:   currentAdmin?.username || 'admin',
+            read:    false,
+        };
+        await fetch(`${SEC_LOG_PATH}.json`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(entry),
+        });
+    } catch(e) {
+        console.warn('[SecLog] write failed:', e.message);
+    }
+}
+
+async function secLogLoad() {
+    try {
+        const r    = await fetch(`${SEC_LOG_PATH}.json`);
+        const data = r.ok ? await r.json() : null;
+        if (!data) return [];
+        return Object.entries(data)
+            .map(([k, v]) => ({ _key: k, ...v }))
+            .sort((a, b) => new Date(b.ts) - new Date(a.ts))
+            .slice(0, SEC_LOG_MAX);
+    } catch(e) { return []; }
+}
+
+async function secLogMarkRead(key) {
+    try {
+        await fetch(`${SEC_LOG_PATH}/${key}/read.json`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    'true',
+        });
+    } catch(_) {}
+}
+
+async function secLogClear() {
+    const confirmed = await showConfirm({
+        title: '🗑 مسح سجل الأمان',
+        msg:   'هل تريد مسح كل سجلات التنبيهات الأمنية؟',
+        okLabel: '🗑 مسح', cancelLabel: 'إلغاء', danger: true,
+    });
+    if (!confirmed) return;
+    try {
+        await fetch(`${SEC_LOG_PATH}.json`, { method: 'DELETE' });
+        toast('✅ تم مسح سجل الأمان');
+        renderSecurityLog();
+    } catch(e) { toast('❌ فشل المسح: ' + e.message, true); }
+}
+
+async function renderSecurityLog() {
+    const el = document.getElementById('sec-log-content');
+    if (!el) return;
+    el.innerHTML = `<div style="color:var(--gray);font-size:13px;text-align:center;padding:20px;">⏳ جاري التحميل...</div>`;
+
+    const entries = await secLogLoad();
+
+    if (!entries.length) {
+        el.innerHTML = `<div style="color:var(--gray);font-size:13px;text-align:center;padding:30px;">
+            ✅ لا توجد تنبيهات أمنية مسجلة</div>`;
+        return;
+    }
+
+    // Mark unread count
+    const unread = entries.filter(e => !e.read).length;
+    const badge  = document.getElementById('sec-log-badge');
+    if (badge) badge.textContent = unread ? `${unread} جديد` : '';
+
+    el.innerHTML = entries.map(e => {
+        const isCritical = e.level === 'critical';
+        const isWarning  = e.level === 'warning';
+        const col  = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#9ca3af';
+        const bg   = isCritical ? 'rgba(239,68,68,.06)' : isWarning ? 'rgba(245,158,11,.06)' : 'rgba(255,255,255,.03)';
+        const date = new Date(e.ts);
+        const dateStr = date.toLocaleDateString('ar-LB', { year:'numeric', month:'short', day:'numeric' });
+        const timeStr = date.toLocaleTimeString('ar-LB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+        return `<div onclick="secLogMarkRead('${e._key}')" style="
+            background:${bg};border:1px solid ${col}33;border-radius:10px;
+            padding:12px 14px;margin-bottom:8px;cursor:pointer;
+            ${!e.read ? `border-right:3px solid ${col};` : 'opacity:0.7;'}
+            transition:opacity .15s;">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+                <span style="font-size:20px;flex-shrink:0;">${e.icon}</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                        <span style="font-size:13px;font-weight:800;color:${col};">${e.title}</span>
+                        ${!e.read ? `<span style="font-size:10px;font-weight:800;color:${col};background:${col}22;border:1px solid ${col}44;border-radius:4px;padding:1px 6px;">جديد</span>` : ''}
+                        <span style="font-size:10px;font-weight:700;color:var(--gray);background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;">${e.level}</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--gray-light);line-height:1.5;margin-bottom:4px;">${e.msg}</div>
+                    ${e.action ? `<div style="font-size:11px;color:${col};font-weight:700;">🔍 ${e.action}</div>` : ''}
+                    <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap;">
+                        <span style="font-size:10.5px;color:var(--gray);font-family:var(--mono);">📅 ${dateStr}</span>
+                        <span style="font-size:10.5px;color:var(--gray);font-family:var(--mono);">🕐 ${timeStr}</span>
+                        <span style="font-size:10.5px;color:var(--gray);">👤 ${e.admin || 'admin'}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Quick backup triggered from security alert
+async function bkQuickBackup() {
+    toast('💾 جاري عمل backup سريع...', false);
+    await bkExport('all');
+}
+
+// Reset baseline (call after intentional settings changes)
+function secResetBaseline() {
+    _secBaseline = null;
+    toast('🔄 Security baseline reset — سيتم إعادة الضبط عند التحديث التالي');
 }
 
 function updateTopbarStats() {
@@ -4614,7 +4914,13 @@ function buildOrderCard(key, order) {
         <div class="oc-header">
             <span class="oc-id">#${idNum}</span>
             <span class="oc-store">${order.store || '—'}</span>
-            <span class="oc-customer">${order.fullname || order.username || '—'}</span>
+            <span class="oc-customer">
+                <div class="oc-customer-name">${order.fullname || order.username || '—'}</div>
+                <div class="oc-customer-sub">
+                    ${order.username ? `<span class="oc-customer-un">@${order.username}</span>` : ''}
+                    ${order.phone    ? `<span class="oc-customer-ph">${formatPhone(order.phone)}</span>` : ''}
+                </div>
+            </span>
             <span class="oc-total">$${order.total || '0'}</span>
             <span class="oc-state state-badge-${state}">${STATE_LABELS[state] || state}</span>
             <span class="oc-toggle">▾</span>
@@ -4854,6 +5160,39 @@ async function changeState(orderId, newState) {
         allOrders[orderId].state = newState; // update local BEFORE await so any re-render is correct
         await fbUpdate('', updates);
 
+        // Store order counter: keep storeOrderCounts/{store} in sync.
+        // Uses /requests/{id}/storeCounted as an idempotency flag (same
+        // pattern as pointsAwarded below) so the count only moves once per
+        // delivery/revert, no matter how many times the button is pressed
+        // or whether admin or driver made the change. This lets the
+        // homepage read a tiny, constant-size node instead of scanning the
+        // entire historyRequests tree to rank stores.
+        try {
+            const storeName    = allOrders[orderId]?.store || '';
+            const wasDelivered = _prevState === '1';
+            const nowDelivered = newState   === '1';
+            if (storeName && (nowDelivered !== wasDelivered)) {
+                const flagResp = await fetch(`${RTDB}/requests/${orderId}/storeCounted.json`);
+                const wasCounted = await flagResp.json();
+                const cKey = _countKey(storeName);
+                if (nowDelivered && !wasCounted) {
+                    const cUpd = {};
+                    cUpd[`/storeOrderCounts/${cKey}`]         = { '.sv': { increment: 1 } };
+                    cUpd[`/requests/${orderId}/storeCounted`] = true;
+                    if (uid) cUpd[`/historyRequests/${uid}/${orderId}/storeCounted`] = true;
+                    await fbUpdate('', cUpd);
+                } else if (!nowDelivered && wasCounted) {
+                    const cUpd = {};
+                    cUpd[`/storeOrderCounts/${cKey}`]         = { '.sv': { increment: -1 } };
+                    cUpd[`/requests/${orderId}/storeCounted`] = null;
+                    if (uid) cUpd[`/historyRequests/${uid}/${orderId}/storeCounted`] = null;
+                    await fbUpdate('', cUpd);
+                }
+            }
+        } catch (cErr) {
+            console.error('[Admin] Store counter update failed:', cErr);
+        }
+
         // ── Points: award on delivery, subtract on revert ─────────
         // Uses /requests/{id}/pointsAwarded as an idempotency flag so that:
         //  • Pressing وُصِّل multiple times never double-awards
@@ -4880,7 +5219,52 @@ async function changeState(orderId, newState) {
                             ptUpd[`/historyRequests/${uid}/${orderId}/pointsAwarded`] = true;
                         await fbUpdate('', ptUpd);
                         allOrders[orderId].pointsAwarded = true;
+                        // Update security baseline so +10 points from delivery doesn't false-alert
+                        if (_secBaseline && _secBaseline.userPoints) {
+                            _secBaseline.userPoints[uid] = (_secBaseline.userPoints[uid] || 0) + 10;
+                        }
                         toast(`✅ تم توصيل الطلب #${orderId.replace('id_','')} — 10 نقاط أضيفت للعميل ⭐`);
+
+                        // Process loyalty threshold rewards now that points changed
+                        try {
+                            if (typeof window._processLoyaltyThresholds === 'function') {
+                                await window._processLoyaltyThresholds(uid, curPts, curPts + 10);
+                            } else {
+                                // Inline threshold check — reads rewards config from RTDB
+                                const [rwResp, clResp, quResp] = await Promise.all([
+                                    fetch(`${RTDB}/settings/loyaltyRewards.json`),
+                                    fetch(`${RTDB}/users/${uid}/claimedTiers.json`),
+                                    fetch(`${RTDB}/users/${uid}/rewardQueue.json`),
+                                ]);
+                                const rewards = await rwResp.json();
+                                let claimed   = await clResp.json();
+                                let queue     = await quResp.json();
+                                claimed = Array.isArray(claimed) ? claimed : [];
+                                queue   = Array.isArray(queue)   ? queue   : [];
+                                if (Array.isArray(rewards) && rewards.length) {
+                                    const newPts = curPts + 10;
+                                    const crossed = rewards.filter(s => s.pts > curPts && s.pts <= newPts && !claimed.includes(s.pts));
+                                    let creditAdd = 0;
+                                    for (const step of crossed) {
+                                        claimed.push(step.pts);
+                                        if (step.type === 'account_credit') creditAdd += parseFloat(step.value) || 0;
+                                        else queue.push({ pts: step.pts, icon: step.icon, reward: step.reward, type: step.type, value: step.value || 0 });
+                                    }
+                                    if (crossed.length) {
+                                        const tw = [
+                                            fetch(`${RTDB}/users/${uid}/claimedTiers.json`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(claimed) }),
+                                            fetch(`${RTDB}/users/${uid}/rewardQueue.json`,  { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(queue)   }),
+                                        ];
+                                        if (creditAdd > 0) {
+                                            const cr = await fetch(`${RTDB}/users/${uid}/credit.json`);
+                                            const credNow = parseFloat((await cr.json()) || 0) || 0;
+                                            tw.push(fetch(`${RTDB}/users/${uid}/credit.json`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(credNow + creditAdd) }));
+                                        }
+                                        await Promise.all(tw);
+                                    }
+                                }
+                            }
+                        } catch(_) {}
                     } else {
                         toast(`✅ تم توصيل الطلب #${orderId.replace('id_','')} — النقاط سبق احتسابها`);
                     }
@@ -5741,7 +6125,12 @@ function renderCustomers() {
                     </td>
                     <td style="font-family:var(--mono);color:var(--gray-light);">@${p.username||'\u2014'}</td>
                     <td class="ut-phone" dir="ltr">${formatPhone(p.phone)}</td>
-                    <td class="ut-points">${p.points||0}</td>
+                    <td class="ut-points" style="white-space:nowrap;">
+                        <span>${p.points||0}</span>
+                        <button class="cust-pts-btn" data-uid="${p._id}" data-pts="${p.points||0}" data-name="${p.displayName||p.username||''}"
+                            title="\u062a\u0639\u062f\u064a\u0644 \u0627\u0644\u0646\u0642\u0627\u0637"
+                            style="background:none;border:none;cursor:pointer;color:var(--orange);font-size:0.75rem;margin-right:3px;opacity:0.7;padding:0 2px;">\u270f\ufe0f</button>
+                    </td>
                     <td style="font-family:var(--mono);font-size:0.72rem;color:var(--gray-light);">${ordCount}</td>
                     <td><span class="ut-status ${pBlocked?'blocked':(isActive?'active':'offline')}">${pBlocked?'\u26d4 \u0645\u062d\u0638\u0648\u0631':(isActive?'\u0646\u0634\u0637':'\u063a\u064a\u0631 \u0646\u0634\u0637')}</span></td>
                     <td style="font-size:0.7rem;color:var(--gray);">${ts}</td>
@@ -5770,6 +6159,11 @@ function renderCustomers() {
                     e.stopPropagation();
                     _flyToCustomer(parseFloat(b.dataset.lat), parseFloat(b.dataset.lng), b.dataset.cname);
                 }));
+                tr2.querySelector('.cust-pts-btn')?.addEventListener('click', e => {
+                    e.stopPropagation();
+                    const btn = e.currentTarget;
+                    editUserPoints(btn.dataset.uid, parseInt(btn.dataset.pts)||0, btn.dataset.name);
+                });
                 return tr2;
             });
 
@@ -5832,7 +6226,12 @@ function renderCustomers() {
                 </td>
                 <td style="font-family:var(--mono);color:var(--gray-light);">@${u.username||'\u2014'}</td>
                 <td class="ut-phone" dir="ltr">${formatPhone(u.phone)}</td>
-                <td class="ut-points">${u.points||0}</td>
+                <td class="ut-points" style="white-space:nowrap;">
+                    <span>${u.points||0}</span>
+                    <button class="cust-pts-btn" data-uid="${uid}" data-pts="${u.points||0}" data-name="${u.displayName||u.username||''}"
+                        title="\u062a\u0639\u062f\u064a\u0644 \u0627\u0644\u0646\u0642\u0627\u0637"
+                        style="background:none;border:none;cursor:pointer;color:var(--orange);font-size:0.75rem;margin-right:3px;opacity:0.7;padding:0 2px;">\u270f\ufe0f</button>
+                </td>
                 <td style="font-family:var(--mono);font-size:0.72rem;color:var(--gray-light);">${ordCount}</td>
                 <td><span class="ut-status ${isBlocked?'blocked':(isActive?'active':'offline')}">${isBlocked?'\u26d4 \u0645\u062d\u0638\u0648\u0631':(isActive?'\u0646\u0634\u0637':'\u063a\u064a\u0631 \u0646\u0634\u0637')}</span></td>
                 <td style="font-size:0.7rem;color:var(--gray);">${ts}</td>
@@ -5865,6 +6264,11 @@ function renderCustomers() {
                 e.stopPropagation();
                 const btn = e.currentTarget;
                 deleteUserAccount(btn.dataset.uid, btn.dataset.username, btn.dataset.name, btn.dataset.phone);
+            });
+            tr.querySelector('.cust-pts-btn')?.addEventListener('click', e => {
+                e.stopPropagation();
+                const btn = e.currentTarget;
+                editUserPoints(btn.dataset.uid, parseInt(btn.dataset.pts)||0, btn.dataset.name);
             });
             const _mapBtn = tr.querySelector('.cust-map-btn');
             if (_mapBtn) _mapBtn.addEventListener('click', e => {
@@ -7349,6 +7753,46 @@ function renderSettings() {
         </div>
 
         <div class="settings-section">
+            <div class="settings-section-title">📱 حدود التسجيل</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">الحد الأقصى للحسابات بنفس رقم الهاتف</div>
+                    <div class="setting-sub">عدد الحسابات المسموح بها لكل رقم هاتف لبناني (الافتراضي: 1)</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;">
+                <input type="number" id="max-accounts-phone-input" placeholder="1" min="1" max="10" step="1"
+                       style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                              font-family:var(--mono);font-size:0.85rem;direction:ltr;">
+                <button id="max-accounts-phone-save"
+                        style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ
+                </button>
+            </div>
+            <div id="max-accounts-phone-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+            <div class="setting-row" style="margin-top:14px;">
+                <div>
+                    <div class="setting-label">الحد الأقصى للحسابات بنفس الجهاز</div>
+                    <div class="setting-sub">عدد الحسابات المسموح بها لكل جهاز (الافتراضي: 3)</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;">
+                <input type="number" id="max-accounts-device-input" placeholder="3" min="1" max="20" step="1"
+                       style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                              font-family:var(--mono);font-size:0.85rem;direction:ltr;">
+                <button id="max-accounts-device-save"
+                        style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ
+                </button>
+            </div>
+            <div id="max-accounts-device-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+        </div>
+
+        <div class="settings-section">
             <div class="settings-section-title">📞 رقم تواصل الإدارة (واتساب / اتصال)</div>
             <div class="setting-row">
                 <div>
@@ -7391,23 +7835,23 @@ function renderSettings() {
                     <input type="radio" name="reg-type" id="reg-type-otp" value="otp" onchange="setRegType('otp')" style="accent-color:var(--orange);width:16px;height:16px;flex-shrink:0;">
                     <div>
                         <div style="font-weight:800;font-size:0.85rem;">🔐 تفعيل بـ OTP عبر واتساب</div>
-                        <div style="font-size:0.7rem;color:var(--gray);margin-top:2px;">يرسل كود تحقق للعميل على واتساب عبر UltraMsg قبل إنشاء الحساب</div>
+                        <div style="font-size:0.7rem;color:var(--gray);margin-top:2px;">يرسل كود تحقق للعميل على واتساب عبر GREEN-API قبل إنشاء الحساب</div>
                     </div>
                 </label>
             </div>
 
-            <!-- UltraMsg credentials — shown only when OTP selected -->
+            <!-- GREEN-API credentials — shown only when OTP selected -->
             <div id="ultramsg-section" style="display:none;border-top:1px solid var(--border);padding:14px 16px;">
-                <div style="font-size:0.72rem;font-weight:800;color:var(--gray);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">⚙️ إعدادات UltraMsg</div>
+                <div style="font-size:0.72rem;font-weight:800;color:var(--gray);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">⚙️ إعدادات GREEN-API</div>
                 <div style="display:flex;flex-direction:column;gap:10px;">
                     <div>
                         <label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:4px;">Instance ID</label>
-                        <input type="text" id="ultramsg-instance" placeholder="مثال: instance12345" dir="ltr"
+                        <input type="text" id="ultramsg-instance" placeholder="مثال: 7187016677771" dir="ltr"
                                style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border-bright);border-radius:10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;">
                     </div>
                     <div>
                         <label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:4px;">Token</label>
-                        <input type="text" id="ultramsg-token" placeholder="الـ token من لوحة UltraMsg" dir="ltr"
+                        <input type="text" id="ultramsg-token" placeholder="الـ apiTokenInstance من لوحة GREEN-API" dir="ltr"
                                style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border-bright);border-radius:10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;">
                     </div>
                     <div style="display:flex;gap:8px;">
@@ -7416,7 +7860,7 @@ function renderSettings() {
                     </div>
                     <div id="ultramsg-status" style="display:none;font-size:0.75rem;font-weight:700;padding:8px 12px;border-radius:8px;"></div>
                     <div style="font-size:0.68rem;color:var(--gray);line-height:1.6;">
-                        🔗 احصل على Instance ID و Token من <a href="https://app.ultramsg.com" target="_blank" style="color:var(--orange);">app.ultramsg.com</a>
+                        🔗 احصل على Instance ID و Token من <a href="https://app.green-api.com" target="_blank" style="color:var(--orange);">app.green-api.com</a>
                     </div>
                 </div>
             </div>
@@ -7807,14 +8251,17 @@ function renderSettings() {
     // Load registration type
     Promise.all([
         fbGet('settings/regType'),
-        fbGet('settings/ultraMsgInstance'),
-        fbGet('settings/ultraMsgToken'),
+        fbGet('settings/greenApiInstance'),
+        fbGet('settings/greenApiToken'),
     ]).then(([regType, uInst, uToken]) => {
         _syncRegTypeUI(regType || 'direct');
         const instEl = document.getElementById('ultramsg-instance');
         const tokEl  = document.getElementById('ultramsg-token');
         if (instEl && uInst) instEl.value = uInst;
         if (tokEl  && uToken) tokEl.value = uToken;
+        // Make available to modal-auth.js for OTP sending
+        window._greenApiInstance = uInst  || '';
+        window._greenApiToken    = uToken || '';
     });
 
     // Load loyalty visibility state
@@ -7848,6 +8295,50 @@ function renderSettings() {
         try {
             await fbSet('settings/dollarRate', rate);
             if (status) { status.textContent = `✅ تم حفظ — 1$ = ${rate.toLocaleString('ar')} ل.ل`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        }
+    });
+
+    // Load registration limits
+    fbGet('settings/maxAccountsPerPhone').then(val => {
+        const inp = document.getElementById('max-accounts-phone-input');
+        if (inp && val !== null && val !== undefined) inp.value = parseInt(val) || 1;
+    }).catch(() => {});
+    fbGet('settings/maxAccountsPerDevice').then(val => {
+        const inp = document.getElementById('max-accounts-device-input');
+        if (inp && val !== null && val !== undefined) inp.value = parseInt(val) || 3;
+    }).catch(() => {});
+
+    document.getElementById('max-accounts-phone-save')?.addEventListener('click', async () => {
+        const inp    = document.getElementById('max-accounts-phone-input');
+        const status = document.getElementById('max-accounts-phone-status');
+        const val    = parseInt(inp?.value || '');
+        if (!val || val < 1 || val > 10) {
+            if (status) { status.textContent = '⚠️ أدخل رقماً بين 1 و 10'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        try {
+            await fbSet('settings/maxAccountsPerPhone', val);
+            if (status) { status.textContent = `✅ تم الحفظ — الحد: ${val} حساب لكل رقم`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        }
+    });
+
+    document.getElementById('max-accounts-device-save')?.addEventListener('click', async () => {
+        const inp    = document.getElementById('max-accounts-device-input');
+        const status = document.getElementById('max-accounts-device-status');
+        const val    = parseInt(inp?.value || '');
+        if (!val || val < 1 || val > 20) {
+            if (status) { status.textContent = '⚠️ أدخل رقماً بين 1 و 20'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        try {
+            await fbSet('settings/maxAccountsPerDevice', val);
+            if (status) { status.textContent = `✅ تم الحفظ — الحد: ${val} حساب لكل جهاز`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
             setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
         } catch(e) {
             if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
@@ -8452,34 +8943,49 @@ window.saveUltraMsgConfig = async function() {
         return;
     }
     try {
-        await fbSet('settings/ultraMsgInstance', instance);
-        await fbSet('settings/ultraMsgToken', token);
+        await fbSet('settings/greenApiInstance', instance);
+        await fbSet('settings/greenApiToken', token);
+        window._greenApiInstance = instance;
+        window._greenApiToken    = token;
         if (statusEl) { statusEl.textContent = '✅ تم الحفظ'; statusEl.style.background = 'rgba(74,222,128,0.1)'; statusEl.style.color = '#4ade80'; statusEl.style.display = 'block'; setTimeout(() => statusEl.style.display = 'none', 3000); }
-        toast('✅ إعدادات UltraMsg محفوظة');
+        toast('✅ إعدادات GREEN-API محفوظة');
     } catch(e) { toast('❌ فشل الحفظ', true); }
 };
 
 window.testUltraMsg = async function() {
-    const instance = document.getElementById('ultramsg-instance')?.value.trim() || await fbGet('settings/ultraMsgInstance');
-    const token    = document.getElementById('ultramsg-token')?.value.trim()    || await fbGet('settings/ultraMsgToken');
-    const phone    = document.getElementById('admin-phone-input')?.value.trim();
+    const instance = document.getElementById('ultramsg-instance')?.value.trim() || await fbGet('settings/greenApiInstance');
+    const token    = document.getElementById('ultramsg-token')?.value.trim()    || await fbGet('settings/greenApiToken');
+    const phone    = (document.getElementById('admin-phone-input')?.value.trim()
+                   || await fbGet('settings/adminPhone').catch(() => '') || '').replace(/[^0-9]/g, '');
     const statusEl = document.getElementById('ultramsg-status');
-    if (!instance || !token) { if (statusEl) { statusEl.textContent = '⚠️ أدخل الإعدادات أولاً'; statusEl.style.display = 'block'; } return; }
-    if (!phone) { if (statusEl) { statusEl.textContent = '⚠️ أدخل رقم الأدمن أولاً للاختبار'; statusEl.style.display = 'block'; } return; }
-    if (statusEl) { statusEl.textContent = '⏳ جاري الإرسال…'; statusEl.style.display = 'block'; }
+    if (!instance || !token) {
+        if (statusEl) { statusEl.textContent = '⚠️ أدخل الإعدادات أولاً'; statusEl.style.color='var(--red)'; statusEl.style.display = 'block'; }
+        return;
+    }
+    if (!phone) {
+        if (statusEl) { statusEl.textContent = '⚠️ أدخل رقم هاتف الإدارة أولاً'; statusEl.style.color='var(--red)'; statusEl.style.display = 'block'; }
+        return;
+    }
+    const chatId = phone + '@c.us';
+    if (statusEl) { statusEl.textContent = '⏳ جاري الإرسال…'; statusEl.style.color='var(--text)'; statusEl.style.background=''; statusEl.style.display = 'block'; }
     try {
-        const resp = await fetch(`https://api.ultramsg.com/${instance}/messages/chat`, {
+        const _gaServer = String(instance).slice(0, 4);
+        const url  = `https://${_gaServer}.api.greenapi.com/waInstance${instance}/sendMessage/${token}`;
+        const resp = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ token, to: phone, body: '✅ اختبار Delivo OTP — UltraMsg يعمل بشكل صحيح 🎉' }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId, message: '✅ اختبار Delivo OTP — GREEN-API يعمل بشكل صحيح 🎉' }),
         });
         const data = await resp.json();
-        if (data.sent === 'true' || data.sent === true) {
+        console.log('[GreenAPI test] status:', resp.status, 'response:', data);
+        if (resp.ok && data.idMessage) {
             if (statusEl) { statusEl.textContent = '✅ أُرسلت رسالة اختبار على واتساب'; statusEl.style.background='rgba(74,222,128,0.1)'; statusEl.style.color='#4ade80'; }
         } else {
-            if (statusEl) { statusEl.textContent = '❌ فشل الإرسال: ' + (data.error || JSON.stringify(data)); statusEl.style.background='rgba(239,68,68,0.1)'; statusEl.style.color='var(--red)'; }
+            if (statusEl) { statusEl.textContent = '❌ فشل: ' + JSON.stringify(data); statusEl.style.background='rgba(239,68,68,0.1)'; statusEl.style.color='var(--red)'; }
         }
-    } catch(e) { if (statusEl) { statusEl.textContent = '❌ خطأ: ' + e.message; statusEl.style.background='rgba(239,68,68,0.1)'; statusEl.style.color='var(--red)'; } }
+    } catch(e) {
+        if (statusEl) { statusEl.textContent = '❌ خطأ: ' + e.message; statusEl.style.background='rgba(239,68,68,0.1)'; statusEl.style.color='var(--red)'; }
+    }
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -8497,6 +9003,22 @@ window.testUltraMsg = async function() {
 async function deleteUserAccount(uid, username, displayName, phone) {
     if (!uid) return;
 
+    // ── Hard guard: never delete the Firebase admin Auth account ─────────
+    // Get the UID of the currently signed-in admin SDK user
+    const _adminSdkUid = window._adminAuth?.currentUser?.uid;
+    // Also guard against known admin emails
+    const _ADMIN_EMAILS = ['admin@delivivo.app', 'admin@delivo.app'];
+    const _authEmail = (username || '') + '@delivo.internal';
+    if (
+        (_adminSdkUid && uid === _adminSdkUid) ||
+        _ADMIN_EMAILS.includes(_authEmail) ||
+        _ADMIN_EMAILS.includes(username || '')
+    ) {
+        toast('⛔ لا يمكن حذف حساب المدير', true);
+        console.error('[deleteUser] Blocked attempt to delete admin account. UID:', uid);
+        return;
+    }
+
     const confirmed = await showConfirm({
         title: `🗑 حذف حساب ${displayName || username}`,
         msg:   `هل أنت متأكد من حذف هذا الحساب نهائياً؟<br><br>
@@ -8512,8 +9034,6 @@ async function deleteUserAccount(uid, username, displayName, phone) {
 
     const RTDB_B   = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
     const FS_B     = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
-    const AUTH_DEL = `https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${FB_API_KEY}`;
-
     try {
         // ── 0. Block immediately — kicks user out in real-time ────────────
         await Promise.all([
@@ -8555,39 +9075,15 @@ async function deleteUserAccount(uid, username, displayName, phone) {
         }
         if (!deviceUUID && allUsers[uid]) deviceUUID = allUsers[uid].deviceUUID || null;
 
-        // ── 3. Delete Firebase Auth account via Identity Toolkit REST ─────
-        // POST accounts:delete with { localId, idToken }.
-        // If token is stale (CREDENTIAL_TOO_OLD), force a fresh token and retry.
-        let authDeleted = false;
-        for (let _attempt = 0; _attempt < 2; _attempt++) {
-            try {
-                const _tok = _attempt === 0 ? token : (() => {
-                    _fsToken = null; _fsTokenExpiry = 0;
-                    return getFsToken();
-                })();
-                const _resolvedTok = await Promise.resolve(_tok);
-                const resp = await fetch(AUTH_DEL, {
-                    method:  'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({ localId: uid, idToken: _resolvedTok }),
-                });
-                const data = await resp.json();
-                if (resp.ok || data?.kind === 'identitytoolkit#DeleteAccountResponse') {
-                    authDeleted = true;
-                    console.log('[deleteUser] ✅ Firebase Auth account deleted');
-                    break;
-                } else if (data?.error?.message?.includes('CREDENTIAL_TOO_OLD') && _attempt === 0) {
-                    console.warn('[deleteUser] Token stale, retrying with fresh token…');
-                    continue;
-                } else {
-                    console.warn('[deleteUser] Auth delete response:', data?.error?.message);
-                    break;
-                }
-            } catch(e) {
-                console.warn('[deleteUser] Auth delete failed:', e.message);
-                break;
-            }
-        }
+        // ── 3. Firebase Auth account ──────────────────────────────────────
+        // accounts:delete with { localId, idToken } is designed for SELF-deletion
+        // only — passing another user's localId invalidates the admin's own token
+        // and causes INVALID_LOGIN_CREDENTIALS on the next request.
+        // Instead: the username slot-recycling in firebase-init.js handles
+        // re-registration of deleted usernames safely (username~1, ~2, etc.).
+        // The Auth ghost is harmless — Firestore + RTDB cleanup below is enough.
+        const authDeleted = false;
+        console.log('[deleteUser] Skipping Auth delete (client-side delete breaks admin session). Username recycling handles re-registration.');
 
         // ── 4. Delete Firestore user profile ──────────────────────────────
         try {
@@ -8650,6 +9146,878 @@ async function deleteUserAccount(uid, username, displayName, phone) {
         console.error('[deleteUser]', e);
         toast('❌ فشل الحذف: ' + e.message, true);
     }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BACKUP & RESTORE — Full Firebase/Firestore import/export
+// ══════════════════════════════════════════════════════════════
+
+const BACKUP_COLLECTIONS = ['users','usernames','orders','stores','categories','offers','settings','devices'];
+const BACKUP_RTDB_PATHS  = ['requests','historyRequests','drivers','pattern','settings','phoneIndex','devices','blacklist','adminUsers','globalCounter','users','deletedUsernames'];
+
+function renderBackupPanel() {
+    const el = document.getElementById('backup-content');
+    if (!el) return;
+    el.innerHTML = `
+    <style>
+        .bk-section { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:16px; }
+        .bk-title   { font-size:0.72rem; font-weight:800; color:var(--gray); text-transform:uppercase; letter-spacing:.06em; margin-bottom:14px; }
+        .bk-row     { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+        .bk-btn     { display:inline-flex; align-items:center; gap:7px; padding:9px 18px; border-radius:9px; border:1.5px solid; font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; background:transparent; }
+        .bk-btn-export { border-color:rgba(34,197,94,.4);  color:#22c55e; }
+        .bk-btn-export:hover { background:rgba(34,197,94,.1); }
+        .bk-btn-import { border-color:rgba(251,146,60,.4); color:#fb923c; }
+        .bk-btn-import:hover { background:rgba(251,146,60,.1); }
+        .bk-btn-danger { border-color:rgba(239,68,68,.4);  color:#ef4444; }
+        .bk-btn-danger:hover { background:rgba(239,68,68,.1); }
+        .bk-btn:disabled { opacity:.4; cursor:not-allowed; }
+        .bk-log { background:#0d0d14; border:1px solid rgba(255,255,255,.06); border-radius:8px; padding:12px 14px; font-family:var(--mono); font-size:11.5px; line-height:1.7; max-height:220px; overflow-y:auto; margin-top:12px; }
+        .bk-ok   { color:#22c55e; } .bk-warn { color:#f59e0b; } .bk-err { color:#ef4444; } .bk-info { color:#9ca3af; }
+        .bk-collections { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+        .bk-col-chip { padding:4px 10px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:20px; font-size:11px; color:var(--gray-light); cursor:pointer; user-select:none; transition:all .15s; }
+        .bk-col-chip.selected { background:rgba(251,146,60,.15); border-color:rgba(251,146,60,.4); color:#fb923c; font-weight:700; }
+        .bk-progress { height:3px; background:var(--surface2); border-radius:2px; margin-top:10px; overflow:hidden; }
+        .bk-progress-bar { height:100%; background:#22c55e; border-radius:2px; width:0; transition:width .3s; }
+        .bk-badge { display:inline-block; padding:2px 8px; border-radius:5px; font-size:10px; font-weight:800; background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.25); margin-right:6px; }
+        .bk-schedule-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
+        .bk-schedule-row select { background:var(--surface2); border:1px solid var(--border); color:var(--white); border-radius:7px; padding:6px 10px; font-size:13px; }
+    </style>
+
+    <!-- ── Security Log ──────────────────────────────────────── -->
+    <div class="bk-section" style="border-color:rgba(239,68,68,.2);">
+        <div class="bk-title" style="display:flex;align-items:center;gap:8px;">
+            🛡 سجل التنبيهات الأمنية
+            <span id="sec-log-badge" style="font-size:10px;font-weight:800;color:#ef4444;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:20px;padding:2px 8px;"></span>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+            <button class="bk-btn" style="border-color:rgba(99,102,241,.4);color:#818cf8;font-size:12px;" onclick="renderSecurityLog()">
+                🔄 تحديث السجل
+            </button>
+            <button class="bk-btn bk-btn-danger" style="font-size:12px;" onclick="secLogClear()">
+                🗑 مسح السجل
+            </button>
+            <span style="font-size:11.5px;color:var(--gray);align-self:center;">اضغط على أي تنبيه لتحديده كـ "مقروء"</span>
+        </div>
+        <div id="sec-log-content" style="max-height:420px;overflow-y:auto;">
+            <div style="color:var(--gray);font-size:13px;text-align:center;padding:20px;">
+                اضغط "تحديث السجل" لعرض التنبيهات
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Export ─────────────────────────────────────────── -->
+    <div class="bk-section">
+        <div class="bk-title">📤 تصدير — Export Backup</div>
+        <p style="font-size:13px;color:var(--gray-light);margin-bottom:14px;">
+            حدد ما تريد تصديره ثم اضغط Export. يُحفظ كملف <code style="color:#fb923c;">.json</code> على جهازك.
+        </p>
+        <div class="bk-collections" id="bk-export-chips"></div>
+        <div class="bk-row">
+            <button class="bk-btn bk-btn-export" id="bk-export-all-btn" onclick="bkExport('all')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export All Data
+            </button>
+            <button class="bk-btn bk-btn-export" onclick="bkExport('selected')">
+                Export Selected
+            </button>
+            <button class="bk-btn bk-btn-export" onclick="bkExport('rtdb')">
+                Export RTDB Only
+            </button>
+            <button class="bk-btn bk-btn-export" onclick="bkExport('firestore')">
+                Export Firestore Only
+            </button>
+        </div>
+        <div class="bk-progress"><div class="bk-progress-bar" id="bk-exp-prog"></div></div>
+        <div class="bk-log" id="bk-export-log"><span class="bk-info">جاهز للتصدير...</span></div>
+    </div>
+
+    <!-- ── Import ─────────────────────────────────────────── -->
+    <div class="bk-section">
+        <div class="bk-title">📥 استيراد — Import / Restore</div>
+        <p style="font-size:13px;color:var(--gray-light);margin-bottom:14px;">
+            استيراد ملف <code style="color:#fb923c;">.json</code> تم تصديره من هنا.
+        </p>
+
+        <!-- Import mode selector -->
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:800;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">وضع الاستيراد</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;border-radius:8px;border:1.5px solid rgba(34,197,94,.3);background:rgba(34,197,94,.06);">
+                    <input type="radio" name="bk-mode" value="skip" checked style="margin-top:2px;accent-color:#22c55e;">
+                    <div>
+                        <div style="font-size:13px;font-weight:700;color:#22c55e;">✅ دمج آمن — تخطي الموجود (موصى به)</div>
+                        <div style="font-size:11.5px;color:var(--gray);margin-top:2px;">يضيف فقط الـ docs غير الموجودة. لا يمس البيانات الحالية. آمن 100% على المشاريع الحية.</div>
+                    </div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;border-radius:8px;border:1.5px solid rgba(251,146,60,.3);background:rgba(251,146,60,.06);">
+                    <input type="radio" name="bk-mode" value="overwrite" style="margin-top:2px;accent-color:#fb923c;">
+                    <div>
+                        <div style="font-size:13px;font-weight:700;color:#fb923c;">⚠️ دمج مع استبدال</div>
+                        <div style="font-size:11.5px;color:var(--gray);margin-top:2px;">يضيف كل شيء. إذا وجد نفس الـ ID (مثلاً نفس رقم الطلب) يستبدله بنسخة الـ backup. البيانات الجديدة بعد الـ backup تبقى.</div>
+                    </div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;border-radius:8px;border:1.5px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);">
+                    <input type="radio" name="bk-mode" value="full" style="margin-top:2px;accent-color:#ef4444;">
+                    <div>
+                        <div style="font-size:13px;font-weight:700;color:#ef4444;">💣 استعادة كاملة (خطر)</div>
+                        <div style="font-size:11.5px;color:var(--gray);margin-top:2px;">يحذف كل البيانات الموجودة أولاً ثم يعيد الـ backup بالكامل. كل ما حدث بعد الـ backup يُفقد نهائياً.</div>
+                    </div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;border-radius:8px;border:1.5px solid rgba(168,85,247,.3);background:rgba(168,85,247,.06);">
+                    <input type="radio" name="bk-mode" value="selective" style="margin-top:2px;accent-color:#a855f7;">
+                    <div>
+                        <div style="font-size:13px;font-weight:700;color:#a855f7;">🎯 استعادة انتقائية — Anti-Hack (موصى به عند الاختراق)</div>
+                        <div style="font-size:11.5px;color:var(--gray);margin-top:2px;">تختار بالضبط أي collections تُعيد من الـ backup. الطلبات والمستخدمين تبقى كما هي — فقط ما اخترته يُستعاد.</div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Selective collection picker — shown only when selective mode chosen -->
+        <div id="bk-selective-picker" style="display:none;background:rgba(168,85,247,.06);border:1.5px solid rgba(168,85,247,.25);border-radius:10px;padding:14px;margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:800;color:#a855f7;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">🎯 اختر ما تريد استعادته من الـ backup</div>
+            <div id="bk-selective-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+            <div style="font-size:11px;color:var(--gray);padding:8px;background:rgba(0,0,0,.2);border-radius:6px;">
+                💡 <strong style="color:#a855f7;">نصيحة عند الاختراق:</strong> عادةً أعد فقط: <code>settings</code> + <code>adminUsers</code> + <code>blacklist</code>. اترك <code>orders</code> و<code>users</code> و<code>requests</code> كما هي.
+            </div>
+        </div>
+
+        <div class="bk-row">
+            <label class="bk-btn bk-btn-import" style="cursor:pointer;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                اختر ملف .json
+                <input type="file" accept=".json" style="display:none" onchange="bkLoadFile(this)">
+            </label>
+            <button class="bk-btn bk-btn-import" id="bk-import-btn" onclick="bkImport()" disabled>
+                🚀 Start Import
+            </button>
+        </div>
+        <div id="bk-import-preview" style="font-size:12px;color:var(--gray);margin-top:8px;"></div>
+        <div class="bk-progress"><div class="bk-progress-bar" id="bk-imp-prog"></div></div>
+        <div class="bk-log" id="bk-import-log"><span class="bk-info">اختر ملف للبدء...</span></div>
+    </div>
+
+    <!-- ── Security Status ───────────────────────────────── -->
+    <div class="bk-section">
+        <div class="bk-title">🛡 مراقبة الأمان — Security Monitor</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+            <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:22px;">⚙️</div>
+                <div style="font-size:11px;color:var(--gray);margin-top:4px;">Settings</div>
+                <div id="sec-settings-status" style="font-size:12px;font-weight:700;color:#22c55e;margin-top:2px;">مراقَب ✓</div>
+            </div>
+            <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:22px;">👤</div>
+                <div style="font-size:11px;color:var(--gray);margin-top:4px;">Admin Accounts</div>
+                <div id="sec-admin-status" style="font-size:12px;font-weight:700;color:#22c55e;margin-top:2px;">مراقَب ✓</div>
+            </div>
+            <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:22px;">⭐</div>
+                <div style="font-size:11px;color:var(--gray);margin-top:4px;">Points Spikes</div>
+                <div id="sec-points-status" style="font-size:12px;font-weight:700;color:#22c55e;margin-top:2px;">مراقَب ✓</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="bk-btn" style="border-color:rgba(168,85,247,.4);color:#a855f7;font-size:12px;" onclick="secResetBaseline()">
+                🔄 إعادة ضبط Baseline
+            </button>
+            <button class="bk-btn bk-btn-export" style="font-size:12px;" onclick="bkQuickBackup()">
+                💾 Quick Backup الآن
+            </button>
+        </div>
+        <div style="margin-top:12px;padding:10px 14px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:8px;font-size:12px;color:#d8b4fe;line-height:1.6;">
+            🛡 <strong>كيف يعمل؟</strong> عند كل تحديث تلقائي (كل 12 ثانية) يتحقق النظام من:<br>
+            • hash لإعدادات النظام — أي تغيير يُنبّهك فوراً<br>
+            • عدد حسابات المديرين — إذا أُضيف مدير غير معروف تظهر تنبيه أحمر<br>
+            • نقاط العملاء — أي ارتفاع +100 نقطة دفعة واحدة يُعتبر مشبوهاً
+        </div>
+    </div>
+
+    <!-- ── Info ───────────────────────────────────────────── -->
+    <div class="bk-section">
+        <div class="bk-title">ℹ️ ماذا يشمل الـ Backup؟</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12.5px;color:var(--gray-light);">
+            <div>
+                <div style="color:#fb923c;font-weight:700;margin-bottom:6px;">🔥 Firestore Collections</div>
+                ${BACKUP_COLLECTIONS.map(c => `<div style="padding:2px 0;">• ${c}</div>`).join('')}
+            </div>
+            <div>
+                <div style="color:#fb923c;font-weight:700;margin-bottom:6px;">⚡ Realtime Database Paths</div>
+                ${BACKUP_RTDB_PATHS.map(p => `<div style="padding:2px 0;">• ${p}</div>`).join('')}
+            </div>
+        </div>
+        <div style="margin-top:14px;padding:10px 14px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:8px;font-size:12px;color:#86efac;">
+            💡 <strong>نصيحة:</strong> اعمل Export يومياً أو قبل أي تعديلات كبيرة. احفظ الملف في Google Drive أو مكان آمن.
+        </div>
+    </div>
+
+    <!-- ── Reset Project ────────────────────────────────────── -->
+    <div class="bk-section" style="border-color:rgba(239,68,68,.25);">
+        <div class="bk-title" style="color:#ef4444;">💣 إعادة ضبط المشروع — Reset Project</div>
+        <p style="font-size:13px;color:var(--gray-light);margin-bottom:14px;line-height:1.6;">
+            يحذف كل بيانات الاختبار ويبدأ المشروع من الصفر. يحتفظ بـ:
+            <strong style="color:#22c55e;">المتاجر، المنتجات، الفئات، العروض، الإعدادات، المديرين.</strong>
+        </p>
+        <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#fca5a5;line-height:1.7;">
+            <strong>🗑 ما سيُحذف:</strong><br>
+            • كل حسابات العملاء (Firestore users + usernames)<br>
+            • كل الطلبات (RTDB requests + historyRequests + Firestore orders)<br>
+            • نقاط وكريدت ومكافآت العملاء (RTDB users)<br>
+            • فهرس الهواتف (phoneIndex)<br>
+            • بيانات الأجهزة (devices + driverDevices + device_fingerprints)<br>
+            • القائمة السوداء (blacklist)<br>
+            • العداد العالمي → يُعاد إلى 1<br>
+            • السائقون المسجلون (drivers)<br>
+            • deletedUsernames + pendingAuthDeletion
+        </div>
+        <div class="bk-progress"><div class="bk-progress-bar" id="rst-prog" style="background:#ef4444;"></div></div>
+        <div class="bk-log" id="rst-log" style="margin-top:10px;display:none;"><span class="bk-info">جاري الحذف...</span></div>
+        <div class="bk-row" style="margin-top:14px;">
+            <button class="bk-btn bk-btn-danger" onclick="resetProject()">
+                💣 إعادة ضبط كاملة
+            </button>
+            <span style="font-size:11.5px;color:var(--gray);">⚠️ هذا الإجراء لا يمكن التراجع عنه — تأكد من عمل Export أولاً</span>
+        </div>
+    </div>`;
+
+    // Render collection chips
+    const chipsEl = document.getElementById('bk-export-chips');
+    if (chipsEl) {
+        [...BACKUP_COLLECTIONS.map(c => ({ type:'fs', name:c })),
+         ...BACKUP_RTDB_PATHS.map(p => ({ type:'rtdb', name:p }))
+        ].forEach(({ type, name }) => {
+            const chip = document.createElement('span');
+            chip.className = 'bk-col-chip selected';
+            chip.textContent = (type === 'rtdb' ? '⚡ ' : '🔥 ') + name;
+            chip.dataset.col = name;
+            chip.dataset.type = type;
+            chip.addEventListener('click', () => chip.classList.toggle('selected'));
+            chipsEl.appendChild(chip);
+        });
+    }
+}
+
+// ── Export ─────────────────────────────────────────────────────
+async function bkExport(mode) {
+    const logEl  = document.getElementById('bk-export-log');
+    const progEl = document.getElementById('bk-exp-prog');
+    const label  = document.getElementById('backup-status-label');
+    const bkLog  = (msg, cls='bk-info') => {
+        const d = document.createElement('div');
+        d.className = cls; d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+    };
+    logEl.innerHTML = '';
+    progEl.style.width = '0';
+    label.textContent = '⏳ جاري التصدير...';
+
+    const backup = { exportedAt: new Date().toISOString(), version: 2, firestore: {}, rtdb: {} };
+    const token  = await getFsToken().catch(() => null);
+
+    // Determine what to export
+    let fsCols  = BACKUP_COLLECTIONS;
+    let rtdbPaths = BACKUP_RTDB_PATHS;
+    if (mode === 'selected') {
+        const chips = document.querySelectorAll('#bk-export-chips .bk-col-chip.selected');
+        fsCols    = [...chips].filter(c => c.dataset.type === 'fs').map(c => c.dataset.col);
+        rtdbPaths = [...chips].filter(c => c.dataset.type === 'rtdb').map(c => c.dataset.col);
+    } else if (mode === 'rtdb') {
+        fsCols = [];
+    } else if (mode === 'firestore') {
+        rtdbPaths = [];
+    }
+
+    const total = fsCols.length + rtdbPaths.length;
+    let done = 0;
+
+    // Firestore export
+    for (const col of fsCols) {
+        try {
+            bkLog(`Firestore → ${col}...`);
+            const data = await fsGetCollection(col).catch(() => null);
+            if (data) {
+                backup.firestore[col] = data;
+                const count = Object.keys(data).length;
+                bkLog(`✅ ${col} — ${count} docs`, 'bk-ok');
+            } else {
+                bkLog(`⚠️ ${col} — empty or permission denied`, 'bk-warn');
+            }
+        } catch(e) {
+            bkLog(`❌ ${col} — ${e.message}`, 'bk-err');
+        }
+        done++;
+        progEl.style.width = (done / total * 100) + '%';
+    }
+
+    // RTDB export
+    for (const path of rtdbPaths) {
+        try {
+            bkLog(`RTDB → ${path}...`);
+            const r    = await fetch(`${RTDB}/${path}.json`);
+            const data = r.ok ? await r.json() : null;
+            if (data !== null) {
+                backup.rtdb[path] = data;
+                const count = typeof data === 'object' ? Object.keys(data).length : 1;
+                bkLog(`✅ ${path} — ${count} entries`, 'bk-ok');
+            } else {
+                bkLog(`⚠️ ${path} — empty`, 'bk-warn');
+            }
+        } catch(e) {
+            bkLog(`❌ ${path} — ${e.message}`, 'bk-err');
+        }
+        done++;
+        progEl.style.width = (done / total * 100) + '%';
+    }
+
+    // Download
+    const ts       = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+    const filename = `delivo-backup-${ts}.json`;
+    const blob     = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url      = URL.createObjectURL(blob);
+    const a        = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+
+    const fsCount   = Object.values(backup.firestore).reduce((s, v) => s + Object.keys(v||{}).length, 0);
+    const rtdbCount = Object.keys(backup.rtdb).length;
+    bkLog(`🎉 Export complete! File: ${filename}`, 'bk-ok');
+    bkLog(`   Firestore: ${fsCount} total docs | RTDB: ${rtdbCount} paths`, 'bk-ok');
+    label.textContent = `✅ آخر export: ${new Date().toLocaleTimeString()}`;
+    progEl.style.width = '100%';
+}
+
+// ── Load file ──────────────────────────────────────────────────
+let _bkData = null;
+function bkLoadFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            _bkData = JSON.parse(e.target.result);
+            const fsCols    = Object.keys(_bkData.firestore || {});
+            const rtdbPaths = Object.keys(_bkData.rtdb || {});
+            const fsCount   = Object.values(_bkData.firestore || {}).reduce((s,v) => s + Object.keys(v||{}).length, 0);
+            document.getElementById('bk-import-preview').innerHTML =
+                `<span style="color:#22c55e;">✅ ملف صالح</span> — 
+                 تاريخ: <strong>${new Date(_bkData.exportedAt).toLocaleString('ar')}</strong><br>
+                 Firestore: <strong>${fsCols.join(', ')}</strong> (${fsCount} docs)<br>
+                 RTDB: <strong>${rtdbPaths.join(', ')}</strong>`;
+            document.getElementById('bk-import-btn').disabled = false;
+            document.getElementById('bk-import-log').innerHTML = '<span class="bk-info">ملف جاهز — اضغط Start Import</span>';
+
+            // Populate selective chips
+            const chipsEl = document.getElementById('bk-selective-chips');
+            if (chipsEl) {
+                chipsEl.innerHTML = '';
+                // Safe defaults for anti-hack — orders/users/requests NOT selected by default
+                const safeDefaults = ['settings','adminUsers','blacklist','categories','offers','stores'];
+                const unsafeDefaults = ['orders','users','usernames','requests','historyRequests','phoneIndex','devices','drivers','pattern','globalCounter'];
+                [...fsCols.map(c=>({type:'fs',name:c})), ...rtdbPaths.map(p=>({type:'rtdb',name:p}))]
+                    .forEach(({type, name}) => {
+                        const isSafe = safeDefaults.includes(name);
+                        const chip = document.createElement('span');
+                        chip.className = 'bk-col-chip' + (isSafe ? ' selected' : '');
+                        chip.style.cssText = isSafe
+                            ? 'background:rgba(168,85,247,.15);border-color:rgba(168,85,247,.4);color:#a855f7;'
+                            : '';
+                        chip.textContent = (type==='rtdb'?'⚡ ':'🔥 ') + name;
+                        chip.dataset.col  = name;
+                        chip.dataset.type = type;
+                        chip.title = unsafeDefaults.includes(name) ? '⚠️ لا تُعِد هذا إلا إذا كان متأثراً بالاختراق' : '✅ آمن للاستعادة';
+                        chip.addEventListener('click', () => {
+                            chip.classList.toggle('selected');
+                            chip.style.cssText = chip.classList.contains('selected')
+                                ? 'background:rgba(168,85,247,.15);border-color:rgba(168,85,247,.4);color:#a855f7;'
+                                : '';
+                        });
+                        chipsEl.appendChild(chip);
+                    });
+            }
+        } catch(err) {
+            document.getElementById('bk-import-preview').innerHTML = '<span style="color:#ef4444;">❌ ملف غير صالح</span>';
+            _bkData = null;
+        }
+    };
+    reader.readAsText(file);
+}
+
+// Show/hide selective picker when mode changes
+document.addEventListener('change', e => {
+    if (e.target.name === 'bk-mode') {
+        const picker = document.getElementById('bk-selective-picker');
+        if (picker) picker.style.display = e.target.value === 'selective' ? 'block' : 'none';
+    }
+});
+
+// ── Import ──────────────────────────────────────────────────────
+async function bkImport() {
+    if (!_bkData) return;
+    const logEl  = document.getElementById('bk-import-log');
+    const progEl = document.getElementById('bk-imp-prog');
+    const label  = document.getElementById('backup-status-label');
+    const mode   = document.querySelector('input[name="bk-mode"]:checked')?.value || 'skip';
+    const bkLog  = (msg, cls='bk-info') => {
+        const d = document.createElement('div');
+        d.className = cls; d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+    };
+
+    const modeLabels = {
+        skip:      'دمج آمن — تخطي الموجود',
+        overwrite: 'دمج مع استبدال',
+        full:      '💣 استعادة كاملة (سيحذف كل البيانات أولاً)',
+        selective: '🎯 استعادة انتقائية — Anti-Hack',
+    };
+
+    // For selective mode: filter to only chosen collections
+    if (mode === 'selective') {
+        const selectedChips = [...document.querySelectorAll('#bk-selective-chips .bk-col-chip.selected')];
+        const selFs   = new Set(selectedChips.filter(c=>c.dataset.type==='fs').map(c=>c.dataset.col));
+        const selRtdb = new Set(selectedChips.filter(c=>c.dataset.type==='rtdb').map(c=>c.dataset.col));
+        if (!selFs.size && !selRtdb.size) {
+            toast('⚠️ لم تختر أي collection للاستعادة', true);
+            return;
+        }
+        // Filter _bkData to selected only
+        _bkData = {
+            ..._bkData,
+            firestore: Object.fromEntries(Object.entries(_bkData.firestore||{}).filter(([k])=>selFs.has(k))),
+            rtdb:      Object.fromEntries(Object.entries(_bkData.rtdb||{}).filter(([k])=>selRtdb.has(k))),
+        };
+        bkLog(`🎯 استعادة انتقائية: Firestore[${[...selFs].join(', ')}] | RTDB[${[...selRtdb].join(', ')}]`, 'bk-warn');
+    }
+    const modeColors = { skip:'#22c55e', overwrite:'#fb923c', full:'#ef4444' };
+
+    const confirmed = await showConfirm({
+        title: '📥 تأكيد الاستيراد',
+        msg:   `وضع: <strong style="color:${modeColors[mode]};">${modeLabels[mode]}</strong><br><br>
+                ${mode === 'skip'      ? 'سيُضاف فقط ما لا يوجد في Firebase. البيانات الحالية لا تُمس.' : ''}
+                ${mode === 'overwrite' ? '⚠️ الـ docs بنفس الـ ID ستُستبدل بنسخة الـ backup.' : ''}
+                ${mode === 'full'      ? '⛔ <strong>تحذير:</strong> كل البيانات الحالية ستُحذف أولاً ثم يُعاد الـ backup. هذا لا يمكن التراجع عنه!' : ''}
+                <br>هل تريد المتابعة؟`,
+        okLabel: '🚀 نعم، استورد', cancelLabel: 'إلغاء', danger: mode === 'full',
+    });
+    if (!confirmed) return;
+
+    logEl.innerHTML = '';
+    progEl.style.width = '0';
+    label.textContent = '⏳ جاري الاستيراد...';
+    // Pause security monitor during import to avoid false alerts
+    const _prevBaseline = _secBaseline;
+    _secBaseline = null;
+    bkLog(`وضع: ${modeLabels[mode]}`, mode === 'full' ? 'bk-err' : mode === 'overwrite' ? 'bk-warn' : 'bk-ok');
+
+    const token  = await getFsToken().catch(() => null);
+    const fsAuth = token ? { 'Content-Type':'application/json', Authorization:`Bearer ${token}` } : {};
+    const FS_B   = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
+
+    const fsCols    = Object.entries(_bkData.firestore || {});
+    const rtdbPaths = Object.entries(_bkData.rtdb || {});
+    const total     = fsCols.reduce((s,[,v]) => s + Object.keys(v||{}).length, 0) + rtdbPaths.length;
+    let done = 0;
+
+    // ── Full restore: delete existing collections first ───────────────
+    if (mode === 'full') {
+        bkLog('💣 حذف البيانات الموجودة...', 'bk-err');
+        for (const [col] of fsCols) {
+            try {
+                // Use REST to list and delete — respects admin token permissions
+                let pageToken = null, deleted = 0;
+                do {
+                    const url = `${FS_B}/${col}?pageSize=300${pageToken?'&pageToken='+pageToken:''}`;
+                    const r   = await fetch(url, { headers: fsAuth });
+                    const d   = await r.json();
+                    const docs = d.documents || [];
+                    await Promise.allSettled(docs.map(doc =>
+                        fetch(doc.name, { method: 'DELETE', headers: fsAuth })
+                    ));
+                    deleted += docs.length;
+                    pageToken = d.nextPageToken || null;
+                } while (pageToken);
+                bkLog(`🗑 Firestore ${col} cleared (${deleted} docs)`, 'bk-warn');
+            } catch(e) { bkLog(`⚠️ Could not clear ${col}: ${e.message}`, 'bk-warn'); }
+        }
+        for (const [path] of rtdbPaths) {
+            try {
+                await fetch(`${RTDB}/${path}.json`, { method: 'DELETE' });
+                bkLog(`🗑 RTDB ${path} cleared`, 'bk-warn');
+            } catch(e) {}
+        }
+        bkLog('✅ Cleared. Now restoring backup...', 'bk-ok');
+    }
+
+    // ── Restore Firestore via REST (admin token bypasses security rules) ──
+    // IMPORTANT: We always use REST + admin idToken here, NOT the SDK.
+    // The SDK uses anonymous auth which is blocked by Firestore rules for
+    // sensitive collections like usernames/users. The admin REST token has
+    // full access regardless of rules.
+    if (!token) {
+        bkLog('❌ لا يوجد admin token — لا يمكن كتابة Firestore. تأكد من تسجيل الدخول.', 'bk-err');
+    } else {
+        // Helper: convert JS value to Firestore REST field value
+        function toFsField(v) {
+            if (v === null || v === undefined) return { nullValue: null };
+            if (typeof v === 'boolean')  return { booleanValue: v };
+            if (typeof v === 'number')   return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+            if (typeof v === 'string')   return { stringValue: v };
+            if (Array.isArray(v))        return { arrayValue: { values: v.map(toFsField) } };
+            if (typeof v === 'object')   return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k,val]) => [k, toFsField(val)])) } };
+            return { stringValue: String(v) };
+        }
+
+        for (const [col, docs] of fsCols) {
+            bkLog(`Firestore → ${col} (${Object.keys(docs).length} docs)...`);
+            let skipped = 0, written = 0, errors = 0;
+
+            for (const [docId, data] of Object.entries(docs)) {
+                try {
+                    // Skip check for 'skip' mode
+                    if (mode === 'skip') {
+                        const chk = await fetch(`${FS_B}/${col}/${encodeURIComponent(docId)}`, { headers: fsAuth });
+                        if (chk.ok) { skipped++; done++; progEl.style.width = (done/total*100)+'%'; continue; }
+                    }
+
+                    // Build Firestore REST fields object with proper type mapping
+                    const clean = { ...data }; delete clean._id;
+                    const fields = {};
+                    Object.entries(clean).forEach(([k, v]) => { fields[k] = toFsField(v); });
+
+                    const resp = await fetch(`${FS_B}/${col}/${encodeURIComponent(docId)}`, {
+                        method:  'PATCH',
+                        headers: fsAuth,
+                        body:    JSON.stringify({ fields }),
+                    });
+
+                    if (resp.ok) {
+                        written++;
+                    } else {
+                        const err = await resp.json().catch(() => ({}));
+                        bkLog(`  ⚠️ ${col}/${docId} — ${err?.error?.message || resp.status}`, 'bk-warn');
+                        errors++;
+                    }
+                } catch(e) {
+                    bkLog(`  ⚠️ ${col}/${docId} — ${e.message}`, 'bk-warn');
+                    errors++;
+                }
+                done++;
+                progEl.style.width = (done / total * 100) + '%';
+            }
+            const summary = `${written} written${skipped ? ', ' + skipped + ' skipped' : ''}${errors ? ', ' + errors + ' errors' : ''}`;
+            bkLog(`${errors ? '⚠️' : '✅'} ${col} — ${summary}`, errors ? 'bk-warn' : 'bk-ok');
+        }
+    }
+
+    // ── Restore RTDB ──────────────────────────────────────────────────
+    for (const [path, data] of rtdbPaths) {
+        try {
+            bkLog(`RTDB → ${path}...`);
+            if (mode === 'skip') {
+                // Only write keys that don't exist
+                const existing = await fetch(`${RTDB}/${path}.json`).then(r => r.json()).catch(() => null);
+                if (existing && typeof data === 'object') {
+                    const newKeys = {};
+                    let skipped = 0;
+                    Object.entries(data).forEach(([k, v]) => {
+                        if (existing[k] !== undefined) { skipped++; }
+                        else { newKeys[k] = v; }
+                    });
+                    if (Object.keys(newKeys).length) {
+                        await fetch(`${RTDB}/${path}.json`, {
+                            method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(newKeys),
+                        });
+                    }
+                    bkLog(`✅ ${path} — ${Object.keys(newKeys).length} added, ${skipped} skipped`, 'bk-ok');
+                } else {
+                    if (!existing) {
+                        await fetch(`${RTDB}/${path}.json`, {
+                            method: 'PUT', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(data),
+                        });
+                    }
+                    bkLog(`✅ ${path} restored`, 'bk-ok');
+                }
+            } else {
+                await fetch(`${RTDB}/${path}.json`, {
+                    method: mode === 'full' ? 'PUT' : 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                bkLog(`✅ ${path} restored`, 'bk-ok');
+            }
+        } catch(e) {
+            bkLog(`❌ ${path} — ${e.message}`, 'bk-err');
+        }
+        done++;
+        progEl.style.width = (done / total * 100) + '%';
+    }
+
+    bkLog('🎉 Import complete!', 'bk-ok');
+    label.textContent = `✅ آخر import: ${new Date().toLocaleTimeString()}`;
+    progEl.style.width = '100%';
+    await loadAllData();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EDIT USER POINTS — direct RTDB write
+// ══════════════════════════════════════════════════════════════
+async function editUserPoints(uid, currentPts, displayName) {
+    const RTDB_B = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+    // Build inline modal
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+        display:flex;align-items:center;justify-content:center;padding:16px;`;
+
+    overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;
+                padding:24px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+            <span style="font-size:22px;">⭐</span>
+            <div>
+                <div style="font-size:15px;font-weight:800;color:var(--white);">تعديل النقاط</div>
+                <div style="font-size:12px;color:var(--gray);">${displayName}</div>
+            </div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+            <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px;">النقاط الحالية</label>
+            <div style="font-size:28px;font-weight:800;color:var(--orange);font-family:var(--mono);">${currentPts}</div>
+        </div>
+
+        <div style="margin-bottom:8px;">
+            <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px;">النقاط الجديدة</label>
+            <input id="pts-input" type="number" min="0" max="99999" value="${currentPts}"
+                style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;
+                       padding:10px 14px;color:var(--white);font-size:18px;font-weight:700;font-family:var(--mono);
+                       outline:none;text-align:center;">
+        </div>
+
+        <!-- Quick adjust buttons -->
+        <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+            ${['+10','+50','+100','-10','-50','-100'].map(v => {
+                const n = parseInt(v);
+                const col = n > 0 ? '#22c55e' : '#ef4444';
+                return `<button onclick="document.getElementById('pts-input').value=Math.max(0,parseInt(document.getElementById('pts-input').value||0)+${n})"
+                    style="flex:1;padding:5px;border:1px solid ${col}33;border-radius:7px;
+                           background:${col}11;color:${col};font-size:12px;font-weight:700;cursor:pointer;">${v}</button>`;
+            }).join('')}
+        </div>
+
+        <div style="display:flex;gap:8px;">
+            <button id="pts-cancel"
+                style="flex:1;padding:10px;border:1px solid var(--border);border-radius:9px;
+                       background:transparent;color:var(--gray-light);font-size:13px;font-weight:700;cursor:pointer;">
+                إلغاء
+            </button>
+            <button id="pts-save"
+                style="flex:2;padding:10px;border:none;border-radius:9px;
+                       background:var(--orange);color:#fff;font-size:13px;font-weight:800;cursor:pointer;">
+                ✅ حفظ النقاط
+            </button>
+        </div>
+        <div id="pts-error" style="color:#ef4444;font-size:12px;margin-top:8px;text-align:center;display:none;"></div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#pts-input');
+    input.focus(); input.select();
+
+    const close = () => overlay.remove();
+
+    overlay.querySelector('#pts-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') close(); });
+
+    async function save() {
+        const newPts = parseInt(input.value);
+        if (isNaN(newPts) || newPts < 0) {
+            const errEl = overlay.querySelector('#pts-error');
+            errEl.textContent = 'أدخل رقماً صحيحاً أكبر من أو يساوي 0';
+            errEl.style.display = 'block';
+            return;
+        }
+
+        const saveBtn = overlay.querySelector('#pts-save');
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ جاري الحفظ...';
+
+        try {
+            // Write to RTDB /users/{uid}/points
+            const r = await fetch(`${RTDB_B}/users/${uid}/points.json`, {
+                method:  'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(newPts),
+            });
+            if (!r.ok) throw new Error('RTDB write failed: ' + r.status);
+
+            // Update local allUsers so re-render shows correct value
+            if (allUsers[uid]) allUsers[uid].points = newPts;
+
+            // Update security baseline so monitor doesn't false-alert on this intentional change
+            if (_secBaseline && _secBaseline.userPoints) {
+                _secBaseline.userPoints[uid] = newPts;
+            }
+
+            toast(`✅ نقاط ${displayName} → ${newPts} ⭐`);
+            close();
+            renderCustomers();
+        } catch(e) {
+            const errEl = overlay.querySelector('#pts-error');
+            errEl.textContent = 'فشل الحفظ: ' + e.message;
+            errEl.style.display = 'block';
+            saveBtn.disabled = false;
+            saveBtn.textContent = '✅ حفظ النقاط';
+        }
+    }
+
+    overlay.querySelector('#pts-save').addEventListener('click', save);
+}
+
+async function resetProject() {
+    const RTDB_B = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+    const FS_B   = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
+
+    // Pause security monitor during reset to avoid false alerts
+    _secBaseline = null;
+    const _secPaused = true;
+
+    // Step 1 — triple confirmation
+    const c1 = await showConfirm({
+        title: '💣 إعادة ضبط المشروع',
+        msg:   'هذا سيحذف <strong>كل بيانات العملاء والطلبات</strong> نهائياً.<br><br>تأكد من عمل Export أولاً!<br><br>هل أنت متأكد؟',
+        okLabel: 'نعم، متأكد', cancelLabel: 'إلغاء', danger: true,
+    });
+    if (!c1) return;
+
+    const c2 = await showConfirm({
+        title: '⚠️ تأكيد أخير',
+        msg:   'لا يمكن التراجع عن هذا الإجراء.<br>كل الطلبات والمستخدمين ستُحذف.<br><br><strong style="color:#ef4444;">هل تريد المتابعة؟</strong>',
+        okLabel: '💣 نعم، احذف كل شيء', cancelLabel: 'إلغاء', danger: true,
+    });
+    if (!c2) return;
+
+    const logEl  = document.getElementById('rst-log');
+    const progEl = document.getElementById('rst-prog');
+    logEl.style.display = 'block';
+    logEl.innerHTML = '';
+    const log = (msg, cls='bk-info') => {
+        const d = document.createElement('div');
+        d.className = cls;
+        d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+    };
+    const label = document.getElementById('backup-status-label');
+    label.textContent = '⏳ جاري إعادة الضبط...';
+
+    // What to delete from RTDB
+    const rtdbDelete = [
+        'requests', 'historyRequests', 'users', 'phoneIndex',
+        'devices', 'blacklist', 'deletedUsernames', 'pendingAuthDeletion',
+        'drivers', 'driverDevices', 'device_fingerprints',
+    ];
+
+    // What to delete from Firestore
+    const fsDelete = ['users', 'usernames', 'orders', 'devices',
+                      'driverDevices', 'device_fingerprints', 'whitelisted_devices'];
+
+    const total = rtdbDelete.length + fsDelete.length + 2; // +2 for counter + auth cleanup
+    let done = 0;
+    const tick = () => { done++; progEl.style.width = (done/total*100)+'%'; };
+
+    // ── 1. Delete RTDB paths ──────────────────────────────────────────
+    log('🗑 حذف RTDB...');
+    await Promise.allSettled(rtdbDelete.map(async path => {
+        try {
+            await fetch(`${RTDB_B}/${path}.json`, { method: 'DELETE' });
+            log(`  ✅ RTDB/${path} حُذف`, 'bk-ok');
+        } catch(e) {
+            log(`  ⚠️ RTDB/${path}: ${e.message}`, 'bk-warn');
+        }
+        tick();
+    }));
+
+    // ── 2. Reset global counter to 1 ─────────────────────────────────
+    try {
+        await fetch(`${RTDB_B}/globalCounter/requestId.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(1),
+        });
+        log('✅ العداد العالمي → 1', 'bk-ok');
+    } catch(e) {
+        log(`⚠️ العداد: ${e.message}`, 'bk-warn');
+    }
+    tick();
+
+    // ── 3. Delete Firestore collections ───────────────────────────────
+    log('🗑 حذف Firestore collections...');
+    const token  = await getFsToken().catch(() => null);
+    const fsAuth = token ? { 'Content-Type':'application/json', Authorization:`Bearer ${token}` } : {};
+
+    for (const col of fsDelete) {
+        try {
+            // Use SDK batch delete if available
+            if (window._adminDb) {
+                const snap = await window._adminDb.collection(col).get();
+                if (!snap.empty) {
+                    // Batch in groups of 500
+                    const chunks = [];
+                    let batch = window._adminDb.batch();
+                    let count = 0;
+                    snap.docs.forEach(doc => {
+                        batch.delete(doc.ref);
+                        count++;
+                        if (count === 500) { chunks.push(batch.commit()); batch = window._adminDb.batch(); count = 0; }
+                    });
+                    if (count > 0) chunks.push(batch.commit());
+                    await Promise.all(chunks);
+                    log(`  ✅ Firestore/${col} — ${snap.size} docs حُذفت`, 'bk-ok');
+                } else {
+                    log(`  ✅ Firestore/${col} — فارغ`, 'bk-ok');
+                }
+            } else if (token) {
+                // REST fallback — page and delete one by one
+                let pageToken = null;
+                let deleted = 0;
+                do {
+                    const url = `${FS_B}/${col}?pageSize=300${pageToken?'&pageToken='+pageToken:''}`;
+                    const r   = await fetch(url, { headers: fsAuth });
+                    const d   = await r.json();
+                    const docs = d.documents || [];
+                    await Promise.allSettled(docs.map(doc =>
+                        fetch(doc.name.replace('https://firestore.googleapis.com/v1/','https://firestore.googleapis.com/v1/'), { method:'DELETE', headers:fsAuth })
+                    ));
+                    deleted += docs.length;
+                    pageToken = d.nextPageToken || null;
+                } while (pageToken);
+                log(`  ✅ Firestore/${col} — ${deleted} docs حُذفت`, 'bk-ok');
+            }
+        } catch(e) {
+            log(`  ⚠️ Firestore/${col}: ${e.message}`, 'bk-warn');
+        }
+        tick();
+    }
+
+    // ── 4. Clean up Firebase Auth ghost accounts ──────────────────────
+    // We can't delete Auth accounts client-side, but we write a marker
+    // so firebase-init.js slot-recycling handles re-registration cleanly
+    log('ℹ️ Firebase Auth accounts: تبقى محذوفة من RTDB/Firestore — إعادة التسجيل تعمل تلقائياً عبر slot-recycling', 'bk-info');
+    tick();
+
+    // ── 5. Reset security baseline ────────────────────────────────────
+    _secBaseline = null;
+
+    // ── 6. Reload data ────────────────────────────────────────────────
+    allUsers = {}; allOrders = {}; allBlacklist = {};
+    await loadAllData().catch(()=>{});
+
+    log('', 'bk-info');
+    log('🎉 تمت إعادة الضبط بنجاح!', 'bk-ok');
+    log('   العملاء: 0 | الطلبات: 0 | العداد: 1', 'bk-ok');
+    log('   المتاجر والمنتجات والإعدادات: محفوظة ✓', 'bk-ok');
+    progEl.style.width = '100%';
+    label.textContent = `✅ Reset مكتمل: ${new Date().toLocaleTimeString()}`;
+    toast('✅ تمت إعادة ضبط المشروع — جاهز للإطلاق الحقيقي!');
 }
 
 async function setLoyaltyVisible(checked) {

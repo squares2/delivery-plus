@@ -3,7 +3,8 @@
    Top navbar hidden; fixed bottom bar replaces it.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@800&display=swap');
+/* Font is loaded via <link rel="preconnect"/"stylesheet"> in index.html
+   <head> instead of @import — see base.css for why. */
 
 /* ── Hide old top navbar completely ──────────────────────── */
 .navbar { display: none !important; }

@@ -846,12 +846,16 @@ async function _bbsLoadItems(storeName) {
     } catch(e) { _bbsItemCache[storeName] = []; return []; }
 }
 
+let _bbsSearchGen = 0; // guards against a slow/older search overwriting a newer one's results
+
 async function _bbsSearch(q) {
     const query = q.trim().toLowerCase();
     if (!query) { _bbs_showInitial(); return; }
 
+    const myGen = ++_bbsSearchGen;
     _bbs_showLoading();
     const stores = await _bbsLoadStores();
+    if (myGen !== _bbsSearchGen) return; // a newer search started meanwhile
 
     // 1. Match stores by name (companyname / nameAr)
     const storeMatches = stores.filter(s => {
@@ -860,11 +864,19 @@ async function _bbsSearch(q) {
         return en.includes(query) || ar.includes(query);
     });
 
-    // 2. Search items across all stores
-    const CHUNK = 6;
+    // 2. Search items across all stores — progressive + early-stop, so a
+    //    single search doesn't have to download the entire item catalog.
+    //    Results are shown as soon as we have a useful batch, and fetching
+    //    stops once we've found a comfortable number of matches (a rare
+    //    query with few/no matches still ends up scanning everything).
+    const CHUNK       = 6;
+    const MAX_RESULTS = 40;
     const itemResults = [];
+    let shownOnce = false;
 
     for (let i = 0; i < stores.length; i += CHUNK) {
+        if (myGen !== _bbsSearchGen) return; // superseded by a newer search
+
         const chunk = stores.slice(i, i + CHUNK);
         await Promise.all(chunk.map(async store => {
             const items = await _bbsLoadItems(store.companyname);
@@ -892,8 +904,21 @@ async function _bbsSearch(q) {
                 }
             });
         }));
+
+        if (myGen !== _bbsSearchGen) return; // superseded mid-chunk
+
+        // Paint results as soon as we have a first useful batch, instead of
+        // making the customer wait for every store to be scanned.
+        if (!shownOnce && (itemResults.length > 0 || storeMatches.length > 0)) {
+            shownOnce = true;
+            const sortedSoFar = [...itemResults].sort((a, b) => (b.matchScore - a.matchScore) || (a.priceUSD - b.priceUSD));
+            _bbs_showResults(sortedSoFar, null, storeMatches);
+        }
+
+        if (itemResults.length >= MAX_RESULTS) break; // enough matches — stop scanning further stores
     }
 
+    if (myGen !== _bbsSearchGen) return;
     itemResults.sort((a, b) => (b.matchScore - a.matchScore) || (a.priceUSD - b.priceUSD));
     _bbs_showResults(itemResults, null, storeMatches);
 }

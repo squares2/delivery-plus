@@ -7,6 +7,12 @@
    ============================================================ */
 
 const RTDB_URL  = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+// Guards against a stale _loadStorePanel() call still running (and still
+// writing to the DOM / eating main-thread time) after the panel has been
+// closed and reopened again — e.g. quickly tapping a store, going back,
+// and tapping it again before the first load finished.
+let _spLoadGen = 0;
 const GH_IMAGES = './items2';
 
 /* Store types that show description input inside item popup */
@@ -36,6 +42,7 @@ function formatPrice(p) {
     const n = parseFloat(p);
     if (isNaN(n)) return '';
     if (n < 1000) return '$' + n.toFixed(n % 1 === 0 ? 0 : 2);
+    if (n >= 1000000) return (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 2).replace(/\.?0+$/, '') + ' مليون ل.ل';
     return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + ' ألف ل.ل';
 }
 
@@ -117,10 +124,10 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     requestAnimationFrame(() => requestAnimationFrame(() => { card.classList.add('visible'); }));
 
     progress.style.transition = 'none';
-    progress.style.width = '0%';
+    progress.style.transform = 'scaleX(0)';
     requestAnimationFrame(() => {
-        progress.style.transition = `width ${DURATION}ms linear`;
-        progress.style.width = '100%';
+        progress.style.transition = `transform ${DURATION}ms linear`;
+        progress.style.transform = 'scaleX(1)';
     });
 
     let dotIdx = 0;
@@ -157,7 +164,7 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
             logoWrap.style.opacity    = '';
             logoWrap.style.transition = '';
             nameEl.style.opacity = catEl.style.opacity = '';
-            progress.style.width = '0%';
+            progress.style.transform = 'scaleX(0)';
             onDone();
         }, 460);
     }, DURATION);
@@ -167,7 +174,9 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
 // storeName = display name shown in UI (may be Arabic).
 // Regular cards:  openStorePanel(slug, 'Classic-Food', type)          -> rtdbKey defaults to storeName
 // Mealtime cards: openStorePanel('Classic-Food', 'كلاسيك فود', type, 'Classic-Food')
+let _introInProgress = false; // prevents overlapping intro timer chains from rapid repeated taps
 function openStorePanel(storeId, storeName, storeType, rtdbKey) {
+    if (_introInProgress) return; // ignore taps while the ~2.6s intro animation is already playing
     const _fireKey = rtdbKey || storeName; // always the English Firebase key
     const _introCacheKey = `pattern_${storeType}`;
     const _introFetch = _spCache[_introCacheKey]
@@ -180,7 +189,10 @@ function openStorePanel(storeId, storeName, storeType, rtdbKey) {
             if (patternData && typeof patternData === 'object') {
                 storeMeta = Object.values(patternData).find(s => s && s.companyname === _fireKey);
             }
+            _introInProgress = true;
+            setTimeout(() => { _introInProgress = false; }, 3000); // failsafe — cycle normally completes in ~2.66s
             showStoreIntro(storeId, storeName, storeType, storeMeta, () => {
+                _introInProgress = false;
                 _openStorePanelNow(storeId, storeName, storeType, _fireKey);
             });
         })
@@ -331,6 +343,7 @@ function _formatOpensAt(raw) {
 
 /* ── Load & render ────────────────────────────────────────── */
 async function _loadStorePanel(storeName, storeType) {
+    const myGen = ++_spLoadGen;
     const body = document.getElementById('sp-body');
     try {
         // ── Check closed status first (fast parallel fetch) ──
@@ -341,6 +354,7 @@ async function _loadStorePanel(storeName, storeType) {
             ),
             rtdbGet(`storeStatus/${storeName}`).catch(() => null),
         ]);
+        if (myGen !== _spLoadGen) return; // superseded by a newer store open
 
         const _cacheKey = `pattern_${storeType}`;
         _spCache[_cacheKey] = patternData;
@@ -439,8 +453,26 @@ async function _loadStorePanel(storeName, storeType) {
         }
 
         let items = await rtdbGet(`items/${storeName}`);
+        console.log(`[StorePanel] items/${storeName} →`, items ? 'found ✓' : 'null');
         // Fallback: try lowercase key in case Firebase key doesn't match case
-        if (!items) items = await rtdbGet(`items/${storeName.toLowerCase()}`).catch(() => null);
+        if (!items) {
+            items = await rtdbGet(`items/${storeName.toLowerCase()}`).catch(() => null);
+            console.log(`[StorePanel] items/${storeName.toLowerCase()} →`, items ? 'found ✓' : 'null');
+        }
+        // Fallback: try slug (hyphens) version — e.g. "Shams Resort" → "shams-resort"
+        if (!items) {
+            const _slugFb = storeName.toLowerCase().replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+            if (_slugFb !== storeName.toLowerCase()) {
+                items = await rtdbGet(`items/${_slugFb}`).catch(() => null);
+                console.log(`[StorePanel] items/${_slugFb} →`, items ? 'found ✓' : 'null');
+            }
+        }
+        // Fallback: try no-spaces version — e.g. "Shams Resort" → "shamsresort"
+        if (!items) {
+            const _nosp = storeName.toLowerCase().replace(/\s+/g,'');
+            items = await rtdbGet(`items/${_nosp}`).catch(() => null);
+            console.log(`[StorePanel] items/${_nosp} →`, items ? 'found ✓' : 'null');
+        }
         if (!items) {
             body.innerHTML = `<div class="sp-empty">
                 <div class="sp-empty__icon">🛍️</div>
@@ -449,6 +481,7 @@ async function _loadStorePanel(storeName, storeType) {
             </div>`;
             return;
         }
+        if (myGen !== _spLoadGen) return; // superseded by a newer store open
 
         const tree = {};
         Object.values(items).forEach(item => {
@@ -462,6 +495,7 @@ async function _loadStorePanel(storeName, storeType) {
 
         // Apply admin-defined category order (settings/categoryOrder/{storeName})
         const catOrder = await rtdbGet(`settings/categoryOrder/${storeName}`).catch(() => null);
+        if (myGen !== _spLoadGen) return; // superseded by a newer store open
         const mains = _sortByOrder(Object.keys(tree), catOrder?.main);
 
         const tabsEl = document.getElementById('sp-tabs-inner');

@@ -184,12 +184,19 @@
 }
 
 /* ── Progress bar ──────────────────────────────────────────── */
+/* Animated via transform: scaleX() instead of width — width is a layout
+   property, so animating it every ~3.4s (for as long as someone stays on
+   the homepage) was firing a continuous stream of tiny layout shifts and
+   inflating CLS. transform is compositor-only, so this is visually
+   identical but layout-shift-free. */
 .hero__progress {
     position: absolute;
     bottom: 0;
     left: 0;
     height: 3px;
-    width: 0%;
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left;
     background: #FF5C00;
     z-index: 11;
     border-radius: 0 2px 2px 0;

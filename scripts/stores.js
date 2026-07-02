@@ -84,7 +84,8 @@ async function fetchAllStores() {
                 seen.add(name);
                 stores.push({
                     companyname : name,
-                    nameAr      : s.nameAr || '',   // ← Arabic name set in admin
+                    nameAr      : s.nameAr  || '',   // ← Arabic name set in admin
+                    imgSlug     : s.imgSlug || '',    // ← override image slug set in admin
                     type,
                     rank        : s.rank || 0,
                     disabled    : s.disabled,
@@ -98,24 +99,25 @@ async function fetchAllStores() {
     }
 }
 
-/* ── Fetch historyRequests and aggregate counts ──────────── */
+/* ── Store-count RTDB key (must match admin.html / driver.html) ──
+   RTDB path segments can't contain . # $ [ ] / so we sanitise.    */
+function _countKey(name) {
+    return String(name || '').trim().toLowerCase().replace(/[.#$[\]/]/g, '_');
+}
+
+/* ── Fetch per-store delivered-order counts ────────────────
+   Reads storeOrderCounts/ — a small flat node that admin.html and
+   driver.html keep atomically up to date whenever an order flips
+   to/from "delivered". This avoids ever downloading the full
+   historyRequests tree (which only grows and would eventually make
+   every homepage load slower) just to rank stores.             ── */
 async function fetchStoreCounts() {
     try {
-        const res  = await fetch(`${STORES_RTDB_URL}/historyRequests.json?shallow=false`);
+        const res  = await fetch(`${STORES_RTDB_URL}/storeOrderCounts.json`);
         const data = await res.json();
-        if (!data) return {};
-        const counts = {};
-        Object.values(data).forEach(userOrders => {
-            if (!userOrders || typeof userOrders !== 'object') return;
-            Object.values(userOrders).forEach(req => {
-                if (String(req.state) !== '1') return;
-                const s = (req.store || '').trim().toLowerCase();
-                if (s) counts[s] = (counts[s] || 0) + 1;
-            });
-        });
-        return counts;
+        return data || {};
     } catch (e) {
-        console.warn('[Stores] Could not fetch historyRequests:', e);
+        console.warn('[Stores] Could not fetch storeOrderCounts:', e);
         return {};
     }
 }
@@ -132,7 +134,7 @@ function buildStoreData(s, counts, storeStatus) {
     const emoji  = TYPE_EMOJI_STORE[type] || '🏪';
     const img         = `assets/${slug}.webp`;
     const imgFallback = `assets/${slug}.png`;
-    const requests    = counts[name.toLowerCase()] || counts[slug] || 0;
+    const requests    = counts[_countKey(name)] || counts[_countKey(slug)] || 0;
     const st          = storeStatus[name] || null;
     const closed      = st && (st.closed === true || st.closed === '1' || st.closed === 1);
 
@@ -217,8 +219,7 @@ async function renderTopStores() {
             <div class="store-card__thumb store-thumb" style="background-image:url('${store.img}');">
                 <img src="${store.img}" alt="${store.name}" class="store-card__thumb-img"
                      style="display:none"
-                     onerror="this.style.display='none';
-                              this.parentElement.style.backgroundImage=&quot;url('${store.imgFallback}')&quot;;">
+                     onerror="if(this.src.endsWith('.webp')){this.src='${store.imgFallback}';this.parentElement.style.backgroundImage=&quot;url('${store.imgFallback}')&quot;;}else{this.style.display='none';this.parentElement.style.backgroundImage='none';var fb=this.parentElement.querySelector('.store-card__thumb-fallback');if(fb)fb.style.display='flex';}">
                 <div class="store-card__thumb-fallback"
                      style="display:none;align-items:center;justify-content:center;width:100%;height:100%;font-size:2.5rem;background:#f7f7f8;">${store.emoji}</div>
                 ${!store._closed ? `<button class="store-card__wish" aria-label="حفظ">

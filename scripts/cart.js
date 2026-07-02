@@ -1114,12 +1114,14 @@ function _initCartLocation() {
 
     let _cartMap = null, _cartMarker = null;
 
-    mapBtn.addEventListener('click', () => {
+    mapBtn.addEventListener('click', async () => {
         const modal  = document.getElementById('cart-map-modal');
         const mapDiv = document.getElementById('cart-map-modal-map');
         if (!modal || !mapDiv) return;
 
         modal.style.display = 'flex';
+
+        await _ensureLeafletLoaded();
 
         const initLat    = parseFloat(latInput.value) || 34.004;
         const initLng    = parseFloat(lngInput.value) || 36.210;
@@ -1257,6 +1259,7 @@ function _initCartSwipe() {
     let currentDeltaX = 0;
     let isSwiping     = false;
     let isScrolling   = null;
+    let sidebarWidth  = 0; // cached at touchstart — doesn't change during the drag
 
     const THRESHOLD   = 72;
     const VELOCITY_TH = 0.35;
@@ -1265,7 +1268,8 @@ function _initCartSwipe() {
         const touch = e.touches[0];
         const rect  = sidebar.getBoundingClientRect();
         const relX  = touch.clientX - rect.left;
-        if (relX > sidebar.offsetWidth * 0.35) return;
+        sidebarWidth = sidebar.offsetWidth; // read once per gesture, not on every move
+        if (relX > sidebarWidth * 0.35) return;
         touchStartX   = touch.clientX;
         touchStartY   = touch.clientY;
         touchStartT   = e.timeStamp;
@@ -1284,7 +1288,7 @@ function _initCartSwipe() {
         currentDeltaX = Math.min(0, dX);
         sidebar.classList.add('is-dragging');
         sidebar.style.transform = 'translateX(' + currentDeltaX + 'px)';
-        const progress  = Math.abs(currentDeltaX) / sidebar.offsetWidth;
+        const progress  = Math.abs(currentDeltaX) / sidebarWidth;
         const overlayEl = document.getElementById('cart-overlay');
         if (overlayEl) overlayEl.style.opacity = String(0.55 * (1 - progress));
     }, { passive: true });
@@ -1310,6 +1314,7 @@ function _fmt(n) {
     const v = parseFloat(n);
     if (isNaN(v)) return '';
     if (v < 1000) return '$' + v.toFixed(v % 1 === 0 ? 0 : 2);
+    if (v >= 1000000) return (v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 2).replace(/\.?0+$/, '') + ' مليون ل.ل';
     return (v / 1000).toFixed(v % 1000 === 0 ? 0 : 1) + ' ألف ل.ل';
 }
 

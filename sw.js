@@ -9,7 +9,7 @@
    Replace BUILD_TIMESTAMP with your deploy script, or just
    change this number whenever you upload new files.
    Even changing it by 1 is enough to bust all caches.        */
-const BUILD_TS    = '20260617035056';   // replaced by deploy.bat at deploy time
+const BUILD_TS    = '20260702180123';   // replaced by deploy.bat at deploy time
 const CACHE_NAME  = `delivo-${BUILD_TS}`;
 
 /* ── Assets to pre-cache on install ──────────────────────────
@@ -92,8 +92,11 @@ self.addEventListener('activate', event => {
 
 /* ══════════════════════════════════════════════════════════
    FETCH — Network-first for everything except images
-   This means scripts/CSS always come fresh from network
-   and fall back to cache only when offline.
+   This means scripts/CSS respond instantly from cache when available,
+   while a background fetch refreshes the cache for next time. Actual
+   freshness on deploy comes from bumping CACHE_NAME above (see ACTIVATE,
+   which wipes old caches and reloads all open tabs) — not from forcing
+   a network round-trip on every single request.
 ══════════════════════════════════════════════════════════ */
 self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET') return;
@@ -128,17 +131,27 @@ self.addEventListener('fetch', event => {
             })
         );
     } else {
-        /* Network-first for HTML, CSS, JS, JSON — always fresh */
+        /* Stale-while-revalidate for HTML, CSS, JS, JSON — respond from
+           cache instantly if we have it (huge win on slow connections),
+           then quietly refresh the cache in the background for next time.
+           Falls back to waiting on the network only when there's nothing
+           cached yet (first visit). */
         event.respondWith(
-            fetch(event.request)
-                .then(res => {
+            caches.match(event.request).then(cached => {
+                const networkFetch = fetch(event.request).then(res => {
                     if (res && res.status === 200) {
                         const clone = res.clone();
                         caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
                     }
                     return res;
-                })
-                .catch(() => caches.match(event.request))
+                }).catch(() => cached);
+
+                // Keep the SW alive long enough for the background refresh
+                // to finish even after we've already responded from cache.
+                event.waitUntil(networkFetch);
+
+                return cached || networkFetch;
+            })
         );
     }
 });

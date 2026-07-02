@@ -878,6 +878,17 @@
     cursor: pointer; transition: background 0.18s;
 }
 .oh-track-btn:hover { background: rgba(22,163,74,0.12); }
+.oh-load-more-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; padding: 11px; margin-top: 4px;
+    border-radius: var(--radius-md);
+    border: 1.5px dashed var(--clr-gray-300, #d0d0d8);
+    background: transparent;
+    color: var(--clr-gray-500, #6b6b82);
+    font-family: inherit; font-size: 0.78rem; font-weight: 700;
+    cursor: pointer; transition: background 0.18s, border-color 0.18s;
+}
+.oh-load-more-btn:hover { background: var(--clr-gray-50, #f7f7fa); border-color: var(--clr-orange); color: var(--clr-orange); }
 .oh-reorder-btn {
     display: flex; align-items: center; justify-content: center; gap: 6px;
     width: 100%; padding: 10px;

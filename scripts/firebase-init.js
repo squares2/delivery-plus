@@ -100,7 +100,24 @@ function onFirebaseReady() {
     //
     // Together they make it very hard to bypass the 3-account limit.
 
-    const MAX_ACCOUNTS_PER_DEVICE = 3;
+    const MAX_ACCOUNTS_PER_DEVICE = 3; // fallback if Firebase setting not loaded yet
+    // Loaded from settings/maxAccountsPerPhone — default 1 (one account per phone number)
+    let   _maxAccountsPerPhone    = 1;
+    // Loaded from settings/maxAccountsPerDevice — overrides the hardcoded constant
+    let   _maxAccountsPerDevice   = MAX_ACCOUNTS_PER_DEVICE;
+
+    // Read both limits from Firebase on init
+    (function _loadAccountLimits() {
+        const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+        fetch(`${RTDB}/settings/maxAccountsPerPhone.json`)
+            .then(r => r.ok ? r.json() : null)
+            .then(v => { const n = parseInt(v); if (n > 0) _maxAccountsPerPhone = n; })
+            .catch(() => {});
+        fetch(`${RTDB}/settings/maxAccountsPerDevice.json`)
+            .then(r => r.ok ? r.json() : null)
+            .then(v => { const n = parseInt(v); if (n > 0) _maxAccountsPerDevice = n; })
+            .catch(() => {});
+    })();
 
     // ── Dev bypass — run in console to skip device limit ──────
     // To disable limit:  localStorage.setItem('delivo_dev_bypass', '1')
@@ -202,12 +219,13 @@ function onFirebaseReady() {
             const data = r.ok ? await r.json() : null;
             if (!data) return { allowed: true, count: 0, uuid };
             const count = data.accountCount || 0;
-            if (count >= MAX_ACCOUNTS_PER_DEVICE) {
+            const limit = _maxAccountsPerDevice;
+            if (count >= limit) {
                 return {
                     allowed: false,
                     count,
                     uuid,
-                    message: `لا يمكن إنشاء أكثر من ${MAX_ACCOUNTS_PER_DEVICE} حسابات من نفس الجهاز.`,
+                    message: `لا يمكن إنشاء أكثر من ${limit} حسابات من نفس الجهاز.`,
                 };
             }
             return { allowed: true, count, uuid };
@@ -215,7 +233,7 @@ function onFirebaseReady() {
             console.error('[Delivo] checkDeviceLimit failed:', e.message);
             return {
                 allowed: false,
-                count:   MAX_ACCOUNTS_PER_DEVICE,
+                count:   _maxAccountsPerDevice,
                 uuid:    'unknown',
                 message: 'تعذّر التحقق من الجهاز. حاول مجدداً.',
             };
@@ -252,8 +270,15 @@ function onFirebaseReady() {
     }
 
     // ── Auth state observer ──────────────────────────────────
+    // _registering: set true during register() so the observer doesn't
+    // overwrite DelivoUser with incomplete Firestore data mid-write.
+    let _registering = false;
+
     auth.onAuthStateChanged(async (user) => {
         if (user) {
+            // During registration the Firestore doc may not exist yet —
+            // register() will set DelivoUser manually after the write.
+            if (_registering) return;
             window.DelivoUser = {
                 uid:         user.uid,
                 displayName: user.displayName || '',
@@ -355,6 +380,30 @@ function onFirebaseReady() {
             if (!rateLimit('register', 3, 60_000))
                 return { error: true, message: 'حاولت كثيراً. انتظر دقيقة.' };
 
+            // ── Check per-phone account limit ─────────────────────────
+            // phoneIndex stores { uid1: true, uid2: true, ... } or just a uid string
+            // for backwards compat. Count how many accounts already use this number.
+            if (_maxAccountsPerPhone > 0) {
+                try {
+                    const RTDB_BASE_PH = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                    const phResp  = await fetch(`${RTDB_BASE_PH}/phoneIndex/${phoneDigits}.json`);
+                    const phData  = await phResp.json();
+                    if (phData !== null) {
+                        // Legacy: stored as a single uid string → count = 1
+                        // New:    stored as { uid1: true, uid2: true } → count = keys
+                        const phCount = (typeof phData === 'object' && !Array.isArray(phData))
+                            ? Object.keys(phData).length
+                            : 1;
+                        if (phCount >= _maxAccountsPerPhone) {
+                            return {
+                                error: true,
+                                message: `لا يمكن إنشاء أكثر من ${_maxAccountsPerPhone} حساب بنفس رقم الهاتف.`,
+                            };
+                        }
+                    }
+                } catch (_) { /* fail open — don't block if check fails */ }
+            }
+
             // Check device limit — enforced for standard registration, bypassed for OTP-verified
             const deviceCheck = await checkDeviceLimit();
             if (!skipDeviceLimit && !deviceCheck.allowed)
@@ -388,6 +437,8 @@ function onFirebaseReady() {
             // If auth/email-already-in-use -> try the next slot. First success wins.
             //   slot 0 -> username@delivo.internal
             //   slot 1 -> username~1@delivo.internal ... up to slot 19
+            // Signal to onAuthStateChanged to hold off during account creation
+            _registering = true;
             let _cred = null;
             let _email = null;
             const _slots = [
@@ -402,6 +453,7 @@ function onFirebaseReady() {
                 } catch (_slotErr) {
                     if (_slotErr.code === 'auth/email-already-in-use') continue;
                     console.error('[Delivo] register:', _slotErr.code, _slotErr.message);
+                    _registering = false;
                     return { error: true, message: authMsg(_slotErr.code) };
                 }
             }
@@ -410,6 +462,7 @@ function onFirebaseReady() {
                     _email = username + '~' + Date.now() + '@delivo.internal';
                     _cred  = await auth.createUserWithEmailAndPassword(_email, password);
                 } catch(_fb) {
+                    _registering = false;
                     return { error: true, message: authMsg(_fb.code) };
                 }
             }
@@ -448,12 +501,14 @@ function onFirebaseReady() {
                     await fetch(`${RTDB_BASE}/deletedUsernames/${encodeURIComponent(username)}.json`, { method: 'DELETE' });
                 } catch(_) {}
 
-                // Index phone for uniqueness checks (RTDB for fast REST lookup)
+                // Index phone for per-phone account limit checks (RTDB fast REST lookup).
+                // Stored as { uid: true } map — PATCH so multiple accounts can share a number
+                // when the admin allows it (maxAccountsPerPhone > 1).
                 try {
-                    await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}.json`, {
+                    await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}/${user.uid}.json`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(user.uid),
+                        body: JSON.stringify(true),
                     });
                 } catch(_) {}
 
@@ -486,8 +541,12 @@ function onFirebaseReady() {
                 if (bbBtn2)   bbBtn2.classList.add('logged-in');
                 if (acctBtn2) acctBtn2.classList.add('logged-in');
 
+                // Allow onAuthStateChanged to run normally from here on
+                _registering = false;
+
                 return { success: true };
             } catch (e) {
+                _registering = false; // always clear on failure too
                 console.error('[Delivo] register:', e.code, e.message);
                 return { error: true, message: authMsg(e.code) };
             }
@@ -503,7 +562,25 @@ function onFirebaseReady() {
                 return { error: true, message: 'محاولات كثيرة. انتظر 10 دقائق.' };
 
             try {
-                const email = usernameToEmail(username);
+                // ── Look up the real authEmail from Firestore first ──────────
+                // Registration may create username~N@delivo.internal slots when the
+                // base slot is occupied. signInWithEmailAndPassword must use the exact
+                // email that was used during createUserWithEmailAndPassword, so we
+                // read authEmail from the usernames collection.
+                let email = usernameToEmail(username); // default / fast path
+                try {
+                    const unSnap = await db.collection('usernames').doc(username).get();
+                    if (unSnap.exists) {
+                        const uid = unSnap.data().uid;
+                        if (uid) {
+                            const userSnap = await db.collection('users').doc(uid).get();
+                            if (userSnap.exists && userSnap.data().authEmail) {
+                                email = userSnap.data().authEmail;
+                            }
+                        }
+                    }
+                } catch (_) { /* network hiccup — fall back to default email */ }
+
                 await auth.signInWithEmailAndPassword(email, password);
                 return { success: true };
             } catch (e) {

@@ -238,6 +238,10 @@
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    /* Reserves space matching a populated card row so the section below
+       doesn't jump down once stores.js fetches data and fills this in —
+       this was the largest single layout shift recorded in testing. */
+    min-height: clamp(170px, 32vw, 215px);
 }
 .stores__scroll::-webkit-scrollbar { display: none; }
 .stores__scroll.dragging {
