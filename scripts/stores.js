@@ -40,6 +40,7 @@ const TYPE_EMOJI_STORE = {
 };
 
 /* ── Helpers ─────────────────────────────────────────────── */
+const STORE_IMG_PATH = './assets';
 function toSlug(companyname) {
     return companyname.toLowerCase()
         .replace(/[^\x00-\x7F]/g, '')  // strip Arabic/non-ASCII
@@ -478,15 +479,23 @@ async function _fetchAndInjectSaleCards() {
 
         if (!allSales.length) return;
 
-        // Fetch store types from pattern for storeType lookup
+        // Fetch store types from pattern for storeType lookup — also build a logo-slug map
+        // so each sale card can show the store's actual logo (same resolution rule used
+        // everywhere else in the app: imgSlug override, else slugified companyname).
         let storeTypeMap = {};
+        let storeLogoMap = {};
         try {
             const pr = await fetch(`${RTDB_SALES_URL}/pattern.json`);
             const pd = await pr.json();
             if (pd && typeof pd === 'object') {
                 for (const [type, entries] of Object.entries(pd)) {
                     const arr = Array.isArray(entries) ? entries : Object.values(entries || {});
-                    arr.forEach(s => { if (s?.companyname) storeTypeMap[s.companyname] = type; });
+                    arr.forEach(s => {
+                        if (s?.companyname) {
+                            storeTypeMap[s.companyname] = type;
+                            storeLogoMap[s.companyname] = _storeImgSlug(s);
+                        }
+                    });
                 }
             }
         } catch(_) {}
@@ -525,6 +534,9 @@ async function _fetchAndInjectSaleCards() {
             const SALE_SYMBOLS = ['assets/cat_sweets.png','assets/cat_meat.png','assets/cat_burger.png','assets/cat_bread.png','assets/cat_chicken.png','assets/cat_grocery.png'];
             const symbolSrc = SALE_SYMBOLS[gradIdx % SALE_SYMBOLS.length];
 
+            const logoSlug = storeLogoMap[sale.storeName] || toSlug(sale.storeName);
+            const logoUrl  = `${STORE_IMG_PATH}/${logoSlug}.webp`;
+
             const card = document.createElement('div');
             card.className = 'offer-card offer-card--sale-dynamic';
             card.dataset.saleId = sale.id;
@@ -545,14 +557,24 @@ async function _fetchAndInjectSaleCards() {
                         <span style="font-size:clamp(0.82rem,3vw,1rem);font-weight:900;color:#fff;">${saleP}${curr}</span>
                         ${origP > saleP ? `<span style="font-size:0.62rem;color:rgba(255,255,255,0.55);text-decoration:line-through;">${origP}${curr}</span>` : ''}
                     </div>
-                    <button class="offer-sale-add-btn" onclick="event.stopPropagation();_addSaleFromCarousel(this,'${payload}')">
-                        🛒 أضف للسلة
-                    </button>
+                    <div class="offer-card__actions">
+                        <button class="offer-sale-store-btn" type="button" aria-label="كل عروض هذا المتجر">
+                            <img src="${logoUrl}" alt="" onerror="this.style.display='none';this.parentElement.textContent='🏪'">
+                        </button>
+                        <button class="offer-sale-add-btn" onclick="event.stopPropagation();_addSaleFromCarousel(this,'${payload}')">
+                            🛒 أضف للسلة
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Shimmer shine — same as loyalty card -->
                 <div class="offer-card__sale-shimmer"></div>
             `;
+
+            card.querySelector('.offer-sale-store-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openStoreSalesPanel(sale.storeName, storeType, logoUrl);
+            });
 
             if (loyaltyCard) {
                 track.insertBefore(card, loyaltyCard);
@@ -592,6 +614,127 @@ window._addSaleFromCarousel = function(btn, encodedPayload) {
         setTimeout(() => { if (typeof openCartSidebar === 'function') openCartSidebar(); }, 300);
     } catch(e) { console.error('[carousel cart]', e); }
 };
+
+/* ══════════════════════════════════════════════════════════
+   STORE SALES PANEL — "كل عروض هذا المتجر"
+   Opened by tapping a sale card's store-logo button. Fetches
+   every active sale under /sales/{storeName} and lists them
+   in a bottom sheet, each addable to the cart directly.
+   ══════════════════════════════════════════════════════════ */
+function _ensureStoreSalesPanel() {
+    if (document.getElementById('store-sales-panel')) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'store-sales-overlay';
+    overlay.id = 'store-sales-overlay';
+    overlay.addEventListener('click', closeStoreSalesPanel);
+
+    const panel = document.createElement('div');
+    panel.className = 'store-sales-panel';
+    panel.id = 'store-sales-panel';
+    panel.innerHTML = `
+        <div class="store-sales-panel__header">
+            <div class="store-sales-panel__store">
+                <div class="store-sales-panel__logo-wrap">
+                    <img id="ssp-logo" src="" alt="" onerror="this.style.display='none';this.parentElement.textContent='🏪'">
+                </div>
+                <div>
+                    <div class="store-sales-panel__title">عروض المتجر</div>
+                    <div class="store-sales-panel__store-name" id="ssp-store-name"></div>
+                </div>
+            </div>
+            <button class="store-sales-panel__close" id="ssp-close" aria-label="إغلاق">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="store-sales-panel__body" id="ssp-body"></div>
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+    document.getElementById('ssp-close').addEventListener('click', closeStoreSalesPanel);
+}
+
+async function openStoreSalesPanel(storeName, storeType, logoUrl) {
+    _ensureStoreSalesPanel();
+
+    document.getElementById('ssp-logo').src        = logoUrl || '';
+    document.getElementById('ssp-store-name').textContent = storeName;
+
+    const body = document.getElementById('ssp-body');
+    body.innerHTML = `
+        <div class="store-sales-panel__loading">
+            <div class="store-sales-panel__spinner"></div>
+            جاري تحميل العروض...
+        </div>`;
+
+    document.getElementById('store-sales-overlay').classList.add('active');
+    document.getElementById('store-sales-panel').classList.add('active');
+    document.body.classList.add('modal-open');
+
+    try {
+        const res  = await fetch(`${RTDB_SALES_URL}/sales/${encodeURIComponent(storeName)}.json`);
+        const data = await res.json();
+        const sales = data && typeof data === 'object'
+            ? Object.entries(data)
+                .filter(([, s]) => s && s.active !== false && s.title)
+                .map(([id, s]) => ({ id, ...s }))
+            : [];
+
+        if (!sales.length) {
+            body.innerHTML = `<div class="store-sales-panel__empty">🙁 لا توجد عروض حالياً من هذا المتجر</div>`;
+            return;
+        }
+
+        body.innerHTML = sales.map(sale => {
+            const saleP = parseFloat(sale.salePrice) || 0;
+            const origP = parseFloat(sale.origPrice)  || 0;
+            const curr  = sale.currency === 'LBP' ? 'ل.ل' : '$';
+            const pct   = origP > saleP && origP > 0 ? Math.round((1 - saleP/origP)*100) : 0;
+            const itemsSummary = Array.isArray(sale.items)
+                ? sale.items.slice(0,3).map(i => { const q=parseInt(i.qty)||1; return i.name?(q>1?`${q}× ${i.name}`:i.name):''; }).filter(Boolean).join(' + ')
+                : '';
+            const payload = encodeURIComponent(JSON.stringify({
+                storeName, storeType,
+                saleTitle : sale.title,
+                salePrice : saleP,
+                items     : Array.isArray(sale.items) ? sale.items : [],
+                image     : sale.image || '',
+            }));
+            return `
+                <div class="store-sales-item">
+                    ${pct > 0 ? `<div class="store-sales-item__badge">خصم ${pct}%</div>` : ''}
+                    <div class="store-sales-item__title">${sale.title}</div>
+                    ${itemsSummary ? `<div class="store-sales-item__sub">${itemsSummary}</div>` : ''}
+                    <div class="store-sales-item__row">
+                        <div class="store-sales-item__price">
+                            <span class="store-sales-item__price-new">${saleP}${curr}</span>
+                            ${origP > saleP ? `<span class="store-sales-item__price-old">${origP}${curr}</span>` : ''}
+                        </div>
+                        <button class="store-sales-item__add" onclick="_addSaleFromCarousel(this,'${payload}')">🛒 أضف للسلة</button>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch(e) {
+        body.innerHTML = `<div class="store-sales-panel__empty">⚠️ تعذّر تحميل العروض، حاول مجدداً</div>`;
+    }
+}
+
+function closeStoreSalesPanel() {
+    const overlay = document.getElementById('store-sales-overlay');
+    const panel   = document.getElementById('store-sales-panel');
+    if (overlay) overlay.classList.remove('active');
+    if (panel)   panel.classList.remove('active');
+    if (!document.getElementById('item-popup')?.classList.contains('active') &&
+        !document.getElementById('store-panel')?.classList.contains('active')) {
+        document.body.classList.remove('modal-open');
+    }
+}
+
+window.openStoreSalesPanel  = openStoreSalesPanel;
+window.closeStoreSalesPanel = closeStoreSalesPanel;
 
 async function initOffersCarousel() {
     // First inject sale cards, then start carousel

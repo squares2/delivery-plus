@@ -998,6 +998,11 @@ function _ensureItemPopup() {
                     <polyline points="15 18 9 12 15 6"/>
                 </svg>
             </button>
+            <button class="item-popup__close item-popup__close--x" id="ip-close-x" aria-label="إغلاق">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
             <span class="item-popup__sale-hero" id="ip-sale-hero" style="display:none"></span>
             <div class="item-popup__img-wrap" id="ip-img-wrap">
                 <img id="ip-img" src="" alt=""
@@ -1006,22 +1011,22 @@ function _ensureItemPopup() {
             </div>
         </div>
         <div class="item-popup__body" id="ip-body">
-            <div class="item-popup__qty-row">
-                <div class="item-popup__qty-pill">
-                    <button class="item-popup__qty-btn" id="ip-minus">&#8722;</button>
-                    <span   class="item-popup__qty-num"  id="ip-qty">1</span>
-                    <button class="item-popup__qty-btn" id="ip-plus">+</button>
-                </div>
-            </div>
             <div class="item-popup__name" id="ip-name"></div>
             <div class="item-popup__desc" id="ip-desc-wrap" style="display:none">
                 <span id="ip-desc-text"></span>
                 <button class="item-popup__desc-toggle" id="ip-desc-toggle" style="display:none">... اقرأ المزيد</button>
             </div>
-            <div class="item-popup__price-block" id="ip-price-block">
-                <span class="item-popup__price-main" id="ip-price"></span>
-                <span class="item-popup__price-old"  id="ip-price-old"  style="display:none"></span>
-                <span class="item-popup__sale-pct"   id="ip-sale-pct"   style="display:none"></span>
+            <div class="item-popup__price-row">
+                <div class="item-popup__price-block" id="ip-price-block">
+                    <span class="item-popup__price-main" id="ip-price"></span>
+                    <span class="item-popup__price-old"  id="ip-price-old"  style="display:none"></span>
+                    <span class="item-popup__sale-pct"   id="ip-sale-pct"   style="display:none"></span>
+                </div>
+                <div class="item-popup__qty-pill">
+                    <button class="item-popup__qty-btn" id="ip-minus">&#8722;</button>
+                    <span   class="item-popup__qty-num"  id="ip-qty">1</span>
+                    <button class="item-popup__qty-btn" id="ip-plus">+</button>
+                </div>
             </div>
 
             <!-- Description input — visible only for Restaurants & BakeryShops -->
@@ -1058,6 +1063,7 @@ function _ensureItemPopup() {
     document.body.appendChild(popup);
 
     document.getElementById('ip-close').addEventListener('click', closeItemPopup);
+    document.getElementById('ip-close-x').addEventListener('click', closeItemPopup);
     document.getElementById('ip-minus').addEventListener('click', _ipDecrement);
     document.getElementById('ip-plus').addEventListener('click',  _ipIncrement);
     document.getElementById('ip-add-btn').addEventListener('click', _ipAddToCart);

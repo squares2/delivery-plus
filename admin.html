@@ -6148,6 +6148,11 @@ function renderCustomers() {
                                 data-action="${bl[p._id]?'unblock-uid':'block-uid'}" style="width:100%;">
                                 ${bl[p._id] ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
                             </button>
+                            <button class="cust-resetpw-btn"
+                                data-uid="${p._id}" data-username="${p.username||''}" data-name="${p.displayName||p.username||''}" data-phone="${p.phone||''}"
+                                style="width:100%;padding:4px 8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:var(--radius-sm);color:#3b82f6;font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                🔑 إعادة تعيين كلمة المرور
+                            </button>
                             <button class="cust-delete-btn"
                                 data-uid="${p._id}" data-username="${p.username||''}" data-name="${p.displayName||p.username||''}" data-phone="${p.phone||''}"
                                 style="width:100%;padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);color:var(--red);font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
@@ -6163,6 +6168,11 @@ function renderCustomers() {
                     e.stopPropagation();
                     const btn = e.currentTarget;
                     editUserPoints(btn.dataset.uid, parseInt(btn.dataset.pts)||0, btn.dataset.name);
+                });
+                tr2.querySelector('.cust-resetpw-btn')?.addEventListener('click', e => {
+                    e.stopPropagation();
+                    const btn = e.currentTarget;
+                    resetUserPassword(btn.dataset.uid, btn.dataset.username, btn.dataset.name, btn.dataset.phone);
                 });
                 return tr2;
             });
@@ -6249,6 +6259,11 @@ function renderCustomers() {
                             data-action="${isBlocked?'unblock-uid':'block-uid'}">
                             ${isBlocked ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
                         </button>
+                        <button class="cust-resetpw-btn"
+                            data-uid="${uid}" data-username="${u.username||''}" data-name="${u.displayName||u.username||''}" data-phone="${u.phone||''}"
+                            style="width:100%;padding:4px 8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:var(--radius-sm);color:#3b82f6;font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                            🔑 إعادة تعيين كلمة المرور
+                        </button>
                         <button class="cust-delete-btn"
                             data-uid="${uid}" data-username="${u.username||''}" data-name="${u.displayName||u.username||''}" data-phone="${u.phone||''}"
                             style="width:100%;padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);color:var(--red);font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
@@ -6259,6 +6274,11 @@ function renderCustomers() {
             tr.querySelector('[data-action]').addEventListener('click', e => {
                 e.stopPropagation();
                 handleBlacklistAction(tr.querySelector('[data-action]'));
+            });
+            tr.querySelector('.cust-resetpw-btn')?.addEventListener('click', e => {
+                e.stopPropagation();
+                const btn = e.currentTarget;
+                resetUserPassword(btn.dataset.uid, btn.dataset.username, btn.dataset.name, btn.dataset.phone);
             });
             tr.querySelector('.cust-delete-btn')?.addEventListener('click', e => {
                 e.stopPropagation();
@@ -7913,6 +7933,16 @@ function renderSettings() {
                     <span class="toggle-slider"></span>
                 </label>
             </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">🏪 إظهار قسم "المتاجر الأكثر طلباً"</div>
+                    <div class="setting-sub">يخفي هذا القسم بالكامل من الصفحة الرئيسية للعملاء</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-top-stores" onchange="setTopStoresVisible(this.checked)" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
         </div>
         <div class="settings-section" id="delivery-settings-section">
             <div class="settings-section-title">🛵 رسوم التوصيل</div>
@@ -8267,6 +8297,11 @@ function renderSettings() {
     // Load loyalty visibility state
     fbGet('settings/loyaltyVisible').then(val => {
         const toggle = document.getElementById('toggle-loyalty');
+        if (toggle) toggle.checked = (val === null || val === undefined || val === true || val === 'true');
+    });
+    // Load current "top stores" section visibility state
+    fbGet('settings/topStoresVisible').then(val => {
+        const toggle = document.getElementById('toggle-top-stores');
         if (toggle) toggle.checked = (val === null || val === undefined || val === true || val === 'true');
     });
     // Load current maintenance state — reads from settings/maintenance (same path setMaintenance writes to)
@@ -8886,6 +8921,8 @@ async function loadSettings() {
         if (maint) maint.checked = s.maintenance === true || s.maintenance === 'true';
         const loyTog = document.getElementById('toggle-loyalty');
         if (loyTog) loyTog.checked = (s.loyaltyVisible === null || s.loyaltyVisible === undefined || s.loyaltyVisible === true || s.loyaltyVisible === 'true');
+        const topStoresTog = document.getElementById('toggle-top-stores');
+        if (topStoresTog) topStoresTog.checked = (s.topStoresVisible === null || s.topStoresVisible === undefined || s.topStoresVisible === true || s.topStoresVisible === 'true');
         // Test mode
         const testToggle = document.getElementById('toggle-test-mode');
         const testBadge  = document.getElementById('test-mode-badge');
@@ -9873,6 +9910,169 @@ async function editUserPoints(uid, currentPts, displayName) {
     overlay.querySelector('#pts-save').addEventListener('click', save);
 }
 
+/* ══════════════════════════════════════════════════════════
+   RESET CUSTOMER PASSWORD
+   Customer passwords live in Firebase Auth and are never retrievable —
+   not by us, not by anyone. This resets to a NEW password instead,
+   via a Cloud Function (Admin SDK is required server-side to touch
+   another user's Auth record). Admin picks how the new password
+   reaches the customer: WhatsApp, shown on-screen to relay manually,
+   or both.
+══════════════════════════════════════════════════════════ */
+function _generateStrongPassword() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let out = '';
+    for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+}
+
+async function _sendWhatsappMessage(phone, message) {
+    const instance = window._greenApiInstance || await fbGet('settings/greenApiInstance');
+    const token    = window._greenApiToken    || await fbGet('settings/greenApiToken');
+    if (!instance || !token) throw new Error('GREEN-API غير مهيأ من إعدادات الأدمن');
+    const digits = String(phone || '').replace(/\D/g, '').replace(/^961/, '');
+    if (!digits) throw new Error('رقم هاتف غير صالح');
+    const chatId = '961' + digits + '@c.us';
+    const _gaServer = String(instance).slice(0, 4);
+    const url  = `https://${_gaServer}.api.greenapi.com/waInstance${instance}/sendMessage/${token}`;
+    const resp = await fetch(url, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ chatId, message }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || `فشل إرسال واتساب (${resp.status})`);
+    return true;
+}
+
+async function resetUserPassword(uid, username, displayName, phone) {
+    if (!uid) return;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;
+        display:flex;align-items:center;justify-content:center;padding:16px;`;
+
+    overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;
+                padding:24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+            <span style="font-size:22px;">🔑</span>
+            <div>
+                <div style="font-size:15px;font-weight:800;color:var(--white);">إعادة تعيين كلمة المرور</div>
+                <div style="font-size:12px;color:var(--gray);">${displayName || username}</div>
+            </div>
+        </div>
+
+        <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:9px;
+                     padding:8px 10px;margin-bottom:14px;font-size:11px;color:#93c5fd;line-height:1.5;">
+            ℹ️ لا يمكن عرض كلمة المرور الحالية لأنها غير مخزّنة كنص عادي (لأسباب أمان). يمكنك تعيين كلمة جديدة فقط.
+        </div>
+
+        <div style="margin-bottom:10px;">
+            <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px;">كلمة المرور الجديدة</label>
+            <div style="display:flex;gap:6px;">
+                <input id="rpw-input" type="text" minlength="8" value="${_generateStrongPassword()}"
+                    style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;
+                           padding:10px 14px;color:var(--white);font-size:15px;font-weight:700;font-family:var(--mono);
+                           outline:none;text-align:center;">
+                <button id="rpw-regen" title="توليد كلمة أخرى"
+                    style="padding:0 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface2);
+                           color:var(--gray-light);font-size:16px;cursor:pointer;">🎲</button>
+            </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <label style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;">طريقة التسليم</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-light);margin-bottom:6px;cursor:pointer;">
+                <input id="rpw-whatsapp" type="checkbox" ${phone ? 'checked' : 'disabled'}>
+                📱 إرسال عبر واتساب${phone ? ` (961${phone})` : ' — لا يوجد رقم هاتف'}
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gray-light);cursor:pointer;">
+                <input id="rpw-show" type="checkbox" ${phone ? '' : 'checked'}>
+                👁 عرضها لي فقط (لإرسالها يدوياً)
+            </label>
+        </div>
+
+        <div style="display:flex;gap:8px;">
+            <button id="rpw-cancel"
+                style="flex:1;padding:10px;border:1px solid var(--border);border-radius:9px;
+                       background:transparent;color:var(--gray-light);font-size:13px;font-weight:700;cursor:pointer;">
+                إلغاء
+            </button>
+            <button id="rpw-save"
+                style="flex:2;padding:10px;border:none;border-radius:9px;
+                       background:#3b82f6;color:#fff;font-size:13px;font-weight:800;cursor:pointer;">
+                ✅ تعيين كلمة المرور
+            </button>
+        </div>
+        <div id="rpw-error"  style="color:#ef4444;font-size:12px;margin-top:8px;text-align:center;display:none;"></div>
+        <div id="rpw-result" style="display:none;margin-top:12px;padding:10px;background:var(--surface2);border-radius:9px;text-align:center;">
+            <div style="font-size:11px;color:var(--gray);margin-bottom:4px;">كلمة المرور الجديدة</div>
+            <code id="rpw-result-code" style="font-size:16px;color:#3b82f6;font-weight:800;user-select:all;"></code>
+        </div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#rpw-input');
+    input.focus(); input.select();
+
+    const close = () => overlay.remove();
+    overlay.querySelector('#rpw-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelector('#rpw-regen').addEventListener('click', () => { input.value = _generateStrongPassword(); input.select(); });
+
+    overlay.querySelector('#rpw-save').addEventListener('click', async () => {
+        const newPassword = input.value.trim();
+        const errEl = overlay.querySelector('#rpw-error');
+        errEl.style.display = 'none';
+
+        if (newPassword.length < 8) { errEl.textContent = 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'; errEl.style.display = 'block'; return; }
+
+        const wantsWhatsapp = overlay.querySelector('#rpw-whatsapp').checked;
+        const wantsShow     = overlay.querySelector('#rpw-show').checked;
+        if (!wantsWhatsapp && !wantsShow) { errEl.textContent = 'اختر طريقة تسليم واحدة على الأقل'; errEl.style.display = 'block'; return; }
+
+        const saveBtn = overlay.querySelector('#rpw-save');
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ جاري التعيين...';
+
+        try {
+            const idToken = await window._adminAuth?.currentUser?.getIdToken();
+            if (!idToken) throw new Error('جلسة المدير غير صالحة، سجّل الدخول من جديد');
+
+            const resp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/adminResetUserPassword', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                body:    JSON.stringify({ uid, newPassword }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) throw new Error(data.error || 'فشل تعيين كلمة المرور');
+
+            if (wantsWhatsapp) {
+                const msg = `🔑 مرحباً ${displayName || username}،\n\nتم تعيين كلمة مرور جديدة لحسابك في Delivo:\n\n*${newPassword}*\n\nيمكنك تسجيل الدخول بها الآن. ننصحك بتغييرها من إعدادات حسابك.`;
+                try { await _sendWhatsappMessage(phone, msg); }
+                catch(e) { toast('⚠️ تم تعيين كلمة المرور لكن فشل إرسال واتساب: ' + e.message, true); }
+            }
+
+            toast(`✅ تم تعيين كلمة مرور جديدة لـ ${displayName || username}`);
+
+            if (wantsShow) {
+                overlay.querySelector('#rpw-result-code').textContent = newPassword;
+                overlay.querySelector('#rpw-result').style.display = 'block';
+                saveBtn.style.display = 'none';
+                overlay.querySelector('#rpw-cancel').textContent = 'إغلاق';
+            } else {
+                close();
+            }
+        } catch(e) {
+            errEl.textContent = 'فشل: ' + e.message;
+            errEl.style.display = 'block';
+            saveBtn.disabled = false;
+            saveBtn.textContent = '✅ تعيين كلمة المرور';
+        }
+    });
+}
+
 async function resetProject() {
     const RTDB_B = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
     const FS_B   = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
@@ -10025,6 +10225,13 @@ async function setLoyaltyVisible(checked) {
         await fbSet('settings/loyaltyVisible', checked);
         toast(checked ? '⭐ نظام النقاط مُفعَّل للعملاء' : '🙈 نظام النقاط مخفي عن العملاء');
     } catch(e) { toast('فشل تحديث إعداد النقاط', true); }
+}
+
+async function setTopStoresVisible(checked) {
+    try {
+        await fbSet('settings/topStoresVisible', checked);
+        toast(checked ? '🏪 قسم "المتاجر الأكثر طلباً" ظاهر للعملاء' : '🙈 قسم "المتاجر الأكثر طلباً" مخفي عن العملاء');
+    } catch(e) { toast('فشل تحديث الإعداد', true); }
 }
 
 async function setTestMode(val) {

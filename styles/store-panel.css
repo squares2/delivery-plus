@@ -586,51 +586,38 @@
 
 /* ═══════════════════════════════════════════════════════════
    ITEM DETAIL POPUP
-   All sizing is driven by two CSS custom properties set on
-   the root element, so every part scales together:
-
-     --ip-img   : diameter of the food image circle
-     --ip-hero  : total height of the orange zone
-                  = some sky above + top half of circle
-                  sky portion ≈ (hero - img) keeping ≥ 80px
+   Full-bleed rectangular hero photo up top, white rounded card
+   riding up over its bottom edge — name, price + qty stepper
+   on one row, notes/instructions box, then Add to Cart.
    ═══════════════════════════════════════════════════════════ */
 
 .item-popup {
-    /* image diameter: 38% of the shorter screen dimension,
-       clamped so it's never smaller than 140px or larger than 220px */
-    --ip-img  : clamp(140px, 38vmin, 220px);
-    /* hero height: sky (clamp 70px–120px) + half the image */
-    --ip-sky  : clamp(70px, 12vh, 120px);
-    --ip-hero : calc(var(--ip-sky) + var(--ip-img) / 2);
-
     position: fixed;
     top: 0; left: 0;
     width: 100%;
     height: 100%;
     z-index: 601;
-    background: var(--clr-orange, #FF5C00);
+    background: #111;
     display: flex;
     flex-direction: column;
     transform: translateY(100%);
     transition: transform 0.32s cubic-bezier(0.34, 1.18, 0.64, 1);
-    overflow: hidden;           /* no scroll on the orange bg */
+    overflow: hidden;           /* no scroll on the hero bg */
     box-sizing: border-box;
 }
 .item-popup.active { transform: translateY(0); }
 
-/* ── Orange hero — exactly --ip-hero tall ───────────────── */
+/* ── Hero — full-bleed rectangular food photo ───────────── */
 .item-popup__hero {
     position: relative;
-    height: var(--ip-hero);
-    flex: 0 0 var(--ip-hero);
-    display: flex;
-    align-items: flex-start;    /* content at top (arrow, badge) */
-    justify-content: center;
-    overflow: visible;          /* image circle bleeds downward */
+    height: clamp(230px, 42vh, 340px);
+    flex: 0 0 auto;
+    overflow: hidden;
+    background: #1a1a1a;
     box-sizing: border-box;
 }
 
-/* ── Back arrow ─────────────────────────────────────────── */
+/* ── Back arrow / close X — same circular chip, mirrored sides ── */
 .item-popup__close {
     position: absolute;
     top: clamp(10px, 2vh, 18px);
@@ -638,7 +625,7 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(0,0,0,0.22);
+    background: rgba(0,0,0,0.32);
     border: none;
     cursor: pointer;
     display: flex;
@@ -649,17 +636,18 @@
     padding: 0;
     -webkit-tap-highlight-color: transparent;
 }
-.item-popup__close:hover  { background: rgba(0,0,0,0.38); }
+.item-popup__close--x { left: auto; right: 16px; }
+.item-popup__close:hover  { background: rgba(0,0,0,0.48); }
 .item-popup__close:active { transform: scale(0.92); }
 .item-popup__close svg {
-    width: 22px; height: 22px;
+    width: 20px; height: 20px;
     stroke: #fff; fill: none; flex-shrink: 0;
 }
 
-/* ── Sale badge ─────────────────────────────────────────── */
+/* ── Sale badge — sits below the top button row ─────────── */
 .item-popup__sale-hero {
     position: absolute;
-    top: clamp(10px, 2vh, 18px);
+    top: clamp(58px, 9vh, 74px);
     right: 16px;
     background: #fff;
     color: var(--clr-orange, #FF5C00);
@@ -671,32 +659,30 @@
     box-shadow: 0 2px 10px rgba(0,0,0,0.18);
 }
 
-/* ── Image circle — dynamic size, centered, half below hero ── */
+/* ── Image — fills the entire hero, edge to edge ─────────── */
 .item-popup__img-wrap {
     position: absolute;
-    /* bottom edge of hero → image center sits on that line */
-    bottom: calc(var(--ip-img) / -2);
-    left: 50%;
-    transform: translateX(-50%);
-    width: var(--ip-img);
-    height: var(--ip-img);
-    border-radius: 50%;
-    background: rgba(0,0,0,0.15);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.28);
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: #1a1a1a;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 25;
-    flex-shrink: 0;
+    z-index: 5;
 }
 .item-popup__img-wrap img {
     width: 100%; height: 100%;
     object-fit: cover; display: block;
 }
-.item-popup__img-fallback { font-size: 4rem; line-height: 1; }
+.item-popup__img-fallback {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 4.5rem; line-height: 1;
+}
 
-/* ── White rounded card — fills ALL remaining space ─────── */
+/* ── White rounded card — overlaps the image, fills the rest ── */
 .item-popup__body {
     flex: 1;
     min-height: 0;              /* critical: lets flex child shrink */
@@ -704,43 +690,34 @@
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     background: #fff;
-    border-radius: 32px 32px 0 0;
-    box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
-    /* top padding = half image (bleeds in) + small gap */
-    padding-top: calc(var(--ip-img) / 2 + clamp(12px, 2vh, 20px));
-    padding-left: 24px;
-    padding-right: 24px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -6px 24px rgba(0,0,0,0.14);
+    margin-top: -22px;          /* rides up over the image's bottom edge */
+    padding: 22px 24px calc(16px + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
-    gap: clamp(8px, 1.8vh, 16px);
+    gap: clamp(10px, 1.8vh, 16px);
     position: relative;
     z-index: 10;
     box-sizing: border-box;
 }
 
-/* ── Qty stepper ────────────────────────────────────────── */
-.item-popup__qty-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
+/* ── Qty stepper — small chip, sits beside the price ─────── */
 .item-popup__qty-pill {
     display: flex;
     align-items: center;
-    background: var(--clr-orange, #FF5C00);
-    border-radius: 50px;
-    overflow: hidden;
-    box-shadow: 0 4px 16px rgba(255,92,0,0.38);
+    gap: 12px;
+    flex-shrink: 0;
 }
 .item-popup__qty-btn {
-    width: clamp(38px, 8vw, 46px);
-    height: clamp(38px, 8vw, 46px);
-    background: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #ffe6d5;
     border: none;
-    color: #fff;
-    font-size: 1.4rem;
+    color: var(--clr-orange, #FF5C00);
+    font-size: 1.1rem;
+    font-weight: 700;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -749,13 +726,13 @@
     -webkit-tap-highlight-color: transparent;
     line-height: 1;
 }
-.item-popup__qty-btn:hover  { background: rgba(0,0,0,0.12); }
-.item-popup__qty-btn:active { background: rgba(0,0,0,0.22); }
+.item-popup__qty-btn:hover  { background: #ffd7b8; }
+.item-popup__qty-btn:active { background: #ffc79a; }
 .item-popup__qty-num {
-    min-width: 36px;
+    min-width: 18px;
     text-align: center;
-    color: #fff;
-    font-size: 1rem;
+    color: #111;
+    font-size: 0.98rem;
     font-weight: 800;
 }
 
@@ -786,6 +763,15 @@
     cursor: pointer;
     padding: 0;
     display: inline;
+}
+
+/* ── Price row — price on one side, qty stepper on the other ── */
+.item-popup__price-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
 }
 
 /* ── Price block ────────────────────────────────────────── */
@@ -843,6 +829,28 @@
 .item-popup__add-btn.added  {
     background: #22c55e;
     box-shadow: 0 6px 20px rgba(34,197,94,0.40);
+}
+
+/* ── Wide screens: cap the popup at 550px, centered ──────────
+   Above 550px the hero photo would otherwise keep stretching to
+   fill the viewport. Lock hero + body to the same max-width so
+   they stay visually aligned, and let the hero's height follow
+   naturally from its own aspect ratio instead of the vh-based
+   clamp (which would keep growing it). The dark .item-popup
+   background shows as even letterboxing on both sides. ── */
+@media (min-width: 551px) {
+    .item-popup__hero {
+        width: 100%;
+        max-width: 550px;
+        margin: 0 auto;
+        height: 300px;
+        flex: 0 0 300px;
+    }
+    .item-popup__body {
+        max-width: 550px;
+        margin-left: auto;
+        margin-right: auto;
+    }
 }
 
 

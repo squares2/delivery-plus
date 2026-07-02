@@ -222,6 +222,14 @@ document.addEventListener('DOMContentLoaded', loadAll);
                        || settings.loyaltyVisible === 'true';
         window._loyaltyVisible = loyaltyOn;
         _applyLoyaltyVisibility(loyaltyOn);
+
+        /* topStoresVisible — show/hide the "المتاجر الأكثر طلباً" section on the home page */
+        const topStoresOn = settings.topStoresVisible === undefined
+                          || settings.topStoresVisible === null
+                          || settings.topStoresVisible === true
+                          || settings.topStoresVisible === 'true';
+        window._topStoresVisible = topStoresOn;
+        _applyTopStoresVisibility(topStoresOn);
     }
 
     function _applyRegType(type) {
@@ -265,6 +273,11 @@ document.addEventListener('DOMContentLoaded', loadAll);
 
         // Disable/enable _checkRewardReminder so toast never fires when hidden
         window._loyaltyUiVisible = visible;
+    }
+
+    function _applyTopStoresVisibility(visible) {
+        const section = document.getElementById('stores-section');
+        if (section) section.style.display = visible ? '' : 'none';
     }
 
     /* ── Open SSE connection ────────────────────────────────── */

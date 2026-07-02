@@ -289,6 +289,41 @@
     background: rgba(0, 0, 0, 0.62);
 }
 
+/* ── Social links — vertical stack, top-left of hero ────────
+   Links are left as href="#" placeholders — fill in the real
+   profile/channel URLs later.                                */
+.hero__social {
+    position: absolute;
+    top: clamp(10px, 2.5vw, 16px);
+    left: clamp(10px, 2.5vw, 16px);
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.hero__social-btn {
+    width: clamp(32px, 8vw, 38px);
+    height: clamp(32px, 8vw, 38px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    transition: filter 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.hero__social-btn svg { width: 54%; height: 54%; flex-shrink: 0; }
+.hero__social-btn:hover  { transform: translateY(-2px) scale(1.06); filter: brightness(1.12); }
+.hero__social-btn:active { transform: scale(0.94); }
+.hero__social-btn--whatsapp   { background: #25D366; }
+.hero__social-btn--facebook   { background: #1877F2; }
+.hero__social-btn--instagram  { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); border-color: transparent; }
+.hero__social-btn--tiktok     { background: #010101; border-color: #25F4EE; }
+
 /* Green pulsing dot */
 .online-dot {
     width: 8px;

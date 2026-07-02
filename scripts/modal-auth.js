@@ -77,8 +77,26 @@ function initModalAuth() {
 
     let _otpResendTimer = null;
     let _otpExpireTimer = null;
+    let _otpSendInFlight = false;      // guards against double-fire while a send request is still in the air
+    const OTP_SEND_TIMEOUT   = 20000;  // ms — hard cap so a bad connection can't hang the request forever
+    const OTP_RETRY_COOLDOWN = 30;     // seconds — forced wait after ANY send attempt (success OR failure) so a
+                                        // flaky connection can't be used to spam repeated real WhatsApp sends
 
     function _generateOtp() { return Math.floor(1000 + Math.random() * 9000).toString(); }
+
+    // Disables a button and shows a countdown, regardless of whether the last attempt succeeded or failed.
+    function _lockButtonWithCooldown(btn, seconds, restoreLabel) {
+        if (!btn) return;
+        btn.disabled = true;
+        let rem = seconds;
+        const tick = () => {
+            btn.textContent = `⏳ انتظر ${rem} ثانية...`;
+            rem--;
+            if (rem < 0) { btn.disabled = false; btn.textContent = restoreLabel; }
+            else setTimeout(tick, 1000);
+        };
+        tick();
+    }
 
     function _startOtpCountdown(seconds) {
         const timerEl   = document.getElementById('otp-timer');
@@ -150,11 +168,24 @@ function initModalAuth() {
         // GREEN-API endpoint: server prefix = first 4 digits of instance ID
         const _gaServer = String(idInstance).slice(0, 4);
         const apiUrl  = `https://${_gaServer}.api.greenapi.com/waInstance${idInstance}/sendMessage/${apiToken}`;
-        const resp = await fetch(apiUrl, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ chatId, message }),
-        });
+        const controller = new AbortController();
+        const timeoutId  = setTimeout(() => controller.abort(), OTP_SEND_TIMEOUT);
+        let resp;
+        try {
+            resp = await fetch(apiUrl, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ chatId, message }),
+                signal:  controller.signal,
+            });
+        } catch (err) {
+            // On a bad connection the request may still have reached Green-API even though we never got
+            // a response — don't imply the user should just try again right away.
+            if (err.name === 'AbortError') throw new Error('⏳ الاتصال بطيء جداً. قد يكون الكود قد أُرسل بالفعل — تحقق من واتساب قبل طلب كود جديد.');
+            throw new Error('تعذر الاتصال بالخادم. تحقق من شبكتك — قد يكون الكود قد وصل، تحقق من واتساب أولاً.');
+        } finally {
+            clearTimeout(timeoutId);
+        }
         const data = await resp.json();
         if (!resp.ok || data.error) throw new Error(data.error || `فشل إرسال كود OTP (${resp.status})`);
         return code;
@@ -336,19 +367,28 @@ function initModalAuth() {
 
     if (resendBtn) {
         resendBtn.addEventListener('click', async () => {
+            if (_otpSendInFlight) return; // ignore extra taps while a send is already in the air
             const state   = _loadOtpState();
             const phone   = state?.phone || document.getElementById('reg-phone')?.value.replace(/[\s\-]/g,'') || '';
             const errorEl = document.getElementById('reg-error');
+            _otpSendInFlight = true;
+            setLoading(resendBtn, true, '⏳');
             try {
-                setLoading(resendBtn, true, '⏳');
                 const code      = await _sendOtpWhatsapp(phone);
                 const expiresAt = Date.now() + OTP_TIMEOUT;
                 _saveOtpState({ ...(state||{}), code, expiresAt });
                 _startOtpCountdown(60); _startExpireCountdown(expiresAt);
                 const hint = document.getElementById('otp-hint');
                 if (hint) hint.textContent = `✅ أُعيد إرسال الكود إلى واتساب رقم 961${phone}`;
-            } catch(e) { showError(errorEl, e.message); }
-            setLoading(resendBtn, false, 'إعادة الإرسال');
+            } catch(e) {
+                showError(errorEl, e.message);
+                // Force a cooldown even on failure — a flaky connection must not be able to trigger repeated
+                // real sends just by getting the user to keep tapping "resend".
+                _lockButtonWithCooldown(resendBtn, OTP_RETRY_COOLDOWN, 'إعادة الإرسال');
+                _otpSendInFlight = false;
+                return;
+            }
+            _otpSendInFlight = false;
         });
     }
 
@@ -376,12 +416,14 @@ function initModalAuth() {
             if (isOtpMode) {
                 // Step 1 — send OTP
                 if (!saved || otpStep?.style.display === 'none') {
+                    if (_otpSendInFlight) return; // ignore extra taps while a send is already in the air
                     if (!username)           { showError(errorEl, 'اسم المستخدم مطلوب'); return; }
                     if (_usernameAvailable === false) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
                     if (!displayName)        { showError(errorEl, 'الاسم الظاهر مطلوب'); return; }
                     if (password.length < 8) { showError(errorEl, 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
                     if (!_phoneAvailable)    { showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
 
+                    _otpSendInFlight = true;
                     setLoading(regBtn, true, '⏳ جاري الإرسال...');
                     try {
                         const code      = await _sendOtpWhatsapp(phoneDigits);
@@ -389,11 +431,19 @@ function initModalAuth() {
                         _saveOtpState({ username, displayName, password, phone: phoneDigits, lat, lng, code, expiresAt });
                         if (otpStep) { otpStep.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${phoneDigits}`; }
                         if (cancelBtn) cancelBtn.style.display = 'flex';
+                        regBtn.disabled = false;
                         regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
                         _startOtpCountdown(60); _startExpireCountdown(expiresAt);
                         document.getElementById('reg-otp')?.focus();
-                    } catch(e) { showError(errorEl, e.message); }
-                    setLoading(regBtn, false, regBtn.textContent);
+                    } catch(e) {
+                        showError(errorEl, e.message);
+                        // Force a cooldown even on failure — otherwise a shaky connection lets the user
+                        // mash the button and fire multiple real OTP sends before ever reaching step 2.
+                        _lockButtonWithCooldown(regBtn, OTP_RETRY_COOLDOWN, 'إرسال كود التحقق');
+                        _otpSendInFlight = false;
+                        return;
+                    }
+                    _otpSendInFlight = false;
                     return;
                 }
 
@@ -404,12 +454,26 @@ function initModalAuth() {
                 if (Date.now() > saved.expiresAt) { _cancelOtpStep(); return; }
                 if (entered !== saved.code) { showError(errorEl, '❌ الكود غير صحيح. تحقق من واتساب وحاول مجدداً'); document.getElementById('reg-otp')?.select(); return; }
 
+                if (_otpSendInFlight) return; // extra tap while account creation is already in flight
+                _otpSendInFlight = true;
                 setLoading(regBtn, true, '⏳ جاري إنشاء الحساب...');
-                _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
-                const result = await window.DelivoAuth.register({ username: saved.username, displayName: saved.displayName, password: saved.password, phone: saved.phone, lat: saved.lat, lng: saved.lng, skipDeviceLimit: true });
+                // NOTE: don't clear the OTP state (or stop its timers) until we KNOW registration succeeded.
+                // Clearing it up-front meant that a failed/timed-out register() call on bad network left the
+                // OTP screen showing but the saved code gone — so the next "confirm" tap fell through to the
+                // "no saved state" branch and silently fired a brand-new WhatsApp code instead of retrying.
+                let result;
+                try {
+                    result = await window.DelivoAuth.register({ username: saved.username, displayName: saved.displayName, password: saved.password, phone: saved.phone, lat: saved.lat, lng: saved.lng, skipDeviceLimit: true });
+                } catch (e) {
+                    result = { error: true, message: e?.message || 'تعذر الاتصال بالخادم. تحقق من شبكتك وحاول مجدداً' };
+                }
+                _otpSendInFlight = false;
                 setLoading(regBtn, false, 'تأكيد الكود وإنشاء الحساب');
-                if (result.error) { showError(errorEl, result.message); }
+                if (result.error) {
+                    showError(errorEl, result.message + ' — الكود ما زال صالحاً، اضغط "تأكيد" مجدداً بدون طلب كود جديد.');
+                }
                 else {
+                    _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
                     closeModal('modal-subscribe');
                     clearFields(['reg-username','reg-displayname','reg-password','reg-phone','reg-otp']);
                     resetLocationBtn();

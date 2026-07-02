@@ -118,12 +118,30 @@ async function _markEmptyCategories(container, fbKeyToLocal) {
     }
 }
 
+function _showCategoryToast(msg) {
+    let toast = document.getElementById('cart-toast'); // reuse the shared site-wide toast element/style
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'cart-toast';
+        document.body.appendChild(toast);
+    }
+    if (toast._hideTimer) { clearTimeout(toast._hideTimer); toast._hideTimer = null; }
+    toast.classList.remove('visible');
+    toast.textContent = msg;
+    toast.className   = 'cart-toast cart-toast--error';
+    requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('visible')));
+    toast._hideTimer = setTimeout(() => toast.classList.remove('visible'), 3200);
+}
+
 function initCategories() {
     _renderCategoryBar();
     document.querySelectorAll('.category-item[data-category]').forEach(item => {
         item.addEventListener('click', () => {
-            // Silently block click if this category is empty
-            if (item.classList.contains('category-item--empty')) return;
+            // Empty categories are clickable too — just show a message instead of opening the dropdown
+            if (item.classList.contains('category-item--empty')) {
+                _showCategoryToast('لا توجد متاجر في هذا القسم حالياً');
+                return;
+            }
             _toggleCategory(item.dataset.category);
         });
     });
@@ -133,9 +151,12 @@ function initCategories() {
 function _toggleCategory(cat) {
     const catMeta = CAT_MAP[cat];
     if (!catMeta) return;
-    // Block if this category has been marked as empty
+    // Empty categories are handled entirely in the click listener above (toast message)
     const el = document.querySelector(`.category-item[data-category="${cat}"]`);
-    if (el && el.classList.contains('category-item--empty')) return;
+    if (el && el.classList.contains('category-item--empty')) {
+        _showCategoryToast('لا توجد متاجر في هذا القسم حالياً');
+        return;
+    }
     const dropdown = document.getElementById('cat-stores-dropdown');
     if (!dropdown) return;
 
