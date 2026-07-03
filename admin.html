@@ -3651,9 +3651,22 @@ async function loadAllData() {
             allDrivers = Object.entries(_raw)
                 .map(([k, v]) => (v && typeof v === 'object') ? { ...v, _key: k, _isNumeric: /^\d+$/.test(k) } : null)
                 .filter(Boolean);
+            // Self-heal: a driver record with none of owner/username/phone/deviceUUID
+            // is unusable junk (can't log in, can't be identified) — most likely a
+            // leftover from a legacy array-rewrite. Drop it from the list and remove
+            // it from Firebase so it doesn't keep resurfacing as a blank card.
+            const _ghosts = allDrivers.filter(d => !(d.owner || d.username || d.phone || d.deviceUUID));
+            if (_ghosts.length) {
+                allDrivers = allDrivers.filter(d => d.owner || d.username || d.phone || d.deviceUUID);
+                _ghosts.forEach(g => {
+                    fetch(`${RTDB}/drivers/${g._key}.json`, { method: 'DELETE' }).catch(() => {});
+                });
+                console.warn('[Delivo] Removed', _ghosts.length, 'empty ghost driver record(s).');
+            }
         } else {
             allDrivers = [];
         }
+
 
         allUsers   = users   || {};
         adminUsers = admins  || {};
@@ -5147,6 +5160,7 @@ async function assignDriver(orderId, driverName) {
         if (driverId) allOrders[orderId].driverid = driverId;
         toast(`✅ تم تعيين ${driverName} للطلب #${orderId.replace('id_','')}`);
         renderOrders();
+        notifyDriverAssigned(orderId, driverName, driverObj, allOrders[orderId]); // fire-and-forget
     } catch(e) { toast('خطأ في التعيين', true); }
 }
 
@@ -5496,7 +5510,7 @@ function renderDrivers() {
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div class="dc-name">${name}</div>
-                    <div class="dc-sub">@${d.username}</div>
+                    ${d.username ? `<div class="dc-sub">@${d.username}</div>` : ''}
                     ${d.phone ? `<div class="dc-phone" dir="ltr">📞 ${formatPhone(d.phone)}</div>` : ''}
                 </div>
                 <span style="font-size:0.62rem;padding:2px 8px;border-radius:50px;font-weight:800;
@@ -5785,19 +5799,11 @@ document.getElementById('driver-edit-save').addEventListener('click', async () =
                 phone    : phoneFormatted,
                 status   : 'offline',
             };
-            // If existing drivers use numeric indices, append to the array
-            // to stay consistent with the driver app's expected format.
-            // Otherwise (all auto-keys) use fbPush for a proper named key.
-            const hasNumeric = allDrivers.some(d => d._isNumeric);
-            if (hasNumeric) {
-                const current = await fbGet('drivers');
-                const arr = (Array.isArray(current) ? current : Object.values(current || {}))
-                    .filter(v => v && typeof v === 'object');
-                arr.push(newDriver);
-                await fbSet('drivers', arr);
-            } else {
-                await fbPush('drivers', newDriver);
-            }
+            // Always use a proper Firebase auto-key. Appending into a rebuilt
+            // array here used to blow away every other driver's real key
+            // whenever a legacy numeric-indexed driver existed — breaking
+            // order.driverid links, driverNotifications, and login sessions.
+            await fbPush('drivers', newDriver);
             toast('✅ تمت إضافة السائق بنجاح');
         } else {
             // Patch existing driver fields
@@ -5833,14 +5839,27 @@ async function deleteDriver(driver) {
         // Firebase REST DELETE works for both auto-keys and numeric array indices
         const r = await fetch(`${RTDB}/drivers/${driver._key}.json`, { method: 'DELETE' });
         if (!r.ok) throw new Error(`RTDB DELETE ${r.status}`);
-        // After deleting a numeric-index driver, clean up null slots
+        // Only compact into a fresh numeric array when EVERY remaining driver is
+        // still numeric-keyed. If the collection has a mix of numeric and real
+        // Firebase keys (push IDs), leave it alone — rewriting it as an array
+        // would strip those drivers' real keys and break order.driverid links,
+        // driverNotifications, and active login sessions for every other driver.
         if (driver._isNumeric) {
             const current = await fbGet('drivers');
             if (current) {
-                // Rebuild as clean numbered array without nulls
-                const clean = (Array.isArray(current) ? current : Object.values(current))
-                    .filter(v => v && typeof v === 'object');
-                await fbSet('drivers', clean.length ? clean : null);
+                const entries = Array.isArray(current)
+                    ? current.map((v, i) => [String(i), v])
+                    : Object.entries(current);
+                const validEntries = entries.filter(([, v]) => v && typeof v === 'object');
+                const allNumeric   = validEntries.every(([k]) => /^\d+$/.test(k));
+                if (allNumeric) {
+                    // Require at least one identifying field so stray empty
+                    // objects never get "cleaned" into a permanent ghost driver.
+                    const clean = validEntries
+                        .map(([, v]) => v)
+                        .filter(v => v.owner || v.username || v.phone || v.deviceUUID);
+                    await fbSet('drivers', clean.length ? clean : null);
+                }
             }
         }
         toast(`🗑 تم حذف السائق "${name}"`);
@@ -7886,6 +7905,34 @@ function renderSettings() {
             </div>
         </div>
 
+        <!-- ═══════════ DRIVER ASSIGNMENT NOTIFICATION METHOD ═══════════ -->
+        <div class="settings-section">
+            <div class="settings-section-title">🔔 تنبيه السائق عند تعيين طلب</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">طريقة إبلاغ السائق بطلب جديد مُعيَّن له</div>
+                    <div class="setting-sub">يُطبَّق عند تعيين سائق لطلب من لوحة الطلبات أو الخريطة</div>
+                </div>
+            </div>
+            <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:10px;padding:12px 16px;">
+                <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border-radius:12px;border:2px solid transparent;cursor:pointer;transition:border-color .15s;" id="drv-notify-app-label">
+                    <input type="radio" name="drv-notify-method" id="drv-notify-app" value="app" onchange="setDriverAssignNotifyMethod('app')" style="accent-color:var(--orange);width:16px;height:16px;flex-shrink:0;">
+                    <div>
+                        <div style="font-weight:800;font-size:0.85rem;">📱 تنبيه داخل تطبيق السائق (الافتراضي)</div>
+                        <div style="font-size:0.7rem;color:var(--gray);margin-top:2px;">يظهر إشعار فوري للسائق إذا كان قد فتح صفحته</div>
+                    </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border-radius:12px;border:2px solid transparent;cursor:pointer;transition:border-color .15s;" id="drv-notify-whatsapp-label">
+                    <input type="radio" name="drv-notify-method" id="drv-notify-whatsapp" value="whatsapp" onchange="setDriverAssignNotifyMethod('whatsapp')" style="accent-color:var(--orange);width:16px;height:16px;flex-shrink:0;">
+                    <div>
+                        <div style="font-weight:800;font-size:0.85rem;">💬 رسالة واتساب عبر GREEN-API</div>
+                        <div style="font-size:0.7rem;color:var(--gray);margin-top:2px;">يُرسل للسائق على واتساب فوراً — يستخدم نفس إعدادات GREEN-API أعلاه</div>
+                    </div>
+                </label>
+            </div>
+            <div id="drv-notify-status" style="font-size:0.72rem;color:var(--green);display:none;margin:0 16px 12px;"></div>
+        </div>
+
         <div class="settings-section">
             <div class="settings-section-title">🧪 وضع التجربة</div>
             <div class="setting-row">
@@ -8283,7 +8330,8 @@ function renderSettings() {
         fbGet('settings/regType'),
         fbGet('settings/greenApiInstance'),
         fbGet('settings/greenApiToken'),
-    ]).then(([regType, uInst, uToken]) => {
+        fbGet('settings/driverAssignNotifyMethod'),
+    ]).then(([regType, uInst, uToken, drvNotifyMethod]) => {
         _syncRegTypeUI(regType || 'direct');
         const instEl = document.getElementById('ultramsg-instance');
         const tokEl  = document.getElementById('ultramsg-token');
@@ -8292,6 +8340,9 @@ function renderSettings() {
         // Make available to modal-auth.js for OTP sending
         window._greenApiInstance = uInst  || '';
         window._greenApiToken    = uToken || '';
+        // Driver assignment notification method (app | whatsapp)
+        window._driverAssignNotifyMethod = drvNotifyMethod || 'app';
+        _syncDriverNotifyUI(window._driverAssignNotifyMethod);
     });
 
     // Load loyalty visibility state
@@ -8968,6 +9019,33 @@ window.setRegType = async function(type) {
         await fbSet('settings/regType', type);
         _syncRegTypeUI(type);
         toast(type === 'otp' ? '🔐 تم التحويل لتسجيل OTP عبر واتساب' : '✅ تم التحويل للتسجيل المباشر');
+    } catch(e) { toast('❌ فشل الحفظ', true); }
+};
+
+/* ══════════════════════════════════════════════════════════
+   DRIVER ASSIGNMENT NOTIFICATION METHOD — app | whatsapp
+══════════════════════════════════════════════════════════ */
+function _syncDriverNotifyUI(method) {
+    const appLabel = document.getElementById('drv-notify-app-label');
+    const waLabel  = document.getElementById('drv-notify-whatsapp-label');
+    const appRadio = document.getElementById('drv-notify-app');
+    const waRadio  = document.getElementById('drv-notify-whatsapp');
+    const isWa = method === 'whatsapp';
+
+    if (appRadio) appRadio.checked = !isWa;
+    if (waRadio)  waRadio.checked  =  isWa;
+    if (appLabel) appLabel.style.borderColor = isWa ? 'transparent' : 'var(--orange)';
+    if (waLabel)  waLabel.style.borderColor  = isWa ? 'var(--orange)' : 'transparent';
+}
+
+window.setDriverAssignNotifyMethod = async function(method) {
+    const statusEl = document.getElementById('drv-notify-status');
+    try {
+        await fbSet('settings/driverAssignNotifyMethod', method);
+        window._driverAssignNotifyMethod = method;
+        _syncDriverNotifyUI(method);
+        toast(method === 'whatsapp' ? '💬 سيتم إبلاغ السائقين عبر واتساب' : '📱 سيتم إبلاغ السائقين داخل التطبيق');
+        if (statusEl) { statusEl.textContent = '✅ تم الحفظ'; statusEl.style.display = 'block'; setTimeout(() => statusEl.style.display = 'none', 2500); }
     } catch(e) { toast('❌ فشل الحفظ', true); }
 };
 
@@ -11309,6 +11387,37 @@ async function cpNotifyDriver(orderId, driverName, type, prepMins) {
         };
         await fbSet('driverNotifications/' + driverName + '/' + orderId, payload);
     } catch(e) {}
+}
+
+// Notify a driver that a new order was assigned to them (admin order list / map assignment).
+// Respects settings/driverAssignNotifyMethod: 'app' (in-app notification, default) or 'whatsapp' (GREEN-API).
+// Fire-and-forget — never blocks the assignment flow.
+async function notifyDriverAssigned(orderId, driverName, driverObj, order) {
+    try {
+        const method = window._driverAssignNotifyMethod
+            || await fbGet('settings/driverAssignNotifyMethod').catch(() => null)
+            || 'app';
+        const idNum = orderId.replace('id_', '');
+
+        if (method === 'whatsapp') {
+            const phone = driverObj?.phone;
+            if (!phone) { console.warn('[Delivo] notifyDriverAssigned: no phone on record for', driverName); return; }
+            const msg = `🛵 طلب جديد مُعيَّن لك — #${idNum}\n🏪 ${order?.store || '—'}\n💰 $${order?.total || '0'}\n\nافتح تطبيق السائق للتفاصيل الكاملة.`;
+            await _sendWhatsappMessage(phone, msg);
+        } else {
+            const payload = {
+                orderId,
+                store:  order?.store || '',
+                type:   'assigned',
+                sentAt: Date.now(),
+                read:   '0',
+            };
+            await fbSet('driverNotifications/' + driverName + '/' + orderId, payload);
+        }
+    } catch(e) {
+        console.warn('[Delivo] notifyDriverAssigned failed:', e.message);
+        toast('⚠️ تم تعيين السائق لكن فشل إرسال التنبيه: ' + e.message, true);
+    }
 }
 
 // Standby modal confirm
