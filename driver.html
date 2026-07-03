@@ -1181,6 +1181,28 @@ let ordersCache   = {};     // id → order obj
 let geoWatchId    = null;
 let wakeLock      = null;
 
+// ── Maps link helper ─────────────────────────────────────────
+// Plain https://www.google.com/maps?q=... links work fine on desktop,
+// but on Android — inside the installed PWA shell (standalone display
+// mode) or a wrapped WebView — Google's own maps page redirects to an
+// "intent://...#Intent;...;end" URL to hand off to the Maps app. That
+// redirect fails with net::ERR_UNKNOWN_URL_SCHEME in shells that don't
+// implement custom intent-scheme resolution, which most installed-PWA/
+// WebView browsers don't. The "geo:" URI scheme sidesteps that redirect
+// entirely — it's resolved directly by Android itself, so it works
+// everywhere including PWAs/WebViews (same reason tel: links already work).
+function _mapsHref(lat, lng, label) {
+    const isAndroid = /android/i.test(navigator.userAgent);
+    const hasCoords = lat && lng && lat !== '' && lng !== '';
+    if (hasCoords) {
+        return isAndroid
+            ? `geo:${lat},${lng}?q=${lat},${lng}${label ? '(' + encodeURIComponent(label) + ')' : ''}`
+            : `https://www.google.com/maps?q=${lat},${lng}`;
+    }
+    const q = encodeURIComponent(label || '');
+    return isAndroid ? `geo:0,0?q=${q}` : `https://www.google.com/maps/search/${q}`;
+}
+
 const STATE_MAP = {
     "0": { label: "جديد",             short: "جديد",         company: false },
     "1": { label: "تم التوصيل",       short: "وُصِّل",       company: false },
@@ -2017,7 +2039,9 @@ function listenNotifications() {
                 .sort(([,a],[,b]) => (b.sentAt||0)-(a.sentAt||0))[0];
             if (newest) {
                 const [, n] = newest;
-                const msg = n.type === 'ready'
+                const msg = n.type === 'assigned'
+                    ? `🆕 طلب جديد #${n.orderId?.replace('id_','')} تم تعيينه لك${n.store ? ' من ' + n.store : ''}`
+                    : n.type === 'ready'
                     ? `✅ طلب #${n.orderId?.replace('id_','')} جاهز للتسليم من ${n.store}`
                     : `⏳ طلب #${n.orderId?.replace('id_','')} — وقت التجهيز: ${n.prepMins} دقيقة`;
                 showToast(msg);
@@ -2073,12 +2097,12 @@ function renderNotifPopup() {
         const readyTime = n.readyAt ? new Date(n.readyAt).toLocaleTimeString('ar-LB',{hour:'2-digit',minute:'2-digit'}) : '';
         el.innerHTML = `
             <div class="drv-notif-item__title">
-                ${n.type === 'ready' ? '✅ جاهز للاستلام' : '⏳ قيد التحضير'}
+                ${n.type === 'assigned' ? '🆕 طلب جديد معيَّن لك' : n.type === 'ready' ? '✅ جاهز للاستلام' : '⏳ قيد التحضير'}
                 — ${n.store || ''}
             </div>
             <div class="drv-notif-item__sub">
                 طلب #${orderId.replace('id_','')}
-                ${n.type === 'standby' ? '· ' + n.prepMins + ' دقيقة · موعد الجاهزية: ' + readyTime : '· جاهز الآن'}
+                ${n.type === 'standby' ? '· ' + n.prepMins + ' دقيقة · موعد الجاهزية: ' + readyTime : n.type === 'assigned' ? '· افتح للتفاصيل' : '· جاهز الآن'}
             </div>`;
         el.addEventListener('click', () => {
             closeNotifPopup();
@@ -2370,9 +2394,7 @@ function buildOrderCard(key, order) {
     card.dataset.id = key;
 
     const hasLocation = order.lat && order.lng && order.lat !== '' && order.lng !== '';
-    const mapsUrl = hasLocation
-        ? `https://www.google.com/maps?q=${order.lat},${order.lng}`
-        : `https://www.google.com/maps/search/${encodeURIComponent((order.city || '') + ' ' + (order.street || ''))}`;
+    const mapsUrl = _mapsHref(order.lat, order.lng, (order.city || '') + ' ' + (order.street || ''));
 
     card.innerHTML = `
         <!-- Summary row (always visible) -->
@@ -2420,7 +2442,7 @@ function buildOrderCard(key, order) {
                 <div class="drv-info-cell drv-info-cell--full" style="background:rgba(255,92,0,0.06);border:1px solid rgba(255,92,0,0.2);border-radius:10px;padding:8px 12px;">
                     <div class="drv-info-cell__label" style="color:var(--clr-orange);">🛍️ طلب خارجي — موقع المتجر</div>
                     <div class="drv-info-cell__val">${order.storeAddress}</div>
-                    ${order.storeLat && order.storeLat !== '' ? `<a href="https://www.google.com/maps?q=${order.storeLat},${order.storeLng}" target="_blank" style="display:inline-block;margin-top:6px;font-size:0.75rem;font-weight:800;color:var(--clr-orange);text-decoration:none;">🗺 خريطة المتجر</a>` : ''}
+                    ${order.storeLat && order.storeLat !== '' ? `<a href="${_mapsHref(order.storeLat, order.storeLng, order.store || '')}" target="_blank" style="display:inline-block;margin-top:6px;font-size:0.75rem;font-weight:800;color:var(--clr-orange);text-decoration:none;">🗺 خريطة المتجر</a>` : ''}
                     ${order.storePhone ? `<div style="margin-top:4px;"><a href="tel:${order.storePhone}" style="font-size:0.75rem;font-weight:800;color:#4ade80;text-decoration:none;">📞 ${order.storePhone}</a></div>` : ''}
                 </div>` : ''}
             </div>
