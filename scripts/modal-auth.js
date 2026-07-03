@@ -2127,7 +2127,15 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
         }
 
         const state = order.state || '0';
-        if (state === '1') { _setTrackStatus('✅ تم توصيل طلبك!', 'ok'); return; }
+        if (state === '1') {
+            _setTrackStatus('✅ تم توصيل طلبك!', 'ok');
+            // Stop polling — nothing left to track — then close the
+            // tracking modal shortly after so the success message is
+            // still visible for a moment before it disappears.
+            clearInterval(_trackInterval); _trackInterval = null;
+            setTimeout(() => { if (document.getElementById('track-modal')?.style.display !== 'none') _closeTrackModal(); }, 2000);
+            return;
+        }
         if (state === '2' || state === '5') { _setTrackStatus('❌ الطلب ملغي', 'error'); return; }
 
         const trackable = order.trackorder === '1' || order.trackorder === 1;

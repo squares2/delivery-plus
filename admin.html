@@ -3110,6 +3110,7 @@ function startApp() {
         if (id === 'rewards')    renderRewards();
     });
     startAutoRefresh();
+    _startFastDriverPoll();
 }
 
 function buildSidebar() {
@@ -3645,12 +3646,7 @@ async function loadAllData() {
         allBlacklist = blacklist || {};
 
         if (drivers) {
-            const _raw = Array.isArray(drivers)
-                ? drivers.reduce((acc, v, i) => { acc[String(i)] = v; return acc; }, {})
-                : drivers;
-            allDrivers = Object.entries(_raw)
-                .map(([k, v]) => (v && typeof v === 'object') ? { ...v, _key: k, _isNumeric: /^\d+$/.test(k) } : null)
-                .filter(Boolean);
+            allDrivers = _parseDriversRaw(drivers);
             // Self-heal: a driver record with none of owner/username/phone/deviceUUID
             // is unusable junk (can't log in, can't be identified) — most likely a
             // leftover from a legacy array-rewrite. Drop it from the list and remove
@@ -4354,6 +4350,53 @@ function _refreshDrivers() {
 
 
 
+// ── Shared driver-record parser ─────────────────────────────────
+// Used by both the full 12s admin refresh (loadAllData) and the
+// lightweight 1s marker-only poll below, so both stay in sync with
+// the exact same record shape.
+function _parseDriversRaw(raw) {
+    if (!raw) return [];
+    const _raw = Array.isArray(raw)
+        ? raw.reduce((acc, v, i) => { acc[String(i)] = v; return acc; }, {})
+        : raw;
+    return Object.entries(_raw)
+        .map(([k, v]) => (v && typeof v === 'object') ? { ...v, _key: k, _isNumeric: /^\d+$/.test(k) } : null)
+        .filter(Boolean);
+}
+
+// ── Fast driver-position poll (1s) ───────────────────────────────
+// Separate from the main 12s startAutoRefresh() loop on purpose: that
+// loop reloads ALL admin data (orders, stats, every map layer) and
+// would be far too expensive to run every second. This poll only
+// fetches the small `drivers` node and repositions driver markers via
+// _refreshDriverMarkers() (which already only touches that one layer),
+// so the map feels live without hammering Firebase for a full reload.
+let _fastDriverPollTimer = null;
+
+function _startFastDriverPoll() {
+    if (_fastDriverPollTimer) return;
+    _fastDriverPollTimer = setInterval(async () => {
+        // Skip the fetch entirely when nobody's looking at the map —
+        // no point polling for marker positions that aren't rendered.
+        if (!document.getElementById('panel-map')?.classList.contains('active')) return;
+        if (_refreshPaused || _fsSignInFails >= _FS_MAX_FAILS) return;
+        try {
+            const drivers = await fbGet('drivers');
+            allDrivers = _parseDriversRaw(drivers);
+            _refreshDriverMarkers();
+        } catch (e) { /* silent — next tick retries */ }
+    }, 1000);
+}
+
+// Shared marker-icon builder — was previously defined only inside
+// renderMap(), which meant _refreshDriverMarkers() (a separate top-level
+// function) crashed with "mkDiv is not defined" every time it ran on its
+// own. That crash mid-loop, right after the old markers were already
+// removed, is what caused driver icons to flicker on/off.
+function mkDiv(html, size, anchor) {
+    return L.divIcon({ html, iconSize: size, iconAnchor: anchor, className: '' });
+}
+
 function initMap() {
     if (adminMap) return;
     adminMap = L.map('admin-map', { zoomControl: true }).setView([34.003, 36.212], 14);
@@ -4362,31 +4405,40 @@ function initMap() {
     }).addTo(adminMap);
 }
 
-// ── Live driver marker refresh (no full map rebuild) ──────────
-// Called every time the RTDB drivers listener fires.
-// Only removes + re-adds the driver layer — stores/customers/orders untouched.
+// ── Live driver marker refresh (in-place, no flicker) ──────────
+// Called by both the 1s fast poll and the 12s full renderMap() refresh —
+// single source of truth for driver markers on the map. Keeps a registry
+// keyed by driver record so existing markers are just *moved*
+// (setLatLng) instead of removed and recreated every call. Removing +
+// re-adding a Leaflet marker every single second is what was causing
+// driver icons to flicker on/off ("sparking") — this avoids that.
+window._driverMarkerRegistry = window._driverMarkerRegistry || {};
+
 function _refreshDriverMarkers() {
     if (!adminMap) return;
     if (!document.getElementById('panel-map').classList.contains('active')) return;
 
-    // Remove old driver markers
-    mapMarkers.drivers.forEach(m => adminMap.removeLayer(m));
-    mapMarkers.drivers = [];
+    const registry = window._driverMarkerRegistry;
 
-    if (!mapLayers.drivers) return;
+    // Driver layer toggled off — clear everything and stop.
+    if (!mapLayers.drivers) {
+        Object.values(registry).forEach(entry => adminMap.removeLayer(entry.marker));
+        for (const k in registry) delete registry[k];
+        mapMarkers.drivers = [];
+        return;
+    }
 
     const labelStyle = 'font-family:Almarai,sans-serif;font-size:11px;font-weight:800;' +
-                       'text-align:center;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.8);';
+                       'text-align:center;white-space:nowrap;' +
+                       'background:rgba(10,10,15,0.85);padding:2px 8px;border-radius:6px;' +
+                       'margin-bottom:3px;box-shadow:0 1px 4px rgba(0,0,0,0.5);display:inline-block;';
 
-    allDrivers.forEach(d => {
-        if (!d || !d.location?.lat) return;
-        const online  = d.status === 'online';
-        const name    = (online && d._activeUser) ? d._activeUser : (d.owner || d.username || '—');
+    const buildIcon = (online, name) => {
         const bgColor = online ? '#22c55e' : '#4b5563';
         const shadow  = online ? 'rgba(34,197,94,0.5)' : 'rgba(0,0,0,0.4)';
-        const icon = mkDiv(
+        return mkDiv(
             `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
-                <div style="${labelStyle}color:${online?'#86efac':'#9ca3af'};">@${name}</div>
+                <div style="${labelStyle}color:${online?'#86efac':'#d1d5db'};">@${name}</div>
                 <div style="width:32px;height:32px;border-radius:50%;
                             background:${bgColor};
                             display:flex;align-items:center;justify-content:center;
@@ -4395,11 +4447,50 @@ function _refreshDriverMarkers() {
             </div>`,
             null, [16, 50]
         );
-        const m = L.marker([d.location.lat, d.location.lng], { icon })
-            .bindPopup(`<b style="font-family:Almarai">${name}</b><br><small style="color:${online?'#22c55e':'#9ca3af'}">${online?'نشط':'غير نشط'}</small>`)
-            .addTo(adminMap);
-        mapMarkers.drivers.push(m);
+    };
+
+    const seenKeys = new Set();
+
+    allDrivers.forEach(d => {
+        if (!d || !d.location?.lat || !d._key) return;
+        seenKeys.add(d._key);
+
+        const online = d.status === 'online';
+        const name   = (online && d._activeUser) ? d._activeUser : (d.owner || d.username || '—');
+        const lat    = d.location.lat;
+        const lng    = d.location.lng;
+
+        const existing = registry[d._key];
+        if (existing) {
+            // Just move it — cheap, smooth, no removal from the map.
+            existing.marker.setLatLng([lat, lng]);
+            // Only touch the icon/popup when something visible changed.
+            if (existing.online !== online || existing.name !== name) {
+                existing.marker.setIcon(buildIcon(online, name));
+                existing.marker.setPopupContent(
+                    `<b style="font-family:Almarai">${name}</b><br><small style="color:${online?'#22c55e':'#9ca3af'}">${online?'نشط':'غير نشط'}</small>`
+                );
+                existing.online = online;
+                existing.name   = name;
+            }
+        } else {
+            // New driver on the map — create once.
+            const marker = L.marker([lat, lng], { icon: buildIcon(online, name) })
+                .bindPopup(`<b style="font-family:Almarai">${name}</b><br><small style="color:${online?'#22c55e':'#9ca3af'}">${online?'نشط':'غير نشط'}</small>`)
+                .addTo(adminMap);
+            registry[d._key] = { marker, online, name };
+        }
     });
+
+    // Drop markers for drivers that disappeared (logged out, deleted, lost location).
+    Object.keys(registry).forEach(key => {
+        if (!seenKeys.has(key)) {
+            adminMap.removeLayer(registry[key].marker);
+            delete registry[key];
+        }
+    });
+
+    mapMarkers.drivers = Object.values(registry).map(e => e.marker);
 }
 
 function renderMap() {
@@ -4407,11 +4498,14 @@ function renderMap() {
     if (!adminMap) { initMap(); setTimeout(renderMap, 400); return; }
     adminMap.invalidateSize();
 
-    // Clear all layers
-    Object.values(mapMarkers).flat().forEach(m => adminMap.removeLayer(m));
-    mapMarkers = { stores: [], drivers: [], customers: [], orders: [] };
-
-    const mkDiv = (html, size, anchor) => L.divIcon({ html, iconSize: size, iconAnchor: anchor, className: '' });
+    // Clear all layers except drivers — those are now owned entirely by
+    // _refreshDriverMarkers() (called below), which updates marker
+    // positions in place instead of tearing them down each time. That
+    // keeps driver icons from flickering every time this full refresh runs.
+    ['stores', 'customers', 'orders'].forEach(cat => {
+        mapMarkers[cat].forEach(m => adminMap.removeLayer(m));
+        mapMarkers[cat] = [];
+    });
 
     // ── Shared label style ────────────────────────────────────
     const labelStyle = `
@@ -4446,32 +4540,10 @@ function renderMap() {
     }
 
     // ── Drivers ───────────────────────────────────────────────
-    if (mapLayers.drivers) {
-        allDrivers.forEach(d => {
-            if (!d || !d.location?.lat) return;
-            const online  = d.status === 'online';
-            // When online, use _activeUser (the owner name written at login) — guarantees
-            // the label matches exactly who is logged in on that device right now.
-            const name    = (online && d._activeUser) ? d._activeUser : (d.owner || d.username || '—');
-            const bgColor = online ? '#22c55e' : '#4b5563';
-            const shadow  = online ? 'rgba(34,197,94,0.5)' : 'rgba(0,0,0,0.4)';
-            const icon = mkDiv(
-                `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
-                    <div style="${labelStyle}color:${online?'#86efac':'#9ca3af'};">@${name}</div>
-                    <div style="width:32px;height:32px;border-radius:50%;
-                                background:${bgColor};
-                                display:flex;align-items:center;justify-content:center;
-                                font-size:14px;box-shadow:0 3px 12px ${shadow};
-                                border:2.5px solid #fff;">🛵</div>
-                </div>`,
-                null, [16, 50]
-            );
-            const m = L.marker([d.location.lat, d.location.lng], { icon })
-                .bindPopup(`<b style="font-family:Almarai">${name}</b><br><small style="color:${online?'#22c55e':'#9ca3af'}">${online?'نشط':'غير نشط'}</small>`)
-                .addTo(adminMap);
-            mapMarkers.drivers.push(m);
-        });
-    }
+    // Handled by _refreshDriverMarkers() (also driving the 1s fast poll)
+    // instead of being rebuilt here, so there's a single source of truth
+    // for driver markers and no flicker when this full refresh runs.
+    _refreshDriverMarkers();
 
     // ── Customers (grouped by deviceUUID) ────────────────────
     if (mapLayers.customers) {

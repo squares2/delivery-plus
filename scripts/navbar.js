@@ -490,7 +490,9 @@ window.refreshActiveOrders = async function() {
 
     function _rebuildFromCache() {
         _activeOrders = Object.entries(_ordersCache)
-            .filter(([, o]) => o && (o.trackorder === '1' || o.trackorder === 1))
+            .filter(([, o]) => o
+                && (o.trackorder === '1' || o.trackorder === 1)
+                && !['1', '2', '5'].includes(o.state || '0')) // exclude delivered/cancelled
             .map(([id, order]) => ({ id, order }));
         _applyLogoState();
         // If the sheet is currently open, re-render it live

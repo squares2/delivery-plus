@@ -75,17 +75,27 @@
         flex-shrink: 0;
     }
     .drv-nav__logo img { width: 28px; height: 28px; border-radius: 7px; }
-    /* Hide "Driver" text label on very narrow screens — logo icon is enough */
     .drv-nav__logo span { color: var(--clr-white); }
-    @media (max-width: 340px) { .drv-nav__logo span { display: none; } }
 
-    /* Right side: wraps tightly, never pushes off-screen */
-    .drv-nav__right {
+    /* Brand group: logo + status dot + driver name, all together so the
+       name reads naturally beside "Driver". Flexes to fill whatever space
+       the (fixed-size) action buttons on the other side don't need. */
+    .drv-nav__brand {
         display: flex;
         align-items: center;
         gap: 6px;
         min-width: 0;
-        flex-shrink: 1;
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+
+    /* Right side: action buttons keep a fixed, readable size — the brand
+       group above absorbs the squeeze on narrow screens instead. */
+    .drv-nav__right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
     }
 
     .drv-status-dot {
@@ -106,7 +116,8 @@
         50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.10); }
     }
 
-    /* Driver name: truncates instead of overflowing */
+    /* Driver name: gets first claim on any leftover space in the brand
+       group, and only truncates (with ellipsis) if it still doesn't fit. */
     .drv-nav__driver-name {
         font-size: 0.78rem;
         font-weight: 700;
@@ -114,8 +125,9 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        max-width: 80px;   /* shrinks further if needed */
-        flex-shrink: 1;
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 160px;
     }
 
     .drv-btn {
@@ -137,19 +149,21 @@
     .drv-btn--ghost:hover { color: var(--clr-white); border-color: var(--clr-gray); }
     .drv-btn--red { background: var(--clr-red); color: #fff; }
 
-    /* Navbar ghost buttons shrink on small screens: show icon only */
+    /* Navbar ghost buttons shrink on small screens, but keep their text
+       labels — icon-only wasn't readable. Room is made by hiding the
+       (redundant, once logged in) "Driver" text label and tightening
+       button padding/font-size — never by shrinking the driver's name,
+       which should show as much as possible. */
     @media (max-width: 420px) {
-        .drv-btn--ghost { padding: 7px 9px; font-size: 0.7rem; }
-        /* Archive btn same treatment */
+        .drv-nav__logo span { display: none; }
+        .drv-nav__driver-name { max-width: 130px; }
+        .drv-btn--ghost { padding: 6px 8px; font-size: 0.68rem; gap: 4px; }
         .drv-archive-btn { padding: 6px 8px; font-size: 0.68rem; gap: 3px; }
-        /* Hide text labels, keep emoji — saves ~40px per button */
-        #drv-history-btn  .drv-btn-label,
-        #drv-docs-nav-btn .drv-btn-label,
-        #drv-logout-btn   .drv-btn-label { display: none; }
     }
     @media (max-width: 360px) {
-        .drv-btn--ghost { padding: 6px 7px; }
-        .drv-nav__driver-name { max-width: 54px; }
+        .drv-nav__driver-name { max-width: 96px; }
+        .drv-btn--ghost { padding: 5px 6px; font-size: 0.64rem; }
+        .drv-archive-btn { padding: 5px 6px; font-size: 0.64rem; }
     }
 
     /* ── Stats bar ───────────────────────────────────────────── */
@@ -778,15 +792,16 @@
 
 <!-- ── Navbar ──────────────────────────────────────────────── -->
 <nav class="drv-nav" id="drv-nav" style="display:none">
-    <a class="drv-nav__logo" href="index.html">
-        <img src="assets/logo.png" alt="Delivo">
-        <span>Driver</span>
-    </a>
-    <div class="drv-nav__right">
+    <div class="drv-nav__brand">
+        <a class="drv-nav__logo" href="index.html">
+            <img src="assets/logo.png" alt="Delivo">
+            <span>Driver</span>
+        </a>
         <div class="drv-status-dot" id="drv-status-dot"></div>
         <span class="drv-nav__driver-name" id="drv-name">—</span>
+    </div>
+    <div class="drv-nav__right">
         <button class="drv-archive-btn" id="drv-history-btn">📦<span class="drv-btn-label"> Archive</span></button>
-        <button class="drv-btn drv-btn--ghost" id="drv-docs-nav-btn" title="تحديث وثائقي">📄<span class="drv-btn-label"> وثائقي</span></button>
         <button class="drv-btn drv-btn--ghost" id="drv-logout-btn">🚪<span class="drv-btn-label"> تسجيل خروج</span></button>
     </div>
 </nav>
@@ -1811,8 +1826,6 @@ function setupDocsModal() {
 
     // Pending-banner button: first-time upload
     document.getElementById('drv-pending-docs-btn')?.addEventListener('click', () => openDocsModal(false));
-    // Navbar button: update existing docs — always accessible after login
-    document.getElementById('drv-docs-nav-btn')?.addEventListener('click',  () => openDocsModal(true));
 
     document.getElementById('drv-docs-close')?.addEventListener('click', () => {
         document.getElementById('drv-docs-modal').style.display = 'none';
