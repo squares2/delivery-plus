@@ -9,6 +9,36 @@
 
     const RTDB_BASE  = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
     const HEARTBEAT  = 8 * 1000;   // must be well under admin STALE_MS (45s)
+    const STALE_MS   = 45 * 1000;  // MUST match admin-presence.js STALE_MS
+    const SWEEP_MS   = 30 * 1000;  // how often this tab may prune dead entries
+
+    let lastSweep = 0;
+
+    // Count only entries whose heartbeat is recent; anything older is a
+    // leaked/zombie node (crashed tab, killed app, REST client that never
+    // got to fire beforeunload) that never got cleaned up.
+    function countActive(raw) {
+        const cutoff = Date.now() - STALE_MS;
+        let n = 0;
+        for (const k in raw) {
+            if (raw[k] && (raw[k].lastSeen || 0) >= cutoff) n++;
+        }
+        return n;
+    }
+
+    // Best-effort cleanup so zombie nodes don't sit in the DB forever just
+    // because the admin panel happens to be closed. Any connected client
+    // (not only admin) can prune them; throttled so we don't hammer RTDB
+    // every time many tabs receive the same snapshot.
+    function sweepStale(raw, deleteFn) {
+        const now = Date.now();
+        if (now - lastSweep < SWEEP_MS) return;
+        lastSweep = now;
+        const cutoff = now - STALE_MS;
+        for (const k in raw) {
+            if (raw[k] && (raw[k].lastSeen || 0) < cutoff) deleteFn(k);
+        }
+    }
 
     function getDeviceUUID() {
         let uuid = localStorage.getItem('delivo_device_uuid');
@@ -107,7 +137,11 @@
             ref.update({ lastSeen: Date.now(), uid: window._delivoAuthUser?.uid || null, username: window._delivoAuthUser?.username || null }).catch(() => {});
         });
 
-        db.ref('presence').on('value', snap => updateWidget(snap.numChildren()));
+        db.ref('presence').on('value', snap => {
+            const raw = snap.val() || {};
+            updateWidget(countActive(raw));
+            sweepStale(raw, k => db.ref(`presence/${k}`).remove().catch(() => {}));
+        });
 
         window._delivoPresence = {
             linkUser(uid, username) {
@@ -142,8 +176,10 @@
         });
 
         async function pollCount() {
-            const d = await rtdbGet('presence');
-            updateWidget(d ? Object.keys(d).length : 1);
+            const d   = await rtdbGet('presence');
+            const raw = d || {};
+            updateWidget(d ? countActive(raw) : 1);
+            sweepStale(raw, k => rtdbDelete(`presence/${k}`));
         }
         pollCount();
         setInterval(pollCount, HEARTBEAT);

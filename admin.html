@@ -1819,6 +1819,7 @@ input, select, textarea { font-family: var(--font); }
                 </div>
                 <div style="position:relative;flex:1;display:flex;flex-direction:column;">
                     <div class="map-filter-bar">
+                        <button class="map-filter-btn active" data-layer="center">🏢 المركز</button>
                         <button class="map-filter-btn active" data-layer="stores">🏪 متاجر</button>
                         <button class="map-filter-btn active" data-layer="drivers">🛵 سائقين</button>
                         <button class="map-filter-btn active" data-layer="customers">👤 عملاء</button>
@@ -1827,6 +1828,7 @@ input, select, textarea { font-family: var(--font); }
                     <div id="admin-map"></div>
                     <div class="map-legend">
                         <div class="map-legend-title">دليل الخريطة</div>
+                        <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div>مركز Delivo</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#FF5C00;"></div>متجر</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>سائق نشط</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#9ca3af;"></div>سائق غير نشط</div>
@@ -2504,6 +2506,15 @@ input, select, textarea { font-family: var(--font); }
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+<script src="scripts/push-notifications.js"></script>
+<script>
+// admin.html previously never registered a service worker, so push
+// notifications (and any offline support) had nothing to attach to.
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('[Admin] SW registration failed:', err));
+}
+</script>
 <script>
 (function() {
     const FB_CONFIG = {
@@ -2682,9 +2693,10 @@ let customerSearch = '';
 let allBlacklist   = {};
 let storeFilter    = 'all';
 let storeSearch    = '';
-let mapLayers    = { stores: true, drivers: true, customers: true, orders: true };
+let mapLayers    = { stores: true, drivers: true, customers: true, orders: true, center: true };
 let adminMap     = null;
-let mapMarkers   = { stores: [], drivers: [], customers: [], orders: [] };
+let mapMarkers   = { stores: [], drivers: [], customers: [], orders: [], center: [] };
+let deliveryCenterLoc = null; // { lat, lng } — Delivo HQ, settings/deliveryCenter
 let refreshTimer         = null;
 let _refreshPaused       = false;
 const REFRESH_INTERVAL   = 12_000;   // 12 seconds
@@ -3090,6 +3102,13 @@ function startApp() {
 
     // Save session
     sessionStorage.setItem('delivoAdmin', JSON.stringify(currentAdmin));
+
+    // Push notifications for this employee/admin — works even with admin.html
+    // fully closed. Fire-and-forget, same as the driver-side registration.
+    if (window.DelivoPush) {
+        const empKey = currentAdmin._key || currentAdmin.username;
+        DelivoPush.register(empKey, 'employee', currentAdmin.fullname || currentAdmin.username);
+    }
 
     buildSidebar();
     // Load data then do the initial render of the active panel
@@ -4397,6 +4416,17 @@ function mkDiv(html, size, anchor) {
     return L.divIcon({ html, iconSize: size, iconAnchor: anchor, className: '' });
 }
 
+// Shared driver vehicle-type → emoji lookup (VEHICLE_LABELS is declared
+// further down in this same script, but by the time this is actually
+// *called* — from event handlers / polling intervals — the whole script
+// has already run top-to-bottom, so it's safely defined).
+// Falls back to the motorcycle emoji for older driver records saved
+// before vehicleType existed.
+function vehicleEmojiFor(vehicleType) {
+    const v = (typeof VEHICLE_LABELS !== 'undefined') && VEHICLE_LABELS[vehicleType];
+    return v ? v.emoji : '🛵';
+}
+
 function initMap() {
     if (adminMap) return;
     adminMap = L.map('admin-map', { zoomControl: true }).setView([34.003, 36.212], 14);
@@ -4433,9 +4463,10 @@ function _refreshDriverMarkers() {
                        'background:rgba(10,10,15,0.85);padding:2px 8px;border-radius:6px;' +
                        'margin-bottom:3px;box-shadow:0 1px 4px rgba(0,0,0,0.5);display:inline-block;';
 
-    const buildIcon = (online, name) => {
+    const buildIcon = (online, name, vehicleType) => {
         const bgColor = online ? '#22c55e' : '#4b5563';
         const shadow  = online ? 'rgba(34,197,94,0.5)' : 'rgba(0,0,0,0.4)';
+        const emoji   = vehicleEmojiFor(vehicleType);
         return mkDiv(
             `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
                 <div style="${labelStyle}color:${online?'#86efac':'#d1d5db'};">@${name}</div>
@@ -4443,7 +4474,7 @@ function _refreshDriverMarkers() {
                             background:${bgColor};
                             display:flex;align-items:center;justify-content:center;
                             font-size:14px;box-shadow:0 3px 12px ${shadow};
-                            border:2.5px solid #fff;">🛵</div>
+                            border:2.5px solid #fff;">${emoji}</div>
             </div>`,
             null, [16, 50]
         );
@@ -4460,25 +4491,29 @@ function _refreshDriverMarkers() {
         const lat    = d.location.lat;
         const lng    = d.location.lng;
 
+        const vehicleType = d.vehicleType;
+        const vehicleLabel = (VEHICLE_LABELS[vehicleType] || VEHICLE_LABELS.motorcycle).label;
+
         const existing = registry[d._key];
         if (existing) {
             // Just move it — cheap, smooth, no removal from the map.
             existing.marker.setLatLng([lat, lng]);
             // Only touch the icon/popup when something visible changed.
-            if (existing.online !== online || existing.name !== name) {
-                existing.marker.setIcon(buildIcon(online, name));
+            if (existing.online !== online || existing.name !== name || existing.vehicleType !== vehicleType) {
+                existing.marker.setIcon(buildIcon(online, name, vehicleType));
                 existing.marker.setPopupContent(
-                    `<b style="font-family:Almarai">${name}</b><br><small style="color:${online?'#22c55e':'#9ca3af'}">${online?'نشط':'غير نشط'}</small>`
+                    `<b style="font-family:Almarai">${name}</b><br><small style="color:${online?'#22c55e':'#9ca3af'}">${online?'نشط':'غير نشط'} · ${vehicleEmojiFor(vehicleType)} ${vehicleLabel}</small>`
                 );
-                existing.online = online;
-                existing.name   = name;
+                existing.online      = online;
+                existing.name        = name;
+                existing.vehicleType = vehicleType;
             }
         } else {
             // New driver on the map — create once.
-            const marker = L.marker([lat, lng], { icon: buildIcon(online, name) })
-                .bindPopup(`<b style="font-family:Almarai">${name}</b><br><small style="color:${online?'#22c55e':'#9ca3af'}">${online?'نشط':'غير نشط'}</small>`)
+            const marker = L.marker([lat, lng], { icon: buildIcon(online, name, vehicleType) })
+                .bindPopup(`<b style="font-family:Almarai">${name}</b><br><small style="color:${online?'#22c55e':'#9ca3af'}">${online?'نشط':'غير نشط'} · ${vehicleEmojiFor(vehicleType)} ${vehicleLabel}</small>`)
                 .addTo(adminMap);
-            registry[d._key] = { marker, online, name };
+            registry[d._key] = { marker, online, name, vehicleType };
         }
     });
 
@@ -4502,7 +4537,7 @@ function renderMap() {
     // _refreshDriverMarkers() (called below), which updates marker
     // positions in place instead of tearing them down each time. That
     // keeps driver icons from flickering every time this full refresh runs.
-    ['stores', 'customers', 'orders'].forEach(cat => {
+    ['stores', 'customers', 'orders', 'center'].forEach(cat => {
         mapMarkers[cat].forEach(m => adminMap.removeLayer(m));
         mapMarkers[cat] = [];
     });
@@ -4517,6 +4552,24 @@ function renderMap() {
         position:absolute;left:50%;transform:translateX(-50%);
         bottom:calc(100% + 4px);
     `;
+
+    // ── Delivo Center (HQ) ───────────────────────────────────────
+    if (mapLayers.center && deliveryCenterLoc) {
+        const icon = mkDiv(
+            `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
+                <div style="${labelStyle}">🏢 مركز Delivo</div>
+                <div style="width:32px;height:32px;border-radius:8px;background:#8b5cf6;
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:15px;box-shadow:0 3px 12px rgba(139,92,246,0.55);
+                            border:2px solid rgba(255,255,255,0.4);">🏢</div>
+            </div>`,
+            null, [16, 46]
+        );
+        const m = L.marker([deliveryCenterLoc.lat, deliveryCenterLoc.lng], { icon, zIndexOffset: 500 })
+            .bindPopup(`<b style="font-family:Almarai">🏢 مركز Delivo (المقر)</b>`)
+            .addTo(adminMap);
+        mapMarkers.center.push(m);
+    }
 
     // ── Stores ────────────────────────────────────────────────
     if (mapLayers.stores) {
@@ -4851,6 +4904,7 @@ function renderMap() {
             lng:   d.location.lng,
             color: LINE_PALETTE[idx % LINE_PALETTE.length],
             name,
+            vehicleType: d.vehicleType,
         };
     });
 
@@ -4892,7 +4946,7 @@ function renderMap() {
             const badgeIcon = L.divIcon({
                 className: '',
                 html: `<div class="drv-mid-badge" style="color:${drv.color};border-color:${drv.color}33;">
-                           🛵 ${drv.name} → #${key.replace('id_','')}
+                           ${vehicleEmojiFor(drv.vehicleType)} ${drv.name} → #${key.replace('id_','')}
                        </div>`,
                 iconSize:   null,
                 iconAnchor: [0, 10],
@@ -5643,10 +5697,15 @@ function renderDrivers() {
                 <button class="dc-edit-btn" data-driver-key="${d._key}">
                     ✏️ تعديل البيانات
                 </button>
+                <button class="dc-testpush-btn" data-driver-key="${d._key}" data-driver-name="${name}" title="إرسال إشعار تجريبي">🔔</button>
                 ${isActive ? `<button class="dc-deactivate-btn" data-driver-key="${d._key}" title="إلغاء التفعيل">⏸ إلغاء التفعيل</button>` : ''}
                 <button class="dc-delete-btn" data-driver-key="${d._key}" title="حذف السائق">🗑</button>
             </div>
         `;
+        card.querySelector('.dc-testpush-btn').addEventListener('click', (e) => {
+            const key = e.currentTarget.dataset.driverKey;
+            sendTestPush(key, e.currentTarget.dataset.driverName);
+        });
         if (hasLoc) {
             card.querySelector('.dc-locate-btn').addEventListener('click', (e) => {
                 const lat = parseFloat(e.currentTarget.dataset.lat);
@@ -6994,6 +7053,184 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
     setTimeout(() => slMap.invalidateSize(), 120);
 }
 
+// ══ DELIVO CENTER (HQ) LOCATION MODAL ══════════════════════════
+// Same pattern as openStoreLocationModal, but for the single fixed
+// settings/deliveryCenter = { lat, lng } record shown on the live map.
+function openCenterLocationModal(initLat, initLng) {
+    const stale = document.getElementById('cl-modal-overlay');
+    if (stale) stale.remove();
+
+    const DEFAULT_LAT = 33.8469;
+    const DEFAULT_LNG = 35.9017;
+    const startLat = initLat || DEFAULT_LAT;
+    const startLng = initLng || DEFAULT_LNG;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'cl-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    overlay.innerHTML = `
+    <div id="cl-box" style="background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:560px;font-family:var(--font);direction:rtl;display:flex;flex-direction:column;max-height:90vh;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+            <div>
+                <h3 style="font-size:1rem;font-weight:800;color:var(--white);margin:0 0 2px;">🏢 تحديد موقع مركز Delivo</h3>
+                <div style="font-size:0.75rem;color:var(--gray);">المقر الرئيسي — يظهر على الخريطة المباشرة</div>
+            </div>
+            <button id="cl-close-x" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;padding:4px;">✕</button>
+        </div>
+
+        <div style="padding:14px 20px 10px;flex-shrink:0;">
+            <div style="font-size:0.72rem;color:var(--gray);margin-bottom:8px;">انقر على الخريطة لتحديد الموقع، أو أدخل الإحداثيات يدوياً</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;">
+                <div>
+                    <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:3px;">خط العرض (Lat)</label>
+                    <input id="cl-lat" type="number" step="0.000001" placeholder="33.846900"
+                        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;"
+                        onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+                <div>
+                    <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:3px;">خط الطول (Lng)</label>
+                    <input id="cl-lng" type="number" step="0.000001" placeholder="35.901700"
+                        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;"
+                        onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+                <button id="cl-jump-btn" style="margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--white);font-size:0.78rem;font-family:inherit;cursor:pointer;white-space:nowrap;" title="انتقل إلى الإحداثيات">↗ انتقل</button>
+            </div>
+            ${initLat ? `<div id="cl-current-loc" style="margin-top:8px;font-size:0.7rem;color:var(--gray);">الموقع الحالي: <span style="color:var(--orange);font-family:var(--mono);">${initLat.toFixed(6)}, ${initLng.toFixed(6)}</span></div>` : '<div id="cl-current-loc" style="margin-top:8px;font-size:0.7rem;color:rgba(239,68,68,0.8);">⚠ لا يوجد موقع محدد لمركز Delivo بعد</div>'}
+        </div>
+
+        <div id="cl-map-container" style="flex:1;min-height:280px;position:relative;">
+            <div id="cl-map" style="width:100%;height:100%;min-height:280px;"></div>
+            <div id="cl-pin-hint" style="position:absolute;bottom:10px;right:50%;transform:translateX(50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:5px 12px;border-radius:50px;pointer-events:none;z-index:999;white-space:nowrap;">انقر لتحديد الموقع</div>
+        </div>
+
+        <div style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);flex-shrink:0;">
+            <button id="cl-clear-btn" style="background:var(--surface2);border:1px solid rgba(239,68,68,0.4);border-radius:12px;padding:10px 14px;color:#ef4444;font-family:inherit;font-size:0.82rem;font-weight:700;cursor:pointer;">🗑 مسح الموقع</button>
+            <button id="cl-cancel-btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--white);font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            <button id="cl-save-btn" style="flex:2;background:var(--orange);border:none;border-radius:12px;padding:10px;color:#fff;font-family:inherit;font-size:0.88rem;font-weight:800;cursor:pointer;">💾 حفظ الموقع</button>
+        </div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+
+    // ── Init Leaflet map ───────────────────────────────────────
+    const clMap = L.map('cl-map', { zoomControl: true }).setView([startLat, startLng], initLat ? 16 : 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19,
+    }).addTo(clMap);
+
+    // Custom purple building pin — distinct from the orange store pin
+    const pinIcon = L.divIcon({
+        className: '',
+        html: `<div style="width:32px;height:32px;background:#8b5cf6;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
+                   <span style="transform:rotate(45deg);font-size:14px;">🏢</span>
+               </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+    });
+
+    let clMarker = null;
+    let selectedLat = initLat;
+    let selectedLng = initLng;
+
+    // Place initial marker if coordinates exist
+    if (initLat && initLng) {
+        clMarker = L.marker([initLat, initLng], { icon: pinIcon, draggable: true }).addTo(clMap);
+        _clBindMarkerDrag(clMarker);
+        document.getElementById('cl-lat').value = initLat.toFixed(6);
+        document.getElementById('cl-lng').value = initLng.toFixed(6);
+    }
+
+    function _clBindMarkerDrag(marker) {
+        marker.on('dragend', () => {
+            const pos = marker.getLatLng();
+            selectedLat = pos.lat;
+            selectedLng = pos.lng;
+            document.getElementById('cl-lat').value = pos.lat.toFixed(6);
+            document.getElementById('cl-lng').value = pos.lng.toFixed(6);
+        });
+    }
+
+    function _clSetMarker(lat, lng) {
+        selectedLat = lat;
+        selectedLng = lng;
+        document.getElementById('cl-lat').value = lat.toFixed(6);
+        document.getElementById('cl-lng').value = lng.toFixed(6);
+        if (clMarker) {
+            clMarker.setLatLng([lat, lng]);
+        } else {
+            clMarker = L.marker([lat, lng], { icon: pinIcon, draggable: true }).addTo(clMap);
+            _clBindMarkerDrag(clMarker);
+        }
+        document.getElementById('cl-pin-hint').style.display = 'none';
+    }
+
+    // Click on map → place/move marker
+    clMap.on('click', (e) => {
+        _clSetMarker(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Jump button — pan map to manually typed coords
+    document.getElementById('cl-jump-btn').addEventListener('click', () => {
+        const lat = parseFloat(document.getElementById('cl-lat').value);
+        const lng = parseFloat(document.getElementById('cl-lng').value);
+        if (isNaN(lat) || isNaN(lng)) { toast('أدخل إحداثيات صحيحة', true); return; }
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) { toast('الإحداثيات خارج النطاق', true); return; }
+        _clSetMarker(lat, lng);
+        clMap.setView([lat, lng], 16);
+    });
+
+    // Close helpers
+    const close = () => { clMap.remove(); overlay.remove(); };
+    document.getElementById('cl-close-x').addEventListener('click', close);
+    document.getElementById('cl-cancel-btn').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+    // Clear location
+    document.getElementById('cl-clear-btn').addEventListener('click', async () => {
+        if (!confirm('مسح موقع مركز Delivo من قاعدة البيانات؟')) return;
+        const btn = document.getElementById('cl-clear-btn');
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            await fbSet('settings/deliveryCenter', null);
+            deliveryCenterLoc = null;
+            _updateCenterLocDisplay();
+            if (adminMap) renderMap();
+            toast('🗑 تم مسح موقع مركز Delivo');
+            close();
+        } catch(e) {
+            toast('فشل المسح: ' + e.message, true);
+            btn.disabled = false; btn.textContent = '🗑 مسح الموقع';
+        }
+    });
+
+    // Save location
+    document.getElementById('cl-save-btn').addEventListener('click', async () => {
+        if (selectedLat === null || selectedLat === undefined || selectedLng === null || selectedLng === undefined) {
+            toast('انقر على الخريطة لتحديد الموقع أولاً', true); return;
+        }
+        const btn = document.getElementById('cl-save-btn');
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            const lat = parseFloat(selectedLat.toFixed(6));
+            const lng = parseFloat(selectedLng.toFixed(6));
+            await fbSet('settings/deliveryCenter', { lat, lng });
+            deliveryCenterLoc = { lat, lng };
+            _updateCenterLocDisplay();
+            if (adminMap) renderMap();
+            toast('✅ تم حفظ موقع مركز Delivo');
+            close();
+        } catch(e) {
+            toast('فشل الحفظ: ' + e.message, true);
+            btn.disabled = false; btn.textContent = '💾 حفظ الموقع';
+        }
+    });
+
+    // Fix Leaflet tile sizing after modal animation
+    setTimeout(() => clMap.invalidateSize(), 120);
+}
+
 // ══ STORE TYPE EDITOR MODAL ════════════════════════════════════
 async function openStoreTypeModal(storeName, currentTypes) {
     const stale = document.getElementById('stype-overlay');
@@ -7676,7 +7913,15 @@ function renderEmployees() {
             <div class="ec-actions-row">
                 <button class="ec-btn" data-edit="${emp._key}">✏️ تعديل</button>
                 <button class="ec-btn danger" data-delete="${emp._key}">🗑 حذف</button>
-            </div>` : ''}`;
+                <button class="ec-btn" data-testpush="${emp._key === '__seed' ? emp.username : emp._key}" data-testpush-name="${emp.fullname || emp.username}" title="إرسال إشعار تجريبي">🔔</button>
+            </div>` : `
+            <div class="ec-actions-row">
+                <button class="ec-btn" data-testpush="${emp._key === '__seed' ? emp.username : emp._key}" data-testpush-name="${emp.fullname || emp.username}" title="إرسال إشعار تجريبي">🔔 اختبار الإشعار</button>
+            </div>`}`;
+
+        card.querySelectorAll('[data-testpush]').forEach(btn => {
+            btn.addEventListener('click', () => sendTestPush(btn.dataset.testpush, btn.dataset.testpushName));
+        });
 
         card.querySelectorAll('[data-edit]').forEach(btn => {
             btn.addEventListener('click', () => openEmpModal(emp));
@@ -7923,6 +8168,24 @@ function renderSettings() {
                 </button>
             </div>
             <div id="admin-phone-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+        </div>
+
+        <div class="settings-section">
+            <div class="settings-section-title">📍 موقع مركز Delivo</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">الموقع الرئيسي (المقر)</div>
+                    <div class="setting-sub">يظهر كنقطة ثابتة على الخريطة المباشرة كمرجع لموقع المركز</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;align-items:center;">
+                <div id="center-loc-current" style="flex:1;font-family:var(--mono);font-size:0.8rem;color:var(--gray);">جارِ التحميل...</div>
+                <button id="center-loc-change-btn"
+                        style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    🗺 تغيير الموقع
+                </button>
+            </div>
         </div>
 
         <!-- ═══════════ REGISTRATION TYPE ═══════════ -->
@@ -8509,6 +8772,12 @@ function renderSettings() {
         if (inp && val) inp.value = val;
     }).catch(() => {});
 
+    // Delivo Center location
+    _updateCenterLocDisplay();
+    document.getElementById('center-loc-change-btn')?.addEventListener('click', () => {
+        openCenterLocationModal(deliveryCenterLoc?.lat, deliveryCenterLoc?.lng);
+    });
+
     document.getElementById('admin-phone-save')?.addEventListener('click', async () => {
         const inp    = document.getElementById('admin-phone-input');
         const status = document.getElementById('admin-phone-status');
@@ -9036,10 +9305,27 @@ window.setMaxOrders = async function(val) {
    SETTINGS FUNCTIONS
 ══════════════════════════════════════════════════════════ */
 
+function _updateCenterLocDisplay() {
+    const el = document.getElementById('center-loc-current');
+    if (!el) return;
+    if (deliveryCenterLoc) {
+        el.textContent = `${deliveryCenterLoc.lat.toFixed(6)}, ${deliveryCenterLoc.lng.toFixed(6)}`;
+        el.style.color = 'var(--white)';
+    } else {
+        el.textContent = '⚠ لم يتم تحديد الموقع بعد';
+        el.style.color = 'rgba(239,68,68,0.8)';
+    }
+}
+
 async function loadSettings() {
     try {
         const s = await fbGet('settings');
         if (!s) return;
+        deliveryCenterLoc = (s.deliveryCenter
+            && typeof s.deliveryCenter.lat === 'number'
+            && typeof s.deliveryCenter.lng === 'number')
+            ? s.deliveryCenter : null;
+        _updateCenterLocDisplay();
         const maint = document.getElementById('toggle-maintenance');
         if (maint) maint.checked = s.maintenance === true || s.maintenance === 'true';
         const loyTog = document.getElementById('toggle-loyalty');
@@ -11464,6 +11750,34 @@ async function cpNotifyDriver(orderId, driverName, type, prepMins) {
 // Notify a driver that a new order was assigned to them (admin order list / map assignment).
 // Respects settings/driverAssignNotifyMethod: 'app' (in-app notification, default) or 'whatsapp' (GREEN-API).
 // Fire-and-forget — never blocks the assignment flow.
+// Manual test push — lets you confirm end-to-end delivery (including with
+// the recipient's app fully closed) without waiting for a real order to
+// come in. Used by the 🔔 test buttons on driver cards and employee cards.
+async function sendTestPush(identityKey, name) {
+    if (!identityKey) { toast('لا يوجد معرف صالح لهذا المستخدم', true); return; }
+    try {
+        const tokenSnap = await fetch(`${RTDB}/fcmTokens/${identityKey}.json`).then(r => r.json());
+        if (!tokenSnap || !tokenSnap.token) {
+            toast('⚠️ لم يسجّل هذا المستخدم بعد لاستقبال الإشعارات (لم يفتح التطبيق منذ إعداد الميزة)', true);
+            return;
+        }
+        await fetch(`${RTDB}/pushQueue.json`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                to:    identityKey,
+                title: '🔔 إشعار تجريبي',
+                body:  `مرحباً ${name || ''} — هذا إشعار تجريبي من Delivo`,
+                data:  { url: './', type: 'test' },
+                createdAt: Date.now(),
+            }),
+        });
+        toast('✅ تم إرسال الإشعار التجريبي');
+    } catch(e) {
+        toast('فشل الإرسال: ' + e.message, true);
+    }
+}
+
 async function notifyDriverAssigned(orderId, driverName, driverObj, order) {
     try {
         const method = window._driverAssignNotifyMethod
@@ -11486,6 +11800,26 @@ async function notifyDriverAssigned(orderId, driverName, driverObj, order) {
             };
             await fbSet('driverNotifications/' + driverName + '/' + orderId, payload);
         }
+
+        // Real push notification (OS-level, works even with driver.html fully
+        // closed) — fires regardless of the method above, since that setting
+        // only controls the in-app/WhatsApp channel, not push delivery.
+        try {
+            const driverKey = driverObj?._key || driverObj?.id;
+            if (driverKey) {
+                await fetch(`${RTDB}/pushQueue.json`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to:    driverKey,
+                        title: '🛵 طلب جديد',
+                        body:  `طلب #${idNum} من ${order?.store || '—'} — بانتظارك`,
+                        data:  { url: './driver.html', type: 'order_assigned', orderId },
+                        createdAt: Date.now(),
+                    }),
+                });
+            }
+        } catch (_) { /* push is best-effort — never blocks assignment */ }
     } catch(e) {
         console.warn('[Delivo] notifyDriverAssigned failed:', e.message);
         toast('⚠️ تم تعيين السائق لكن فشل إرسال التنبيه: ' + e.message, true);

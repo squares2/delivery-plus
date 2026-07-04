@@ -9,7 +9,7 @@
    Replace BUILD_TIMESTAMP with your deploy script, or just
    change this number whenever you upload new files.
    Even changing it by 1 is enough to bust all caches.        */
-const BUILD_TS    = '20260703020709';   // replaced by deploy.bat at deploy time
+const BUILD_TS    = '20260704022737';   // replaced by deploy.bat at deploy time
 const CACHE_NAME  = `delivo-${BUILD_TS}`;
 
 /* ── Assets to pre-cache on install ──────────────────────────
@@ -154,4 +154,48 @@ self.addEventListener('fetch', event => {
             })
         );
     }
+});
+
+/* ══════════════════════════════════════════════════════════
+   PUSH — background notifications (Firebase Cloud Messaging)
+   This is the piece that makes notifications work even when
+   NO Delivo tab/app is open at all — the OS wakes the service
+   worker up in the background to run this handler.
+══════════════════════════════════════════════════════════ */
+self.addEventListener('push', event => {
+    let payload = {};
+    try { payload = event.data ? event.data.json() : {}; } catch (_) {}
+
+    const title = payload.notification?.title || payload.data?.title || 'Delivo';
+    const body  = payload.notification?.body  || payload.data?.body  || '';
+    const data  = payload.data || {};
+
+    event.waitUntil(
+        self.registration.showNotification(title, {
+            body,
+            icon:  './assets/logo.png',
+            badge: './assets/logo.png',
+            data,
+            tag: data.tag || undefined,  // same tag replaces the older notification instead of stacking
+        })
+    );
+});
+
+// Clicking the notification focuses an already-open Delivo tab if one
+// exists, otherwise opens a fresh one at the page the notification is for
+// (e.g. driver.html for a new-order push, admin.html for an employee alert).
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    const targetUrl = event.notification.data?.url || './';
+
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+            for (const client of clientList) {
+                if (client.url.includes(targetUrl.replace('./', '')) && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+        })
+    );
 });

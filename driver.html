@@ -1064,7 +1064,16 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="scripts/push-notifications.js"></script>
+<script>
+// driver.html previously never registered a service worker, so push
+// notifications (and any offline support) had nothing to attach to.
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('[Driver] SW registration failed:', err));
+}
+</script>
 
 <script>
 /* ════════════════════════════════════════════════════════════
@@ -1906,6 +1915,14 @@ function startDriverSession() {
         _activeUser: driverData.owner,   // owner display name for admin map label
     });
     document.getElementById('drv-status-dot').classList.add('online');
+
+    // Push notifications — works even with the app fully closed. Fire-and-forget:
+    // if the browser doesn't support it, or the VAPID key isn't set up yet,
+    // DelivoPush.register() just resolves { ok:false } and everything else
+    // keeps working normally.
+    if (window.DelivoPush) {
+        DelivoPush.register(driverData.id, 'driver', driverData.owner || driverData.username);
+    }
 
     // Notify Android bridge if available
     if (window.AndroidBridge && window.AndroidBridge.onDriverLoggedIn) {
