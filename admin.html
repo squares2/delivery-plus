@@ -12788,7 +12788,7 @@ async function renderOnlineRequests() {
             </td>
             <td><span class="or-date">${o.date || '—'}</span></td>
             <td>
-                <button class="or-remove-btn" data-orremove="${key}" title="حذف رقم الشحنة من قاعدة البيانات">🗑 حذف الشحنة</button>
+                <button class="or-remove-btn" data-ordelete="${key}" title="حذف الطلب نهائياً من قاعدة البيانات">🗑 حذف الطلب</button>
             </td>
         `;
 
@@ -12800,18 +12800,19 @@ async function renderOnlineRequests() {
             await orAssignDriver(key, dname);
         });
 
-        // Remove shipnumber from Firebase
-        tr.querySelector('[data-orremove]').addEventListener('click', async () => {
+        // Permanently delete the order — from /requests AND its synced
+        // /historyRequests copy. Irreversible, so the confirm dialog is explicit.
+        tr.querySelector('[data-ordelete]').addEventListener('click', async () => {
             const confirmed = await showConfirm({
-                title: 'حذف رقم الشحنة',
-                msg: `هل تريد حذف رقم الشحنة (${shipNum}) من سجلات الطلب؟ لن يُحذف الطلب نفسه.`,
-                type: 'warning',
+                title: 'حذف الطلب نهائياً',
+                msg: `هل تريد حذف الطلب <b>#${shipNum}</b> نهائياً من قاعدة البيانات؟<br>لا يمكن التراجع عن هذا الإجراء.`,
+                type: 'danger',
                 icon: '🗑',
-                okLabel: 'نعم، احذف',
+                okLabel: 'نعم، احذف نهائياً',
                 cancelLabel: 'إلغاء'
             });
             if (!confirmed) return;
-            await orRemoveShipNumber(key);
+            await orDeleteOrder(key);
         });
 
         tbody.appendChild(tr);
@@ -12832,17 +12833,19 @@ async function orAssignDriver(orderId, driverName) {
     } catch(e) { toast('خطأ في التعيين', true); }
 }
 
-async function orRemoveShipNumber(orderId) {
+async function orDeleteOrder(orderId) {
     try {
         const uid = allOrders[orderId]?.delivryplusid;
         const updates = {};
-        updates['/requests/' + orderId + '/shipnumber'] = null;
-        if (uid) updates['/historyRequests/' + uid + '/' + orderId + '/shipnumber'] = null;
+        updates['/requests/' + orderId] = null;
+        if (uid) updates['/historyRequests/' + uid + '/' + orderId] = null;
         await fbUpdate('', updates);
-        if (allOrders[orderId]) delete allOrders[orderId].shipnumber;
-        toast('🗑 تم حذف رقم الشحنة');
+        delete allOrders[orderId];
+        toast('🗑 تم حذف الطلب نهائياً');
         renderOnlineRequests();
-    } catch(e) { toast('خطأ في الحذف', true); }
+    } catch(e) {
+        toast('خطأ في حذف الطلب: ' + e.message, true);
+    }
 }
 
 // ── Toolbar events (Online Requests) ──────────────────────────
