@@ -2507,7 +2507,7 @@ input, select, textarea { font-family: var(--font); }
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
-<script src="scripts/push-notifications.js"></script>
+<script src="scripts/push-notifications.js?v=1"></script>
 <script>
 // admin.html previously never registered a service worker, so push
 // notifications (and any offline support) had nothing to attach to.
@@ -6465,6 +6465,24 @@ function _flyToCustomer(lat, lng, name) {
 const TYPE_LABELS = { Restaurants:'مطعم', BakeryShops:'مخبز', ButcherShops:'ملحمة', Markets:'سوبرماركت', GroceryShops:'بقالة', SweetsShops:'حلويات', FishShops:'أسماك', CoffeeShops:'قهوة', ChickenShops:'دجاج', DairyShops:'ألبان', FlowerShops:'زهور', TobaccoShops:'تبغ', ToysShops:'ألعاب', Taxi:'تاكسي' };
 const TYPE_EMOJI  = { Restaurants:'🍔', BakeryShops:'🥖', ButcherShops:'🥩', Markets:'🛒', GroceryShops:'🧺', SweetsShops:'🍰', FishShops:'🐟', CoffeeShops:'☕', ChickenShops:'🍗', DairyShops:'🥛', FlowerShops:'💐', TobaccoShops:'🚬', ToysShops:'🧸', Taxi:'🚕' };
 
+// Same non-colliding fallback as scripts/stores.js's toSlug() — used only
+// when a store has no imgSlug override set. Never falls back to a shared
+// literal string, so two different Arabic-only store names can't end up
+// pointing at the same image file.
+function _scSlugHash(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return Math.abs(h).toString(36);
+}
+function _scSafeSlug(name) {
+    const cleaned = String(name).toLowerCase()
+        .replace(/[^\x00-\x7F]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    return cleaned || ('_noimg-' + _scSlugHash(name));
+}
+
 function renderStores() {
     renderAdminFilterBar();
     const grid    = document.getElementById('stores-grid');
@@ -6493,7 +6511,7 @@ function renderStores() {
     stores.forEach(([name, s]) => {
         const emoji     = TYPE_EMOJI[s.type] || '🏪';
         const typeLabel = TYPE_LABELS[s.type] || s.type;
-        const imgSlug    = name.toLowerCase();
+        const imgSlug    = (s.imgSlug && s.imgSlug.trim()) ? s.imgSlug.trim().toLowerCase() : _scSafeSlug(name);
         const imgPicture = `<picture style="width:100%;height:100%;display:block;"><source srcset="assets/${imgSlug}.webp" type="image/webp"><img src="assets/${imgSlug}.png" alt="${name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.closest('picture').style.display='none';this.closest('picture').nextElementSibling.style.display='flex'"></picture>`;
         const ordCount  = Object.values(allOrders).filter(o => o.store === name).length;
         const newOrders = Object.values(allOrders).filter(o => o.store === name && (o.state||'0') === '0').length;
@@ -6528,6 +6546,18 @@ function renderStores() {
                            placeholder="الاسم بالعربية"
                            style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--white);font-family:var(--font);font-size:0.75rem;outline:none;">
                     <button class="sc-namear-save" title="حفظ الاسم العربي"
+                            style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:var(--green);padding:4px 8px;cursor:pointer;font-size:0.72rem;">✓</button>
+                </div>
+                <!-- Image slug row — controls which assets/{slug}.webp file this store's logo loads from.
+                     Needed whenever the store's internal name has no English in it at all, since
+                     otherwise there's no way to point it at a real, unique image file. -->
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+                    <span style="font-size:0.6rem;color:var(--gray);flex-shrink:0;" title="اسم ملف الصورة: assets/{القيمة}.webp">🖼 صورة</span>
+                    <input type="text" class="sc-imgslug-input" dir="ltr"
+                           value="${s.imgSlug || ''}"
+                           placeholder="${_scSafeSlug(name)}"
+                           style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--white);font-family:var(--mono);font-size:0.72rem;outline:none;">
+                    <button class="sc-imgslug-save" title="حفظ رمز الصورة"
                             style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:var(--green);padding:4px 8px;cursor:pointer;font-size:0.72rem;">✓</button>
                 </div>
                 <div class="sc-meta">
@@ -6635,6 +6665,19 @@ function renderStores() {
                 if (enSlug) await _storeSetField(name, s.type, 'imgSlug', enSlug);
             }
             toast(`✓ تم حفظ الاسم العربي: ${val || '(محذوف)'}`);
+        });
+
+        // Image slug override save — lets you point this store at a specific
+        // assets/{slug}.webp file directly, regardless of what its internal
+        // name is. Essential for stores whose name has no English in it.
+        card.querySelector('.sc-imgslug-save').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const input = card.querySelector('.sc-imgslug-input');
+            const val = input.value.trim().toLowerCase().replace(/\s+/g, '-');
+            input.value = val;
+            await _storeSetField(name, s.type, 'imgSlug', val || null);
+            toast(val ? `✓ تم ربط الصورة بـ: assets/${val}.webp` : '✓ تمت إزالة رمز الصورة المخصص');
+            renderStores();
         });
 
         // Close/open button
@@ -11954,7 +11997,8 @@ function cpiRender() {
         const sale    = parseFloat(item.sale)  || 0;
         const hasSale = sale > 0 && sale < price;
         const hasPng  = item.pngExist === '1' || item.pngExist === 1;
-        const imgSrc  = `items2/${String(id).toLowerCase()}.webp`;
+        const imgSrc  = _cpiLocalImagePreview[id]
+            || `items2/${String(id).toLowerCase()}.webp${item.imgUpdatedAt ? '?v=' + item.imgUpdatedAt : ''}`;
         const emoji   = _catTypeEmoji(_cpiStoreType);
         const safeItem = JSON.stringify(item).replace(/"/g,'&quot;');
         return `
@@ -12038,6 +12082,7 @@ async function cpOpenItemModal(item) {
     _catCurrentStore = { name: storeName, type: _cpiStoreType };
     _catAllItems     = _cpiAllItems;
     _cpiPendingImageFile = null; // clear any stale staged image from a previous session
+    _cpiPendingImageDataUrl = null;
 
     // For new items, pre-generate a globally-unique numeric ID
     let autoId = '';
@@ -12173,6 +12218,10 @@ async function cpOpenItemModal(item) {
 
 /* ── Direct image upload (from منتجاتي, no manage.html needed) ──── */
 let _cpiPendingImageFile = null; // File selected but not yet uploaded (uploads on save)
+let _cpiPendingImageDataUrl = null; // data: URL for the pending file, so we can show it instantly post-save
+const _cpiLocalImagePreview = {}; // { itemId: dataUrl } — shown instead of items2/{id}.webp right after an upload,
+                                   // so the grid reflects the new image immediately instead of waiting on
+                                   // GitHub → hosting propagation and possibly a stale browser cache.
 
 function cpiPreviewImage(input) {
     const file = input.files && input.files[0];
@@ -12189,6 +12238,7 @@ function cpiPreviewImage(input) {
     const status       = document.getElementById('cim-img-status');
     const reader = new FileReader();
     reader.onload = (e) => {
+        _cpiPendingImageDataUrl = e.target.result;
         if (preview) {
             preview.src = e.target.result;
             preview.style.display = 'block';
@@ -12329,12 +12379,19 @@ async function cpiSaveItem(isNew) {
             btn.textContent = '📤 جاري رفع الصورة…';
             try {
                 await cpiUploadItemImage(_cpiPendingImageFile, itemId);
+                // Show the new image immediately in the grid — don't make the
+                // admin wait for GitHub → hosting propagation, and don't let a
+                // stale browser cache keep showing the old file for that path.
+                if (_cpiPendingImageDataUrl) _cpiLocalImagePreview[itemId] = _cpiPendingImageDataUrl;
+                _cpiAllItems[itemId].imgUpdatedAt = Date.now();
+                await fbUpdate(`items/${storeName}/${itemId}`, { imgUpdatedAt: _cpiAllItems[itemId].imgUpdatedAt });
             } catch (imgErr) {
                 showNotif('تم حفظ المنتج، لكن فشل رفع الصورة', imgErr.message, 'error');
             }
         }
 
         _cpiPendingImageFile = null;
+        _cpiPendingImageDataUrl = null;
         showNotif(isNew ? '✅ تمت الإضافة' : '💾 تم الحفظ', name, 'success');
         document.getElementById('cat-item-modal').remove();
         cpiRender();
