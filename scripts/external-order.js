@@ -504,7 +504,7 @@
             delivryplusid : user.uid || '',
             driver        : '0',
             rewardApplied : '',
-            fullname      : user.displayName || user.username || user.email || '',
+            fullname      : user.displayName || user.username || (user.email || '').split('@')[0] || '',
             lat           : _data.destLat   ? String(_data.destLat)  : '',
             lng           : _data.destLng   ? String(_data.destLng)  : '',
             phone         : user.phone || '',
@@ -514,7 +514,7 @@
             street        : _data.destAddress || '',
             total         : totalStr,
             trackorder    : '0',
-            username      : user.username || user.email || '',
+            username      : user.username || (user.email || '').split('@')[0] || '',
             vault         : '0',
             // Extra fields for external orders
             externalOrder : '1',

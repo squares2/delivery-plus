@@ -1836,7 +1836,8 @@ input, select, textarea { font-family: var(--font); }
                         <div class="legend-item"><div class="legend-dot" style="background:#FF5C00;"></div>متجر</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>سائق نشط</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#9ca3af;"></div>سائق غير نشط</div>
-                        <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div>عميل مسجل</div>
+                        <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>عميل متصل الآن</div>
+                        <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div>عميل غير متصل</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#FF5C00;"></div>جديد</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>وُصِّل</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>ملغي</div>
@@ -1941,6 +1942,9 @@ input, select, textarea { font-family: var(--font); }
                     <button class="ph-btn" id="stores-refresh-btn">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         تحديث
+                    </button>
+                    <button class="ph-btn" id="close-platform-btn" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:#ef4444;">
+                        🔒 إغلاق كل التطبيق
                     </button>
                 </div>
                 <div class="orders-toolbar" style="flex-shrink:0;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;" id="stores-filter-bar">
@@ -3841,6 +3845,7 @@ async function loadAllData() {
         allOrders    = orders    || {};
         allBlacklist = blacklist || {};
         _detectAndAlertNewOrders(allOrders, null);
+        if (typeof _refreshClosePlatformBtn === 'function') _refreshClosePlatformBtn();
 
         if (drivers) {
             allDrivers = _parseDriversRaw(drivers);
@@ -4706,6 +4711,17 @@ function _refreshDriverMarkers() {
     mapMarkers.drivers = Object.values(registry).map(e => e.marker);
 }
 
+// Is this customer currently connected? Checks the live presence sessions
+// exposed by admin-presence.js (RTDB /presence, one entry per open tab —
+// only entries carrying a username represent a logged-in customer).
+function _isCustomerOnline(uid, username) {
+    const sessions = window._delivoOnlineSessions;
+    if (!sessions) return false;
+    return Object.values(sessions).some(s =>
+        (uid && s.uid === uid) || (username && s.username === username)
+    );
+}
+
 function renderMap() {
     if (!document.getElementById('panel-map').classList.contains('active')) return;
     if (!adminMap) { initMap(); setTimeout(renderMap, 400); return; }
@@ -4793,7 +4809,7 @@ function renderMap() {
         // Render solo users (unique device) and grouped users (multi-account device) separately
         const renderedUUIDs = new Set();
 
-        Object.values(allUsers).forEach(u => {
+        Object.entries(allUsers).forEach(([uid, u]) => {
             const loc = u.location;
             const lat = parseFloat(loc?.lat ?? loc?.latitude ?? u.lat ?? u.latitude ?? NaN);
             const lng = parseFloat(loc?.lng ?? loc?.longitude ?? u.lng ?? u.longitude ?? NaN);
@@ -4807,7 +4823,8 @@ function renderMap() {
             if (uuid && renderedUUIDs.has(uuid)) return;
             if (uuid) renderedUUIDs.add(uuid);
 
-            const label = u.username || u.displayName || '—';
+            const label  = u.username || u.displayName || '—';
+            const online = _isCustomerOnline(uid, u.username);
 
             if (isMulti) {
                 // ── Multi-account marker ──────────────────────────
@@ -4854,16 +4871,17 @@ function renderMap() {
                 mapMarkers.customers.push(m);
             } else {
                 // ── Solo marker ───────────────────────────────────
+                const dotColor = online ? '#22c55e' : '#3b82f6';
                 const icon = mkDiv(
                     `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
                         <div style="${labelStyle}">@${label}</div>
-                        <div style="width:22px;height:22px;border-radius:50%;background:#3b82f6;
-                                    border:2px solid #fff;box-shadow:0 2px 8px rgba(59,130,246,0.4);"></div>
+                        <div style="width:22px;height:22px;border-radius:50%;background:${dotColor};
+                                    border:2px solid #fff;box-shadow:0 2px 8px ${online ? 'rgba(34,197,94,0.5)' : 'rgba(59,130,246,0.4)'};"></div>
                     </div>`,
                     null, [11, 38]
                 );
                 const m = L.marker([lat, lng], { icon })
-                    .bindPopup(`<b style="font-family:Almarai">${u.displayName||u.fullname||u.username||'—'}</b><br><small style="color:#888">${u.phone?formatPhone(u.phone):''}</small>`)
+                    .bindPopup(`<b style="font-family:Almarai">${u.displayName||u.fullname||u.username||'—'}</b><br><small style="color:${online ? '#22c55e' : '#888'}">${online ? '🟢 متصل الآن' : '⚪ غير متصل'}</small><br><small style="color:#888">${u.phone?formatPhone(u.phone):''}</small>`)
                     .addTo(adminMap);
                 mapMarkers.customers.push(m);
             }
@@ -6368,6 +6386,11 @@ function renderCustomers() {
     if (customerFilter !== 'all') {
         if (customerFilter === 'blocked') {
             users = users.filter(([uid, u]) => bl[uid] || (u.deviceUUID && bl[u.deviceUUID]));
+        } else if (customerFilter === 'active' || customerFilter === 'offline') {
+            users = users.filter(([uid, u]) => {
+                const isOnline = _isCustomerOnline(uid, u.username);
+                return customerFilter === 'active' ? isOnline : !isOnline;
+            });
         } else {
             users = users.filter(([, u]) => (u.status || 'offline') === customerFilter);
         }
@@ -6443,7 +6466,7 @@ function renderCustomers() {
             const subRows = peers.map(p => {
                 const pBlocked  = bl[p._id] || uuidBlocked;
                 const initial   = (p.displayName||p.fullname||p.username||'?')[0].toUpperCase();
-                const isActive  = p.status === 'active';
+                const isActive  = _isCustomerOnline(p._id, p.username);
                 const ts        = p.createdAt
                     ? new Date(p.createdAt).toLocaleDateString('ar')
                     : (p.timestamp ? new Date(p.timestamp).toLocaleDateString('ar') : '—');
@@ -6556,7 +6579,7 @@ function renderCustomers() {
             // Solo row
             const isBlocked = bl[uid] || (uuid && bl[uuid]);
             const initial   = (u.displayName||u.fullname||u.username||'?')[0].toUpperCase();
-            const isActive  = u.status === 'active';
+            const isActive  = _isCustomerOnline(uid, u.username);
             const ts        = u.createdAt
                 ? new Date(u.createdAt).toLocaleDateString('ar')
                 : (u.timestamp ? new Date(u.timestamp).toLocaleDateString('ar') : '\u2014');
@@ -7005,6 +7028,19 @@ function renderStores() {
 // ══ CLOSE-STORE MODAL ══════════════════════════════════════════
 let _closeStoreModal = null;
 
+// Reliable check for "is this an ISO-8601 timestamp we generated
+// ourselves" (via new Date(...).toISOString()) vs arbitrary free text
+// (e.g. Arabic text like "غداً صباحاً الساعة 9"). JS's Date constructor
+// is unreliably lenient with non-standard strings — it can silently
+// parse a stray digit out of free text into a bogus-but-"valid" date
+// instead of returning Invalid Date, which previously caused Arabic
+// opens-at text to vanish (misread as a real date) after reopening the
+// modal. A strict format check avoids that entirely.
+const _ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?$/;
+function _isIsoDateString(str) {
+    return typeof str === 'string' && _ISO_DATE_RE.test(str);
+}
+
 function openCloseStoreModal(storeName, isCurrentlyClosed, reason, opensAt) {
     // Remove any stale overlay from a previous call
     const stale = document.getElementById('cs-modal-overlay');
@@ -7019,11 +7055,11 @@ function openCloseStoreModal(storeName, isCurrentlyClosed, reason, opensAt) {
 
     // Pre-fill opensAt into datetime-local format (local time, not UTC)
     let dtPreFill = '';
-    if (opensAt && !isNaN(new Date(opensAt))) {
+    if (_isIsoDateString(opensAt)) {
         const d = new Date(opensAt);
         dtPreFill = new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     }
-    const txtPreFill = (opensAt && isNaN(new Date(opensAt))) ? opensAt : '';
+    const txtPreFill = (opensAt && !_isIsoDateString(opensAt)) ? opensAt : '';
 
     box.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
@@ -7138,6 +7174,236 @@ function openCloseStoreModal(storeName, isCurrentlyClosed, reason, opensAt) {
         if (typeof cpUpdateStoreToggleBtn === 'function') cpUpdateStoreToggleBtn();
     };
 }
+
+// ══ CLOSE-ENTIRE-PLATFORM MODAL ═══════════════════════════════
+// Same idea as the single-store close modal above, but it shuts down
+// the whole customer-facing site (settings/platformClosed) instead of
+// one store — scripts/platform-status.js shows the matching full-
+// screen "مغلق حالياً" takeover to every customer while this is on.
+function openClosePlatformModal(isCurrentlyClosed, reason, opensAt, autoCloseAt) {
+    const stale = document.getElementById('cp-modal-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'cp-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:460px;font-family:var(--font);direction:rtl;';
+
+    let dtPreFill = '';
+    if (_isIsoDateString(opensAt)) {
+        const d = new Date(opensAt);
+        dtPreFill = new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+    const txtPreFill = (opensAt && !_isIsoDateString(opensAt)) ? opensAt : '';
+
+    let autoClosePreFill = '';
+    if (_isIsoDateString(autoCloseAt)) {
+        const d = new Date(autoCloseAt);
+        autoClosePreFill = new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+    const isPendingSchedule = !isCurrentlyClosed && _isIsoDateString(autoCloseAt) && new Date(autoCloseAt).getTime() > Date.now();
+
+    box.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h3 style="font-size:1.05rem;font-weight:800;color:var(--white);margin:0;">
+                ${isCurrentlyClosed ? '⚙️ إدارة إغلاق التطبيق' : (isPendingSchedule ? '📅 إدارة الإغلاق المجدول' : '🔴 إغلاق كل التطبيق')}
+            </h3>
+            <button id="cp-close-x" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;padding:4px;">✕</button>
+        </div>
+        <div style="font-size:0.82rem;color:var(--gray);margin-bottom:14px;">
+            ${isCurrentlyClosed ? '<span style="display:inline-block;font-size:0.68rem;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:50px;padding:2px 8px;font-weight:800;">🔒 التطبيق مغلق بالكامل الآن</span>' : ''}
+            ${isPendingSchedule ? '<span style="display:inline-block;font-size:0.68rem;background:rgba(245,158,11,0.15);color:#f59e0b;border-radius:50px;padding:2px 8px;font-weight:800;">📅 يوجد إغلاق مجدول قادم</span>' : ''}
+        </div>
+        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:0.76rem;color:#fca5a5;line-height:1.7;">
+            ⚠️ هذا يُغلق <strong>كل الموقع</strong> أمام جميع العملاء (وليس متجراً واحداً فقط) — يظهر لهم شاشة "مغلق حالياً" بدل الصفحة الرئيسية، ولا يمكنهم تصفّح المتاجر أو الطلب حتى يُعاد الفتح.
+        </div>
+
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.78rem;color:var(--gray-light);font-weight:700;display:block;margin-bottom:6px;">سبب الإغلاق (يظهر للعملاء)</label>
+            <input id="cp-reason" type="text" maxlength="120"
+                placeholder="مثال: صيانة مؤقتة، عطلة رسمية…"
+                value="${reason || ''}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border-bright);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.85rem;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border-bright)'">
+        </div>
+
+        <div style="margin:18px 0 6px;padding-top:14px;border-top:1px dashed var(--border-bright);">
+            <div style="font-size:0.82rem;font-weight:800;color:var(--white);">⏰ الجدولة التلقائية <span style="font-weight:400;color:var(--gray);font-size:0.72rem;">(اختياري لكلا الحقلين)</span></div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <label style="font-size:0.78rem;color:#fca5a5;font-weight:700;display:block;margin-bottom:6px;">
+                🔴 يُغلق تلقائياً في
+            </label>
+            <input id="cp-autoclose-dt" type="datetime-local"
+                value="${autoClosePreFill}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border-bright);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border-bright)'">
+            <p style="font-size:0.66rem;color:var(--gray);margin-top:5px;line-height:1.6;">
+                اتركه فارغاً لإغلاق الموقع <strong style="color:var(--gray-light);">فوراً</strong> عند الضغط أدناه. حدّد وقتاً مستقبلياً هنا بدلاً من ذلك ليُغلق الموقع
+                تلقائياً في تلك اللحظة بالضبط، دون الحاجة لفتح لوحة الإدارة عندها.
+            </p>
+        </div>
+
+        <div style="margin-bottom:14px;">
+            <label style="font-size:0.78rem;color:#86efac;font-weight:700;display:block;margin-bottom:6px;">
+                🟢 يُفتح تلقائياً في
+            </label>
+            <input id="cp-opens-dt" type="datetime-local"
+                value="${dtPreFill}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border-bright);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='var(--orange)';document.getElementById('cp-opens-txt').value='';"
+                onblur="this.style.borderColor='var(--border-bright)'">
+            <p style="font-size:0.66rem;color:var(--gray);margin-top:5px;line-height:1.6;">
+                اتركه فارغاً لإبقاء الموقع مغلقاً حتى تفتحه يدوياً. حدّد وقتاً هنا ليُعاد فتح الموقع <strong style="color:var(--gray-light);">تلقائياً</strong>
+                في تلك اللحظة بالضبط — بالضبط نفس منطق حقل الإغلاق أعلاه، لكن بالاتجاه المعاكس.
+            </p>
+        </div>
+
+        <div style="margin-bottom:22px;">
+            <label style="font-size:0.74rem;color:var(--gray-light);font-weight:700;display:block;margin-bottom:6px;">
+                💬 أو بدلاً من ذلك: نص وصفي فقط (بدون فتح تلقائي)
+            </label>
+            <input id="cp-opens-txt" type="text" placeholder="مثال: غداً صباحاً الساعة 9"
+                maxlength="60"
+                value="${txtPreFill}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border-bright);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='var(--orange)';document.getElementById('cp-opens-dt').value='';"
+                onblur="this.style.borderColor='var(--border-bright)'">
+            <p style="font-size:0.66rem;color:var(--gray);margin-top:5px;line-height:1.6;">
+                يظهر للعملاء كما هو مكتوب، لكنه <strong style="color:var(--gray-light);">لا</strong> يفتح الموقع تلقائياً — استخدمه فقط إن كنت تفضّل نصاً حراً
+                (كـ"قريباً" أو "بعد العيد") بدل وقت محدد. يُلغي حقل "يُفتح تلقائياً في" أعلاه إن كُتب فيه شيء.
+            </p>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="cp-cancel" style="flex:1;min-width:100px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:12px;padding:11px;color:var(--white);font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            ${(isCurrentlyClosed || isPendingSchedule) ? `
+            <button id="cp-update" style="flex:1;min-width:120px;background:rgba(255,92,0,0.15);border:1.5px solid rgba(255,92,0,0.4);border-radius:12px;padding:11px;color:var(--orange);font-family:inherit;font-size:0.85rem;font-weight:800;cursor:pointer;">💾 تحديث المعلومات</button>
+            <button id="cp-confirm" style="flex:1;min-width:120px;background:var(--green);border:none;border-radius:12px;padding:11px;color:#fff;font-family:inherit;font-size:0.85rem;font-weight:800;cursor:pointer;">🟢 ${isCurrentlyClosed ? 'إعادة فتح الموقع' : 'إلغاء الجدولة والفتح'}</button>
+            ` : `
+            <button id="cp-confirm" style="flex:1;min-width:120px;background:var(--red);border:none;border-radius:12px;padding:11px;color:#fff;font-family:inherit;font-size:0.85rem;font-weight:800;cursor:pointer;">🔴 إغلاق الموقع بالكامل</button>
+            `}
+        </div>`;
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    // Swap the main button's label live depending on whether a future
+    // auto-close time is set (schedule) or left blank (close right now).
+    const autoCloseInput = document.getElementById('cp-autoclose-dt');
+    const confirmBtnEl   = document.getElementById('cp-confirm');
+    function _syncConfirmLabel() {
+        if (isCurrentlyClosed || isPendingSchedule) return; // update/reopen buttons don't change
+        const val = autoCloseInput?.value;
+        const isFuture = val && new Date(val).getTime() > Date.now();
+        confirmBtnEl.textContent = isFuture ? '📅 جدولة الإغلاق التلقائي' : '🔴 إغلاق الموقع بالكامل الآن';
+    }
+    autoCloseInput?.addEventListener('input', _syncConfirmLabel);
+
+    const close = () => { overlay.remove(); };
+    document.getElementById('cp-close-x').onclick = close;
+    document.getElementById('cp-cancel').onclick   = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    async function _writePlatformStatus(action) {
+        // action: 'update' (keep current closed/scheduled state, just edit info)
+        //       | 'open'   (clear everything — fully reopen)
+        //       | 'close'  (either close now, or schedule a future auto-close)
+        const reasonVal     = (document.getElementById('cp-reason')?.value || '').trim();
+        const dtVal         = document.getElementById('cp-opens-dt')?.value;
+        const txtVal        = (document.getElementById('cp-opens-txt')?.value || '').trim();
+        const opensAtVal    = dtVal ? new Date(dtVal).toISOString() : (txtVal || '');
+        const autoCloseVal  = document.getElementById('cp-autoclose-dt')?.value;
+        const autoCloseIso  = autoCloseVal ? new Date(autoCloseVal).toISOString() : '';
+        const scheduledOnly = autoCloseIso && new Date(autoCloseIso).getTime() > Date.now();
+
+        if (action === 'open') {
+            await fbSet('settings/platformClosed', null);
+            toast('✅ تم إعادة فتح الموقع لجميع العملاء');
+            return;
+        }
+
+        const payload = {
+            closed:      !scheduledOnly, // if scheduled for later, don't mark closed yet
+            reason:      reasonVal || 'مغلق مؤقتاً',
+            opensAt:     opensAtVal,
+            autoCloseAt: autoCloseIso || null,
+            closedAt:    new Date().toISOString(),
+            closedBy:    currentAdmin?.username || 'admin',
+        };
+        await fbSet('settings/platformClosed', payload);
+
+        if (action === 'update') {
+            toast('💾 تم تحديث معلومات إغلاق التطبيق');
+        } else if (scheduledOnly) {
+            toast('📅 تمت جدولة الإغلاق التلقائي — سيُغلق الموقع تلقائياً في الموعد المحدد');
+        } else {
+            toast('🔒 تم إغلاق الموقع بالكامل أمام جميع العملاء');
+        }
+    }
+
+    document.getElementById('cp-update')?.addEventListener('click', async () => {
+        const btn = document.getElementById('cp-update');
+        btn.disabled = true; btn.textContent = '…';
+        await _writePlatformStatus('update');
+        close();
+        await _refreshClosePlatformBtn();
+    });
+
+    document.getElementById('cp-confirm').onclick = async () => {
+        const btn = document.getElementById('cp-confirm');
+        btn.disabled = true; btn.textContent = '…';
+        await _writePlatformStatus((isCurrentlyClosed || isPendingSchedule) ? 'open' : 'close');
+        close();
+        await _refreshClosePlatformBtn();
+    };
+}
+
+// Keeps the stores-panel button in sync with the current platform status —
+// shows one of three states: open, closed right now (whether that's a
+// manual close or a schedule that has already kicked in), or a future
+// auto-close scheduled but not yet in effect.
+async function _refreshClosePlatformBtn() {
+    const btn = document.getElementById('close-platform-btn');
+    if (!btn) return;
+    let st = null;
+    try { st = await fbGet('settings/platformClosed'); } catch (_) {}
+
+    const now             = Date.now();
+    const autoOpenDue      = _isIsoDateString(st?.opensAt)     && new Date(st.opensAt).getTime()     <= now;
+    const autoCloseDue     = _isIsoDateString(st?.autoCloseAt) && new Date(st.autoCloseAt).getTime() <= now;
+    // Effectively closed right now: manually closed, OR a scheduled auto-
+    // close time has already arrived — in both cases unless a real auto-
+    // open time has also already passed.
+    const closedNow        = !!st && ((st.closed && !autoOpenDue) || (autoCloseDue && !autoOpenDue));
+    const pendingSchedule  = !closedNow && !!(st && st.autoCloseAt) && !autoCloseDue;
+
+    btn.dataset.closed      = closedNow ? '1' : '';
+    btn.dataset.reason      = st?.reason      || '';
+    btn.dataset.opensAt     = st?.opensAt     || '';
+    btn.dataset.autoCloseAt = st?.autoCloseAt || '';
+
+    if (closedNow) {
+        btn.innerHTML = '🟢 إعادة فتح الموقع';
+        btn.style.background = 'rgba(34,197,94,0.12)'; btn.style.borderColor = 'rgba(34,197,94,0.35)'; btn.style.color = 'var(--green)';
+    } else if (pendingSchedule) {
+        const d = new Date(st.autoCloseAt);
+        const label = d.toLocaleString('ar-LB', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
+        btn.innerHTML = `📅 إغلاق مجدول — ${label}`;
+        btn.style.background = 'rgba(245,158,11,0.12)'; btn.style.borderColor = 'rgba(245,158,11,0.35)'; btn.style.color = '#f59e0b';
+    } else {
+        btn.innerHTML = '🔒 إغلاق كل التطبيق';
+        btn.style.background = 'rgba(239,68,68,0.12)'; btn.style.borderColor = 'rgba(239,68,68,0.35)'; btn.style.color = '#ef4444';
+    }
+}
+
+document.getElementById('close-platform-btn')?.addEventListener('click', () => {
+    const btn = document.getElementById('close-platform-btn');
+    openClosePlatformModal(!!btn.dataset.closed, btn.dataset.reason, btn.dataset.opensAt, btn.dataset.autoCloseAt);
+});
 
 // ══ STORE MANAGEMENT HELPERS ════════════════════════════════
 // Find a store's Firebase key within its pattern type array
@@ -8193,6 +8459,7 @@ async function _refreshStoresData() {
         });
     }
     if (typeof renderStores === 'function') renderStores();
+    _refreshClosePlatformBtn();
 }
 
 // ═══════════════════════════════════════════════════════════════

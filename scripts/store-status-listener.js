@@ -29,8 +29,16 @@
         return st && (st.closed === true || st.closed === '1' || st.closed === 1);
     }
 
+    const _ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?$/;
+
     function _calendarDateLabel(isoOrText) {
         if (!isoOrText) return null;
+        // JS's Date constructor is unreliably lenient with non-standard
+        // strings (it can parse a stray digit out of Arabic free text
+        // into a bogus-but-"valid" date instead of failing outright), so
+        // only treat it as a real date if it matches the strict ISO
+        // format we ourselves generate — anything else is shown as-is.
+        if (!_ISO_DATE_RE.test(isoOrText)) return isoOrText;
         const dt = new Date(isoOrText);
         if (isNaN(dt)) return isoOrText;          // plain Arabic text — return as-is
         const now      = new Date();

@@ -1034,7 +1034,7 @@ function initCart() {
                     street       : userProfile.street || '',
                     total        : storeTotal,
                     trackorder   : '0',
-                    username     : userProfile.username || user.email || '',
+                    username     : userProfile.username || (user.email || '').split('@')[0] || '',
                     vault        : '0',
                 };
 

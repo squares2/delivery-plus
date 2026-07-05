@@ -567,7 +567,8 @@ function onFirebaseReady() {
                 // base slot is occupied. signInWithEmailAndPassword must use the exact
                 // email that was used during createUserWithEmailAndPassword, so we
                 // read authEmail from the usernames collection.
-                let email = usernameToEmail(username); // default / fast path
+                const defaultEmail = usernameToEmail(username); // default / fast path
+                let email = defaultEmail;
                 try {
                     const unSnap = await db.collection('usernames').doc(username).get();
                     if (unSnap.exists) {
@@ -581,12 +582,36 @@ function onFirebaseReady() {
                     }
                 } catch (_) { /* network hiccup — fall back to default email */ }
 
-                await auth.signInWithEmailAndPassword(email, password);
-                return { success: true };
+                try {
+                    await auth.signInWithEmailAndPassword(email, password);
+                    return { success: true };
+                } catch (firstErr) {
+                    // Fallback: if the Firestore-derived email doesn't match any
+                    // real Auth account (e.g. the username/users docs were left
+                    // stale after a user was deleted+recreated directly in the
+                    // Firebase Console instead of through the app's own delete
+                    // flow), retry once with the plain default email before
+                    // giving up — covers the most common recycling case.
+                    const credErrors = ['auth/user-not-found', 'auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-email'];
+                    if (email !== defaultEmail && credErrors.includes(firstErr.code)) {
+                        try {
+                            await auth.signInWithEmailAndPassword(defaultEmail, password);
+                            return { success: true };
+                        } catch (secondErr) {
+                            throw secondErr;
+                        }
+                    }
+                    throw firstErr;
+                }
             } catch (e) {
                 // Map to Arabic
                 if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password')
                     return { error: true, message: 'اسم المستخدم أو كلمة المرور غير صحيحة.' };
+                // Any other/unrecognized code falls through to the generic
+                // message — log the raw code+message so it's diagnosable
+                // from the console (e.g. API key domain restrictions show
+                // up here as something other than a normal auth/* code).
+                console.error('[Delivo] login failed — unrecognized error:', e.code, e.message);
                 return { error: true, message: authMsg(e.code) };
             }
         },

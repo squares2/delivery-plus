@@ -331,6 +331,7 @@
             updateChip(Object.keys(sessions).length);
             if (modalOpen) renderModal(sessions);
             prevSessions = { ...sessions };
+            window._delivoOnlineSessions = prevSessions; // exposed for the live map / customers list
         });
     }
 
@@ -345,6 +346,7 @@
             updateChip(Object.keys(sessions).length);
             if (modalOpen) renderModal(sessions);
             prevSessions = { ...sessions };
+            window._delivoOnlineSessions = prevSessions; // exposed for the live map / customers list
         } catch (_) {}
     }
 
