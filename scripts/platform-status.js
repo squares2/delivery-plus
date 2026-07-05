@@ -35,6 +35,16 @@
     // auto-close/auto-open times into account. Returns null when open.
     function _computeClosed(cfg) {
         if (!cfg) return null;
+
+        // Excluded/allowed users always see the real site, even while
+        // closed — lets an admin test the live site at night without
+        // customers being able to get in.
+        const myUsername = (window.DelivoUser?.username || '').trim().toLowerCase();
+        if (myUsername && Array.isArray(cfg.allowedUsernames) &&
+            cfg.allowedUsernames.some(u => (u || '').trim().toLowerCase() === myUsername)) {
+            return null;
+        }
+
         const now = Date.now();
         const autoOpenDue  = _isIso(cfg.opensAt)     && new Date(cfg.opensAt).getTime()     <= now;
         const autoCloseDue = _isIso(cfg.autoCloseAt) && new Date(cfg.autoCloseAt).getTime() <= now;
@@ -155,6 +165,14 @@
         if (effective) _showOverlay(effective);
         else _hideOverlay();
     }
+
+    // Called by firebase-init.js right after window.DelivoUser changes
+    // (login, logout, registration) — the allowlist check above depends
+    // on who's logged in, which onValue/polling alone wouldn't notice
+    // since the Firebase config itself didn't change.
+    window._checkPlatformStatus = function () {
+        if (_lastCfg !== undefined) _apply(_lastCfg);
+    };
 
     async function _checkOnce() {
         try {

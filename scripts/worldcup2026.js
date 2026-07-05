@@ -113,7 +113,7 @@
             <div class="wc-reg-title">أنت مسجّل مع ${team.nameAr || entry.team} 🎉</div>
             <div class="wc-reg-sub">${eliminated
                 ? 'للأسف، هذا المنتخب خرج من البطولة — نتمنى لك حظاً أوفر في القرعة القادمة!'
-                : `بالتوفيق! إذا فاز ${team.nameAr || entry.team} بكأس العالم 2026 سنتواصل معك مباشرة للفوز بجائزة $${(_cfg && _cfg.prizeUSD) || 100}.`
+                : `بالتوفيق! إذا فاز ${team.nameAr || entry.team} بكأس العالم 2026 سنتواصل معك بعد سحب القرعة للفوز بجائزة $${(_cfg && _cfg.prizeUSD) || 100}.`
             }</div>
         `;
     }

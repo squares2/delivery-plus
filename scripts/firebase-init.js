@@ -347,6 +347,10 @@ function onFirebaseReady() {
         console.log('[Delivo Auth] User:', window.DelivoUser
             ? (window.DelivoUser.phone || window.DelivoUser.email || window.DelivoUser.uid)
             : 'none');
+
+        // Platform-wide closed overlay may allowlist specific usernames —
+        // re-check it now that we know who's logged in (or logged out).
+        if (typeof window._checkPlatformStatus === 'function') window._checkPlatformStatus();
     });
 
     // ── window.DelivoAuth ─────────────────────────────────────
@@ -544,6 +548,10 @@ function onFirebaseReady() {
                 // Allow onAuthStateChanged to run normally from here on
                 _registering = false;
 
+                // Platform-wide closed overlay may allowlist specific
+                // usernames — re-check now that we know who just registered.
+                if (typeof window._checkPlatformStatus === 'function') window._checkPlatformStatus();
+
                 return { success: true };
             } catch (e) {
                 _registering = false; // always clear on failure too
@@ -569,9 +577,11 @@ function onFirebaseReady() {
                 // read authEmail from the usernames collection.
                 const defaultEmail = usernameToEmail(username); // default / fast path
                 let email = defaultEmail;
+                let hasMapping = false; // true once we find a real usernames/{username} doc
                 try {
                     const unSnap = await db.collection('usernames').doc(username).get();
                     if (unSnap.exists) {
+                        hasMapping = true;
                         const uid = unSnap.data().uid;
                         if (uid) {
                             const userSnap = await db.collection('users').doc(uid).get();
@@ -592,21 +602,38 @@ function onFirebaseReady() {
                     // Firebase Console instead of through the app's own delete
                     // flow), retry once with the plain default email before
                     // giving up — covers the most common recycling case.
-                    const credErrors = ['auth/user-not-found', 'auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-email'];
+                    const credErrors = ['auth/user-not-found', 'auth/invalid-credential', 'auth/invalid-login-credentials', 'auth/wrong-password', 'auth/invalid-email'];
                     if (email !== defaultEmail && credErrors.includes(firstErr.code)) {
                         try {
                             await auth.signInWithEmailAndPassword(defaultEmail, password);
                             return { success: true };
                         } catch (secondErr) {
+                            secondErr._noMapping = !hasMapping;
                             throw secondErr;
                         }
                     }
+                    firstErr._noMapping = !hasMapping;
                     throw firstErr;
                 }
             } catch (e) {
-                // Map to Arabic
-                if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password')
+                const isCredError = e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential'
+                    || e.code === 'auth/invalid-login-credentials' || e.code === 'auth/wrong-password';
+                if (isCredError) {
+                    // No usernames/{username} doc at all is the signature of an
+                    // account that was created directly in the Firebase Console
+                    // rather than through this app's own registration flow — the
+                    // Console only creates the Auth credential, never the matching
+                    // Firestore profile, so this app has no way to know which
+                    // internal email that account actually uses. A plain wrong-
+                    // password message would be misleading here, so say so plainly.
+                    if (e._noMapping) {
+                        return {
+                            error: true,
+                            message: 'لا يوجد حساب مسجّل بهذا الاسم عبر التطبيق. إذا تم إنشاء هذا الحساب مباشرة من Firebase Console، يجب حذفه والتسجيل من جديد عبر التطبيق نفسه.',
+                        };
+                    }
                     return { error: true, message: 'اسم المستخدم أو كلمة المرور غير صحيحة.' };
+                }
                 // Any other/unrecognized code falls through to the generic
                 // message — log the raw code+message so it's diagnosable
                 // from the console (e.g. API key domain restrictions show

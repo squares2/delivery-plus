@@ -516,10 +516,11 @@
     <!-- Register modal -->
     <div class="modal-overlay" id="modal-subscribe">
         <div class="modal-box">
-            <button class="modal-close" data-close aria-label="إغلاق">✕</button>
-            <h2 class="modal-title">إنشاء حساب</h2>
-            <p class="modal-subtitle">انضم إلى Delivo واطلب في ثوانٍ</p>
-            <p id="reg-error" class="modal-error" style="display:none;"></p>
+            <div class="modal-header-row">
+                <h2 class="modal-title">إنشاء حساب</h2>
+                <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+            </div>
+            <p id="reg-error" class="modal-error modal-error--popup" style="display:none;"></p>
 
             <div class="modal-field">
                 <label for="reg-username">اسم المستخدم</label>

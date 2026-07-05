@@ -1163,6 +1163,12 @@ function showError(el, message) {
     el.style.background  = '#fff1f1';
     el.style.borderColor = '#fca5a5';
     el.style.color       = '#b91c1c';
+    // The registration error is a centered popup, not an inline banner —
+    // auto-dismiss it after a few seconds so it doesn't linger over the form.
+    if (el.id === 'reg-error') {
+        clearTimeout(el._autoHideTimer);
+        el._autoHideTimer = setTimeout(() => hideError(el), 4500);
+    }
 }
 function hideError(el) {
     if (!el) return;
@@ -2303,6 +2309,11 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
 
 // ── Wire up filters ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+
+    // The registration error now pops up centered over the modal instead
+    // of sitting inline above the fields — let a tap dismiss it early.
+    const regErrorEl = document.getElementById('reg-error');
+    if (regErrorEl) regErrorEl.addEventListener('click', () => hideError(regErrorEl));
 
     // Orders button in account modal
     const ordersBtn = document.getElementById('acct-orders-btn');

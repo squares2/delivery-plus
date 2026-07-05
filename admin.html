@@ -7180,7 +7180,7 @@ function openCloseStoreModal(storeName, isCurrentlyClosed, reason, opensAt) {
 // the whole customer-facing site (settings/platformClosed) instead of
 // one store — scripts/platform-status.js shows the matching full-
 // screen "مغلق حالياً" takeover to every customer while this is on.
-function openClosePlatformModal(isCurrentlyClosed, reason, opensAt, autoCloseAt) {
+function openClosePlatformModal(isCurrentlyClosed, reason, opensAt, autoCloseAt, allowedUsernames) {
     const stale = document.getElementById('cp-modal-overlay');
     if (stale) stale.remove();
 
@@ -7227,6 +7227,21 @@ function openClosePlatformModal(isCurrentlyClosed, reason, opensAt, autoCloseAt)
                 value="${reason || ''}"
                 style="width:100%;background:var(--surface2);border:1px solid var(--border-bright);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.85rem;outline:none;box-sizing:border-box;"
                 onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border-bright)'">
+        </div>
+
+        <div style="margin-bottom:22px;">
+            <label style="font-size:0.78rem;color:var(--gray-light);font-weight:700;display:block;margin-bottom:6px;">
+                🔓 استثناء مستخدمين محددين <span style="font-weight:400;opacity:0.6;">(اختياري)</span>
+            </label>
+            <input id="cp-allowed-usernames" type="text" maxlength="300"
+                placeholder="مثال: hosen, admin_test"
+                value="${allowedUsernames || ''}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border-bright);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.85rem;outline:none;box-sizing:border-box;direction:ltr;text-align:right;"
+                onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border-bright)'">
+            <p style="font-size:0.66rem;color:var(--gray);margin-top:5px;line-height:1.6;">
+                أسماء مستخدمين مفصولة بفاصلة، يستمرون برؤية الموقع الحقيقي وتصفّحه بشكل طبيعي حتى أثناء الإغلاق — مفيد لتجربة
+                الموقع ليلاً بحساب اختبار خاص بك بينما يظهر للجميع أنه مغلق.
+            </p>
         </div>
 
         <div style="margin:18px 0 6px;padding-top:14px;border-top:1px dashed var(--border-bright);">
@@ -7319,6 +7334,8 @@ function openClosePlatformModal(isCurrentlyClosed, reason, opensAt, autoCloseAt)
         const autoCloseVal  = document.getElementById('cp-autoclose-dt')?.value;
         const autoCloseIso  = autoCloseVal ? new Date(autoCloseVal).toISOString() : '';
         const scheduledOnly = autoCloseIso && new Date(autoCloseIso).getTime() > Date.now();
+        const allowedVal    = (document.getElementById('cp-allowed-usernames')?.value || '')
+            .split(',').map(s => s.trim()).filter(Boolean);
 
         if (action === 'open') {
             await fbSet('settings/platformClosed', null);
@@ -7327,12 +7344,13 @@ function openClosePlatformModal(isCurrentlyClosed, reason, opensAt, autoCloseAt)
         }
 
         const payload = {
-            closed:      !scheduledOnly, // if scheduled for later, don't mark closed yet
-            reason:      reasonVal || 'مغلق مؤقتاً',
-            opensAt:     opensAtVal,
-            autoCloseAt: autoCloseIso || null,
-            closedAt:    new Date().toISOString(),
-            closedBy:    currentAdmin?.username || 'admin',
+            closed:          !scheduledOnly, // if scheduled for later, don't mark closed yet
+            reason:          reasonVal || 'مغلق مؤقتاً',
+            opensAt:         opensAtVal,
+            autoCloseAt:     autoCloseIso || null,
+            allowedUsernames: allowedVal.length ? allowedVal : null,
+            closedAt:        new Date().toISOString(),
+            closedBy:        currentAdmin?.username || 'admin',
         };
         await fbSet('settings/platformClosed', payload);
 
@@ -7385,6 +7403,7 @@ async function _refreshClosePlatformBtn() {
     btn.dataset.reason      = st?.reason      || '';
     btn.dataset.opensAt     = st?.opensAt     || '';
     btn.dataset.autoCloseAt = st?.autoCloseAt || '';
+    btn.dataset.allowedUsernames = Array.isArray(st?.allowedUsernames) ? st.allowedUsernames.join(', ') : '';
 
     if (closedNow) {
         btn.innerHTML = '🟢 إعادة فتح الموقع';
@@ -7402,7 +7421,7 @@ async function _refreshClosePlatformBtn() {
 
 document.getElementById('close-platform-btn')?.addEventListener('click', () => {
     const btn = document.getElementById('close-platform-btn');
-    openClosePlatformModal(!!btn.dataset.closed, btn.dataset.reason, btn.dataset.opensAt, btn.dataset.autoCloseAt);
+    openClosePlatformModal(!!btn.dataset.closed, btn.dataset.reason, btn.dataset.opensAt, btn.dataset.autoCloseAt, btn.dataset.allowedUsernames);
 });
 
 // ══ STORE MANAGEMENT HELPERS ════════════════════════════════
@@ -8908,7 +8927,7 @@ function renderSettings() {
                     </div>
 
                     <div class="setting-row">
-                        <input id="wc2026-team-search" type="text" placeholder="🔍 ابحث عن منتخب..."
+                        <input id="wc2026-team-search" type="text" placeholder="🔍 ابحث عن منتخب أو اسم مستخدم أو هاتف..."
                                style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
                                       padding:8px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;outline:none;box-sizing:border-box;">
                     </div>
@@ -10296,33 +10315,72 @@ function _wc2026RenderTeamsGrid(filter) {
     if (!grid || !_wc2026Cfg) return;
     const teams = _wc2026Cfg.teams || {};
     const q = (filter !== undefined ? filter : (document.getElementById('wc2026-team-search')?.value || '')).trim();
+    const qLower = q.toLowerCase();
+
+    // Search matches either a team name OR a participant's name/username/phone —
+    // in the latter case the matching team is shown pre-expanded so the admin
+    // can immediately see who they're looking for and what they picked.
+    function _entryMatches(entry) {
+        if (!q) return false;
+        return (entry.displayName || '').toLowerCase().includes(qLower)
+            || (entry.username    || '').toLowerCase().includes(qLower)
+            || (entry.phone       || '').includes(q);
+    }
 
     grid.innerHTML = '';
     Object.keys(teams)
-        .filter(code => !q || teams[code].nameAr.includes(q) || teams[code].name.toLowerCase().includes(q.toLowerCase()) || code.toLowerCase().includes(q.toLowerCase()))
+        .filter(code => {
+            if (!q) return true;
+            if (teams[code].nameAr.includes(q) || teams[code].name.toLowerCase().includes(qLower) || code.toLowerCase().includes(qLower)) return true;
+            return (_wc2026EntriesByTeam[code] || []).some(_entryMatches);
+        })
         .sort((a, b) => teams[a].nameAr.localeCompare(teams[b].nameAr, 'ar'))
         .forEach(code => {
-            const team  = teams[code];
-            const count = (_wc2026EntriesByTeam[code] || []).length;
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;';
-            row.innerHTML = `
-                <img src="https://flagcdn.com/32x24/${team.iso2}.png" style="border-radius:3px;flex-shrink:0;" alt="">
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:0.8rem;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${team.nameAr}</div>
-                    <div style="font-size:0.65rem;color:var(--gray);">${count} مسجّل</div>
+            const team    = teams[code];
+            const entries = _wc2026EntriesByTeam[code] || [];
+            const count   = entries.length;
+            const matchedByEntry = q && !teams[code].nameAr.includes(q) && !teams[code].name.toLowerCase().includes(qLower);
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;';
+            wrap.innerHTML = `
+                <div class="wc2026-team-row" data-code="${code}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:${count ? 'pointer' : 'default'};">
+                    <img src="https://flagcdn.com/32x24/${team.iso2}.png" style="border-radius:3px;flex-shrink:0;" alt="">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:0.8rem;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${team.nameAr}</div>
+                        <div style="font-size:0.65rem;color:var(--gray);">${count} مسجّل ${count ? '· اضغط لعرض الأسماء ▾' : ''}</div>
+                    </div>
+                    <label class="toggle" style="flex-shrink:0;" title="خرج من البطولة" onclick="event.stopPropagation()">
+                        <input type="checkbox" data-code="${code}" class="wc2026-elim-toggle" ${team.eliminated ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
                 </div>
-                <label class="toggle" style="flex-shrink:0;" title="خرج من البطولة">
-                    <input type="checkbox" data-code="${code}" class="wc2026-elim-toggle" ${team.eliminated ? 'checked' : ''}>
-                    <span class="toggle-slider"></span>
-                </label>
+                <div class="wc2026-team-entries" data-code="${code}" style="display:${matchedByEntry ? 'block' : 'none'};padding:0 10px 10px;border-top:1px solid var(--border);">
+                    ${entries.length ? entries.map(e => `
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);${_entryMatches(e) && q ? 'background:rgba(255,92,0,0.08);border-radius:6px;padding:6px 8px;' : ''}">
+                            <div style="min-width:0;">
+                                <div style="font-size:0.76rem;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.displayName || e.username || '—'}</div>
+                                <div style="font-size:0.66rem;color:var(--gray);font-family:var(--mono);">@${e.username || '—'}</div>
+                            </div>
+                            <div style="font-size:0.7rem;color:var(--gray-light);font-family:var(--mono);white-space:nowrap;">${e.phone ? formatPhone(e.phone) : '—'}</div>
+                        </div>
+                    `).join('') : '<div style="font-size:0.72rem;color:var(--gray);padding:6px 0;">لا يوجد مسجّلون بعد</div>'}
+                </div>
             `;
-            grid.appendChild(row);
+            grid.appendChild(wrap);
         });
 
     if (!grid.children.length) {
         grid.innerHTML = '<div style="color:var(--gray);font-size:0.8rem;padding:10px;">لا توجد نتائج مطابقة</div>';
     }
+
+    grid.querySelectorAll('.wc2026-team-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const code = row.dataset.code;
+            const entriesBox = grid.querySelector(`.wc2026-team-entries[data-code="${code}"]`);
+            if (!entriesBox || !(_wc2026EntriesByTeam[code] || []).length) return;
+            entriesBox.style.display = entriesBox.style.display === 'none' ? 'block' : 'none';
+        });
+    });
 
     grid.querySelectorAll('.wc2026-elim-toggle').forEach(inp => {
         inp.addEventListener('change', async () => {
