@@ -111,6 +111,137 @@ function _haversineKm(lat1, lng1, lat2, lng2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DELIVERY COVERAGE RADIUS
+   Reads settings/deliveryCenter = { lat, lng, radiusKm } from
+   Firebase (set by the admin on the live map panel) and rejects
+   checkout when the customer's chosen delivery pin falls outside
+   that circle. Fails OPEN (allows checkout) if no center/radius has
+   been configured yet, so this never blocks orders on a fresh setup.
+   ══════════════════════════════════════════════════════════════ */
+const DEFAULT_COVERAGE_RADIUS_KM = 7;
+
+async function _getDeliveryCenter() {
+    try {
+        const resp = await fetch(`${RTDB_CART_URL}/settings/deliveryCenter.json`);
+        const data = await resp.json();
+        if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
+            return {
+                lat: data.lat,
+                lng: data.lng,
+                radiusKm: (typeof data.radiusKm === 'number' && data.radiusKm > 0)
+                    ? data.radiusKm : DEFAULT_COVERAGE_RADIUS_KM,
+            };
+        }
+    } catch (_) { /* network hiccup — fail open below */ }
+    return null;
+}
+
+// Returns { ok:true } when inside coverage (or when no center is
+// configured), or { ok:false, distanceKm, radiusKm, center } when the
+// point falls outside the delivery circle.
+async function _checkDeliveryRadius(lat, lng) {
+    if (isNaN(lat) || isNaN(lng)) return { ok: true };
+    const center = await _getDeliveryCenter();
+    if (!center) return { ok: true };
+    const distanceKm = _haversineKm(lat, lng, center.lat, center.lng);
+    if (distanceKm > center.radiusKm) {
+        return { ok: false, distanceKm, radiusKm: center.radiusKm, center };
+    }
+    return { ok: true };
+}
+
+// Show the "outside coverage" warning with a live map: coverage circle,
+// Delivo center pin, and the customer's chosen (rejected) location.
+let _covWarnMap = null, _covWarnAcceptOnce = false;
+async function _showCoverageWarning(center, radiusKm, custLat, custLng, distanceKm) {
+    const modal  = document.getElementById('coverage-warning-modal');
+    const mapDiv = document.getElementById('coverage-warning-map');
+    const msgEl  = document.getElementById('coverage-warning-msg');
+
+    if (!modal || !mapDiv) {
+        _showToast(`⚠️ عذراً، موقعك (${distanceKm.toFixed(1)} كم) خارج نطاق التغطية (${radiusKm} كم)`, 'error');
+        return;
+    }
+
+    if (msgEl) {
+        msgEl.textContent =
+            `موقعك المحدد يبعد ${distanceKm.toFixed(1)} كم عن مركز التوصيل — خارج نطاق التغطية البالغ ${radiusKm} كم. ` +
+            `الرجاء اختيار موقع أقرب ضمن الدائرة الموضحة أدناه، أو التواصل معنا لمزيد من المساعدة.`;
+    }
+
+    modal.style.display = 'flex';
+    await _ensureLeafletLoaded();
+
+    if (_covWarnMap) { _covWarnMap.remove(); _covWarnMap = null; }
+    mapDiv.innerHTML = '';
+
+    requestAnimationFrame(() => {
+        const map = L.map(mapDiv, { zoomControl: true, tap: false }).setView([center.lat, center.lng], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap', maxZoom: 19,
+        }).addTo(map);
+
+        const centerIcon = L.divIcon({
+            className: '',
+            html: '<div style="width:30px;height:30px;background:#8b5cf6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 3px 10px rgba(139,92,246,0.55);border:2px solid #fff;">🏢</div>',
+            iconSize: [30, 30], iconAnchor: [15, 15],
+        });
+        L.marker([center.lat, center.lng], { icon: centerIcon })
+            .addTo(map).bindPopup('🏢 مركز التوصيل');
+
+        const circle = L.circle([center.lat, center.lng], {
+            radius: radiusKm * 1000,
+            color: '#FF5C00',
+            weight: 2,
+            dashArray: '6,8',
+            fillColor: '#FF5C00',
+            fillOpacity: 0.07,
+        }).addTo(map);
+
+        let bounds = circle.getBounds();
+
+        if (!isNaN(custLat) && !isNaN(custLng)) {
+            const custIcon = L.divIcon({
+                className: '',
+                html: '<div style="width:26px;height:26px;background:#ef4444;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>',
+                iconSize: [26, 26], iconAnchor: [13, 26],
+            });
+            L.marker([custLat, custLng], { icon: custIcon })
+                .addTo(map).bindPopup('📍 موقعك المحدد (خارج النطاق)');
+            bounds = bounds.extend([custLat, custLng]);
+        }
+
+        map.fitBounds(bounds, { padding: [28, 28] });
+        _covWarnMap = map;
+        setTimeout(() => map.invalidateSize(), 120);
+    });
+}
+
+function _closeCoverageWarning() {
+    const modal = document.getElementById('coverage-warning-modal');
+    if (modal) modal.style.display = 'none';
+    if (_covWarnMap) { _covWarnMap.remove(); _covWarnMap = null; }
+}
+
+function _initCoverageWarningModal() {
+    const closeBtn  = document.getElementById('coverage-warning-close');
+    const changeBtn = document.getElementById('coverage-warning-change-btn');
+    const overlay   = document.getElementById('coverage-warning-modal');
+
+    if (closeBtn)  closeBtn.addEventListener('click', _closeCoverageWarning);
+    if (overlay)   overlay.addEventListener('click', (e) => { if (e.target === overlay) _closeCoverageWarning(); });
+    if (changeBtn) {
+        changeBtn.addEventListener('click', () => {
+            _closeCoverageWarning();
+            // Re-open the delivery-location picker so the customer can
+            // choose a point inside the coverage circle.
+            const mapBtn = document.getElementById('cart-loc-map');
+            if (mapBtn) mapBtn.click();
+        });
+    }
+}
+
 // Compute delivery fee for one store given customer coords and cart subtotal ($)
 async function _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD) {
     const cfg = await _loadSmartCfg();
@@ -821,6 +952,7 @@ function initCart() {
         }
 
         const btn = document.getElementById('cart-checkout-btn');
+        const btnOriginalHtml = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.innerHTML = '<span>جاري…</span>'; }
 
         try {
@@ -842,6 +974,17 @@ function initCart() {
             const cartLng  = document.getElementById('cart-loc-lng')?.value || '';
             const orderLat = cartLat || String(userProfile.location?.lat || userProfile.lat || '');
             const orderLng = cartLng || String(userProfile.location?.lng || userProfile.lng || '');
+
+            // ── Delivery coverage radius check ──────────────────────
+            // Rejects the order if the chosen delivery point falls
+            // outside the admin-configured coverage circle around the
+            // Delivo center. Fails open if no center is configured.
+            const radiusCheck = await _checkDeliveryRadius(parseFloat(orderLat), parseFloat(orderLng));
+            if (!radiusCheck.ok) {
+                if (btn) { btn.disabled = false; btn.innerHTML = btnOriginalHtml; }
+                _showCoverageWarning(radiusCheck.center, radiusCheck.radiusKm, parseFloat(orderLat), parseFloat(orderLng), radiusCheck.distanceKm);
+                return;
+            }
 
             // Compute effective delivery fee per store (smart or flat)
             const coords = _getCustomerCoords();
@@ -1044,6 +1187,9 @@ function initCart() {
 
     /* ── Swipe-to-close (mobile touch) ─────────────────────── */
     _initCartSwipe();
+
+    /* ── Coverage-radius warning modal ─────────────────────── */
+    _initCoverageWarningModal();
 }
 
 function _initCartLocation() {

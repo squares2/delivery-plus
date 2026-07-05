@@ -41,12 +41,26 @@ const TYPE_EMOJI_STORE = {
 
 /* ── Helpers ─────────────────────────────────────────────── */
 const STORE_IMG_PATH = './assets';
+function _slugHash(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return Math.abs(h).toString(36);
+}
 function toSlug(companyname) {
-    return companyname.toLowerCase()
+    const cleaned = companyname.toLowerCase()
         .replace(/[^\x00-\x7F]/g, '')  // strip Arabic/non-ASCII
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '') || 'store';
+        .replace(/^-|-$/g, '');
+    if (cleaned) return cleaned;
+    // No usable ASCII characters at all (e.g. an Arabic-only company name
+    // with no English imgSlug override set in admin). Do NOT fall back to
+    // a shared literal like 'store' here — that silently makes every such
+    // store point at the exact same image file. Hash the real name instead,
+    // so two different Arabic-only names never collide onto the same path.
+    // (No real asset will exist at this hashed path, so it correctly falls
+    // through to the placeholder icon instead of showing a wrong logo.)
+    return '_noimg-' + _slugHash(companyname);
 }
 function _storeImgSlug(store) {
     if (store.imgSlug && store.imgSlug.trim()) return store.imgSlug.trim().toLowerCase();

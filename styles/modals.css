@@ -735,6 +735,16 @@
     font-weight: 700;
 }
 .location-opt-btn:disabled { opacity: 0.6; cursor: wait; }
+.location-opt-btn--required-pulse {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.15);
+    animation: locReqPulse 0.5s ease 2;
+}
+@keyframes locReqPulse {
+    0%, 100% { transform: translateX(0); }
+    25%      { transform: translateX(-3px); }
+    75%      { transform: translateX(3px); }
+}
 
 /* ── Location status message ──────────────────────────────── */
 .location-status {

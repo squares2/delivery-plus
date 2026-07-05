@@ -407,11 +407,20 @@ function initModalAuth() {
             if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits)) {
                 showError(errorEl, 'رقم الهاتف غير صحيح. مثال: 03 123 456 أو 71 123 456'); return;
             }
-            hideError(errorEl);
 
-            const isOtpMode = window._regType === 'otp';
-            const otpStep   = document.getElementById('otp-step');
-            const saved     = _loadOtpState();
+            const isOtpMode        = window._regType === 'otp';
+            const otpStep          = document.getElementById('otp-step');
+            const saved            = _loadOtpState();
+            // On the OTP confirm step, the location was already validated
+            // and saved before the code was sent — no need to re-check it.
+            const isOtpConfirmStep = isOtpMode && saved && otpStep?.style.display !== 'none';
+
+            if (!isOtpConfirmStep && !_requireRegLocation()) {
+                showError(errorEl, '📍 يجب تحديد موقعك لإتمام إنشاء الحساب');
+                return;
+            }
+
+            hideError(errorEl);
 
             if (isOtpMode) {
                 // Step 1 — send OTP
@@ -994,6 +1003,28 @@ function setLocationStatus(type, message) {
     el.style.display = 'block';
     el.textContent   = message;
     el.className     = 'location-status location-status--' + type;
+}
+
+// ── Location: obligatory-field guard ──────────────────────────
+// Registration cannot proceed without a delivery pin — an unresolved
+// location leads to missed/misdelivered orders later. This blocks
+// submission, surfaces a clear error inline, and nudges the customer
+// toward the two ways of setting it (GPS or map).
+function _requireRegLocation() {
+    const lat = document.getElementById('reg-lat')?.value;
+    const lng = document.getElementById('reg-lng')?.value;
+    if (lat && lng) return true;
+
+    setLocationStatus('error', '⚠ تحديد موقعك مطلوب لإتمام التسجيل — اضغط "موقعي الحالي" أو "اختر على الخريطة" أعلاه');
+
+    document.getElementById('reg-location-status')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    document.querySelectorAll('.location-opt-btn').forEach(b => {
+        b.classList.add('location-opt-btn--required-pulse');
+        setTimeout(() => b.classList.remove('location-opt-btn--required-pulse'), 1000);
+    });
+
+    return false;
 }
 
 // ── Location reset ────────────────────────────────────────────

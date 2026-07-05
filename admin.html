@@ -198,6 +198,8 @@ input, select, textarea { font-family: var(--font); }
     gap: var(--gap-md); flex-shrink: 0; z-index: 100;
 }
 .topbar__logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 6px; }
+.js-notif-bell:hover { color: var(--orange) !important; background: rgba(255,92,0,0.08) !important; }
+.js-notif-bell--muted { opacity: 0.55; }
 .topbar__logo img { width: 34px; height: 34px; border-radius: 8px; }
 .topbar__logo-name { font-size: var(--fs-lg); font-weight: 800; color: var(--white); }
 .topbar__logo-name span { color: var(--orange); }
@@ -1780,6 +1782,7 @@ input, select, textarea { font-family: var(--font); }
             </div>
         </div>
         <button id="wa-notif-btn" title="WA" onclick="toggleWaNotifPanel()" style="position:relative;background:none;border:none;cursor:pointer;padding:7px 10px;border-radius:10px;font-size:1.15rem;color:var(--gray);display:none;align-items:center;gap:4px;">📲<span id="wa-notif-count" style="position:absolute;top:4px;right:4px;background:#22c55e;color:#fff;font-size:0.58rem;font-weight:900;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;line-height:1;"></span></button>
+        <button class="js-notif-bell" onclick="_toggleNotifMute()" title="الإشعارات الصوتية" style="background:none;border:none;cursor:pointer;padding:7px 10px;border-radius:10px;font-size:1.15rem;color:var(--gray);">🔔</button>
         <div class="topbar__user" id="topbar-user-btn">
             <div class="topbar__avatar" id="topbar-avatar">A</div>
             <div>
@@ -1829,6 +1832,7 @@ input, select, textarea { font-family: var(--font); }
                     <div class="map-legend">
                         <div class="map-legend-title">دليل الخريطة</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div>مركز Delivo</div>
+                        <div class="legend-item"><div class="legend-dot" style="border:1.5px dashed #8b5cf6;background:transparent;"></div>نطاق التغطية</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#FF5C00;"></div>متجر</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>سائق نشط</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#9ca3af;"></div>سائق غير نشط</div>
@@ -2127,6 +2131,7 @@ input, select, textarea { font-family: var(--font); }
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <span id="cp-store-toggle-label">إغلاق المتجر</span>
         </button>
+        <button class="js-notif-bell" onclick="_toggleNotifMute()" title="الإشعارات الصوتية" style="background:none;border:none;cursor:pointer;padding:7px 10px;border-radius:10px;font-size:1.1rem;color:var(--gray-light);">🔔</button>
         <button class="cp-logout" id="cp-logout-btn">خروج</button>
     </div>
 
@@ -2697,6 +2702,7 @@ let mapLayers    = { stores: true, drivers: true, customers: true, orders: true,
 let adminMap     = null;
 let mapMarkers   = { stores: [], drivers: [], customers: [], orders: [], center: [] };
 let deliveryCenterLoc = null; // { lat, lng } — Delivo HQ, settings/deliveryCenter
+let deliveryRadiusKm  = 7;    // coverage radius (km) around the HQ — settings/deliveryCenter.radiusKm
 let refreshTimer         = null;
 let _refreshPaused       = false;
 const REFRESH_INTERVAL   = 12_000;   // 12 seconds
@@ -2800,6 +2806,112 @@ function toast(msg, isError = false) {
     const clean = msg.replace(/^[\u{1F300}-\u{1FFFF}\u2600-\u27BF\uFE0F\u20D0-\u20FF\s]+/u, '').trim();
     const type  = isError ? 'error' : 'success';
     showNotif(clean || msg, '', type);
+}
+
+/* ══════════════════════════════════════════════════════════
+   NEW-ORDER SOUND + NOTIFICATIONS — admin & store/company panel
+   ------------------------------------------------------------
+   Plays an audible chime, shows a toast, and (if the browser tab
+   is in the background and permission was granted) a desktop
+   notification, the moment a genuinely NEW order shows up —
+   whether the viewer is the main admin dashboard (all stores) or
+   a store/company login (their own store only, via cpLoadOrders).
+   Never alerts for orders that already existed before this tab
+   was opened — only for ones that arrive while it's open.
+══════════════════════════════════════════════════════════ */
+let _notifSeenOrderKeys = {};              // scope key → Set of already-alerted order IDs
+let _notifMuted = localStorage.getItem('delivo_notif_muted') === '1';
+let _notifAudioCtx = null;
+
+function _playOrderChime() {
+    if (_notifMuted) return;
+    try {
+        if (!_notifAudioCtx) _notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (_notifAudioCtx.state === 'suspended') _notifAudioCtx.resume();
+        const ctx = _notifAudioCtx;
+        const now = ctx.currentTime;
+        // Two-tone friendly "ding-dong" — audible but not jarring
+        [[880, 0, 0.16], [1180, 0.16, 0.22]].forEach(([freq, delay, dur]) => {
+            const start = now + delay;
+            const osc   = ctx.createOscillator();
+            const gain  = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, start);
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.35, start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(start);
+            osc.stop(start + dur + 0.05);
+        });
+    } catch (_) { /* audio not available — sound is a bonus, never fatal */ }
+}
+
+function _requestNotifPermission() {
+    try {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    } catch (_) {}
+}
+
+function _showBrowserNotif(title, body) {
+    try {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (document.visibilityState === 'visible') return; // tab is focused — the in-app toast + sound is enough
+        new Notification(title, { body, icon: 'assets/icon-192.png', badge: 'assets/icon-192.png' });
+    } catch (_) {}
+}
+
+function _updateNotifBellUI() {
+    document.querySelectorAll('.js-notif-bell').forEach(btn => {
+        btn.textContent = _notifMuted ? '🔕' : '🔔';
+        btn.title = _notifMuted
+            ? 'الإشعارات الصوتية متوقفة — اضغط للتفعيل'
+            : 'الإشعارات الصوتية مفعّلة — اضغط للإيقاف';
+        btn.classList.toggle('js-notif-bell--muted', _notifMuted);
+    });
+}
+
+function _toggleNotifMute() {
+    _notifMuted = !_notifMuted;
+    localStorage.setItem('delivo_notif_muted', _notifMuted ? '1' : '0');
+    _updateNotifBellUI();
+    if (!_notifMuted) { _requestNotifPermission(); _playOrderChime(); } // audible confirmation it's back on
+}
+
+// Compares the given orders map against what's already been seen for this
+// scope ('admin' for the full dashboard, or a store name for the company
+// panel) and alerts once for every order that's new since the last check.
+// The very first call for a given scope only records a baseline — it never
+// alerts on orders that were already sitting there before the tab opened.
+function _detectAndAlertNewOrders(ordersMap, storeFilter) {
+    const scopeKey = storeFilter ? `store:${storeFilter}` : 'admin';
+    const keys = Object.keys(ordersMap || {}).filter(k => {
+        const o = ordersMap[k];
+        if (!o) return false;
+        if (storeFilter && (o.store || '') !== storeFilter) return false;
+        return (o.state || '0') === '0'; // only new/pending orders count as "arrived"
+    });
+
+    if (!_notifSeenOrderKeys[scopeKey]) {
+        _notifSeenOrderKeys[scopeKey] = new Set(keys);
+        return;
+    }
+
+    const seen  = _notifSeenOrderKeys[scopeKey];
+    const fresh = keys.filter(k => !seen.has(k));
+    keys.forEach(k => seen.add(k));
+    if (!fresh.length) return;
+
+    _playOrderChime();
+
+    const first = ordersMap[fresh[0]];
+    const label = fresh.length === 1
+        ? `🔔 طلب جديد من ${first?.fullname || first?.username || 'عميل'}${!storeFilter && first?.store ? ' — ' + first.store : ''}`
+        : `🔔 ${fresh.length} طلبات جديدة وصلت`;
+    toast(label);
+    _showBrowserNotif('Delivo', label);
 }
 
 function showConfirm({ title, msg, type = 'danger', icon = '\uD83D\uDDD1', okLabel, cancelLabel }) {
@@ -3099,6 +3211,7 @@ function startApp() {
     document.getElementById('topbar-uname').textContent = currentAdmin.fullname || currentAdmin.username;
     document.getElementById('topbar-urole').textContent = roleLabel(currentAdmin.role);
     document.getElementById('topbar-avatar').textContent = (currentAdmin.fullname || currentAdmin.username)[0].toUpperCase();
+    _updateNotifBellUI();
 
     // Save session
     sessionStorage.setItem('delivoAdmin', JSON.stringify(currentAdmin));
@@ -3330,7 +3443,9 @@ function _renderCatalogItems() {
         const sale    = parseFloat(item.sale)  || 0;
         const hasSale = sale > 0 && sale < price;
         const png     = item.pngExist === '1' || item.pngExist === 1;
-        const imgSrc  = png ? `items2/${String(id).toLowerCase()}.webp` : '';
+        const imgSrc  = png
+            ? (_cpiLocalImagePreview[id] || `items2/${String(id).toLowerCase()}.webp${item.imgUpdatedAt ? '?v=' + item.imgUpdatedAt : ''}`)
+            : '';
         return `
         <div style="background:var(--surface);border-radius:12px;overflow:hidden;border:1.5px solid var(--surface3);display:flex;flex-direction:column;min-height:220px;">
             <!-- image -->
@@ -3426,6 +3541,11 @@ function openCatalogItemModal(item) {
     // Remove old modal if any
     document.getElementById('cat-item-modal')?.remove();
 
+    // Clear any stale staged image from a previous modal session (shared
+    // with the "منتجاتي" company-portal upload flow — see cpiPreviewImage)
+    _cpiPendingImageFile = null;
+    _cpiPendingImageDataUrl = null;
+
     const isNew = !item;
     const id    = item ? (item.ID || item.id || '') : '';
 
@@ -3441,18 +3561,27 @@ function openCatalogItemModal(item) {
         </div>
         <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
 
-            <!-- Image preview + upload instruction -->
+            <!-- Image preview + direct upload -->
             <div style="text-align:center;margin-bottom:4px;">
-                <div style="width:80px;height:80px;border-radius:12px;overflow:hidden;background:var(--surface3);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;" id="cat-modal-img-wrap">
+                <div onclick="document.getElementById('cim-img-file').click()"
+                     style="width:90px;height:90px;border-radius:12px;overflow:hidden;background:var(--surface3);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px dashed var(--border);position:relative;transition:border-color .15s;"
+                     onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'"
+                     id="cat-modal-img-wrap">
                     ${(!isNew && (item.pngExist==='1'||item.pngExist===1))
-                        ? `<img src="items/${String(id).toLowerCase()}.png" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;font-size:2rem;width:100%;height:100%;align-items:center;justify-content:center;">📷</div>`
-                        : `<span style="font-size:2rem;">📷</span>`
+                        ? `<img src="items2/${String(id).toLowerCase()}.webp?_t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" id="cim-img-preview"
+                               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                           <div style="display:none;font-size:2rem;width:100%;height:100%;align-items:center;justify-content:center;" id="cim-img-placeholder">📷</div>`
+                        : `<span style="font-size:2rem;" id="cim-img-placeholder">📷</span>
+                           <img src="" style="width:100%;height:100%;object-fit:cover;display:none;" id="cim-img-preview">`
                     }
+                    <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#fff;font-size:0.62rem;font-weight:700;padding:3px 0;text-align:center;">📤 رفع / تغيير</div>
                 </div>
-                <div style="font-size:0.68rem;color:var(--gray);line-height:1.4;">
-                    ضع صورة المنتج في مجلد <code style="color:var(--orange)">items2/</code><br>
-                    باسم: <code style="color:var(--orange)" id="cat-modal-img-name">${id ? id.toLowerCase()+'.png' : 'ID.png'}</code>
+                <input type="file" id="cim-img-file" accept="image/*" style="display:none;" onchange="cpiPreviewImage(this)">
+                <div style="font-size:0.68rem;color:var(--gray);line-height:1.5;">
+                    اضغط على الصورة لرفع صورة المنتج مباشرة — سيتم حفظها كـ
+                    <code style="color:var(--orange)" id="cat-modal-img-name">${id ? id.toLowerCase()+'.webp' : 'ID.webp'}</code>
                 </div>
+                <div id="cim-img-status" style="font-size:0.66rem;color:var(--gray);margin-top:2px;"></div>
             </div>
 
             <div class="modal-field">
@@ -3502,7 +3631,7 @@ function openCatalogItemModal(item) {
             <div class="modal-field">
                 <label>الـ ID <span style="color:var(--orange)">*</span> <small style="color:var(--gray)">(اسم ملف الصورة = ID.webp)</small></label>
                 <input type="text" id="cim-id" value="${id}" placeholder="مثال: sha001" dir="ltr" style="width:100%;font-family:monospace;"
-                       oninput="document.getElementById('cat-modal-img-name').textContent=this.value.toLowerCase()+'.png'">
+                       oninput="document.getElementById('cat-modal-img-name').textContent=(this.value.toLowerCase()||'id')+'.webp'">
             </div>
             <div style="display:flex;align-items:center;gap:10px;background:var(--surface3);padding:10px 12px;border-radius:8px;">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
@@ -3574,6 +3703,24 @@ async function saveCatalogItem(isNew) {
 
         // Update local cache
         _catAllItems[itemId] = payload;
+
+        // Upload staged image (if the admin selected one) to items2/{id}.webp
+        if (_cpiPendingImageFile) {
+            btn.textContent = '📤 جاري رفع الصورة…';
+            try {
+                await cpiUploadItemImage(_cpiPendingImageFile, itemId);
+                // Reflect the new image immediately in the grid — don't make
+                // the admin wait for GitHub → hosting propagation, and don't
+                // let a stale browser cache keep showing the old file.
+                if (_cpiPendingImageDataUrl) _cpiLocalImagePreview[itemId] = _cpiPendingImageDataUrl;
+                _catAllItems[itemId].imgUpdatedAt = Date.now();
+                await fbUpdate(path, { imgUpdatedAt: _catAllItems[itemId].imgUpdatedAt });
+            } catch (imgErr) {
+                showNotif('تم حفظ المنتج، لكن فشل رفع الصورة', imgErr.message, 'error');
+            }
+        }
+        _cpiPendingImageFile = null;
+        _cpiPendingImageDataUrl = null;
 
         showNotif(isNew ? 'تمت الإضافة' : 'تم الحفظ', name, 'success');
         document.getElementById('cat-item-modal').remove();
@@ -3663,6 +3810,7 @@ async function loadAllData() {
 
         allOrders    = orders    || {};
         allBlacklist = blacklist || {};
+        _detectAndAlertNewOrders(allOrders, null);
 
         if (drivers) {
             allDrivers = _parseDriversRaw(drivers);
@@ -4566,9 +4714,21 @@ function renderMap() {
             null, [16, 46]
         );
         const m = L.marker([deliveryCenterLoc.lat, deliveryCenterLoc.lng], { icon, zIndexOffset: 500 })
-            .bindPopup(`<b style="font-family:Almarai">🏢 مركز Delivo (المقر)</b>`)
+            .bindPopup(`<b style="font-family:Almarai">🏢 مركز Delivo (المقر)</b><br><small style="color:#888">نطاق التغطية: ${deliveryRadiusKm} كم</small>`)
             .addTo(adminMap);
         mapMarkers.center.push(m);
+
+        // ── Coverage-radius circle ── orders outside this circle are
+        // rejected at checkout (see scripts/cart.js: _checkDeliveryRadius).
+        const coverageCircle = L.circle([deliveryCenterLoc.lat, deliveryCenterLoc.lng], {
+            radius: deliveryRadiusKm * 1000,
+            color: '#8b5cf6',
+            weight: 2,
+            dashArray: '6,8',
+            fillColor: '#8b5cf6',
+            fillOpacity: 0.06,
+        }).addTo(adminMap);
+        mapMarkers.center.push(coverageCircle);
     }
 
     // ── Stores ────────────────────────────────────────────────
@@ -7140,6 +7300,15 @@ function openCenterLocationModal(initLat, initLng) {
                 <button id="cl-jump-btn" style="margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--white);font-size:0.78rem;font-family:inherit;cursor:pointer;white-space:nowrap;" title="انتقل إلى الإحداثيات">↗ انتقل</button>
             </div>
             ${initLat ? `<div id="cl-current-loc" style="margin-top:8px;font-size:0.7rem;color:var(--gray);">الموقع الحالي: <span style="color:var(--orange);font-family:var(--mono);">${initLat.toFixed(6)}, ${initLng.toFixed(6)}</span></div>` : '<div id="cl-current-loc" style="margin-top:8px;font-size:0.7rem;color:rgba(239,68,68,0.8);">⚠ لا يوجد موقع محدد لمركز Delivo بعد</div>'}
+
+            <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+                <div style="flex:1;">
+                    <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:3px;">نطاق التغطية (كم) — خارجه تُرفض الطلبات تلقائياً</label>
+                    <input id="cl-radius" type="number" step="0.5" min="0.5" value="${deliveryRadiusKm || 7}"
+                        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;"
+                        onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+            </div>
         </div>
 
         <div id="cl-map-container" style="flex:1;min-height:280px;position:relative;">
@@ -7174,15 +7343,42 @@ function openCenterLocationModal(initLat, initLng) {
     });
 
     let clMarker = null;
+    let clCircle = null;
     let selectedLat = initLat;
     let selectedLng = initLng;
 
-    // Place initial marker if coordinates exist
+    function _clRadiusKm() {
+        const v = parseFloat(document.getElementById('cl-radius')?.value);
+        return (!isNaN(v) && v > 0) ? v : 7;
+    }
+
+    function _clRefreshCircle(lat, lng) {
+        const radiusM = _clRadiusKm() * 1000;
+        if (clCircle) {
+            clCircle.setLatLng([lat, lng]);
+            clCircle.setRadius(radiusM);
+        } else {
+            clCircle = L.circle([lat, lng], {
+                radius: radiusM, color: '#8b5cf6', weight: 2,
+                dashArray: '6,8', fillColor: '#8b5cf6', fillOpacity: 0.06,
+            }).addTo(clMap);
+        }
+    }
+
+    // Place initial marker + coverage circle preview if coordinates exist
     if (initLat && initLng) {
         clMarker = L.marker([initLat, initLng], { icon: pinIcon, draggable: true }).addTo(clMap);
         _clBindMarkerDrag(clMarker);
         document.getElementById('cl-lat').value = initLat.toFixed(6);
         document.getElementById('cl-lng').value = initLng.toFixed(6);
+        _clRefreshCircle(initLat, initLng);
+    }
+
+    const clRadiusInput = document.getElementById('cl-radius');
+    if (clRadiusInput) {
+        clRadiusInput.addEventListener('input', () => {
+            if (selectedLat != null && selectedLng != null) _clRefreshCircle(selectedLat, selectedLng);
+        });
     }
 
     function _clBindMarkerDrag(marker) {
@@ -7192,6 +7388,7 @@ function openCenterLocationModal(initLat, initLng) {
             selectedLng = pos.lng;
             document.getElementById('cl-lat').value = pos.lat.toFixed(6);
             document.getElementById('cl-lng').value = pos.lng.toFixed(6);
+            _clRefreshCircle(pos.lat, pos.lng);
         });
     }
 
@@ -7206,6 +7403,7 @@ function openCenterLocationModal(initLat, initLng) {
             clMarker = L.marker([lat, lng], { icon: pinIcon, draggable: true }).addTo(clMap);
             _clBindMarkerDrag(clMarker);
         }
+        _clRefreshCircle(lat, lng);
         document.getElementById('cl-pin-hint').style.display = 'none';
     }
 
@@ -7238,6 +7436,7 @@ function openCenterLocationModal(initLat, initLng) {
         try {
             await fbSet('settings/deliveryCenter', null);
             deliveryCenterLoc = null;
+            deliveryRadiusKm  = 7;
             _updateCenterLocDisplay();
             if (adminMap) renderMap();
             toast('🗑 تم مسح موقع مركز Delivo');
@@ -7256,13 +7455,15 @@ function openCenterLocationModal(initLat, initLng) {
         const btn = document.getElementById('cl-save-btn');
         btn.disabled = true; btn.textContent = '…';
         try {
-            const lat = parseFloat(selectedLat.toFixed(6));
-            const lng = parseFloat(selectedLng.toFixed(6));
-            await fbSet('settings/deliveryCenter', { lat, lng });
-            deliveryCenterLoc = { lat, lng };
+            const lat      = parseFloat(selectedLat.toFixed(6));
+            const lng      = parseFloat(selectedLng.toFixed(6));
+            const radiusKm = _clRadiusKm();
+            await fbSet('settings/deliveryCenter', { lat, lng, radiusKm });
+            deliveryCenterLoc = { lat, lng, radiusKm };
+            deliveryRadiusKm  = radiusKm;
             _updateCenterLocDisplay();
             if (adminMap) renderMap();
-            toast('✅ تم حفظ موقع مركز Delivo');
+            toast('✅ تم حفظ موقع ونطاق تغطية مركز Delivo');
             close();
         } catch(e) {
             toast('فشل الحفظ: ' + e.message, true);
@@ -8229,7 +8430,139 @@ function renderSettings() {
                     🗺 تغيير الموقع
                 </button>
             </div>
+            <div class="setting-row" style="gap:10px;align-items:center;border-top:1px solid var(--border);margin-top:10px;padding-top:12px;">
+                <div>
+                    <div class="setting-label">نطاق تغطية التوصيل (كم)</div>
+                    <div class="setting-sub">الطلبات التي تقع خارج هذا النطاق من مركز Delivo تُرفض تلقائياً عند إتمام الطلب</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;align-items:center;">
+                <input id="coverage-radius-input" type="number" step="0.5" min="0.5" value="7"
+                       style="width:110px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
+                              padding:8px 10px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;text-align:center;"
+                       onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+                <span style="font-size:0.78rem;color:var(--gray);">كم</span>
+                <button id="coverage-radius-save-btn"
+                        style="margin-right:auto;background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ النطاق
+                </button>
+            </div>
+            <div id="coverage-radius-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
         </div>
+
+        <!-- ═══════════════════════════════════════════════════════
+             WORLD CUP 2026 PROMO — START
+             Time-boxed marketing campaign, fully isolated. To retire
+             it later, delete this whole <div id="wc2026-admin-section">
+             block plus the wc2026Admin JS block further down (also
+             clearly marked), and the matching customer-side files:
+             scripts/worldcup2026.js, styles/worldcup2026.css, and the
+             two HTML blocks marked "WORLD CUP 2026 PROMO" in index.html.
+             Nothing else in the app depends on any of this.
+        ═══════════════════════════════════════════════════════ -->
+        <div class="settings-section" id="wc2026-admin-section">
+            <div class="settings-section-title" id="wc2026-toggle-header"
+                 style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;">
+                <span>🏆 حملة كأس العالم 2026 — اختر منتخبك واربح 100$</span>
+                <span id="wc2026-toggle-chevron" style="transition:transform 0.2s;font-size:0.9rem;">▸</span>
+            </div>
+
+            <div id="wc2026-admin-body" style="display:none;padding:0 16px 16px;">
+                <div id="wc2026-admin-loading" style="font-size:0.8rem;color:var(--gray);padding:10px 0 6px;">جارِ التحميل...</div>
+
+                <!-- Shown only before the campaign has ever been launched -->
+                <div id="wc2026-launch-row" style="display:none;">
+                    <div class="setting-row">
+                        <div>
+                            <div class="setting-label">لم يتم تفعيل الحملة بعد</div>
+                            <div class="setting-sub">
+                                يعرض التطبيق للعملاء أعلام وأسماء المنتخبات المتبقية في كأس العالم 2026، ويدعوهم لاختيار
+                                منتخبهم والتسجيل للفوز بـ 100$ إذا فاز هذا المنتخب بالبطولة. تُفعَّل الحملة تلقائياً لمدة
+                                14 يوماً من لحظة الضغط أدناه (يمكن تمديدها أو إيقافها يدوياً في أي وقت). تم تمييز بعض
+                                المنتخبات كـ"خارج المنافسة" تلقائياً بناءً على آخر نتائج معروفة لدور الـ32 — يُنصح بمراجعة
+                                القائمة والتأكد من تحديث بقية المنتخبات المستبعدة يدوياً.
+                            </div>
+                        </div>
+                    </div>
+                    <button id="wc2026-launch-btn"
+                            style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                                   padding:9px 20px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                        🚀 تفعيل الحملة الآن
+                    </button>
+                </div>
+
+                <!-- Shown once a config exists -->
+                <div id="wc2026-config-row" style="display:none;">
+
+                    <div class="setting-row" style="gap:14px;align-items:center;flex-wrap:wrap;">
+                        <label class="toggle">
+                            <input type="checkbox" id="wc2026-active-toggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div>
+                            <div class="setting-label" style="margin:0;">الحملة مفعّلة</div>
+                            <div class="setting-sub" id="wc2026-expiry-text" style="margin:0;">—</div>
+                        </div>
+                        <button id="wc2026-extend-btn"
+                                style="margin-right:auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+                                       padding:7px 14px;color:var(--white);font-family:inherit;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                            🔄 تمديد أسبوعين
+                        </button>
+                    </div>
+
+                    <div class="setting-row" style="gap:10px;align-items:center;">
+                        <div class="setting-label" style="margin:0;">قيمة الجائزة</div>
+                        <span style="color:var(--gray);">$</span>
+                        <input id="wc2026-prize-input" type="number" min="1" step="1"
+                               style="width:90px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
+                                      padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;text-align:center;">
+                        <button id="wc2026-prize-save-btn"
+                                style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                                       padding:7px 16px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                            💾 حفظ
+                        </button>
+                        <div style="margin-right:auto;font-size:0.8rem;color:var(--gray);">
+                            إجمالي المسجّلين: <b id="wc2026-total-entries" style="color:var(--white);">0</b>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <input id="wc2026-team-search" type="text" placeholder="🔍 ابحث عن منتخب..."
+                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
+                                      padding:8px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;outline:none;box-sizing:border-box;">
+                    </div>
+
+                    <div class="setting-sub" style="padding:0 0 8px;">
+                        فعّل مفتاح "خرج" فور خسارة المنتخب وخروجه من البطولة — يختفي فوراً من قائمة الاختيار لدى العملاء الجدد،
+                        بينما يبقى العملاء المسجَّلون مسبقاً معه ضمن السحب (لأنهم اختاروه قبل خروجه، بحسب قواعد اللعبة).
+                    </div>
+
+                    <div id="wc2026-teams-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;max-height:420px;overflow-y:auto;padding-bottom:6px;"></div>
+
+                    <!-- Winner draw tool ─────────────────────────────── -->
+                    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+                        <div class="setting-label" style="margin-bottom:8px;">🎲 سحب الفائز (بعد تتويج البطل)</div>
+                        <div class="setting-row" style="gap:10px;">
+                            <select id="wc2026-draw-team-select"
+                                    style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
+                                           padding:8px 10px;color:var(--white);font-family:inherit;font-size:0.82rem;outline:none;">
+                                <option value="">اختر المنتخب البطل...</option>
+                            </select>
+                            <button id="wc2026-draw-btn"
+                                    style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                                           padding:8px 16px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                                🎲 اختيار فائز عشوائي
+                            </button>
+                        </div>
+                        <div id="wc2026-draw-result" style="display:none;margin-top:10px;padding:10px 14px;background:var(--surface2);border:1px solid rgba(255,92,0,0.3);border-radius:var(--radius-md);font-size:0.85rem;color:var(--white);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ═══════════════════════════════════════════════════════
+             WORLD CUP 2026 PROMO — END (HTML)
+        ═══════════════════════════════════════════════════════ -->
 
         <!-- ═══════════ REGISTRATION TYPE ═══════════ -->
         <div class="settings-section">
@@ -8821,6 +9154,41 @@ function renderSettings() {
         openCenterLocationModal(deliveryCenterLoc?.lat, deliveryCenterLoc?.lng);
     });
 
+    // Delivery coverage radius — quick standalone control (no need to
+    // open the full map modal just to tweak the number).
+    document.getElementById('coverage-radius-save-btn')?.addEventListener('click', async () => {
+        const input  = document.getElementById('coverage-radius-input');
+        const status = document.getElementById('coverage-radius-status');
+        const v = parseFloat(input?.value);
+        if (isNaN(v) || v <= 0) {
+            if (status) { status.textContent = '❌ أدخل رقماً صحيحاً أكبر من صفر'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        if (!deliveryCenterLoc) {
+            if (status) { status.textContent = '⚠ حدد موقع مركز Delivo أولاً (زر "تغيير الموقع" أعلاه)'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        const btn = document.getElementById('coverage-radius-save-btn');
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            deliveryCenterLoc = { ...deliveryCenterLoc, radiusKm: v };
+            deliveryRadiusKm  = v;
+            await fbSet('settings/deliveryCenter', deliveryCenterLoc);
+            _updateCenterLocDisplay();
+            if (adminMap) renderMap();
+            if (status) { status.textContent = `✅ تم تحديث نطاق التغطية إلى ${v} كم`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ: ' + e.message; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        } finally {
+            btn.disabled = false; btn.textContent = '💾 حفظ النطاق';
+        }
+    });
+
+    // World Cup 2026 promo (self-contained — see _wc2026AdminInit definition
+    // further down, clearly marked "WORLD CUP 2026 PROMO", for easy removal)
+    if (typeof _wc2026AdminInit === 'function') _wc2026AdminInit();
+
     document.getElementById('admin-phone-save')?.addEventListener('click', async () => {
         const inp    = document.getElementById('admin-phone-input');
         const status = document.getElementById('admin-phone-status');
@@ -9348,11 +9716,351 @@ window.setMaxOrders = async function(val) {
    SETTINGS FUNCTIONS
 ══════════════════════════════════════════════════════════ */
 
+/* ══════════════════════════════════════════════════════════
+   WORLD CUP 2026 PROMO — START (admin logic)
+   Time-boxed marketing campaign. To retire the whole feature later,
+   delete this entire block (down to the matching "END" marker) plus
+   the HTML section #wc2026-admin-section above, and the customer-side
+   files: scripts/worldcup2026.js, styles/worldcup2026.css, and the two
+   blocks marked "WORLD CUP 2026 PROMO" in index.html.
+══════════════════════════════════════════════════════════ */
+
+// Seed roster used only the first time the campaign is launched.
+// Flags/names for all 48 World Cup 2026 teams. Elimination status
+// reflects confirmed results through the Round of 16 as of the last
+// time this file was reviewed (France and Morocco have already won
+// their R16 matches; Brazil/Norway, Mexico/England, Spain/Portugal,
+// Belgium/USA, Egypt/Argentina and Switzerland/Colombia are the
+// remaining R16 fixtures) — only these 14 teams are still alive:
+// Mexico, Switzerland, Brazil, Morocco, USA, Egypt, Spain, France,
+// Norway, Argentina, Colombia, Portugal, England, Belgium.
+// Update the "❌ خرج" toggle in the grid below as each new result
+// comes in — this seed only matters the moment "تفعيل الحملة" is
+// first pressed; after that, the toggles are the source of truth.
+const WC2026_TEAM_SEED = {
+    MEX: { name:'Mexico',                 nameAr:'المكسيك',              iso2:'mx' },
+    RSA: { name:'South Africa',           nameAr:'جنوب أفريقيا',         iso2:'za', eliminated:true },
+    KOR: { name:'Korea Republic',         nameAr:'كوريا الجنوبية',       iso2:'kr', eliminated:true },
+    CZE: { name:'Czechia',                nameAr:'التشيك',               iso2:'cz', eliminated:true },
+    SUI: { name:'Switzerland',            nameAr:'سويسرا',               iso2:'ch' },
+    CAN: { name:'Canada',                 nameAr:'كندا',                  iso2:'ca', eliminated:true },
+    BIH: { name:'Bosnia and Herzegovina', nameAr:'البوسنة والهرسك',       iso2:'ba', eliminated:true },
+    QAT: { name:'Qatar',                  nameAr:'قطر',                   iso2:'qa', eliminated:true },
+    BRA: { name:'Brazil',                 nameAr:'البرازيل',              iso2:'br' },
+    MAR: { name:'Morocco',                nameAr:'المغرب',                iso2:'ma' },
+    SCO: { name:'Scotland',               nameAr:'اسكتلندا',              iso2:'gb-sct', eliminated:true },
+    HTI: { name:'Haiti',                  nameAr:'هايتي',                 iso2:'ht', eliminated:true },
+    USA: { name:'USA',                    nameAr:'الولايات المتحدة',      iso2:'us' },
+    AUS: { name:'Australia',              nameAr:'أستراليا',              iso2:'au', eliminated:true },
+    PAR: { name:'Paraguay',               nameAr:'باراغواي',              iso2:'py', eliminated:true },
+    TUR: { name:'Turkiye',                nameAr:'تركيا',                 iso2:'tr', eliminated:true },
+    GER: { name:'Germany',                nameAr:'ألمانيا',               iso2:'de', eliminated:true },
+    CIV: { name:'Ivory Coast',            nameAr:'ساحل العاج',            iso2:'ci', eliminated:true },
+    ECU: { name:'Ecuador',                nameAr:'الإكوادور',             iso2:'ec', eliminated:true },
+    CUW: { name:'Curacao',                nameAr:'كوراساو',               iso2:'cw', eliminated:true },
+    NED: { name:'Netherlands',            nameAr:'هولندا',                iso2:'nl', eliminated:true },
+    JPN: { name:'Japan',                  nameAr:'اليابان',               iso2:'jp', eliminated:true },
+    SWE: { name:'Sweden',                 nameAr:'السويد',                iso2:'se', eliminated:true },
+    TUN: { name:'Tunisia',                nameAr:'تونس',                  iso2:'tn', eliminated:true },
+    BEL: { name:'Belgium',                nameAr:'بلجيكا',                iso2:'be' },
+    EGY: { name:'Egypt',                  nameAr:'مصر',                   iso2:'eg' },
+    IRN: { name:'IR Iran',                nameAr:'إيران',                 iso2:'ir', eliminated:true },
+    NZL: { name:'New Zealand',            nameAr:'نيوزيلندا',             iso2:'nz', eliminated:true },
+    ESP: { name:'Spain',                  nameAr:'إسبانيا',               iso2:'es' },
+    CPV: { name:'Cape Verde',             nameAr:'الرأس الأخضر',          iso2:'cv', eliminated:true },
+    URU: { name:'Uruguay',                nameAr:'أوروغواي',              iso2:'uy', eliminated:true },
+    KSA: { name:'Saudi Arabia',           nameAr:'السعودية',              iso2:'sa', eliminated:true },
+    FRA: { name:'France',                 nameAr:'فرنسا',                 iso2:'fr' },
+    NOR: { name:'Norway',                 nameAr:'النرويج',               iso2:'no' },
+    SEN: { name:'Senegal',                nameAr:'السنغال',               iso2:'sn', eliminated:true },
+    IRQ: { name:'Iraq',                   nameAr:'العراق',                iso2:'iq', eliminated:true },
+    ARG: { name:'Argentina',              nameAr:'الأرجنتين',             iso2:'ar' },
+    AUT: { name:'Austria',                nameAr:'النمسا',                iso2:'at', eliminated:true },
+    DZA: { name:'Algeria',                nameAr:'الجزائر',               iso2:'dz', eliminated:true },
+    JOR: { name:'Jordan',                 nameAr:'الأردن',                iso2:'jo', eliminated:true },
+    COL: { name:'Colombia',               nameAr:'كولومبيا',              iso2:'co' },
+    POR: { name:'Portugal',               nameAr:'البرتغال',              iso2:'pt' },
+    COD: { name:'Congo DR',               nameAr:'الكونغو الديمقراطية',   iso2:'cd', eliminated:true },
+    UZB: { name:'Uzbekistan',             nameAr:'أوزبكستان',             iso2:'uz', eliminated:true },
+    ENG: { name:'England',                nameAr:'إنجلترا',               iso2:'gb-eng' },
+    CRO: { name:'Croatia',                nameAr:'كرواتيا',               iso2:'hr', eliminated:true },
+    GHA: { name:'Ghana',                  nameAr:'غانا',                  iso2:'gh', eliminated:true },
+    PAN: { name:'Panama',                 nameAr:'بنما',                  iso2:'pa', eliminated:true },
+};
+
+let _wc2026Cfg           = null;
+let _wc2026EntriesByTeam = {}; // teamCode → [{ uid, displayName, username, phone, ts }]
+
+function _wc2026AdminInit() {
+    _wc2026BindOnce();
+    _wc2026AdminLoadAndRender();
+}
+
+async function _wc2026AdminLoadAndRender() {
+    const loading   = document.getElementById('wc2026-admin-loading');
+    const launchRow = document.getElementById('wc2026-launch-row');
+    const configRow = document.getElementById('wc2026-config-row');
+    if (!loading) return; // section not in DOM (already removed) — no-op
+
+    loading.style.display = 'block';
+    if (launchRow) launchRow.style.display = 'none';
+    if (configRow) configRow.style.display = 'none';
+
+    try {
+        const [cfg, entries] = await Promise.all([
+            fbGet('settings/worldcup2026'),
+            fbGet('worldcup2026Entries'),
+        ]);
+        _wc2026Cfg = cfg || null;
+
+        _wc2026EntriesByTeam = {};
+        if (entries && typeof entries === 'object') {
+            Object.keys(entries).forEach(uid => {
+                const e = entries[uid];
+                if (!e || !e.team) return;
+                (_wc2026EntriesByTeam[e.team] = _wc2026EntriesByTeam[e.team] || []).push({ uid, ...e });
+            });
+        }
+
+        loading.style.display = 'none';
+
+        if (!_wc2026Cfg) {
+            if (launchRow) launchRow.style.display = 'block';
+            return;
+        }
+        if (configRow) configRow.style.display = 'block';
+        _wc2026RenderConfig();
+    } catch (e) {
+        loading.textContent = '❌ تعذّر تحميل بيانات الحملة: ' + e.message;
+    }
+}
+
+function _wc2026RenderConfig() {
+    const cfg = _wc2026Cfg;
+    if (!cfg) return;
+
+    const activeToggle = document.getElementById('wc2026-active-toggle');
+    if (activeToggle) activeToggle.checked = cfg.active === true;
+
+    const expiryText = document.getElementById('wc2026-expiry-text');
+    if (expiryText) {
+        const expiresAt = cfg.expiresAt || 0;
+        const remaining = expiresAt - Date.now();
+        if (!cfg.active) {
+            expiryText.textContent = 'الحملة موقوفة يدوياً حالياً';
+        } else if (remaining <= 0) {
+            expiryText.textContent = 'انتهت مدة الحملة تلقائياً — لن تظهر للعملاء بعد الآن';
+        } else {
+            const days    = Math.max(1, Math.ceil(remaining / (24*60*60*1000)));
+            const dateStr = new Date(expiresAt).toLocaleDateString('ar-LB', { day:'numeric', month:'long', year:'numeric' });
+            expiryText.textContent = `تنتهي تلقائياً خلال ${days} يوماً — بتاريخ ${dateStr}`;
+        }
+    }
+
+    const prizeInput = document.getElementById('wc2026-prize-input');
+    if (prizeInput) prizeInput.value = cfg.prizeUSD || 100;
+
+    const totalEntriesEl = document.getElementById('wc2026-total-entries');
+    const totalCount = Object.values(_wc2026EntriesByTeam).reduce((s, arr) => s + arr.length, 0);
+    if (totalEntriesEl) totalEntriesEl.textContent = totalCount;
+
+    _wc2026RenderTeamsGrid();
+    _wc2026RenderDrawSelect();
+}
+
+function _wc2026RenderTeamsGrid(filter) {
+    const grid = document.getElementById('wc2026-teams-grid');
+    if (!grid || !_wc2026Cfg) return;
+    const teams = _wc2026Cfg.teams || {};
+    const q = (filter !== undefined ? filter : (document.getElementById('wc2026-team-search')?.value || '')).trim();
+
+    grid.innerHTML = '';
+    Object.keys(teams)
+        .filter(code => !q || teams[code].nameAr.includes(q) || teams[code].name.toLowerCase().includes(q.toLowerCase()) || code.toLowerCase().includes(q.toLowerCase()))
+        .sort((a, b) => teams[a].nameAr.localeCompare(teams[b].nameAr, 'ar'))
+        .forEach(code => {
+            const team  = teams[code];
+            const count = (_wc2026EntriesByTeam[code] || []).length;
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;';
+            row.innerHTML = `
+                <img src="https://flagcdn.com/32x24/${team.iso2}.png" style="border-radius:3px;flex-shrink:0;" alt="">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.8rem;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${team.nameAr}</div>
+                    <div style="font-size:0.65rem;color:var(--gray);">${count} مسجّل</div>
+                </div>
+                <label class="toggle" style="flex-shrink:0;" title="خرج من البطولة">
+                    <input type="checkbox" data-code="${code}" class="wc2026-elim-toggle" ${team.eliminated ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            `;
+            grid.appendChild(row);
+        });
+
+    if (!grid.children.length) {
+        grid.innerHTML = '<div style="color:var(--gray);font-size:0.8rem;padding:10px;">لا توجد نتائج مطابقة</div>';
+    }
+
+    grid.querySelectorAll('.wc2026-elim-toggle').forEach(inp => {
+        inp.addEventListener('change', async () => {
+            const code = inp.dataset.code;
+            inp.disabled = true;
+            try {
+                await fbSet(`settings/worldcup2026/teams/${code}/eliminated`, inp.checked);
+                _wc2026Cfg.teams[code].eliminated = inp.checked;
+                toast(`${inp.checked ? '❌ تم إخراج' : '✅ تمت إعادة'} ${_wc2026Cfg.teams[code].nameAr} ${inp.checked ? 'من البطولة' : 'إلى المنافسة'}`);
+            } catch (e) {
+                inp.checked = !inp.checked;
+                toast('فشل التحديث: ' + e.message, true);
+            } finally {
+                inp.disabled = false;
+            }
+        });
+    });
+}
+
+function _wc2026RenderDrawSelect() {
+    const select = document.getElementById('wc2026-draw-team-select');
+    if (!select || !_wc2026Cfg) return;
+    const teams   = _wc2026Cfg.teams || {};
+    const current = select.value;
+
+    select.innerHTML = '<option value="">اختر المنتخب البطل...</option>';
+    Object.keys(_wc2026EntriesByTeam)
+        .filter(code => teams[code])
+        .sort((a, b) => _wc2026EntriesByTeam[b].length - _wc2026EntriesByTeam[a].length)
+        .forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code;
+            opt.textContent = `${teams[code].nameAr} — ${_wc2026EntriesByTeam[code].length} مسجّل`;
+            select.appendChild(opt);
+        });
+    if (current) select.value = current;
+}
+
+function _wc2026BindOnce() {
+    if (window._wc2026AdminBound) return;
+    window._wc2026AdminBound = true;
+
+    // Collapsed by default — expands on click, chevron rotates to indicate state.
+    document.getElementById('wc2026-toggle-header')?.addEventListener('click', () => {
+        const body    = document.getElementById('wc2026-admin-body');
+        const chevron = document.getElementById('wc2026-toggle-chevron');
+        if (!body) return;
+        const expanded = body.style.display !== 'none';
+        body.style.display = expanded ? 'none' : 'block';
+        if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
+    });
+
+    document.getElementById('wc2026-launch-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('wc2026-launch-btn');
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            const now   = Date.now();
+            const teams = {};
+            Object.keys(WC2026_TEAM_SEED).forEach(code => {
+                teams[code] = { ...WC2026_TEAM_SEED[code], eliminated: !!WC2026_TEAM_SEED[code].eliminated };
+            });
+            const cfg = {
+                active:    true,
+                createdAt: now,
+                expiresAt: now + 14 * 24 * 60 * 60 * 1000,
+                prizeUSD:  100,
+                teams,
+            };
+            await fbSet('settings/worldcup2026', cfg);
+            toast('🚀 تم تفعيل حملة كأس العالم 2026 لمدة 14 يوماً');
+            await _wc2026AdminLoadAndRender();
+        } catch (e) {
+            toast('فشل التفعيل: ' + e.message, true);
+        } finally {
+            btn.disabled = false; btn.textContent = '🚀 تفعيل الحملة الآن';
+        }
+    });
+
+    document.getElementById('wc2026-active-toggle')?.addEventListener('change', async (e) => {
+        if (!_wc2026Cfg) return;
+        const checked = e.target.checked;
+        e.target.disabled = true;
+        try {
+            await fbSet('settings/worldcup2026/active', checked);
+            _wc2026Cfg.active = checked;
+            _wc2026RenderConfig();
+            toast(checked ? '✅ تم تفعيل الحملة' : '⏸ تم إيقاف الحملة يدوياً');
+        } catch (err) {
+            e.target.checked = !checked;
+            toast('فشل التحديث: ' + err.message, true);
+        } finally {
+            e.target.disabled = false;
+        }
+    });
+
+    document.getElementById('wc2026-extend-btn')?.addEventListener('click', async () => {
+        if (!_wc2026Cfg) return;
+        const btn = document.getElementById('wc2026-extend-btn');
+        btn.disabled = true;
+        try {
+            const base      = Math.max(_wc2026Cfg.expiresAt || 0, Date.now());
+            const newExpiry = base + 7 * 24 * 60 * 60 * 1000;
+            await fbSet('settings/worldcup2026/expiresAt', newExpiry);
+            _wc2026Cfg.expiresAt = newExpiry;
+            _wc2026RenderConfig();
+            toast('🔄 تم تمديد الحملة أسبوعاً إضافياً');
+        } catch (e) {
+            toast('فشل التمديد: ' + e.message, true);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    document.getElementById('wc2026-prize-save-btn')?.addEventListener('click', async () => {
+        if (!_wc2026Cfg) return;
+        const input = document.getElementById('wc2026-prize-input');
+        const v = parseFloat(input?.value);
+        if (isNaN(v) || v <= 0) { toast('أدخل قيمة صحيحة للجائزة', true); return; }
+        try {
+            await fbSet('settings/worldcup2026/prizeUSD', v);
+            _wc2026Cfg.prizeUSD = v;
+            toast(`💾 تم تحديث قيمة الجائزة إلى $${v}`);
+        } catch (e) {
+            toast('فشل الحفظ: ' + e.message, true);
+        }
+    });
+
+    document.getElementById('wc2026-team-search')?.addEventListener('input', (e) => {
+        _wc2026RenderTeamsGrid(e.target.value);
+    });
+
+    document.getElementById('wc2026-draw-btn')?.addEventListener('click', () => {
+        const select    = document.getElementById('wc2026-draw-team-select');
+        const resultBox = document.getElementById('wc2026-draw-result');
+        const code      = select?.value;
+        if (!code) { toast('اختر المنتخب البطل أولاً', true); return; }
+        const pool = _wc2026EntriesByTeam[code] || [];
+        if (!pool.length) { toast('لا يوجد مسجّلون مع هذا المنتخب', true); return; }
+        const winner   = pool[Math.floor(Math.random() * pool.length)];
+        const teamName = (_wc2026Cfg.teams[code] || {}).nameAr || code;
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = `
+            🎉 <b>الفائز بجائزة $${_wc2026Cfg.prizeUSD || 100}</b><br>
+            المنتخب البطل: ${teamName}<br>
+            الاسم: ${winner.displayName || winner.username || '—'}<br>
+            الهاتف: <span style="direction:ltr;display:inline-block;font-family:var(--mono);">${winner.phone || '—'}</span>
+            <div style="font-size:0.68rem;color:var(--gray);margin-top:4px;">تم الاختيار عشوائياً من أصل ${pool.length} مسجّل مع هذا المنتخب</div>
+        `;
+    });
+}
+/* ══════════════════════════════════════════════════════════
+   WORLD CUP 2026 PROMO — END (admin logic)
+══════════════════════════════════════════════════════════ */
+
 function _updateCenterLocDisplay() {
     const el = document.getElementById('center-loc-current');
+    const radiusInput = document.getElementById('coverage-radius-input');
+    if (radiusInput && document.activeElement !== radiusInput) radiusInput.value = deliveryRadiusKm || 7;
     if (!el) return;
     if (deliveryCenterLoc) {
-        el.textContent = `${deliveryCenterLoc.lat.toFixed(6)}, ${deliveryCenterLoc.lng.toFixed(6)}`;
+        el.textContent = `${deliveryCenterLoc.lat.toFixed(6)}, ${deliveryCenterLoc.lng.toFixed(6)}  ·  نطاق التغطية: ${deliveryRadiusKm} كم`;
         el.style.color = 'var(--white)';
     } else {
         el.textContent = '⚠ لم يتم تحديد الموقع بعد';
@@ -9368,6 +10076,8 @@ async function loadSettings() {
             && typeof s.deliveryCenter.lat === 'number'
             && typeof s.deliveryCenter.lng === 'number')
             ? s.deliveryCenter : null;
+        deliveryRadiusKm = (deliveryCenterLoc && typeof deliveryCenterLoc.radiusKm === 'number' && deliveryCenterLoc.radiusKm > 0)
+            ? deliveryCenterLoc.radiusKm : 7;
         _updateCenterLocDisplay();
         const maint = document.getElementById('toggle-maintenance');
         if (maint) maint.checked = s.maintenance === true || s.maintenance === 'true';
@@ -11400,6 +12110,7 @@ async function startCompanyPortal() {
     document.getElementById('cp-store-name').textContent = store;
     document.getElementById('cp-username').textContent   = uname;
     document.getElementById('cp-avatar').textContent     = initial;
+    _updateNotifBellUI();
 
     // Wire search (FIX 3)
     document.getElementById('cp-search')?.addEventListener('input', e => {
@@ -11448,6 +12159,8 @@ async function cpLoadOrders() {
     try {
         const raw = await fbGet('requests');
         cpOrdersCache = raw || {};
+        const store = currentAdmin?.linkedStore || '';
+        if (store) _detectAndAlertNewOrders(cpOrdersCache, store);
     } catch(e) {}
     cpRender();
 }

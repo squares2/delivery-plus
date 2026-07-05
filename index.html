@@ -40,6 +40,8 @@
     <link rel="stylesheet" href="styles/store-panel.css?v=3">
     <link rel="stylesheet" href="styles/cart.css?v=5">
     <link rel="stylesheet" href="styles/footer.css?v=7">
+    <!-- WORLD CUP 2026 PROMO — remove this line + styles/worldcup2026.css to retire the campaign -->
+    <link rel="stylesheet" href="styles/worldcup2026.css?v=1">
 </head>
 <body>
 
@@ -282,6 +284,23 @@
             </div>
 
         </section>
+
+        <!-- ═══ WORLD CUP 2026 PROMO — START (banner) ═══════════════
+             Remove this block + scripts/worldcup2026.js + the modal
+             block below + styles/worldcup2026.css to retire the
+             campaign. It renders nothing at all if the campaign is
+             inactive/expired in Firebase, so leaving this block in
+             place is harmless even after retirement — but full
+             removal is cleaner. ═══════════════════════════════════ -->
+        <div class="wc2026-banner" id="wc2026-banner">
+            <span class="wc2026-banner__icon">🏆</span>
+            <div class="wc2026-banner__text">
+                <div class="wc2026-banner__title">كأس العالم 2026 مع Delivo!</div>
+                <div class="wc2026-banner__sub">اختر منتخبك واربح 100$ إذا فاز بالبطولة</div>
+            </div>
+            <div class="wc2026-banner__cta">سجّل الآن</div>
+        </div>
+        <!-- ═══ WORLD CUP 2026 PROMO — END (banner) ═══ -->
 
         <script>
         /* ── Hero Carousel (mobile only, pauses on desktop) ─── */
@@ -542,9 +561,15 @@
                 <span class="field-hint">مثال: 03 123 456 أو 71 123 456</span>
             </div>
 
-            <!-- Location (optional) — GPS or Map picker -->
+            <!-- Location (OBLIGATORY) — GPS or Map picker -->
             <div class="modal-field">
-                <label>موقعك <span style="color:var(--clr-gray-400)">(اختياري - لتوصيل أسرع)</span></label>
+                <label>📍 عنوان التوصيل <span class="field-required">*</span></label>
+
+                <p class="location-status location-status--info" style="margin:0 0 8px;">
+                    لضمان وصول طلبك بأسرع وقت ودون التباس، حدّد موقعك بإحدى الطريقتين:<br>
+                    <b>موقعي الحالي</b> إذا كنت تسجّل من نفس مكان التوصيل، أو <b>اختر على الخريطة</b> لتحديد عنوان آخر (منزل/عمل) أو لضبط الموقع بدقة أكبر.
+                    ضع الدبوس عند مدخل المبنى أو أقرب نقطة يسهل على السائق الوصول إليها.
+                </p>
 
                 <!-- Two option buttons -->
                 <div class="location-options">
@@ -562,7 +587,7 @@
                     </button>
                 </div>
 
-                <!-- Status line -->
+                <!-- Status / validation-error line -->
                 <p class="location-status" id="reg-location-status" style="display:none;"></p>
 
                 <!-- Map container (hidden until user clicks map option) -->
@@ -1143,6 +1168,8 @@
     <script src="scripts/pwa.js?v=8"></script>
     <script src="scripts/presence.js?v=1"></script>
     <script src="scripts/back-handler.js?v=1"></script>
+    <!-- WORLD CUP 2026 PROMO — remove this line + scripts/worldcup2026.js to retire the campaign -->
+    <script src="scripts/worldcup2026.js?v=1"></script>
     <script>
     // ── Wire "تتبع الطلب" nav links ──────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
@@ -1284,6 +1311,62 @@
         </div>
     </div>
 </div>
+
+<!-- ── Delivery Coverage Warning — shown when the chosen pin falls outside the radius ── -->
+<div id="coverage-warning-modal" style="display:none;position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,0.65);align-items:flex-end;justify-content:center;">
+    <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px;border-bottom:1px solid #f0f0f0;">
+            <span style="font-size:1rem;font-weight:800;color:#111;display:flex;align-items:center;gap:6px;">🚫 خارج نطاق التوصيل</span>
+            <button id="coverage-warning-close" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#888;padding:4px 8px;">✕</button>
+        </div>
+        <p id="coverage-warning-msg" style="padding:10px 16px 4px;margin:0;font-size:0.85rem;line-height:1.7;color:#444;text-align:right;">
+            موقعك المحدد يقع خارج نطاق التغطية. الرجاء اختيار موقع أقرب.
+        </p>
+        <div id="coverage-warning-map" style="width:100%;height:48vh;min-height:240px;margin-top:8px;"></div>
+        <div style="padding:12px 16px 20px;display:flex;gap:10px;">
+            <button id="coverage-warning-close-btn" onclick="_closeCoverageWarning()" style="flex:1;background:#f3f4f6;color:#333;border:none;border-radius:12px;padding:13px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;">إغلاق</button>
+            <button id="coverage-warning-change-btn" style="flex:2;background:#FF5C00;color:#fff;border:none;border-radius:12px;padding:13px;font-size:0.95rem;font-weight:800;cursor:pointer;font-family:inherit;">🗺 تغيير الموقع</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ WORLD CUP 2026 PROMO — START (modal) ═══════════════════════
+     Remove this block + the banner block above + scripts/worldcup2026.js
+     + styles/worldcup2026.css to retire the campaign. ══════════════ -->
+<div id="wc2026-modal">
+    <div class="wc2026-sheet">
+        <div class="wc2026-sheet__header">
+            <span class="wc2026-sheet__title">🏆 كأس العالم 2026</span>
+            <button class="wc2026-sheet__close" id="wc2026-close" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="wc2026-sheet__body">
+
+            <!-- Picker view — shown to customers who haven't registered yet -->
+            <div id="wc2026-picker-view">
+                <p class="wc2026-intro">
+                    تصفّح مسار كأس العالم 2026 كاملاً بدءاً من دور الـ32، واختر منتخبك المفضّل من بين
+                    المنتخبات المتأهلة حالياً، وسجّل الآن لتربح <b>100$</b> إذا فاز منتخبك بالبطولة! 🏆💵
+                </p>
+                <div class="wc2026-rules">
+                    التسجيل مرة واحدة لكل حساب ولا يمكن تغيير الاختيار لاحقاً. المنتخبات المستبعدة تظهر
+                    باهتة وموسومة بـ"خرج" في المخطط ولا يمكن اختيارها، فاختر بحكمة!
+                </div>
+                <div class="wc2026-bracket-hint">👆 مرّر يميناً ويساراً لتتصفح مسار البطولة كاملاً من دور الـ32 حتى النهائي، واضغط على اسم منتخبك لاختياره</div>
+                <div class="wc2026-bracket-scroll">
+                    <div id="wc2026-bracket"></div>
+                </div>
+                <div class="wc2026-selected-line" id="wc2026-selected-line"></div>
+                <button class="wc2026-submit-btn" id="wc2026-submit-btn" disabled>🎉 سجّل الآن</button>
+                <p id="wc2026-error"></p>
+            </div>
+
+            <!-- Registered view — shown to customers who already picked a team -->
+            <div id="wc2026-registered-view"></div>
+
+        </div>
+    </div>
+</div>
+<!-- ═══ WORLD CUP 2026 PROMO — END (modal) ═══ -->
 
 <!-- ══════════════════════════════════════════════════════════
      LOYALTY MODAL — Points ladder
