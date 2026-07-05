@@ -137,124 +137,70 @@
     padding: 9px 12px;
     margin-bottom: 12px;
 }
-.wc2026-bracket-hint {
-    font-size: 0.68rem;
-    color: rgba(255,255,255,0.45);
-    text-align: center;
-    margin-bottom: 10px;
-    line-height: 1.5;
+.wc2026-search {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    margin-bottom: 12px;
 }
+.wc2026-search::placeholder { color: rgba(255,255,255,0.4); }
+.wc2026-search:focus { border-color: #ffcc00; }
 
-/* ── Knockout bracket (Round of 32 → Final) ─────────────────────
-   Bleeds to the sheet's edges so it can scroll horizontally full-
-   width; direction is forced to ltr so rounds always read left
-   (Round of 32) to right (Final), the universal bracket convention,
-   regardless of the page's own RTL layout. ─────────────────────── */
-.wc2026-bracket-scroll {
-    overflow-x: auto;
-    overflow-y: hidden;
-    margin: 0 -18px;
-    padding: 2px 18px 10px;
-    direction: ltr;
+#wc2026-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    max-height: 46vh;
+    overflow-y: auto;
+    padding-bottom: 4px;
 }
-#wc2026-bracket {
-    display: flex;
-    gap: 12px;
-    direction: ltr;
-    width: max-content;
-}
-.wc-round {
-    flex-shrink: 0;
-    width: 118px;
-}
-.wc-round-title {
-    font-size: 0.66rem;
-    font-weight: 900;
-    color: #ffcc00;
+.wc-empty {
+    grid-column: 1 / -1;
     text-align: center;
-    margin-bottom: 8px;
-    white-space: nowrap;
+    color: rgba(255,255,255,0.45);
+    font-size: 0.8rem;
+    padding: 20px 0;
 }
-.wc-round-body {
+.wc-team-tile {
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
-    height: 900px;
-    gap: 6px;
-}
-.wc-node {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    padding: 5px 6px;
-}
-.wc-node-date {
-    font-size: 0.56rem;
-    font-weight: 700;
-    color: rgba(255,255,255,0.38);
-    text-align: center;
-    margin-bottom: 3px;
-}
-.wc-node-team {
-    display: flex;
     align-items: center;
     gap: 5px;
-    padding: 3px 4px;
-    border-radius: 5px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 10px 6px 8px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: all 0.15s;
+    font-family: inherit;
 }
-.wc-node-team img {
-    width: 18px; height: 13px;
+.wc-team-tile img {
+    width: 36px; height: 27px;
     object-fit: cover;
-    border-radius: 2px;
-    flex-shrink: 0;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    border-radius: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
-.wc-node-team span {
-    font-size: 0.6rem;
+.wc-team-tile span {
+    font-size: 0.68rem;
     font-weight: 700;
     color: rgba(255,255,255,0.85);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-    min-width: 0;
-}
-.wc-node-team:hover { background: rgba(255,204,0,0.12); }
-.wc-node-team--out {
-    cursor: not-allowed;
-    opacity: 0.42;
-}
-.wc-node-team--out:hover { background: none; }
-.wc-node-team--out span { text-decoration: line-through; }
-.wc-node-out-badge {
-    font-size: 0.5rem;
-    font-style: normal;
-    font-weight: 800;
-    color: #ff8080;
-    flex-shrink: 0;
-}
-.wc-node-team--selected {
-    background: rgba(255,204,0,0.18);
-    box-shadow: 0 0 0 1.5px #ffcc00 inset;
-}
-.wc-node-team--selected span { color: #ffcc00; }
-.wc-node-tbd {
-    font-size: 0.58rem;
-    color: rgba(255,255,255,0.3);
     text-align: center;
-    padding: 12px 2px;
+    line-height: 1.25;
 }
-
-.wc2026-selected-line {
-    text-align: center;
-    font-size: 0.8rem;
-    font-weight: 800;
-    color: #ffcc00;
-    min-height: 18px;
-    margin: 10px 0 2px;
+.wc-team-tile:hover { border-color: rgba(255,204,0,0.4); background: rgba(255,255,255,0.1); }
+.wc-team-tile--selected {
+    border-color: #ffcc00;
+    background: rgba(255,204,0,0.14);
+    box-shadow: 0 0 0 2px rgba(255,204,0,0.25);
 }
+.wc-team-tile--selected span { color: #ffcc00; }
 
 .wc2026-submit-btn {
     width: 100%;
