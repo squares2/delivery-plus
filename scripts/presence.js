@@ -14,6 +14,22 @@
 
     let lastSweep = 0;
 
+    // Admin-configurable padding added on top of the real live-visitor
+    // count (settings/presenceBoost) — purely cosmetic "social proof",
+    // never affects the actual presence data or count logic below.
+    let _boost = 0;
+    let _lastRealCount = null;
+    async function loadBoost() {
+        try {
+            const r = await fetch(`${RTDB_BASE}/settings/presenceBoost.json`);
+            const v = await r.json();
+            _boost = (typeof v === 'number' && v > 0) ? v : 0;
+        } catch (_) { _boost = 0; }
+        // Reflect a boost change immediately rather than waiting for the
+        // next real presence update.
+        if (_lastRealCount !== null) updateWidget(_lastRealCount);
+    }
+
     // Count only entries whose heartbeat is recent; anything older is a
     // leaked/zombie node (crashed tab, killed app, REST client that never
     // got to fire beforeunload) that never got cleaned up.
@@ -193,17 +209,19 @@
     }
 
     function updateWidget(count) {
+        _lastRealCount = count;
         const el = document.getElementById('hero-online-count');
         if (!el) return;
         const num = el.querySelector('.online-num');
         const dot = el.querySelector('.online-dot');
         if (!num) return;
+        const displayCount = count + _boost;
         const prev = parseInt(num.textContent) || 0;
-        if (prev === count) return;
+        if (prev === displayCount) return;
         num.style.transform = 'translateY(-5px)';
         num.style.opacity   = '0';
         setTimeout(() => {
-            num.textContent     = count;
+            num.textContent     = displayCount;
             num.style.transform = 'translateY(0)';
             num.style.opacity   = '1';
         }, 180);
@@ -213,6 +231,7 @@
 
     function init() {
         setTimeout(() => {
+            loadBoost();
             const uuid = getDeviceUUID();
             function trySDK() {
                 if (window.firebase?.database) { initWithSDK(uuid, window.firebase.database()); return true; }
@@ -220,6 +239,10 @@
             }
             if (!trySDK()) setTimeout(() => { if (!trySDK()) initWithREST(uuid); }, 1500);
         }, 800);
+
+        // Re-check periodically in case the admin changes the boost value
+        // while this tab is already open — cheap single-field read.
+        setInterval(loadBoost, 60 * 1000);
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

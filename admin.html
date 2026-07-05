@@ -8353,6 +8353,31 @@ function renderSettings() {
         </div>
 
         <div class="settings-section">
+            <div class="settings-section-title">🧑‍🤝‍🧑 عداد الزوار المباشر (Live Visitors)</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">رقم إضافي يُضاف على العدد الحقيقي</div>
+                    <div class="setting-sub">
+                        العداد أعلى يمين الصفحة الرئيسية يعرض عدد الزوار المتصلين فعلياً + هذا الرقم — يظهر إقبالاً
+                        أكبر من الواقع. اتركه 0 لعرض العدد الحقيقي فقط.
+                    </div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;">
+                <input type="number" id="presence-boost-input" placeholder="0" min="0" step="1"
+                       style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                              font-family:var(--mono);font-size:0.85rem;direction:ltr;">
+                <button id="presence-boost-save"
+                        style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ
+                </button>
+            </div>
+            <div id="presence-boost-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+        </div>
+
+        <div class="settings-section">
             <div class="settings-section-title">📱 حدود التسجيل</div>
             <div class="setting-row">
                 <div>
@@ -9092,6 +9117,34 @@ function renderSettings() {
         try {
             await fbSet('settings/dollarRate', rate);
             if (status) { status.textContent = `✅ تم حفظ — 1$ = ${rate.toLocaleString('ar')} ل.ل`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        }
+    });
+
+    // Load presenceBoost
+    fbGet('settings/presenceBoost').then(val => {
+        const inp = document.getElementById('presence-boost-input');
+        if (inp) inp.value = (typeof val === 'number' && val > 0) ? val : 0;
+    }).catch(() => {});
+
+    document.getElementById('presence-boost-save')?.addEventListener('click', async () => {
+        const inp    = document.getElementById('presence-boost-input');
+        const status = document.getElementById('presence-boost-status');
+        const boost  = parseInt(inp?.value);
+        if (isNaN(boost) || boost < 0) {
+            if (status) { status.textContent = '⚠️ أدخل رقماً صحيحاً (0 أو أكثر)'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        try {
+            await fbSet('settings/presenceBoost', boost);
+            if (status) {
+                status.textContent = boost > 0
+                    ? `✅ تم الحفظ — سيُضاف ${boost} إلى عدد الزوار الحقيقي في الواجهة`
+                    : '✅ تم الحفظ — العداد سيعرض العدد الحقيقي فقط';
+                status.style.color = 'var(--green)'; status.style.display = 'block';
+            }
             setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
         } catch(e) {
             if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
@@ -10577,6 +10630,30 @@ function renderBackupPanel() {
         </div>
     </div>
 
+    <!-- ── Reset Counter Only (non-destructive) ─────────────── -->
+    <div class="bk-section" style="border-color:rgba(251,146,60,.3);">
+        <div class="bk-title" style="color:#fb923c;">🔢 إعادة ضبط عداد الطلبات فقط</div>
+        <p style="font-size:13px;color:var(--gray-light);margin-bottom:10px;line-height:1.6;">
+            يغيّر <code>globalCounter/requestId</code> فقط — رقم الطلب التالي الذي سيُعطى لأي طلب جديد.
+            لا يحذف أو يمسّ أي طلبات أو مستخدمين أو بيانات أخرى إطلاقاً.
+        </p>
+        <div style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#fdba74;line-height:1.7;">
+            ⚠️ <strong>مهم:</strong> إن كانت هناك طلبات حالية بأرقام تساوي أو تلي القيمة التي ستضعها، فسيصطدم أول طلب
+            جديد بنفس المعرّف (<code>id_1</code> مثلاً) ويستبدل ذلك الطلب القديم. استخدم هذا فقط بعد حذف/أرشفة كل
+            الطلبات، أو تأكد أن القيمة أعلى من أي رقم طلب موجود حالياً.
+        </div>
+        <div class="bk-row" style="align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:12.5px;color:var(--gray);">القيمة الحالية:</span>
+            <b id="counter-current-val" style="color:var(--white);font-family:var(--mono);">جارِ التحميل...</b>
+            <input id="counter-reset-input" type="number" min="1" step="1" value="1"
+                   style="width:100px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
+                          padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;text-align:center;">
+            <button class="bk-btn" style="background:#fb923c;color:#1a1200;" onclick="resetGlobalCounterOnly()">
+                🔢 إعادة ضبط العداد فقط
+            </button>
+        </div>
+    </div>
+
     <!-- ── Reset Project ────────────────────────────────────── -->
     <div class="bk-section" style="border-color:rgba(239,68,68,.25);">
         <div class="bk-title" style="color:#ef4444;">💣 إعادة ضبط المشروع — Reset Project</div>
@@ -10621,6 +10698,18 @@ function renderBackupPanel() {
             chipsEl.appendChild(chip);
         });
     }
+
+    // Show the current order-counter value
+    fetch(`${RTDB}/globalCounter/requestId.json`)
+        .then(r => r.json())
+        .then(v => {
+            const el = document.getElementById('counter-current-val');
+            if (el) el.textContent = (v === null || v === undefined) ? '— (لم يُستخدم بعد)' : v;
+        })
+        .catch(() => {
+            const el = document.getElementById('counter-current-val');
+            if (el) el.textContent = '⚠️ تعذّر التحميل';
+        });
 }
 
 // ── Export ─────────────────────────────────────────────────────
@@ -11260,6 +11349,35 @@ async function resetUserPassword(uid, username, displayName, phone) {
             saveBtn.textContent = '✅ تعيين كلمة المرور';
         }
     });
+}
+
+// ── Reset ONLY the order-ID counter — no other data touched ────────
+async function resetGlobalCounterOnly() {
+    const input = document.getElementById('counter-reset-input');
+    const val   = parseInt(input?.value);
+    if (isNaN(val) || val < 1) { toast('أدخل رقماً صحيحاً أكبر من صفر', true); return; }
+
+    const ok = await showConfirm({
+        title: '🔢 إعادة ضبط العداد فقط',
+        msg:   `سيتم تعيين <code>globalCounter/requestId</code> إلى <strong>${val}</strong>.<br>` +
+               `لن يُحذف أو يتأثر أي طلب أو مستخدم أو بيانات أخرى.<br><br>` +
+               `<strong style="color:#fb923c;">تأكد أن هذه القيمة أعلى من أي رقم طلب موجود حالياً لتفادي التصادم.</strong>`,
+        okLabel: '🔢 تأكيد', cancelLabel: 'إلغاء',
+    });
+    if (!ok) return;
+
+    try {
+        await fetch(`${RTDB}/globalCounter/requestId.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(val),
+        });
+        const el = document.getElementById('counter-current-val');
+        if (el) el.textContent = val;
+        toast(`✅ تم ضبط العداد إلى ${val}`);
+    } catch (e) {
+        toast('فشل ضبط العداد: ' + e.message, true);
+    }
 }
 
 async function resetProject() {
