@@ -15,19 +15,38 @@
     let lastSweep = 0;
 
     // Admin-configurable padding added on top of the real live-visitor
-    // count (settings/presenceBoost) — purely cosmetic "social proof",
-    // never affects the actual presence data or count logic below.
+    // count (settings/presenceBoost = { min, max }) — purely cosmetic
+    // "social proof", never affects the actual presence data or count
+    // logic below. Re-rolled to a fresh random value in range every 2
+    // minutes so it reads as natural fluctuation, not a static number.
+    const BOOST_REROLL_MS = 2 * 60 * 1000;
+    let _boostMin = 0, _boostMax = 0;
     let _boost = 0;
     let _lastRealCount = null;
-    async function loadBoost() {
+
+    function _rollBoost() {
+        _boost = (_boostMax > _boostMin)
+            ? _boostMin + Math.floor(Math.random() * (_boostMax - _boostMin + 1))
+            : _boostMin;
+        // Reflect the new value immediately rather than waiting for the
+        // next real presence update.
+        if (_lastRealCount !== null) updateWidget(_lastRealCount);
+    }
+
+    async function loadBoostRange() {
         try {
             const r = await fetch(`${RTDB_BASE}/settings/presenceBoost.json`);
             const v = await r.json();
-            _boost = (typeof v === 'number' && v > 0) ? v : 0;
-        } catch (_) { _boost = 0; }
-        // Reflect a boost change immediately rather than waiting for the
-        // next real presence update.
-        if (_lastRealCount !== null) updateWidget(_lastRealCount);
+            if (v && typeof v === 'object') {
+                _boostMin = (typeof v.min === 'number' && v.min > 0) ? v.min : 0;
+                _boostMax = (typeof v.max === 'number' && v.max > 0) ? v.max : 0;
+            } else if (typeof v === 'number' && v > 0) {
+                _boostMin = _boostMax = v; // legacy static value
+            } else {
+                _boostMin = _boostMax = 0;
+            }
+        } catch (_) { _boostMin = _boostMax = 0; }
+        _rollBoost();
     }
 
     // Count only entries whose heartbeat is recent; anything older is a
@@ -231,7 +250,7 @@
 
     function init() {
         setTimeout(() => {
-            loadBoost();
+            loadBoostRange();
             const uuid = getDeviceUUID();
             function trySDK() {
                 if (window.firebase?.database) { initWithSDK(uuid, window.firebase.database()); return true; }
@@ -240,9 +259,9 @@
             if (!trySDK()) setTimeout(() => { if (!trySDK()) initWithREST(uuid); }, 1500);
         }, 800);
 
-        // Re-check periodically in case the admin changes the boost value
-        // while this tab is already open — cheap single-field read.
-        setInterval(loadBoost, 60 * 1000);
+        // Every 2 minutes: re-read the admin-configured range (in case it
+        // changed) and roll a fresh random value within it.
+        setInterval(loadBoostRange, BOOST_REROLL_MS);
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

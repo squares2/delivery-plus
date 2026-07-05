@@ -8356,15 +8356,19 @@ function renderSettings() {
             <div class="settings-section-title">🧑‍🤝‍🧑 عداد الزوار المباشر (Live Visitors)</div>
             <div class="setting-row">
                 <div>
-                    <div class="setting-label">رقم إضافي يُضاف على العدد الحقيقي</div>
+                    <div class="setting-label">مجال رقم إضافي عشوائي يُضاف على العدد الحقيقي</div>
                     <div class="setting-sub">
-                        العداد أعلى يمين الصفحة الرئيسية يعرض عدد الزوار المتصلين فعلياً + هذا الرقم — يظهر إقبالاً
-                        أكبر من الواقع. اتركه 0 لعرض العدد الحقيقي فقط.
+                        العداد أعلى يمين الصفحة الرئيسية يعرض عدد الزوار المتصلين فعلياً + رقم عشوائي بين الحدّين أدناه،
+                        يتغيّر تلقائياً كل دقيقتين ليبدو طبيعياً بدل رقم ثابت. اجعل الحدّين 0 لعرض العدد الحقيقي فقط.
                     </div>
                 </div>
             </div>
             <div class="setting-row" style="gap:10px;">
-                <input type="number" id="presence-boost-input" placeholder="0" min="0" step="1"
+                <input type="number" id="presence-boost-min-input" placeholder="الحد الأدنى" min="0" step="1"
+                       style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                              font-family:var(--mono);font-size:0.85rem;direction:ltr;">
+                <input type="number" id="presence-boost-max-input" placeholder="الحد الأعلى" min="0" step="1"
                        style="flex:1;background:var(--surface2);border:1px solid var(--border);
                               border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
                               font-family:var(--mono);font-size:0.85rem;direction:ltr;">
@@ -9123,25 +9127,40 @@ function renderSettings() {
         }
     });
 
-    // Load presenceBoost
+    // Load presenceBoost (supports the old single-number format too)
     fbGet('settings/presenceBoost').then(val => {
-        const inp = document.getElementById('presence-boost-input');
-        if (inp) inp.value = (typeof val === 'number' && val > 0) ? val : 0;
+        const minInp = document.getElementById('presence-boost-min-input');
+        const maxInp = document.getElementById('presence-boost-max-input');
+        let min = 0, max = 0;
+        if (val && typeof val === 'object') {
+            min = (typeof val.min === 'number' && val.min > 0) ? val.min : 0;
+            max = (typeof val.max === 'number' && val.max > 0) ? val.max : 0;
+        } else if (typeof val === 'number' && val > 0) {
+            min = max = val; // legacy static value — show as a fixed range
+        }
+        if (minInp) minInp.value = min;
+        if (maxInp) maxInp.value = max;
     }).catch(() => {});
 
     document.getElementById('presence-boost-save')?.addEventListener('click', async () => {
-        const inp    = document.getElementById('presence-boost-input');
+        const minInp = document.getElementById('presence-boost-min-input');
+        const maxInp = document.getElementById('presence-boost-max-input');
         const status = document.getElementById('presence-boost-status');
-        const boost  = parseInt(inp?.value);
-        if (isNaN(boost) || boost < 0) {
-            if (status) { status.textContent = '⚠️ أدخل رقماً صحيحاً (0 أو أكثر)'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        const min = parseInt(minInp?.value);
+        const max = parseInt(maxInp?.value);
+        if (isNaN(min) || isNaN(max) || min < 0 || max < 0) {
+            if (status) { status.textContent = '⚠️ أدخل رقمين صحيحين (0 أو أكثر)'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        if (max < min) {
+            if (status) { status.textContent = '⚠️ الحد الأعلى يجب أن يكون أكبر من أو يساوي الحد الأدنى'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
             return;
         }
         try {
-            await fbSet('settings/presenceBoost', boost);
+            await fbSet('settings/presenceBoost', { min, max });
             if (status) {
-                status.textContent = boost > 0
-                    ? `✅ تم الحفظ — سيُضاف ${boost} إلى عدد الزوار الحقيقي في الواجهة`
+                status.textContent = (max > 0)
+                    ? `✅ تم الحفظ — سيُضاف رقم عشوائي بين ${min} و${max} إلى العدد الحقيقي، ويتغيّر كل دقيقتين`
                     : '✅ تم الحفظ — العداد سيعرض العدد الحقيقي فقط';
                 status.style.color = 'var(--green)'; status.style.display = 'block';
             }
