@@ -2912,6 +2912,34 @@ function _detectAndAlertNewOrders(ordersMap, storeFilter) {
         : `🔔 ${fresh.length} طلبات جديدة وصلت`;
     toast(label);
     _showBrowserNotif('Delivo', label);
+
+    // Ping each affected store's WhatsApp number for its own fresh order(s).
+    // Admin scope only — this is where GREEN-API credentials + the full
+    // allStores map (with each store's whatsapp/whatsappActive) are loaded.
+    // The store/company panel's own polling never triggers this, so a
+    // store owner sitting in their own dashboard doesn't WhatsApp themselves.
+    if (!storeFilter) {
+        fresh.forEach(k => _notifyStoreWhatsapp(k, ordersMap[k]));
+    }
+}
+
+// Sends a "new order arrived" WhatsApp message to a store's configured
+// number — only if that store has whatsappActive = true AND a saved
+// whatsapp number. Silently does nothing otherwise (e.g. GREEN-API not
+// configured yet, or the store hasn't set/activated a number).
+async function _notifyStoreWhatsapp(orderKey, order) {
+    try {
+        const store = order && order.store && allStores[order.store];
+        if (!store || !store.whatsappActive || !store.whatsapp) return;
+        const orderNum = String(orderKey || '').replace(/^id_/, '');
+        const message =
+            `🔔 طلب جديد رقم #${orderNum} وصل إلى متجرك على Delivo!\n` +
+            `الرجاء فتح لوحة التحكم للاطلاع على تفاصيل الطلب وتجهيزه:\n` +
+            `https://delivolb.com/admin`;
+        await _sendWhatsappMessage(store.whatsapp, message);
+    } catch (e) {
+        console.warn('[Delivo] Store WhatsApp notify failed:', e.message);
+    }
 }
 
 function showConfirm({ title, msg, type = 'danger', icon = '\uD83D\uDDD1', okLabel, cancelLabel }) {
@@ -3213,8 +3241,10 @@ function startApp() {
     document.getElementById('topbar-avatar').textContent = (currentAdmin.fullname || currentAdmin.username)[0].toUpperCase();
     _updateNotifBellUI();
 
-    // Save session
-    sessionStorage.setItem('delivoAdmin', JSON.stringify(currentAdmin));
+    // Save session — localStorage (not sessionStorage) so the login
+    // survives across tabs/windows too, e.g. when an employee opens the
+    // admin link from a WhatsApp notification in a brand-new tab.
+    localStorage.setItem('delivoAdmin', JSON.stringify(currentAdmin));
 
     // Push notifications for this employee/admin — works even with admin.html
     // fully closed. Fire-and-forget, same as the driver-side registration.
@@ -3785,7 +3815,7 @@ function _catSkeletonItems(n) {
 
 
 function doLogout() {
-    sessionStorage.removeItem('delivoAdmin');
+    localStorage.removeItem('delivoAdmin');
     currentAdmin = null;
     clearInterval(refreshTimer);
     document.getElementById('app').classList.remove('visible');
@@ -6720,6 +6750,22 @@ function renderStores() {
                     <button class="sc-imgslug-save" title="حفظ رمز الصورة"
                             style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:var(--green);padding:4px 8px;cursor:pointer;font-size:0.72rem;">✓</button>
                 </div>
+                <!-- WhatsApp order-notification row — number the store owner gets
+                     WhatsApp alerts on when a new order comes in, with an on/off
+                     switch so notifications can be enabled per store. -->
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+                    <span style="font-size:0.6rem;color:var(--gray);flex-shrink:0;" title="رقم واتساب لإشعارات الطلبات">📱 واتساب</span>
+                    <input type="tel" class="sc-whatsapp-input" dir="ltr"
+                           value="${s.whatsapp || ''}"
+                           placeholder="961XXXXXXXX"
+                           style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--white);font-family:var(--mono);font-size:0.72rem;outline:none;">
+                    <label class="toggle" style="transform:scale(0.72);flex-shrink:0;" title="${s.whatsappActive ? 'إشعارات واتساب مفعّلة' : 'إشعارات واتساب متوقفة'}">
+                        <input type="checkbox" class="sc-whatsapp-toggle" ${s.whatsappActive ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <button class="sc-whatsapp-save" title="حفظ رقم واتساب وحالة التفعيل"
+                            style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:var(--green);padding:4px 8px;cursor:pointer;font-size:0.72rem;flex-shrink:0;">✓</button>
+                </div>
                 <div class="sc-meta">
                     <span class="sc-items">${ordCount} طلب إجمالي</span>
                     <span class="sc-rank">${s.rank ? '⭐ '+s.rank : ''}</span>
@@ -6838,6 +6884,44 @@ function renderStores() {
             await _storeSetField(name, s.type, 'imgSlug', val || null);
             toast(val ? `✓ تم ربط الصورة بـ: assets/${val}.webp` : '✓ تمت إزالة رمز الصورة المخصص');
             renderStores();
+        });
+
+        // WhatsApp order-notification number + on/off toggle. Saved across
+        // EVERY type this store is listed under (s.allTypes), not just the
+        // one type whose copy happens to back this card — a store listed
+        // under more than one category has a separate pattern/{type} entry
+        // per category, and only writing to one of them is what caused the
+        // toggle to look "reset" after a refresh whenever the OTHER type's
+        // copy (with no whatsappActive saved) was the one that ended up
+        // feeding the admin's in-memory store record.
+        card.querySelector('.sc-whatsapp-save').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn    = card.querySelector('.sc-whatsapp-save');
+            const input  = card.querySelector('.sc-whatsapp-input');
+            const toggle = card.querySelector('.sc-whatsapp-toggle');
+            const digits = input.value.trim().replace(/[^\d]/g, '');
+            if (digits && digits.length < 8) { toast('رقم واتساب غير صحيح', true); return; }
+            if (toggle.checked && !digits) { toast('أدخل رقم واتساب قبل تفعيل الإشعارات', true); toggle.checked = false; return; }
+            input.value = digits;
+
+            const types = (s.allTypes && s.allTypes.length) ? s.allTypes : [s.type];
+            btn.disabled = true;
+            try {
+                for (const t of types) {
+                    await _storeSetField(name, t, 'whatsapp', digits || null);
+                    await _storeSetField(name, t, 'whatsappActive', toggle.checked || null);
+                }
+                s.whatsapp       = digits;
+                s.whatsappActive = toggle.checked;
+                toast(digits
+                    ? `✓ تم حفظ واتساب ${name} — الإشعارات ${toggle.checked ? 'مفعّلة ✅' : 'متوقفة ⏸'}`
+                    : '✓ تمت إزالة رقم واتساب المتجر');
+                await _refreshStoresData(); // confirm against Firebase immediately, not just locally
+            } catch (err) {
+                toast('❌ فشل حفظ واتساب: ' + err.message, true);
+            } finally {
+                btn.disabled = false;
+            }
         });
 
         // Close/open button
@@ -12227,7 +12311,9 @@ const CP_STATES = {
 async function startCompanyPortal() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('company-portal').classList.add('visible');
-    sessionStorage.setItem('delivoAdmin', JSON.stringify(currentAdmin));
+    // localStorage (not sessionStorage) so this survives across tabs too —
+    // e.g. an employee opening the admin link from a WhatsApp notification.
+    localStorage.setItem('delivoAdmin', JSON.stringify(currentAdmin));
 
     // Reset items state for fresh session
     _cpiAllItems  = {};
@@ -13430,7 +13516,7 @@ document.getElementById('cp-refresh-btn')?.addEventListener('click', cpLoadOrder
 document.getElementById('cp-logout-btn')?.addEventListener('click', () => {
     clearInterval(cpRefreshTimer);
     currentAdmin = null;
-    sessionStorage.removeItem('delivoAdmin');
+    localStorage.removeItem('delivoAdmin');
     document.getElementById('company-portal').classList.remove('visible');
     document.getElementById('login-screen').style.display = 'flex';
 });
@@ -13438,13 +13524,13 @@ document.getElementById('cp-logout-btn')?.addEventListener('click', () => {
 // Session restore for company user
 
 // Restore session
-const savedSession = sessionStorage.getItem('delivoAdmin');
+const savedSession = localStorage.getItem('delivoAdmin');
 if (savedSession) {
     try {
         currentAdmin = JSON.parse(savedSession);
         if (currentAdmin.role === 'company') { startCompanyPortal(); }
         else { startApp(); }
-    } catch(e) { sessionStorage.removeItem('delivoAdmin'); }
+    } catch(e) { localStorage.removeItem('delivoAdmin'); }
 }
 
 // ── Online-requests countdown ticker (state 7) ───────────────
