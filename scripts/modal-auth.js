@@ -444,7 +444,7 @@ function initModalAuth() {
                     try {
                         const code      = await _sendOtpWhatsapp(phoneDigits);
                         const expiresAt = Date.now() + OTP_TIMEOUT;
-                        _saveOtpState({ username, displayName, password, phone: phoneDigits, lat, lng, code, expiresAt });
+                        _saveOtpState({ username, displayName, password, phone: phoneDigits, lat, lng, locationSource: window._regLocationSource || null, code, expiresAt });
                         if (otpStep) { otpStep.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(phoneDigits)}`; }
                         if (cancelBtn) cancelBtn.style.display = 'flex';
                         regBtn.disabled = false;
@@ -479,7 +479,7 @@ function initModalAuth() {
                 // "no saved state" branch and silently fired a brand-new WhatsApp code instead of retrying.
                 let result;
                 try {
-                    result = await window.DelivoAuth.register({ username: saved.username, displayName: saved.displayName, password: saved.password, phone: saved.phone, lat: saved.lat, lng: saved.lng, skipDeviceLimit: true });
+                    result = await window.DelivoAuth.register({ username: saved.username, displayName: saved.displayName, password: saved.password, phone: saved.phone, lat: saved.lat, lng: saved.lng, locationSource: saved.locationSource, skipDeviceLimit: true });
                 } catch (e) {
                     result = { error: true, message: e?.message || 'تعذر الاتصال بالخادم. تحقق من شبكتك وحاول مجدداً' };
                 }
@@ -504,7 +504,7 @@ function initModalAuth() {
             if (_usernameAvailable === false) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
             if (!_phoneAvailable)    { showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
             setLoading(regBtn, true, 'جاري الإنشاء...');
-            const result = await window.DelivoAuth.register({ username, displayName, password, phone: phoneDigits, lat, lng });
+            const result = await window.DelivoAuth.register({ username, displayName, password, phone: phoneDigits, lat, lng, locationSource: window._regLocationSource || null });
             setLoading(regBtn, false, 'إنشاء الحساب');
             if (result.error) { showError(errorEl, result.message); }
             else {
@@ -532,6 +532,7 @@ function initModalAuth() {
                     const lng = pos.coords.longitude;
                     document.getElementById('reg-lat').value = lat;
                     document.getElementById('reg-lng').value = lng;
+                    window._regLocationSource = 'gps';
                     setLocationStatus('success', '✓ تم تحديد موقعك بنجاح');
                     gpsBtn.disabled = false;
                     gpsBtn.classList.add('location-opt-btn--active');
@@ -551,6 +552,10 @@ function initModalAuth() {
                         3: 'انتهت المهلة. حاول مرة أخرى.',
                     };
                     setLocationStatus('error', msgs[err.code] || 'تعذّر تحديد الموقع.');
+                    // GPS failed — automatically fall back to an approximate,
+                    // network-based location instead of leaving the customer
+                    // stuck with nothing (see _tryIpFallbackLocation above).
+                    _tryIpFallbackLocation();
                 },
                 { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
             );
@@ -571,8 +576,39 @@ function initModalAuth() {
             if (!window._regMap) {
                 const defaultLat = 34.0040;
                 const defaultLng = 36.2100;
-                const savedLat   = parseFloat(document.getElementById('reg-lat').value) || defaultLat;
-                const savedLng   = parseFloat(document.getElementById('reg-lng').value) || defaultLng;
+
+                // IMPORTANT: remember whether a real location was already set
+                // (GPS or a previous IP-approx fallback) BEFORE we fall back to
+                // the generic town-center default below. Only a real, prior
+                // value should end up written into reg-lat/reg-lng — opening
+                // the map picker itself must never silently satisfy the
+                // required-location field with a hardcoded default. That gap
+                // is exactly what used to let customers submit registration
+                // with everyone pinned at the same generic spot whenever their
+                // first "my location" attempt failed and they never actually
+                // touched the map afterward.
+                const hadPriorLat = document.getElementById('reg-lat').value;
+                const hadPriorLng = document.getElementById('reg-lng').value;
+                const hadPriorLocation = !!(hadPriorLat && hadPriorLng);
+
+                let centerLat = parseFloat(hadPriorLat) || defaultLat;
+                let centerLng = parseFloat(hadPriorLng) || defaultLng;
+
+                // No location yet at all (no GPS, no prior IP-approx)? Try one
+                // more best-effort network-based estimate so the starting pin
+                // lands near the customer's real area instead of a generic
+                // town center — this still does NOT get written to the
+                // required fields; it only picks a better starting point for
+                // the pin the customer must confirm themselves.
+                let ipApproxForCenter = null;
+                if (!hadPriorLocation) {
+                    setLocationStatus('loading', '📡 جاري تجهيز الخريطة بأقرب موقع تقريبي...');
+                    ipApproxForCenter = await _fetchApproxIpLocation();
+                    if (ipApproxForCenter) {
+                        centerLat = ipApproxForCenter.lat;
+                        centerLng = ipApproxForCenter.lng;
+                    }
+                }
 
                 // ── Google Maps API key ───────────────────────────
                 const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
@@ -595,7 +631,7 @@ function initModalAuth() {
                 window._regMap = L.map('reg-map', {
                     zoomControl: true,
                     attributionControl: true,
-                }).setView([savedLat, savedLng], 17);
+                }).setView([centerLat, centerLng], hadPriorLocation ? 17 : (ipApproxForCenter ? 15 : 13));
 
                 window._tileLayers.satellite.addTo(window._regMap);
 
@@ -646,16 +682,19 @@ function initModalAuth() {
                     iconAnchor: [15, 30],
                 });
 
-                window._regMarker = L.marker([savedLat, savedLng], {
+                window._regMarker = L.marker([centerLat, centerLng], {
                     icon: orangeIcon,
                     draggable: true,
                 }).addTo(window._regMap);
 
-                // Drag marker
+                // Drag marker — this is genuine, explicit user interaction,
+                // so this (and click, below) are the only two places allowed
+                // to actually populate reg-lat/reg-lng from the map.
                 window._regMarker.on('dragend', (e) => {
                     const pos = e.target.getLatLng();
                     document.getElementById('reg-lat').value = pos.lat.toFixed(6);
                     document.getElementById('reg-lng').value = pos.lng.toFixed(6);
+                    window._regLocationSource = 'map';
                     setLocationStatus('success', '✓ تم تحديد الموقع على الخريطة');
                 });
 
@@ -664,17 +703,29 @@ function initModalAuth() {
                     window._regMarker.setLatLng(e.latlng);
                     document.getElementById('reg-lat').value = e.latlng.lat.toFixed(6);
                     document.getElementById('reg-lng').value = e.latlng.lng.toFixed(6);
+                    window._regLocationSource = 'map';
                     setLocationStatus('success', '✓ تم تحديد الموقع على الخريطة');
                 });
 
-                document.getElementById('reg-lat').value = savedLat.toFixed(6);
-                document.getElementById('reg-lng').value = savedLng.toFixed(6);
+                // Only re-write the fields here if a real location already
+                // existed before this map opened (e.g. GPS ran first) — never
+                // from the plain default/IP-approx-for-centering fallback.
+                if (hadPriorLocation) {
+                    document.getElementById('reg-lat').value = centerLat.toFixed(6);
+                    document.getElementById('reg-lng').value = centerLng.toFixed(6);
+                }
 
             } else {
                 setTimeout(() => window._regMap.invalidateSize(), 100);
             }
 
-            setLocationStatus('info', 'اسحب الدبوس أو انقر على الخريطة لتحديد موقعك');
+            const stillUnset = !document.getElementById('reg-lat').value;
+            setLocationStatus(
+                stillUnset ? 'error' : 'info',
+                stillUnset
+                    ? '⚠ الدبوس البرتقالي مجرد اقتراح — اسحبه أو انقر على مكانك الفعلي لتأكيد موقعك، وإلا لن يتم قبول التسجيل'
+                    : 'اسحب الدبوس أو انقر على الخريطة لتعديل موقعك'
+            );
         });
     }
 
@@ -752,6 +803,24 @@ function initModalAuth() {
                     editGpsBtn.disabled = false;
                     const msgs = { 1: 'رفضت الإذن.', 2: 'تعذّر تحديد الموقع.', 3: 'انتهت المهلة.' };
                     setEditLocationStatus('error', msgs[err.code] || 'تعذّر تحديد الموقع.');
+                    // Same network-based fallback as registration — only useful
+                    // here for accounts that never had a location set at all.
+                    (async () => {
+                        if (document.getElementById('edit-lat')?.value) return; // already has one — don't touch it
+                        setEditLocationStatus('loading', '📡 جاري تقدير موقعك التقريبي عبر شبكتك...');
+                        const approx = await _fetchApproxIpLocation();
+                        if (!approx) {
+                            setEditLocationStatus('error', '⚠ تعذّر أيضاً تقدير الموقع عبر الشبكة. حدد موقعك يدوياً على الخريطة.');
+                            return;
+                        }
+                        document.getElementById('edit-lat').value = approx.lat.toFixed(6);
+                        document.getElementById('edit-lng').value = approx.lng.toFixed(6);
+                        setEditLocationStatus('info', `📡 تم تقدير موقعك تقريبياً${approx.city ? ' بالقرب من ' + approx.city : ''}. يفضّل الضغط على "اختر على الخريطة" لتدقيقه.`);
+                        if (window._editMap && window._editMarker) {
+                            window._editMap.setView([approx.lat, approx.lng], 15);
+                            window._editMarker.setLatLng([approx.lat, approx.lng]);
+                        }
+                    })();
                 },
                 { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
             );
@@ -771,9 +840,19 @@ function initModalAuth() {
             if (!window._editMap) {
                 const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
 
-                // Use saved location if exists, else Baalbek default
-                const savedLat = parseFloat(document.getElementById('edit-lat').value) || 34.0040;
-                const savedLng = parseFloat(document.getElementById('edit-lng').value) || 36.2100;
+                // Same fix as the registration map picker: remember whether a
+                // real location already existed BEFORE falling back to the
+                // generic town-center default, and only ever write that prior,
+                // real value back into the fields — never the plain fallback.
+                // Otherwise a customer with no location yet who opens this map
+                // just to look, then saves without touching the pin, would
+                // silently get planted at the generic default point.
+                const hadPriorLat = document.getElementById('edit-lat').value;
+                const hadPriorLng = document.getElementById('edit-lng').value;
+                const hadPriorLocation = !!(hadPriorLat && hadPriorLng);
+
+                const savedLat = parseFloat(hadPriorLat) || 34.0040;
+                const savedLng = parseFloat(hadPriorLng) || 36.2100;
 
                 window._editTileLayers = {
                     satellite: L.tileLayer(
@@ -788,7 +867,7 @@ function initModalAuth() {
                 window._editCurrentLayer = 'satellite';
 
                 window._editMap = L.map('edit-map', { zoomControl: true })
-                    .setView([savedLat, savedLng], 17);
+                    .setView([savedLat, savedLng], hadPriorLocation ? 17 : 13);
                 window._editTileLayers.satellite.addTo(window._editMap);
 
                 // Toggle control
@@ -846,13 +925,24 @@ function initModalAuth() {
                     setEditLocationStatus('success', '✓ تم تحديد الموقع على الخريطة');
                 });
 
-                document.getElementById('edit-lat').value = savedLat.toFixed(6);
-                document.getElementById('edit-lng').value = savedLng.toFixed(6);
+                // Only re-write the fields here if a real location already
+                // existed before this map opened — never from the plain
+                // fallback default.
+                if (hadPriorLocation) {
+                    document.getElementById('edit-lat').value = savedLat.toFixed(6);
+                    document.getElementById('edit-lng').value = savedLng.toFixed(6);
+                }
 
             } else {
                 setTimeout(() => window._editMap.invalidateSize(), 100);
             }
-            setEditLocationStatus('info', 'اسحب الدبوس أو انقر على الخريطة لتحديد موقعك');
+            const stillUnset = !document.getElementById('edit-lat').value;
+            setEditLocationStatus(
+                stillUnset ? 'error' : 'info',
+                stillUnset
+                    ? '⚠ الدبوس البرتقالي مجرد اقتراح — اسحبه أو انقر على مكانك الفعلي لتأكيد موقعك'
+                    : 'اسحب الدبوس أو انقر على الخريطة لتعديل موقعك'
+            );
         });
     }
 
@@ -1012,6 +1102,55 @@ function setLocationStatus(type, message) {
     el.className     = 'location-status location-status--' + type;
 }
 
+// ── Approximate network-based location fallback ───────────────
+// When precise GPS fails (denied, timed out, no signal), we no longer just
+// leave the customer stuck on a manual pin-drop that they might skip past.
+// We try a free IP-geolocation lookup instead — accurate to roughly the
+// town/neighborhood level over most mobile carriers — so the customer at
+// least starts from somewhere close to real, instead of the app's generic
+// town-center default. This is always presented as approximate and the
+// customer is pushed toward refining it on the map; it's a starting point,
+// never a silent substitute for a real pin.
+async function _fetchApproxIpLocation() {
+    try {
+        const controller = new AbortController();
+        const timeoutId  = setTimeout(() => controller.abort(), 4000);
+        const r = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!r.ok) return null;
+        const d   = await r.json();
+        const lat = parseFloat(d.latitude);
+        const lng = parseFloat(d.longitude);
+        if (isNaN(lat) || isNaN(lng)) return null;
+        return { lat, lng, city: d.city || '' };
+    } catch(_) {
+        return null;
+    }
+}
+
+// Triggered automatically when the GPS attempt fails. Fills the required
+// fields with an approximate (network-based) location, tagged so the admin
+// panel can flag it for later confirmation — same "~approx" pattern used
+// for the admin's own auto-locate tool — and nudges the customer to refine
+// it on the map for real delivery accuracy.
+async function _tryIpFallbackLocation() {
+    setLocationStatus('loading', '📡 تعذّر تحديد موقعك بدقة — جاري تقدير موقعك التقريبي عبر شبكتك...');
+    const approx = await _fetchApproxIpLocation();
+    if (!approx) {
+        setLocationStatus('error', '⚠ تعذّر أيضاً تقدير موقعك عبر الشبكة. يرجى الضغط على "اختر على الخريطة" وتحديد موقعك يدوياً.');
+        return;
+    }
+    document.getElementById('reg-lat').value = approx.lat.toFixed(6);
+    document.getElementById('reg-lng').value = approx.lng.toFixed(6);
+    window._regLocationSource = 'ip-approx';
+    setLocationStatus('info', `📡 تم تقدير موقعك تقريبياً${approx.city ? ' بالقرب من ' + approx.city : ''}. للتأكد من وصول طلباتك بدقة، اضغط "اختر على الخريطة" واسحب الدبوس لمكانك الفعلي.`);
+    // If the map is already open, recenter it to the approximate point too
+    if (window._regMap && window._regMarker) {
+        window._regMap.setView([approx.lat, approx.lng], 15);
+        window._regMarker.setLatLng([approx.lat, approx.lng]);
+    }
+}
+
 // ── Location: obligatory-field guard ──────────────────────────
 // Registration cannot proceed without a delivery pin — an unresolved
 // location leads to missed/misdelivered orders later. This blocks
@@ -1061,6 +1200,7 @@ function resetLocationBtn() {
     const lng = document.getElementById('reg-lng');
     if (lat) lat.value = '';
     if (lng) lng.value = '';
+    window._regLocationSource = null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────

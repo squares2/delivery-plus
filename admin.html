@@ -1911,6 +1911,9 @@ input, select, textarea { font-family: var(--font); }
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         تحديث
                     </button>
+                    <button class="ph-btn" id="customers-autolocate-btn" title="تحديد تلقائي لمواقع العملاء الناقصة من طلباتهم السابقة" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;">
+                        🎯 تحديد تلقائي للمواقع
+                    </button>
                 </div>
                 <div class="orders-toolbar" style="flex-shrink:0;">
                     <button class="filter-pill active" data-cust-filter="all">الكل</button>
@@ -6501,8 +6504,16 @@ function renderCustomers() {
                         const _loc2=p.location;
                         const _lat2=parseFloat(_loc2?.lat??_loc2?.latitude??p.lat??p.latitude??NaN);
                         const _lng2=parseFloat(_loc2?.lng??_loc2?.longitude??p.lng??p.longitude??NaN);
-                        if(!_lat2||!_lng2||isNaN(_lat2)||isNaN(_lng2)) return '<span style="font-size:0.7rem;color:var(--gray);">—</span>';
-                        return `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat2}" data-lng="${_lng2}" data-cname="${p.displayName||p.username||''}">📍 خريطة</button>`;
+                        const _hasLoc2 = _lat2 && _lng2 && !isNaN(_lat2) && !isNaN(_lng2);
+                        const _approx2 = _hasLoc2 && p.locationSource === 'auto-order';
+                        return `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;">
+                            ${_hasLoc2 ? `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat2}" data-lng="${_lng2}" data-cname="${p.displayName||p.username||''}">📍 خريطة</button>` : '<span style="font-size:0.7rem;color:var(--gray);">لا يوجد</span>'}
+                            ${_approx2 ? `<span style="font-size:0.58rem;color:#f59e0b;white-space:nowrap;">🎯 تقريبي (طلب سابق)</span>` : ''}
+                            <button class="cust-reposition-btn" style="font-size:0.6rem;padding:2px 7px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:6px;color:#3b82f6;cursor:pointer;font-family:inherit;white-space:nowrap;"
+                                data-uid="${p._id}" data-name="${p.displayName||p.username||''}" data-lat="${_hasLoc2?_lat2:''}" data-lng="${_hasLoc2?_lng2:''}">
+                                ${_hasLoc2 ? '✏️ تعديل' : '📍 تحديد'}
+                            </button>
+                        </div>`;
                     })()}</td>
                     <td>
                         <div style="display:flex;flex-direction:column;gap:4px;">
@@ -6527,6 +6538,11 @@ function renderCustomers() {
                     e.stopPropagation();
                     _flyToCustomer(parseFloat(b.dataset.lat), parseFloat(b.dataset.lng), b.dataset.cname);
                 }));
+                tr2.querySelector('.cust-reposition-btn')?.addEventListener('click', e => {
+                    e.stopPropagation();
+                    const btn = e.currentTarget;
+                    openCustomerLocationModal(btn.dataset.uid, btn.dataset.name, parseFloat(btn.dataset.lat)||null, parseFloat(btn.dataset.lng)||null);
+                });
                 tr2.querySelector('.cust-pts-btn')?.addEventListener('click', e => {
                     e.stopPropagation();
                     const btn = e.currentTarget;
@@ -6612,8 +6628,16 @@ function renderCustomers() {
                     const _loc=u.location;
                     const _lat=parseFloat(_loc?.lat??_loc?.latitude??u.lat??u.latitude??NaN);
                     const _lng=parseFloat(_loc?.lng??_loc?.longitude??u.lng??u.longitude??NaN);
-                    if(!_lat||!_lng||isNaN(_lat)||isNaN(_lng)) return '<span style="font-size:0.7rem;color:var(--gray);">—</span>';
-                    return `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat}" data-lng="${_lng}" data-cname="${u.displayName||u.username||''}">📍 خريطة</button>`;
+                    const _hasLoc = _lat && _lng && !isNaN(_lat) && !isNaN(_lng);
+                    const _approx = _hasLoc && u.locationSource === 'auto-order';
+                    return `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;">
+                        ${_hasLoc ? `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat}" data-lng="${_lng}" data-cname="${u.displayName||u.username||''}">📍 خريطة</button>` : '<span style="font-size:0.7rem;color:var(--gray);">لا يوجد</span>'}
+                        ${_approx ? `<span style="font-size:0.58rem;color:#f59e0b;white-space:nowrap;">🎯 تقريبي (طلب سابق)</span>` : ''}
+                        <button class="cust-reposition-btn" style="font-size:0.6rem;padding:2px 7px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:6px;color:#3b82f6;cursor:pointer;font-family:inherit;white-space:nowrap;"
+                            data-uid="${uid}" data-name="${u.displayName||u.username||''}" data-lat="${_hasLoc?_lat:''}" data-lng="${_hasLoc?_lng:''}">
+                            ${_hasLoc ? '✏️ تعديل' : '📍 تحديد'}
+                        </button>
+                    </div>`;
                 })()}</td>
                 <td>
                     <div style="display:flex;flex-direction:column;gap:4px;">
@@ -6658,6 +6682,11 @@ function renderCustomers() {
                 e.stopPropagation();
                 _flyToCustomer(parseFloat(_mapBtn.dataset.lat), parseFloat(_mapBtn.dataset.lng), _mapBtn.dataset.cname);
             });
+            tr.querySelector('.cust-reposition-btn')?.addEventListener('click', e => {
+                e.stopPropagation();
+                const btn = e.currentTarget;
+                openCustomerLocationModal(btn.dataset.uid, btn.dataset.name, parseFloat(btn.dataset.lat)||null, parseFloat(btn.dataset.lng)||null);
+            });
             tbody.appendChild(tr);
         }
     });
@@ -6671,6 +6700,275 @@ function _flyToCustomer(lat, lng, name) {
         adminMap.invalidateSize();
         adminMap.flyTo([lat, lng], 17, { animate: true, duration: 1.2 });
     }, 320);
+}
+
+/* ══════════════════════════════════════════════════════════
+   CUSTOMER LOCATION — reposition + Firestore write helper
+   `location` lives on the Firestore users/{uid} doc (set at
+   registration by scripts/firebase-init.js). We write it back
+   the same way: Admin SDK when available, REST PATCH fallback
+   otherwise — same pattern used by deleteUserAccount().
+══════════════════════════════════════════════════════════ */
+async function _updateUserLocation(uid, lat, lng, meta = {}) {
+    if (window._adminDb) {
+        await window._adminDb.collection('users').doc(uid).update({
+            location: { lat: Number(lat), lng: Number(lng) },
+            ...meta,
+        });
+        return;
+    }
+    // REST fallback — Firestore REST requires an explicit updateMask so the
+    // PATCH only touches these fields and leaves the rest of the doc intact.
+    const token  = await getFsToken();
+    const fsAuth = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    const fields = {
+        location: { mapValue: { fields: {
+            lat: { doubleValue: Number(lat) },
+            lng: { doubleValue: Number(lng) },
+        } } },
+    };
+    let mask = 'updateMask.fieldPaths=location';
+    Object.entries(meta).forEach(([k, v]) => {
+        fields[k] = typeof v === 'boolean' ? { booleanValue: v } : { stringValue: String(v) };
+        mask += `&updateMask.fieldPaths=${encodeURIComponent(k)}`;
+    });
+    const url = `${FIRESTORE}/users/${uid}?${mask}`;
+    const r   = await fetch(url, { method: 'PATCH', headers: fsAuth, body: JSON.stringify({ fields }) });
+    if (!r.ok) throw new Error('Firestore PATCH failed: ' + r.status);
+}
+
+// Manual reposition modal — same Leaflet drag-pin pattern as
+// openStoreLocationModal()/openCenterLocationModal(), scoped to one customer.
+function openCustomerLocationModal(uid, name, initLat, initLng) {
+    const stale = document.getElementById('ul-modal-overlay');
+    if (stale) stale.remove();
+
+    // Default center: current live-map focus (Baalbek)
+    const DEFAULT_LAT = 34.003, DEFAULT_LNG = 36.212;
+    const startLat = initLat || DEFAULT_LAT;
+    const startLng = initLng || DEFAULT_LNG;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'ul-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    overlay.innerHTML = `
+    <div id="ul-box" style="background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:560px;font-family:var(--font);direction:rtl;display:flex;flex-direction:column;max-height:90vh;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+            <div>
+                <h3 style="font-size:1rem;font-weight:800;color:var(--white);margin:0 0 2px;">📍 تحديد موقع العميل</h3>
+                <div style="font-size:0.75rem;color:var(--gray);">${name || '—'}</div>
+            </div>
+            <button id="ul-close-x" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;padding:4px;">✕</button>
+        </div>
+
+        <div style="padding:14px 20px 10px;flex-shrink:0;">
+            <div style="font-size:0.72rem;color:var(--gray);margin-bottom:8px;">اسحب الدبوس أو انقر على الخريطة لتحديد موقع العميل، أو أدخل الإحداثيات يدوياً</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;">
+                <div>
+                    <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:3px;">خط العرض (Lat)</label>
+                    <input id="ul-lat" type="number" step="0.000001" placeholder="34.003000"
+                        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;"
+                        onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+                <div>
+                    <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:3px;">خط الطول (Lng)</label>
+                    <input id="ul-lng" type="number" step="0.000001" placeholder="36.212000"
+                        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;"
+                        onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+                </div>
+                <button id="ul-jump-btn" style="margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--white);font-size:0.78rem;font-family:inherit;cursor:pointer;white-space:nowrap;" title="انتقل إلى الإحداثيات">↗ انتقل</button>
+            </div>
+            ${initLat ? `<div id="ul-current-loc" style="margin-top:8px;font-size:0.7rem;color:var(--gray);">الموقع الحالي: <span style="color:var(--orange);font-family:var(--mono);">${initLat.toFixed(6)}, ${initLng.toFixed(6)}</span></div>` : '<div id="ul-current-loc" style="margin-top:8px;font-size:0.7rem;color:rgba(239,68,68,0.8);">⚠ لا يوجد موقع محدد لهذا العميل</div>'}
+        </div>
+
+        <div id="ul-map-container" style="flex:1;min-height:280px;position:relative;">
+            <div id="ul-map" style="width:100%;height:100%;min-height:280px;"></div>
+            <div id="ul-pin-hint" style="position:absolute;bottom:10px;right:50%;transform:translateX(50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:5px 12px;border-radius:50px;pointer-events:none;z-index:999;white-space:nowrap;">${initLat ? '' : 'انقر لتحديد الموقع'}</div>
+        </div>
+
+        <div style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);flex-shrink:0;">
+            <button id="ul-cancel-btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--white);font-family:inherit;font-size:0.88rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            <button id="ul-save-btn" style="flex:2;background:var(--orange);border:none;border-radius:12px;padding:10px;color:#fff;font-family:inherit;font-size:0.88rem;font-weight:800;cursor:pointer;">💾 حفظ الموقع</button>
+        </div>
+    </div>`;
+
+    document.body.appendChild(overlay);
+
+    const ulMap = L.map('ul-map', { zoomControl: true }).setView([startLat, startLng], initLat ? 16 : 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19,
+    }).addTo(ulMap);
+
+    const pinIcon = L.divIcon({
+        className: '',
+        html: `<div style="width:32px;height:32px;background:var(--orange,#FF5C00);border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+    });
+
+    let ulMarker = null;
+    let selectedLat = initLat;
+    let selectedLng = initLng;
+
+    if (initLat && initLng) {
+        ulMarker = L.marker([initLat, initLng], { icon: pinIcon, draggable: true }).addTo(ulMap);
+        _ulBindMarkerDrag(ulMarker);
+        document.getElementById('ul-lat').value = initLat.toFixed(6);
+        document.getElementById('ul-lng').value = initLng.toFixed(6);
+    }
+
+    function _ulBindMarkerDrag(marker) {
+        marker.on('dragend', () => {
+            const pos = marker.getLatLng();
+            selectedLat = pos.lat;
+            selectedLng = pos.lng;
+            document.getElementById('ul-lat').value = pos.lat.toFixed(6);
+            document.getElementById('ul-lng').value = pos.lng.toFixed(6);
+        });
+    }
+
+    function _ulSetMarker(lat, lng) {
+        selectedLat = lat;
+        selectedLng = lng;
+        document.getElementById('ul-lat').value = lat.toFixed(6);
+        document.getElementById('ul-lng').value = lng.toFixed(6);
+        if (ulMarker) {
+            ulMarker.setLatLng([lat, lng]);
+        } else {
+            ulMarker = L.marker([lat, lng], { icon: pinIcon, draggable: true }).addTo(ulMap);
+            _ulBindMarkerDrag(ulMarker);
+        }
+        const hint = document.getElementById('ul-pin-hint');
+        if (hint) hint.style.display = 'none';
+    }
+
+    ulMap.on('click', (e) => { _ulSetMarker(e.latlng.lat, e.latlng.lng); });
+
+    document.getElementById('ul-jump-btn').addEventListener('click', () => {
+        const lat = parseFloat(document.getElementById('ul-lat').value);
+        const lng = parseFloat(document.getElementById('ul-lng').value);
+        if (isNaN(lat) || isNaN(lng)) { toast('أدخل إحداثيات صحيحة', true); return; }
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) { toast('الإحداثيات خارج النطاق', true); return; }
+        _ulSetMarker(lat, lng);
+        ulMap.setView([lat, lng], 16);
+    });
+
+    const close = () => { ulMap.remove(); overlay.remove(); };
+    document.getElementById('ul-close-x').addEventListener('click', close);
+    document.getElementById('ul-cancel-btn').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+    document.getElementById('ul-save-btn').addEventListener('click', async () => {
+        if (selectedLat === null || selectedLng === null) {
+            toast('انقر على الخريطة لتحديد الموقع أولاً', true); return;
+        }
+        const btn = document.getElementById('ul-save-btn');
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            const lat = parseFloat(selectedLat.toFixed(6));
+            const lng = parseFloat(selectedLng.toFixed(6));
+            // A location the admin sets by hand is authoritative — clear any
+            // earlier "auto-order" approximation flag so the ~tag disappears.
+            await _updateUserLocation(uid, lat, lng, { locationSource: 'admin-manual' });
+            if (allUsers[uid]) {
+                allUsers[uid].location       = { lat, lng };
+                allUsers[uid].locationSource = 'admin-manual';
+            }
+            toast(`✅ تم حفظ موقع ${name || 'العميل'}`);
+            close();
+            renderCustomers();
+        } catch(e) {
+            toast('فشل الحفظ: ' + e.message, true);
+            btn.disabled = false; btn.textContent = '💾 حفظ الموقع';
+        }
+    });
+
+    setTimeout(() => ulMap.invalidateSize(), 120);
+}
+
+/* ══════════════════════════════════════════════════════════
+   AUTO-LOCATE MISSING CUSTOMERS
+   For customers with no saved location (GPS failed at signup, etc.),
+   fall back to the delivery coordinates of their own most recent order
+   — real data the customer already gave a driver, and far more reliable
+   than guessing from IP or a town-center default. Only customers who
+   actually have a geolocated past order get auto-set; everyone else is
+   left for manual review via the ✏️/📍 button so we never silently
+   plant a wrong pin.
+══════════════════════════════════════════════════════════ */
+async function autoLocateMissingCustomers() {
+    const candidates = Object.entries(allUsers).filter(([, u]) => {
+        const _lat = parseFloat(u.location?.lat ?? u.lat ?? NaN);
+        const _lng = parseFloat(u.location?.lng ?? u.lng ?? NaN);
+        return !_lat || !_lng || isNaN(_lat) || isNaN(_lng);
+    });
+
+    if (!candidates.length) { toast('✅ كل العملاء لديهم موقع محدد بالفعل'); return; }
+
+    // Build uid -> most recent geolocated order, from newest to oldest
+    const ordersByUser = {};
+    Object.values(allOrders)
+        .filter(o => o.lat && o.lng && o.lat !== '0' && !isNaN(parseFloat(o.lat)) && !isNaN(parseFloat(o.lng)))
+        .sort((a, b) => (b.timestamp || b.createdAt || 0) - (a.timestamp || a.createdAt || 0))
+        .forEach(o => {
+            const key = o.delivryplusid || o.username;
+            if (key && !ordersByUser[key]) ordersByUser[key] = o;
+        });
+
+    // Resolve matches BEFORE asking for confirmation, so the admin sees the
+    // exact named list of who is about to be touched — never a blind count.
+    // Customers who already have a saved location were filtered out above and
+    // are never in this list, so this can never overwrite an existing pin.
+    const toSet = [];
+    let unmatched = 0;
+    candidates.forEach(([uid, u]) => {
+        const match = ordersByUser[uid] || ordersByUser[u.username];
+        if (!match) { unmatched++; return; }
+        toSet.push({
+            uid, u,
+            lat: parseFloat(parseFloat(match.lat).toFixed(6)),
+            lng: parseFloat(parseFloat(match.lng).toFixed(6)),
+        });
+    });
+
+    if (!toSet.length) {
+        toast(`ℹ️ لا يوجد عميل يمكن تحديد موقعه تلقائياً — ${unmatched} عميل بدون أي طلب بإحداثيات، بحاجة لتحديد يدوي`);
+        return;
+    }
+
+    const previewList = toSet.map(({ u, lat, lng }) =>
+        `<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--border);font-size:0.78rem;">
+            <span>${u.displayName || u.username || '—'} <span style="color:var(--gray);">@${u.username || '—'}</span></span>
+            <span style="font-family:var(--mono);color:var(--orange);white-space:nowrap;">${lat}, ${lng}</span>
+        </div>`
+    ).join('');
+
+    const confirmed = await showConfirm({
+        title: '🎯 تحديد تلقائي للمواقع الناقصة',
+        msg: `سيتم تحديد موقع <strong>${toSet.length}</strong> عميل تلقائياً من إحداثيات آخر طلب لهم فقط
+              — لن يتم لمس أي عميل لديه موقع محفوظ مسبقاً.
+              ${unmatched ? `<br>(${unmatched} عميل آخر بدون أي طلب بإحداثيات سيبقون بدون موقع لتحديدهم يدوياً)` : ''}
+              <div style="max-height:220px;overflow-y:auto;margin-top:10px;text-align:right;background:var(--surface2);border-radius:8px;padding:8px 10px;">
+                  ${previewList}
+              </div>`,
+        okLabel: `🎯 تأكيد وتحديد ${toSet.length} عميل`, cancelLabel: 'إلغاء',
+    });
+    if (!confirmed) return;
+
+    let located = 0, skipped = unmatched;
+    for (const { uid, lat, lng } of toSet) {
+        try {
+            await _updateUserLocation(uid, lat, lng, { locationSource: 'auto-order' });
+            allUsers[uid].location       = { lat, lng };
+            allUsers[uid].locationSource = 'auto-order';
+            located++;
+        } catch(_) { skipped++; }
+    }
+
+    toast(`🎯 تم تحديد موقع ${located} عميل تلقائياً${skipped ? ` — ${skipped} بحاجة لتحديد يدوي` : ''}`);
+    renderCustomers();
 }
 
 // STORES PANEL
@@ -11636,7 +11934,9 @@ async function _sendWhatsappMessage(phone, message) {
     const instance = window._greenApiInstance || await fbGet('settings/greenApiInstance');
     const token    = window._greenApiToken    || await fbGet('settings/greenApiToken');
     if (!instance || !token) throw new Error('GREEN-API غير مهيأ من إعدادات الأدمن');
-    const digits = String(phone || '').replace(/\D/g, '').replace(/^961/, '');
+    // Strip a country-code prefix if present, then a leading local "0" (Lebanese
+    // "03" numbers keep the 0 in local format only — international drops it).
+    const digits = String(phone || '').replace(/\D/g, '').replace(/^961/, '').replace(/^0/, '');
     if (!digits) throw new Error('رقم هاتف غير صالح');
     const chatId = '961' + digits + '@c.us';
     const _gaServer = String(instance).slice(0, 4);
@@ -12538,6 +12838,9 @@ document.getElementById('drivers-search').addEventListener('input', e => {
 document.getElementById('customers-refresh-btn').addEventListener('click', async () => {
     await loadAllData(); renderCustomers(); toast('✅ تم تحديث العملاء');
 });
+
+// Auto-locate customers missing a saved location, from their own order history
+document.getElementById('customers-autolocate-btn').addEventListener('click', autoLocateMissingCustomers);
 
 // Customer filter pills
 document.querySelectorAll('[data-cust-filter]').forEach(btn => {

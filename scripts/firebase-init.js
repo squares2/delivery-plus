@@ -357,7 +357,7 @@ function onFirebaseReady() {
     window.DelivoAuth = {
 
         // ── Register with username + password ──────────────────
-        async register({ username, displayName, password, phone, lat, lng, skipDeviceLimit = false }) {
+        async register({ username, displayName, password, phone, lat, lng, locationSource = null, skipDeviceLimit = false }) {
 
             // Validate username
             username = (username || '').toLowerCase().trim();
@@ -491,6 +491,10 @@ function onFirebaseReady() {
                 };
                 if (lat && lng) {
                     userData.location = { lat: Number(lat), lng: Number(lng) };
+                    // Tags how this pin was obtained ('gps' | 'map' | 'ip-approx') so the
+                    // admin panel can flag network-approximated pins for later review —
+                    // same pattern as the admin's own auto-locate-from-orders tool.
+                    if (locationSource) userData.locationSource = locationSource;
                 }
                 await db.collection('users').doc(user.uid).set(userData);
 
@@ -534,6 +538,7 @@ function onFirebaseReady() {
                 };
                 if (lat && lng) {
                     window.DelivoUser.location = { lat: Number(lat), lng: Number(lng) };
+                    if (locationSource) window.DelivoUser.locationSource = locationSource;
                 }
 
                 // Re-render account modal and navbar with the correct data
