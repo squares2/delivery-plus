@@ -573,6 +573,7 @@ input, select, textarea { font-family: var(--font); }
     display:flex; align-items:center; gap:8px;
     font-size:0.8rem; font-weight:800;
 }
+.coc-eta.urgent { color:var(--red); }
 
 /* Loading shimmer for items */
 .coc-item-shimmer {
@@ -811,6 +812,9 @@ input, select, textarea { font-family: var(--font); }
     display:flex; align-items:center; gap:5px; background:rgba(245,158,11,.08);
     border:1px solid rgba(245,158,11,.25); border-radius:var(--radius-sm);
     padding:5px 10px; margin:4px 0; font-size:0.78rem; color:var(--yellow); font-weight:800;
+}
+.coc-eta.urgent {
+    background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.3); color:var(--red);
 }
 .coc-actions { display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px; border-top:1px solid var(--border); }
 .coc-btn {
@@ -6506,9 +6510,11 @@ function renderCustomers() {
                         const _lng2=parseFloat(_loc2?.lng??_loc2?.longitude??p.lng??p.longitude??NaN);
                         const _hasLoc2 = _lat2 && _lng2 && !isNaN(_lat2) && !isNaN(_lng2);
                         const _approx2 = _hasLoc2 && p.locationSource === 'auto-order';
+                        const _ipApprox2 = _hasLoc2 && p.locationSource === 'ip-approx';
                         return `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;">
                             ${_hasLoc2 ? `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat2}" data-lng="${_lng2}" data-cname="${p.displayName||p.username||''}">📍 خريطة</button>` : '<span style="font-size:0.7rem;color:var(--gray);">لا يوجد</span>'}
                             ${_approx2 ? `<span style="font-size:0.58rem;color:#f59e0b;white-space:nowrap;">🎯 تقريبي (طلب سابق)</span>` : ''}
+                            ${_ipApprox2 ? `<span style="font-size:0.58rem;color:#3b82f6;white-space:nowrap;">📡 تقريبي (شبكة عند التسجيل)</span>` : ''}
                             <button class="cust-reposition-btn" style="font-size:0.6rem;padding:2px 7px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:6px;color:#3b82f6;cursor:pointer;font-family:inherit;white-space:nowrap;"
                                 data-uid="${p._id}" data-name="${p.displayName||p.username||''}" data-lat="${_hasLoc2?_lat2:''}" data-lng="${_hasLoc2?_lng2:''}">
                                 ${_hasLoc2 ? '✏️ تعديل' : '📍 تحديد'}
@@ -6517,6 +6523,12 @@ function renderCustomers() {
                     })()}</td>
                     <td>
                         <div style="display:flex;flex-direction:column;gap:4px;">
+                            ${isGroup ? `<button class="cust-unmerge-btn"
+                                data-uid="${p._id}" data-uuid="${uuid || ''}" data-name="${p.displayName||p.username||''}"
+                                style="width:100%;padding:4px 8px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:var(--radius-sm);color:#a78bfa;font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;"
+                                title="إعطاء هذا الحساب معرّف جهاز جديد ومستقل">
+                                🔓 فصل عن الجهاز
+                            </button>` : ''}
                             <button class="uuid-bl-btn ${bl[p._id]?'unblock':''}"
                                 data-uid="${p._id}" data-name="${p.displayName||p.username||''}"
                                 data-action="${bl[p._id]?'unblock-uid':'block-uid'}" style="width:100%;">
@@ -6552,6 +6564,11 @@ function renderCustomers() {
                     e.stopPropagation();
                     const btn = e.currentTarget;
                     resetUserPassword(btn.dataset.uid, btn.dataset.username, btn.dataset.name, btn.dataset.phone);
+                });
+                tr2.querySelector('.cust-unmerge-btn')?.addEventListener('click', e => {
+                    e.stopPropagation();
+                    const btn = e.currentTarget;
+                    unmergeCustomerDevice(btn.dataset.uid, btn.dataset.uuid, btn.dataset.name);
                 });
                 return tr2;
             });
@@ -6630,9 +6647,11 @@ function renderCustomers() {
                     const _lng=parseFloat(_loc?.lng??_loc?.longitude??u.lng??u.longitude??NaN);
                     const _hasLoc = _lat && _lng && !isNaN(_lat) && !isNaN(_lng);
                     const _approx = _hasLoc && u.locationSource === 'auto-order';
+                    const _ipApprox = _hasLoc && u.locationSource === 'ip-approx';
                     return `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;">
                         ${_hasLoc ? `<button class="oc-action-btn cust-map-btn" style="font-size:0.68rem;padding:3px 8px;" data-lat="${_lat}" data-lng="${_lng}" data-cname="${u.displayName||u.username||''}">📍 خريطة</button>` : '<span style="font-size:0.7rem;color:var(--gray);">لا يوجد</span>'}
                         ${_approx ? `<span style="font-size:0.58rem;color:#f59e0b;white-space:nowrap;">🎯 تقريبي (طلب سابق)</span>` : ''}
+                        ${_ipApprox ? `<span style="font-size:0.58rem;color:#3b82f6;white-space:nowrap;">📡 تقريبي (شبكة عند التسجيل)</span>` : ''}
                         <button class="cust-reposition-btn" style="font-size:0.6rem;padding:2px 7px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:6px;color:#3b82f6;cursor:pointer;font-family:inherit;white-space:nowrap;"
                             data-uid="${uid}" data-name="${u.displayName||u.username||''}" data-lat="${_hasLoc?_lat:''}" data-lng="${_hasLoc?_lng:''}">
                             ${_hasLoc ? '✏️ تعديل' : '📍 تحديد'}
@@ -6735,6 +6754,73 @@ async function _updateUserLocation(uid, lat, lng, meta = {}) {
     const url = `${FIRESTORE}/users/${uid}?${mask}`;
     const r   = await fetch(url, { method: 'PATCH', headers: fsAuth, body: JSON.stringify({ fields }) });
     if (!r.ok) throw new Error('Firestore PATCH failed: ' + r.status);
+}
+
+// Generate a v4-style random UUID, same format used client-side in
+// firebase-init.js's getOrCreateDeviceUUID().
+function _genDeviceUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+/* ══════════════════════════════════════════════════════════
+   DEVICE-COLLISION UN-MERGE (Option 1)
+   The "⚠️ جهاز واحد" flag isn't a random UUID clash — it's two
+   different phones (usually the identical model/OS/browser) hashing
+   to the same fingerprint and getting assigned the same device UUID.
+   This assigns the picked account a brand-new, independent UUID so it
+   stops being grouped with its former "device-mates" — a one-click
+   fix for a false-positive collision, without touching the detection
+   logic that runs for everyone else.
+══════════════════════════════════════════════════════════ */
+async function unmergeCustomerDevice(uid, oldUuid, name) {
+    const newUuid = _genDeviceUUID();
+
+    const confirmed = await showConfirm({
+        title: '🔓 فصل عن الجهاز المشترك',
+        msg: `سيتم إعطاء <strong>${name || 'هذا الحساب'}</strong> معرّف جهاز جديد ومستقل،
+              فيفصله عن باقي الحسابات المُصنَّفة على "نفس الجهاز".<br><br>
+              استخدم هذا فقط إذا كنت متأكداً أن هذا فعلاً جهاز مختلف
+              (غالباً هاتفان بنفس الموديل يعطيان نفس البصمة الرقمية بالخطأ).`,
+        okLabel: '🔓 فصل الحساب', cancelLabel: 'إلغاء',
+    });
+    if (!confirmed) return;
+
+    try {
+        // 1. Assign the new UUID on the user's Firestore profile
+        if (window._adminDb) {
+            await window._adminDb.collection('users').doc(uid).update({ deviceUUID: newUuid });
+        } else {
+            const token  = await getFsToken();
+            const fsAuth = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+            const fields = { deviceUUID: { stringValue: newUuid } };
+            const url = `${FIRESTORE}/users/${uid}?updateMask.fieldPaths=deviceUUID`;
+            const r = await fetch(url, { method: 'PATCH', headers: fsAuth, body: JSON.stringify({ fields }) });
+            if (!r.ok) throw new Error('Firestore PATCH failed: ' + r.status);
+        }
+
+        // 2. Decrement the old shared device's RTDB account counter (floor 0)
+        if (oldUuid) {
+            try {
+                const oldData = await fbGet(`devices/${oldUuid}`).catch(() => null);
+                const oldCount = Math.max(0, (oldData?.accountCount || 1) - 1);
+                await fbSet(`devices/${oldUuid}`, { accountCount: oldCount, lastUsed: oldData?.lastUsed || new Date().toISOString() });
+            } catch (_) {}
+        }
+
+        // 3. Create a fresh RTDB device record for the new UUID
+        await fbSet(`devices/${newUuid}`, { accountCount: 1, lastUsed: new Date().toISOString() });
+
+        // 4. Reflect locally so the table updates without a full reload
+        if (allUsers[uid]) allUsers[uid].deviceUUID = newUuid;
+
+        toast(`✅ تم فصل ${name || 'الحساب'} عن الجهاز المشترك`);
+        renderCustomers();
+    } catch (e) {
+        toast('فشل الفصل: ' + e.message, true);
+    }
 }
 
 // Manual reposition modal — same Leaflet drag-pin pattern as
@@ -13203,7 +13289,28 @@ function cpRender() {
             // Update ETA banner
             const etaBanner = card.querySelector('.coc-eta');
             if (etaMins && etaMins > 0) {
-                if (etaBanner) etaBanner.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> متبقي للتجهيز: ${etaMins} دقيقة`;
+                if (etaBanner) {
+                    // Element already exists — just keep its data-until in sync;
+                    // the live ticker (startCocEtaTicker below) handles the mm:ss text.
+                    etaBanner.dataset.until = o.standbyUntil;
+                } else {
+                    // BUG FIX: previously this branch did nothing when the banner
+                    // was missing, which is exactly the common case — a fresh
+                    // order card is built with no standbyUntil yet (state 0), so
+                    // .coc-eta never gets created. When the store later clicks
+                    // "⏳ قيد التحضير" and sets a prep time, this patch path ran
+                    // but could only update an existing element, never create
+                    // one — so the countdown never appeared at all. Now we
+                    // create it here too, same markup as a fresh card.
+                    const newEtaBanner = document.createElement('div');
+                    newEtaBanner.className = 'coc-eta';
+                    newEtaBanner.style.margin = '12px 16px 0';
+                    newEtaBanner.dataset.until = o.standbyUntil;
+                    newEtaBanner.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <span class="coc-eta-text">متبقي للتجهيز: …</span>`;
+                    const metaStrip = card.querySelector('.coc-meta-strip');
+                    if (metaStrip) metaStrip.insertAdjacentElement('afterend', newEtaBanner);
+                    else card.querySelector('.coc-collapsible')?.appendChild(newEtaBanner);
+                }
             } else if (etaBanner) {
                 etaBanner.remove();
             }
@@ -13250,9 +13357,9 @@ function cpRender() {
                     </div>
                 </div>
                 ${etaMins && etaMins > 0 ? `
-                <div class="coc-eta" style="margin:12px 16px 0;">
+                <div class="coc-eta" style="margin:12px 16px 0;" data-until="${o.standbyUntil}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    متبقي للتجهيز: ${etaMins} دقيقة
+                    <span class="coc-eta-text">متبقي للتجهيز: …</span>
                 </div>` : ''}
                 <div class="coc-items-section">
                     <div class="coc-items-header">تفاصيل الطلب</div>
@@ -14178,6 +14285,35 @@ if (savedSession) {
             const s = diffSec % 60;
             el.textContent = '⏱ ' + m + ':' + String(s).padStart(2,'0');
             el.classList.toggle('urgent', diffSec <= 120); // red in last 2 min
+        });
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+
+// ── Store/company panel prep-time countdown ticker (قيد التحضير) ──
+// Same idea as startOrCountdown() above, but for .coc-eta banners in the
+// store-user order cards. This is what actually makes the countdown "count
+// down" — cpRender() only re-runs every 20s (or on data change), which
+// isn't a live ticker, and previously the banner element itself often never
+// even got created after the fact (see the cpRender() patch-path fix).
+(function startCocEtaTicker() {
+    function tick() {
+        document.querySelectorAll('.coc-eta[data-until]').forEach(el => {
+            const until = parseInt(el.dataset.until);
+            const textEl = el.querySelector('.coc-eta-text') || el;
+            if (!until) return;
+            const diffMs  = until - Date.now();
+            const diffSec = Math.ceil(diffMs / 1000);
+            if (diffSec <= 0) {
+                textEl.textContent = 'انتهى وقت التجهيز';
+                el.classList.add('urgent');
+                return;
+            }
+            const m = Math.floor(diffSec / 60);
+            const s = diffSec % 60;
+            textEl.textContent = `متبقي للتجهيز: ${m}:${String(s).padStart(2,'0')}`;
+            el.classList.toggle('urgent', diffSec <= 120); // last 2 min
         });
     }
     tick();

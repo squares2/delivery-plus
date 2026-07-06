@@ -408,10 +408,17 @@ function onFirebaseReady() {
                 } catch (_) { /* fail open — don't block if check fails */ }
             }
 
-            // Check device limit — enforced for standard registration, bypassed for OTP-verified
+            // Device fingerprint/UUID is informational only from here on —
+            // it's known to produce false positives: two different physical
+            // phones of the identical model/OS/browser version can hash to
+            // the exact same fingerprint and get merged onto one UUID (see
+            // admin panel "⚠️ جهاز واحد" flags). The phone-number limit above
+            // is the real anti-abuse gate and stays fully enforced. We still
+            // compute the device UUID here — it's still recorded against the
+            // account (for the admin panel's same-device flag, reviewed
+            // manually) and still checked against the blacklist just below —
+            // it just no longer blocks a legitimate signup on its own.
             const deviceCheck = await checkDeviceLimit();
-            if (!skipDeviceLimit && !deviceCheck.allowed)
-                return { error: true, message: deviceCheck.message };
 
             // Check if device UUID is blacklisted (always enforced, even for OTP)
             if (deviceCheck.uuid) {
