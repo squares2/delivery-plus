@@ -1212,6 +1212,7 @@ function _initCartLocation() {
         mapBtn.classList.remove('active');
         const locDot = document.getElementById('cart-extras-loc-dot');
         if (locDot) locDot.style.display = 'inline';
+        _recalcDeliveryFees();
     }
 
     function clearLocation() {
@@ -1225,6 +1226,22 @@ function _initCartLocation() {
         const locDot = document.getElementById('cart-extras-loc-dot');
         if (locDot) locDot.style.display = 'none';
         if (mapWrap) mapWrap.style.display = 'none';
+        _recalcDeliveryFees();
+    }
+
+    // Smart delivery fees depend on the distance from the customer's chosen
+    // location to each store, so any time that location changes (GPS, map
+    // pin, or clearing it) the per-store fee hints and the grand total need
+    // to be recomputed right away — previously they only refreshed the next
+    // time an item was added/removed, which read as "the fee is stuck" and
+    // forced customers to remove-then-re-add an item just to see it update.
+    // renderCartSidebar() already does a full, correct recompute (it's the
+    // same path add/remove already used), so re-running it here is the
+    // simplest fix that can't drift out of sync with that logic.
+    function _recalcDeliveryFees() {
+        if (window.DelivoCart && window.DelivoCart.getCount() > 0 && typeof window.renderCartSidebar === 'function') {
+            window.renderCartSidebar();
+        }
     }
 
     const prof = window.DelivoUser || {};
