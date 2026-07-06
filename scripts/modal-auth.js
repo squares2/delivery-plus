@@ -143,6 +143,13 @@ function initModalAuth() {
         showError(errorEl, '⌛ انتهت صلاحية كود التحقق. يمكنك إرسال كود جديد.');
     }
 
+    // Lebanese local numbers starting with "03" carry a leading 0 that is NOT part
+    // of the international number (e.g. local 03 123 456 -> intl 961 3 123 456).
+    // Other prefixes (70/71/76/78/79/81/82/83/86) have no leading 0 to strip.
+    function _toIntlPhone(phone) {
+        return String(phone || '').replace(/^0/, '');
+    }
+
     async function _sendOtpWhatsapp(phone) {
         // Try window vars first (set by firebase-init.js on load)
         let idInstance = window._greenApiInstance || '';
@@ -159,7 +166,7 @@ function initModalAuth() {
         }
         if (!idInstance || !apiToken) throw new Error('GREEN-API غير مهيأ. تحقق من إعدادات الأدمن.');
         const code    = _generateOtp();
-        const chatId  = '961' + phone + '@c.us';
+        const chatId  = '961' + _toIntlPhone(phone) + '@c.us';
         const message = `🔐 كود تفعيل حسابك في Delivo:
 
 *${code}*
@@ -339,7 +346,7 @@ function initModalAuth() {
         if (otpStep) {
             otpStep.style.display = 'block';
             const hint = document.getElementById('otp-hint');
-            if (hint) hint.textContent = `تم إرسال كود إلى واتساب رقم 961${state.phone} — أدخله أدناه`;
+            if (hint) hint.textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(state.phone)} — أدخله أدناه`;
         }
         const regBtn = document.getElementById('reg-submit');
         if (regBtn) regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
@@ -379,7 +386,7 @@ function initModalAuth() {
                 _saveOtpState({ ...(state||{}), code, expiresAt });
                 _startOtpCountdown(60); _startExpireCountdown(expiresAt);
                 const hint = document.getElementById('otp-hint');
-                if (hint) hint.textContent = `✅ أُعيد إرسال الكود إلى واتساب رقم 961${phone}`;
+                if (hint) hint.textContent = `✅ أُعيد إرسال الكود إلى واتساب رقم 961${_toIntlPhone(phone)}`;
             } catch(e) {
                 showError(errorEl, e.message);
                 // Force a cooldown even on failure — a flaky connection must not be able to trigger repeated
@@ -438,7 +445,7 @@ function initModalAuth() {
                         const code      = await _sendOtpWhatsapp(phoneDigits);
                         const expiresAt = Date.now() + OTP_TIMEOUT;
                         _saveOtpState({ username, displayName, password, phone: phoneDigits, lat, lng, code, expiresAt });
-                        if (otpStep) { otpStep.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${phoneDigits}`; }
+                        if (otpStep) { otpStep.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(phoneDigits)}`; }
                         if (cancelBtn) cancelBtn.style.display = 'flex';
                         regBtn.disabled = false;
                         regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
