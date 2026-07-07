@@ -1946,6 +1946,7 @@ function startDriverSession() {
     // Live listener on requests
     listenOrders();
     listenPool();
+    listenAssignmentMode();
     setupTabs();
 }
 
@@ -2161,6 +2162,24 @@ function switchTab(tab) {
     document.getElementById('drv-pool').style.display   = tab === 'pool' ? '' : 'none';
 }
 
+// ── Order-assignment mode (set by admin in settings) ───────────
+// 'both'        (default) — drivers can self-claim AND admin can assign
+// 'admin_only'  — self-claim pool is locked; only admin assigns orders
+// 'driver_only' — drivers self-claim only (admin manual assignment is
+//                 hidden on the admin side — no change needed here)
+let assignmentMode = 'both';
+
+function listenAssignmentMode() {
+    db.ref('settings/orderAssignmentMode').on('value', (snap) => {
+        assignmentMode = snap.val() || 'both';
+        const poolTab = document.getElementById('tab-pool');
+        if (poolTab) poolTab.style.display = assignmentMode === 'admin_only' ? 'none' : '';
+        // If the driver was sitting on the pool tab when admin just locked it, bounce them back
+        if (assignmentMode === 'admin_only' && activeTab === 'pool') switchTab('mine');
+        renderPool();
+    });
+}
+
 // ── Available orders pool listener ────────────────────────────
 let poolCache = {}; // id → order
 
@@ -2188,6 +2207,28 @@ function renderPool() {
     const container = document.getElementById('drv-pool');
     const emptyEl   = document.getElementById('drv-pool-empty');
     const badge     = document.getElementById('pool-badge');
+
+    // Admin has disabled self-claiming entirely — only admin assigns orders
+    if (assignmentMode === 'admin_only') {
+        container.querySelectorAll('.drv-pool-card').forEach(c => c.remove());
+        badge.classList.remove('visible');
+        emptyEl.style.display = 'none';
+        const lockedEl0 = document.getElementById('drv-pool-locked');
+        if (lockedEl0) lockedEl0.remove();
+        if (!document.getElementById('drv-pool-admin-locked')) {
+            const locked = document.createElement('div');
+            locked.id = 'drv-pool-admin-locked';
+            locked.className = 'drv-empty';
+            locked.style.display = '';
+            locked.innerHTML = `
+                <span class="drv-empty__icon">🔒</span>
+                <span class="drv-empty__text">تعيين الطلبات متاح فقط من قِبل الإدارة حالياً</span>`;
+            container.appendChild(locked);
+        }
+        return;
+    }
+    const adminLockedEl = document.getElementById('drv-pool-admin-locked');
+    if (adminLockedEl) adminLockedEl.remove();
 
     // Inactive drivers can browse but not claim — show a locked state instead
     if (driverData && !driverData.active) {
@@ -2259,6 +2300,10 @@ function renderPool() {
 
 async function claimOrder(orderId) {
     if (!driverData) return;
+    if (assignmentMode === 'admin_only') {
+        showToast('🔒 تعيين الطلبات متاح فقط من قِبل الإدارة حالياً');
+        return;
+    }
     if (!driverData.active) {
         showToast('🔒 حسابك قيد المراجعة — لا يمكنك استلام الطلبات حتى يتم التفعيل');
         return;

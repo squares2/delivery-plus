@@ -2700,6 +2700,7 @@ let allDrivers   = [];
 let allUsers        = {};
 let allDeviceGroups = {}; // uuid → [user, user, ...]
 let allStores    = {};
+let _assignmentMode = 'both'; // 'both' | 'driver_only' | 'admin_only' — see settings/orderAssignmentMode
 let adminUsers   = {};
 let orderFilter    = 'all';
 let orderSearch    = '';
@@ -3850,7 +3851,7 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll] = await Promise.all([
+        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode] = await Promise.all([
             fbGet('requests'),
             fbGet('drivers'),
             fsGetCollection('users'),
@@ -3859,7 +3860,10 @@ async function loadAllData() {
             fbGet('adminUsers').catch(()  => null),
             fbGet('blacklist').catch(()   => null),
             fbGet('storeStatus').catch(() => null),
+            fbGet('settings/orderAssignmentMode').catch(() => null),
         ]);
+
+        _assignmentMode = assignMode || 'both';
 
         allOrders    = orders    || {};
         allBlacklist = blacklist || {};
@@ -5214,6 +5218,7 @@ function renderMap() {
 const STATE_LABELS = { '0':'جديد','1':'وُصِّل','2':'ملغي','3':'متأخر','5':'ملغي/مدفوع','6':'استُلم','7':'قيد التحضير','8':'جاهز ✓' };
 
 function renderOrders() {
+    fetchCompanyVars(); // fire-and-forget — populates the cached companyVars used below
     const list    = document.getElementById('orders-list');
     const emptyEl = document.getElementById('orders-empty');
     const countEl = document.getElementById('orders-count-label');
@@ -5283,6 +5288,7 @@ function buildOrderCard(key, order) {
 
     const items = parseCart(order.cart);
     const driverAssigned = order.driver && order.driver !== '0';
+    const deliveryProfit = getOrderDeliveryProfit(order, companyVars);
 
     card.innerHTML = `
         <div class="oc-header">
@@ -5320,6 +5326,7 @@ function buildOrderCard(key, order) {
                 <span class="oc-meta-chip">🏙 ${order.city || '—'}</span>
                 ${order.street ? `<span class="oc-meta-chip">🛣 ${order.street}</span>` : ''}
                 ${order.lat && order.lat !== '0' ? `<span class="oc-meta-chip">📍 ${parseFloat(order.lat).toFixed(5)}, ${parseFloat(order.lng).toFixed(5)}</span>` : ''}
+                <span class="oc-meta-chip" style="color:var(--yellow);border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);">💵 ربح التوصيل: ${deliveryProfit !== null ? formatMoney(deliveryProfit) : '—'}</span>
                 <span class="oc-meta-chip ${driverAssigned ? 'has' : ''}" style="${driverAssigned ? 'border-color:rgba(34,197,94,0.3);color:var(--green);background:var(--green-glow);' : ''}">
                     🛵 ${driverAssigned ? order.driver : 'غير معين'}
                 </span>
@@ -5332,12 +5339,15 @@ function buildOrderCard(key, order) {
                 ${order.xnote ? `<span class="oc-meta-chip" style="flex-basis:100%;">💬 ${order.xnote}</span>` : ''}
             </div>
             <div class="oc-actions">
-                ${hasPerm('orders') ? `
+                ${(hasPerm('orders') && _assignmentMode !== 'driver_only') ? `
                 <select class="driver-select" data-order="${key}">
                     <option value="">— تعيين سائق —</option>
                     ${allDrivers.filter(d => d).map((d,i) => `<option value="${d.owner||d.username}" ${order.driver === (d.owner||d.username) ? 'selected' : ''}>${d.owner || d.username} ${d.status==='online'?'🟢':'⚫'}</option>`).join('')}
                 </select>
                 <button class="oc-action-btn primary" data-assign="${key}">✔ تعيين</button>
+                ` : ''}
+                ${(hasPerm('orders') && _assignmentMode === 'driver_only' && !driverAssigned) ? `
+                <span class="oc-meta-chip" style="color:var(--gray);border-color:var(--border);">🛵 بانتظار استلام السائق بنفسه</span>
                 ` : ''}
                 <button class="oc-action-btn btn-new  ${state==='0'?'btn-new--active':''}"
                         data-state="${key}" data-val="0"
@@ -9254,6 +9264,38 @@ function renderSettings() {
             <div id="coverage-radius-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
         </div>
 
+        <div class="settings-section">
+            <div class="settings-section-title">🛵 آلية تعيين الطلبات للسائقين</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">من يستطيع تعيين السائق للطلب؟</div>
+                    <div class="setting-sub">تحكّم بما إذا كان السائقون يستطيعون استلام الطلبات بأنفسهم من قائمة الطلبات المتاحة، أو أن الإدارة فقط من تُعيّن السائق، أو كلا الخيارين معاً</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:8px;flex-wrap:wrap;">
+                <label class="assign-mode-opt" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;cursor:pointer;flex:1;min-width:150px;">
+                    <input type="radio" name="assign-mode" value="both" style="accent-color:var(--orange);">
+                    <span style="font-size:0.8rem;font-weight:700;">🤝 كلاهما</span>
+                </label>
+                <label class="assign-mode-opt" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;cursor:pointer;flex:1;min-width:150px;">
+                    <input type="radio" name="assign-mode" value="driver_only" style="accent-color:var(--orange);">
+                    <span style="font-size:0.8rem;font-weight:700;">🛵 السائق يستلم بنفسه فقط</span>
+                </label>
+                <label class="assign-mode-opt" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;cursor:pointer;flex:1;min-width:150px;">
+                    <input type="radio" name="assign-mode" value="admin_only" style="accent-color:var(--orange);">
+                    <span style="font-size:0.8rem;font-weight:700;">👤 الإدارة فقط</span>
+                </label>
+            </div>
+            <div class="setting-row" style="margin-top:8px;">
+                <button id="assign-mode-save"
+                        style="margin-right:auto;background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ
+                </button>
+            </div>
+            <div id="assign-mode-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+        </div>
+
         <!-- ═══════════════════════════════════════════════════════
              WORLD CUP 2026 PROMO — START
              Time-boxed marketing campaign, fully isolated. To retire
@@ -9895,6 +9937,32 @@ function renderSettings() {
         try {
             await fbSet('settings/dollarRate', rate);
             if (status) { status.textContent = `✅ تم حفظ — 1$ = ${rate.toLocaleString('ar')} ل.ل`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        }
+    });
+
+    // Load orderAssignmentMode (default 'both' preserves existing behaviour)
+    fbGet('settings/orderAssignmentMode').then(val => {
+        const mode = val || 'both';
+        const radio = document.querySelector(`input[name="assign-mode"][value="${mode}"]`);
+        if (radio) radio.checked = true;
+    }).catch(() => {
+        const radio = document.querySelector(`input[name="assign-mode"][value="both"]`);
+        if (radio) radio.checked = true;
+    });
+
+    document.getElementById('assign-mode-save')?.addEventListener('click', async () => {
+        const status = document.getElementById('assign-mode-status');
+        const checked = document.querySelector('input[name="assign-mode"]:checked');
+        const mode = checked ? checked.value : 'both';
+        try {
+            await fbSet('settings/orderAssignmentMode', mode);
+            _assignmentMode = mode; // update local cache immediately
+            renderOrders(); renderOnlineRequests();
+            const labels = { both: 'كلاهما', driver_only: 'السائق يستلم بنفسه فقط', admin_only: 'الإدارة فقط' };
+            if (status) { status.textContent = `✅ تم الحفظ — ${labels[mode]}`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
             setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
         } catch(e) {
             if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
@@ -14377,6 +14445,20 @@ function calcDeliveryProfit(orderPrice, cv) {
     return null;
 }
 
+// Preferred source of truth: the actual delivery fee charged to the
+// customer on this specific order (order.deliveryFee, saved at checkout
+// since scripts/cart.js was updated to persist it). Falls back to the
+// company-wide estimate (calcDeliveryProfit) for older orders placed
+// before that field existed.
+function getOrderDeliveryProfit(order, cv) {
+    if (order && order.deliveryFee !== undefined && order.deliveryFee !== null && order.deliveryFee !== '') {
+        const fee = parseFloat(order.deliveryFee);
+        if (!isNaN(fee)) return fee;
+    }
+    const orderPrice = parseFloat(order?.orderprice || order?.total || 0);
+    return calcDeliveryProfit(orderPrice, cv);
+}
+
 function calcDriverCost(driverName, cv) {
     if (!driverName || driverName === '0') return null;
     const d = allDrivers.find(dr => dr && (dr.owner === driverName || dr.username === driverName));
@@ -14462,7 +14544,7 @@ async function renderOnlineRequests() {
     entries.forEach(([,o]) => {
         const price = parseFloat(o.orderprice || o.total || 0);
         totalRevenue += price;
-        const p = calcDeliveryProfit(price, cv);
+        const p = getOrderDeliveryProfit(o, cv);
         if (p !== null) totalProfit += p;
         if ((o.state||'0') === '0') newCount++;
     });
@@ -14514,7 +14596,7 @@ async function renderOnlineRequests() {
         const state      = o.state || '0';
         const isUnread   = o.read !== '1';
         const orderPrice = parseFloat(o.orderprice || o.total || 0);
-        const profit     = calcDeliveryProfit(orderPrice, cv);
+        const profit     = getOrderDeliveryProfit(o, cv);
         const driverCost = calcDriverCost(o.driver, cv);
         const assigned   = o.driver && o.driver !== '0';
 
@@ -14551,6 +14633,7 @@ async function renderOnlineRequests() {
             <td><span class="${profit !== null ? 'or-profit' : 'or-profit-loading'}">${profit !== null ? formatMoney(profit) : '—'}</span></td>
             <td><span class="${driverCost !== null ? 'or-drivercost' : 'or-profit-loading'}">${driverCost !== null ? formatMoney(driverCost) : (assigned ? '—' : '—')}</span></td>
             <td>
+                ${_assignmentMode !== 'driver_only' ? `
                 <div class="or-driver-wrap">
                     <select class="or-driver-sel" data-orkey="${key}">
                         <option value="">— سائق —</option>
@@ -14562,6 +14645,7 @@ async function renderOnlineRequests() {
                     </select>
                     <button class="or-assign-btn" data-orassign="${key}">✔</button>
                 </div>
+                ` : `<span style="color:var(--gray);font-size:0.72rem;">🛵 ${assigned ? o.driver : 'بانتظار الاستلام'}</span>`}
             </td>
             <td><span class="or-date">${o.date || '—'}</span></td>
             <td>

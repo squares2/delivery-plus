@@ -1023,6 +1023,7 @@ function initCart() {
                     city         : 'Baalbeck',
                     date         : dateStr,
                     delivryplusid: user.uid || '',
+                    deliveryFee  : smartFee.toFixed(2),
                     driver       : '0',
                     rewardApplied: activeRewardNow ? `${activeRewardNow.type}:${activeRewardNow.value || ''}` : '',
                     fullname     : userProfile.displayName || user.displayName || user.email || '',
