@@ -19,7 +19,7 @@ const STORE_IMG = './assets';
 const CAT_MAP = {
     restaurants : { fbKey: 'Restaurants',  label: 'المطاعم',     emoji: '🍔' },
     meat        : { fbKey: 'ButcherShops', label: 'الملاحم',     emoji: '🥩' },
-    bakery      : { fbKey: 'BakeryShops',  label: 'المخابز',     emoji: '🥖' },
+    bakery      : { fbKey: 'BakeryShops',  label: 'الأفران',     emoji: '🥖' },
     supermarket : { fbKey: 'Markets',      label: 'السوبرماركت', emoji: '🛒' },
     sweets      : { fbKey: 'SweetsShops',  label: 'الحلويات',    emoji: '🍰' },
     fish        : { fbKey: 'FishShops',    label: 'الأسماك',     emoji: '🐟' },

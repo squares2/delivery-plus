@@ -336,9 +336,14 @@ function initScrollDrag() {
             if (Math.abs(x - startX) > 5) { hasDragged = true; e.preventDefault(); row.scrollLeft = scrollLeft - (x - startX) * 1.5; }
         });
         row.addEventListener('click', e => { if (hasDragged) { e.preventDefault(); e.stopPropagation(); hasDragged = false; } }, true);
-        let touchStartX, touchScrollLeft;
-        row.addEventListener('touchstart', e => { touchStartX = e.touches[0].pageX - row.offsetLeft; touchScrollLeft = row.scrollLeft; }, { passive: true });
-        row.addEventListener('touchmove', e => { const x = e.touches[0].pageX - row.offsetLeft; row.scrollLeft = touchScrollLeft - (x - touchStartX) * 1.5; }, { passive: true });
+        // NOTE: touch scrolling is intentionally left to the browser's own
+        // native momentum scroll (overflow-x + -webkit-overflow-scrolling:
+        // touch in CSS). A previous version also drove row.scrollLeft
+        // manually from touchmove here, on top of native scroll — two
+        // separate things setting scrollLeft on every touch frame, fighting
+        // each other, which is what caused the visible jumping/stutter on
+        // mobile. Native scroll alone is smooth; this JS duplicate wasn't
+        // needed and was actively harmful.
     });
 }
 

@@ -29,7 +29,16 @@
     }
 
     /* ── Layer open detector ─────────────────────────────────── */
+    function _isShown(el) {
+        // Covers both class-driven overlays (display set via CSS) and
+        // inline style.display='flex' overlays used across the codebase.
+        return !!el && el.style.display !== 'none' &&
+               getComputedStyle(el).display !== 'none';
+    }
+
     function _anyLayerOpen() {
+        const introCard = document.getElementById('store-intro');
+        if (introCard && introCard.classList.contains('visible'))     return true;
         if (document.querySelector('.modal-overlay.active'))          return true;
         if (document.querySelector('#track-modal.active'))            return true;
         if (document.querySelector('.track-modal.active'))            return true;
@@ -44,11 +53,25 @@
         if (cart && cart.classList.contains('active'))                return true;
         const nav = document.getElementById('mobile-menu');
         if (nav && nav.classList.contains('open'))                    return true;
+        // Overlays toggled via inline style.display rather than a class
+        if (_isShown(document.getElementById('cart-map-modal')))      return true;
+        if (_isShown(document.getElementById('coverage-warning-modal'))) return true;
+        if (_isShown(document.getElementById('ext-map-modal')))        return true;
+        if (_isShown(document.getElementById('ext-order-overlay')))    return true;
+        if (_isShown(document.getElementById('wc2026-modal')))         return true;
         return false;
     }
 
     /* ── Close top layer ─────────────────────────────────────── */
     function _closeTopLayer() {
+        // Store-intro animation (the ~2.6s card shown right after tapping
+        // a store, before the panel itself opens) — must be checked first
+        // since it can be on screen before store-panel gets its 'active' class.
+        const introCard = document.getElementById('store-intro');
+        if (introCard && introCard.classList.contains('visible')) {
+            if (typeof window._abortStoreIntro === 'function') window._abortStoreIntro();
+            return true;
+        }
         const trackModal = document.getElementById('track-modal') ||
                            document.querySelector('.track-modal');
         if (trackModal && (trackModal.classList.contains('active') ||
@@ -62,6 +85,28 @@
             if (typeof closeOrdersModal === 'function') closeOrdersModal();
             return true;
         }
+        // Nested map picker inside the "order externally" wizard — sits on
+        // top of ext-order-overlay, so must close before it.
+        if (_isShown(document.getElementById('ext-map-modal'))) {
+            if (typeof window._extMapCancel === 'function') window._extMapCancel();
+            else document.getElementById('ext-map-modal').style.display = 'none';
+            return true;
+        }
+        if (_isShown(document.getElementById('cart-map-modal'))) {
+            if (typeof window._closeCartMapModal === 'function') window._closeCartMapModal();
+            else document.getElementById('cart-map-modal').style.display = 'none';
+            return true;
+        }
+        if (_isShown(document.getElementById('coverage-warning-modal'))) {
+            if (typeof window._closeCoverageWarning === 'function') window._closeCoverageWarning();
+            else document.getElementById('coverage-warning-modal').style.display = 'none';
+            return true;
+        }
+        if (_isShown(document.getElementById('wc2026-modal'))) {
+            if (typeof window.closeWc2026Modal === 'function') window.closeWc2026Modal();
+            else document.getElementById('wc2026-modal').style.display = 'none';
+            return true;
+        }
         const overlay = document.querySelector('.modal-overlay.active');
         if (overlay) {
             overlay.classList.remove('active');
@@ -71,6 +116,12 @@
         const trackSheet = document.getElementById('bb-track-sheet');
         if (trackSheet && trackSheet.classList.contains('open')) {
             if (typeof window._closeTrackSheet === 'function') window._closeTrackSheet();
+            return true;
+        }
+        // "Order externally" wizard overlay (parent of ext-map-modal above)
+        if (_isShown(document.getElementById('ext-order-overlay'))) {
+            if (typeof window._extCloseModal === 'function') window._extCloseModal();
+            else document.getElementById('ext-order-overlay').style.display = 'none';
             return true;
         }
         const sp = document.getElementById('store-panel') ||

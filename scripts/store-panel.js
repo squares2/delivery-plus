@@ -98,6 +98,12 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     const dots     = document.querySelectorAll('.store-intro__dot');
     const DURATION = 2200;
 
+    // Reset any abort flag / pending timers from a previous run
+    _introCancelled = false;
+    if (_introDotTimer)   clearInterval(_introDotTimer);
+    if (_introMainTimer)  clearTimeout(_introMainTimer);
+    if (_introExitTimer)  clearTimeout(_introExitTimer);
+
     nameEl.textContent = (storeMeta && storeMeta.nameAr && storeMeta.nameAr.trim())
         ? storeMeta.nameAr.trim()
         : storeName;
@@ -131,14 +137,16 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     });
 
     let dotIdx = 0;
-    const dotTimer = setInterval(() => {
+    _introDotTimer = setInterval(() => {
         dots.forEach(d => d.classList.remove('active'));
         dotIdx = (dotIdx + 1) % dots.length;
         dots[dotIdx].classList.add('active');
     }, DURATION / 4);
 
-    setTimeout(() => {
-        clearInterval(dotTimer);
+    _introMainTimer = setTimeout(() => {
+        if (_introCancelled) return; // aborted mid-flight — do nothing further
+        clearInterval(_introDotTimer);
+        _introDotTimer = null;
         const logoWrap = document.getElementById('si-logo-wrap');
         const fromRect = logoWrap.getBoundingClientRect();
         const heroH    = Math.min(200, window.innerHeight * 0.28);
@@ -157,7 +165,7 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
         catEl.style.opacity     = '0';
         if (ratingEl) { ratingEl.style.transition = 'opacity 0.25s'; ratingEl.style.opacity = '0'; }
         card.classList.add('exit');
-        setTimeout(() => {
+        _introExitTimer = setTimeout(() => {
             card.classList.remove('visible', 'exit');
             card.style.display = 'none';
             logoWrap.style.transform  = '';
@@ -165,7 +173,7 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
             logoWrap.style.transition = '';
             nameEl.style.opacity = catEl.style.opacity = '';
             progress.style.transform = 'scaleX(0)';
-            onDone();
+            if (!_introCancelled) onDone();
         }, 460);
     }, DURATION);
 }
@@ -175,6 +183,29 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
 // Regular cards:  openStorePanel(slug, 'Classic-Food', type)          -> rtdbKey defaults to storeName
 // Mealtime cards: openStorePanel('Classic-Food', 'كلاسيك فود', type, 'Classic-Food')
 let _introInProgress = false; // prevents overlapping intro timer chains from rapid repeated taps
+let _introCancelled  = false; // set by back-button handler to abort an in-flight intro
+let _introDotTimer   = null;
+let _introMainTimer  = null;
+let _introExitTimer  = null;
+
+// Immediately hide the store-intro animation and abort the pending
+// panel-open callback. Called by scripts/back-handler.js when the user
+// presses back while the intro is still playing.
+function _abortStoreIntro() {
+    _introCancelled = true;
+    _introInProgress = false;
+    if (_introDotTimer)  { clearInterval(_introDotTimer);  _introDotTimer  = null; }
+    if (_introMainTimer) { clearTimeout(_introMainTimer);  _introMainTimer = null; }
+    if (_introExitTimer) { clearTimeout(_introExitTimer);  _introExitTimer = null; }
+    const card = document.getElementById('store-intro');
+    if (card) {
+        card.classList.remove('visible', 'exit');
+        card.style.display = 'none';
+    }
+    document.body.classList.remove('modal-open');
+}
+window._abortStoreIntro = _abortStoreIntro;
+
 function openStorePanel(storeId, storeName, storeType, rtdbKey) {
     if (_introInProgress) return; // ignore taps while the ~2.6s intro animation is already playing
     const _fireKey = rtdbKey || storeName; // always the English Firebase key
@@ -864,7 +895,7 @@ function _getBaseItemQty(baseId, storeName) {
         .reduce((s, i) => s + i.qty, 0);
 }
 function _typeLabel(t) {
-    const map = { Restaurants:'مطاعم', CoffeeShops:'قهوة', Markets:'سوبرماركت', SweetsShops:'حلويات', ButcherShops:'ملاحم', FishShops:'أسماك', BakeryShops:'مخابز' };
+    const map = { Restaurants:'مطاعم', CoffeeShops:'قهوة', Markets:'سوبرماركت', SweetsShops:'حلويات', ButcherShops:'ملاحم', FishShops:'أسماك', BakeryShops:'أفران' };
     return map[t] || t;
 }
 function _typeEmoji(t) {

@@ -684,7 +684,7 @@ function _injectSearchOverlay() {
                     <p class="bbs__section-label" style="margin-top:20px;">⚡ تصفح سريع</p>
                     <div class="bbs__quick-grid" id="bbs-quick-grid">
                         <button class="bbs__quick-card" data-type="Restaurants">🍔<span>مطاعم</span></button>
-                        <button class="bbs__quick-card" data-type="BakeryShops">🥖<span>مخابز</span></button>
+                        <button class="bbs__quick-card" data-type="BakeryShops">🥖<span>أفران</span></button>
                         <button class="bbs__quick-card" data-type="SweetsShops">🍰<span>حلويات</span></button>
                         <button class="bbs__quick-card" data-type="CoffeeShops">☕<span>قهوة</span></button>
                         <button class="bbs__quick-card" data-type="ButcherShops">🥩<span>ملاحم</span></button>

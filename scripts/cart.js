@@ -223,6 +223,7 @@ function _closeCoverageWarning() {
     if (modal) modal.style.display = 'none';
     if (_covWarnMap) { _covWarnMap.remove(); _covWarnMap = null; }
 }
+window._closeCoverageWarning = _closeCoverageWarning;
 
 function _initCoverageWarningModal() {
     const closeBtn  = document.getElementById('coverage-warning-close');
@@ -1352,6 +1353,12 @@ function _initCartLocation() {
         });
     });
 
+    function _closeCartMapModal() {
+        document.getElementById('cart-map-modal').style.display = 'none';
+        if (_cartMap) { _cartMap.remove(); _cartMap = null; _cartMarker = null; }
+    }
+    window._closeCartMapModal = _closeCartMapModal;
+
     const confirmBtn = document.getElementById('cart-map-modal-confirm');
     if (confirmBtn) {
         confirmBtn.addEventListener('click', () => {
@@ -1360,17 +1367,13 @@ function _initCartLocation() {
                 setLocation(pos.lat.toFixed(6), pos.lng.toFixed(6));
                 mapBtn.classList.add('active');
             }
-            document.getElementById('cart-map-modal').style.display = 'none';
-            if (_cartMap) { _cartMap.remove(); _cartMap = null; _cartMarker = null; }
+            _closeCartMapModal();
         });
     }
 
     const modalClose = document.getElementById('cart-map-modal-close');
     if (modalClose) {
-        modalClose.addEventListener('click', () => {
-            document.getElementById('cart-map-modal').style.display = 'none';
-            if (_cartMap) { _cartMap.remove(); _cartMap = null; _cartMarker = null; }
-        });
+        modalClose.addEventListener('click', _closeCartMapModal);
     }
 
     clearBtn.addEventListener('click', clearLocation);
