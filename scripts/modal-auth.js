@@ -652,8 +652,20 @@ function initModalAuth() {
 
             // Initialize Leaflet map once
             if (!window._regMap) {
-                const defaultLat = 34.0040;
-                const defaultLng = 36.2100;
+                // Default center = the admin-configured Delivo center
+                // (settings/deliveryCenter) so a customer with no location
+                // yet opens the map already centered on the actual coverage
+                // area, instead of a generic hardcoded Zahle point. Falls
+                // back to that old hardcoded point only if no center has
+                // been configured in admin settings at all.
+                let defaultLat = 34.0040;
+                let defaultLng = 36.2100;
+                if (typeof window._getDeliveryCenter === 'function') {
+                    try {
+                        const dc = await window._getDeliveryCenter();
+                        if (dc) { defaultLat = dc.lat; defaultLng = dc.lng; }
+                    } catch (_) {}
+                }
 
                 // IMPORTANT: remember whether a real location was already set
                 // (GPS or a previous IP-approx fallback) BEFORE we fall back to
@@ -672,21 +684,12 @@ function initModalAuth() {
                 let centerLat = parseFloat(hadPriorLat) || defaultLat;
                 let centerLng = parseFloat(hadPriorLng) || defaultLng;
 
-                // No location yet at all (no GPS, no prior IP-approx)? Try one
-                // more best-effort network-based estimate so the starting pin
-                // lands near the customer's real area instead of a generic
-                // town center — this still does NOT get written to the
-                // required fields; it only picks a better starting point for
-                // the pin the customer must confirm themselves.
-                let ipApproxForCenter = null;
-                if (!hadPriorLocation) {
-                    setLocationStatus('loading', '📡 جاري تجهيز الخريطة بأقرب موقع تقريبي...');
-                    ipApproxForCenter = await _fetchApproxIpLocation();
-                    if (ipApproxForCenter) {
-                        centerLat = ipApproxForCenter.lat;
-                        centerLng = ipApproxForCenter.lng;
-                    }
-                }
+                // No location yet at all? The map now simply opens centered
+                // on the Delivo coverage center (set above) instead of
+                // guessing at an IP-based estimate — consistent with no
+                // longer using network-approximate positions anywhere in
+                // registration. The customer still must confirm a real pin
+                // themselves; this only affects where the map starts.
 
                 // ── Google Maps API key ───────────────────────────
                 const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
@@ -709,7 +712,7 @@ function initModalAuth() {
                 window._regMap = L.map('reg-map', {
                     zoomControl: true,
                     attributionControl: true,
-                }).setView([centerLat, centerLng], hadPriorLocation ? 17 : (ipApproxForCenter ? 15 : 13));
+                }).setView([centerLat, centerLng], hadPriorLocation ? 17 : 13);
 
                 window._tileLayers.satellite.addTo(window._regMap);
 
@@ -920,8 +923,20 @@ function initModalAuth() {
                 const hadPriorLng = document.getElementById('edit-lng').value;
                 const hadPriorLocation = !!(hadPriorLat && hadPriorLng);
 
-                const savedLat = parseFloat(hadPriorLat) || 34.0040;
-                const savedLng = parseFloat(hadPriorLng) || 36.2100;
+                // Default center = the admin-configured Delivo center when
+                // this customer has no prior location at all (same fix as
+                // the registration map picker above).
+                let fallbackLat = 34.0040;
+                let fallbackLng = 36.2100;
+                if (!hadPriorLocation && typeof window._getDeliveryCenter === 'function') {
+                    try {
+                        const dc = await window._getDeliveryCenter();
+                        if (dc) { fallbackLat = dc.lat; fallbackLng = dc.lng; }
+                    } catch (_) {}
+                }
+
+                const savedLat = parseFloat(hadPriorLat) || fallbackLat;
+                const savedLng = parseFloat(hadPriorLng) || fallbackLng;
 
                 window._editTileLayers = {
                     satellite: L.tileLayer(
@@ -1187,31 +1202,6 @@ function setLocationStatus(type, message) {
     el.className     = 'location-status location-status--' + type;
 }
 
-// ── Approximate network-based location fallback ───────────────
-// When precise GPS fails (denied, timed out, no signal), we no longer just
-// leave the customer stuck on a manual pin-drop that they might skip past.
-// We try a free IP-geolocation lookup instead — accurate to roughly the
-// town/neighborhood level over most mobile carriers — so the customer at
-// least starts from somewhere close to real, instead of the app's generic
-// town-center default. This is always presented as approximate and the
-// customer is pushed toward refining it on the map; it's a starting point,
-// never a silent substitute for a real pin.
-async function _fetchApproxIpLocation() {
-    try {
-        const controller = new AbortController();
-        const timeoutId  = setTimeout(() => controller.abort(), 4000);
-        const r = await fetch('https://ipapi.co/json/', { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!r.ok) return null;
-        const d   = await r.json();
-        const lat = parseFloat(d.latitude);
-        const lng = parseFloat(d.longitude);
-        if (isNaN(lat) || isNaN(lng)) return null;
-        return { lat, lng, city: d.city || '' };
-    } catch(_) {
-        return null;
-    }
-}
 
 // ── Location: obligatory-field guard ──────────────────────────
 // Registration cannot proceed without a delivery pin — an unresolved
