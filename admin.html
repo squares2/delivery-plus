@@ -598,6 +598,16 @@ input, select, textarea { font-family: var(--font); }
     display:flex; align-items:center; gap:12px; padding:0 20px;
     flex-shrink:0; flex-grow:0;       /* never grow/shrink — fixed height */
 }
+@media (max-width: 560px) {
+    .cp-topbar {
+        height:auto; min-height:56px; flex-wrap:wrap; row-gap:8px;
+        padding:8px 12px;
+    }
+    /* Drop the open/close toggle to its own full-width row on narrow
+       screens so the logo/user info/bell/logout on the first row never
+       get pushed off-screen. */
+    .cp-store-toggle-btn { order:5; flex:1 1 100%; justify-content:center; }
+}
 .cp-logo { font-size:1.1rem; font-weight:900; color:var(--white); }
 .cp-logo span { color:var(--orange); }
 .cp-store-name { font-size:0.9rem; font-weight:800; color:var(--gray-light); margin-right:4px; }
@@ -3326,6 +3336,7 @@ function roleLabel(role) {
 
 // ── Start app ─────────────────────────────────────────────────
 function startApp() {
+    window.currentAdmin = currentAdmin; // exposed for admin-presence.js (role gating)
     loadSettings();
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('visible');
@@ -3335,6 +3346,12 @@ function startApp() {
     document.getElementById('topbar-urole').textContent = roleLabel(currentAdmin.role);
     document.getElementById('topbar-avatar').textContent = (currentAdmin.fullname || currentAdmin.username)[0].toUpperCase();
     _updateNotifBellUI();
+
+    // "الزوار المتصلون الآن" (live site-visitor presence) is an admin-only
+    // tool — store accounts share this same dashboard shell but shouldn't
+    // see or be able to open it.
+    const onlineChip = document.getElementById('admin-online-chip');
+    if (onlineChip) onlineChip.style.display = (currentAdmin.role === 'store') ? 'none' : '';
 
     // Save session — localStorage (not sessionStorage) so the login
     // survives across tabs/windows too, e.g. when an employee opens the
@@ -3913,6 +3930,7 @@ function _catSkeletonItems(n) {
 function doLogout() {
     localStorage.removeItem('delivoAdmin');
     currentAdmin = null;
+    window.currentAdmin = null;
     clearInterval(refreshTimer);
     document.getElementById('app').classList.remove('visible');
     document.getElementById('login-screen').style.display = 'flex';
@@ -13258,6 +13276,7 @@ const CP_STATES = {
 };
 
 async function startCompanyPortal() {
+    window.currentAdmin = currentAdmin; // exposed for admin-presence.js (role gating)
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('company-portal').classList.add('visible');
     // localStorage (not sessionStorage) so this survives across tabs too —
@@ -14486,6 +14505,7 @@ document.getElementById('cp-refresh-btn')?.addEventListener('click', cpLoadOrder
 document.getElementById('cp-logout-btn')?.addEventListener('click', () => {
     clearInterval(cpRefreshTimer);
     currentAdmin = null;
+    window.currentAdmin = null;
     localStorage.removeItem('delivoAdmin');
     document.getElementById('company-portal').classList.remove('visible');
     document.getElementById('login-screen').style.display = 'flex';

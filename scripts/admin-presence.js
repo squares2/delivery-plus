@@ -22,6 +22,17 @@
     let prevSessions = {};
     let modalOpen    = false;
 
+    // Admin-only feature. Two different account types share this loaded
+    // script but must never see it: 'store' (shares the main #app dashboard
+    // with real admins, just fewer permissions) and 'company' (its own
+    // fully separate #company-portal). Both end up with this script running
+    // in the background regardless, so every visible surface (toasts, the
+    // topbar chip, the modal itself) needs this same check.
+    function _presenceBlockedForRole() {
+        const role = window.currentAdmin?.role;
+        return role === 'store' || role === 'company';
+    }
+
     function displayName(s) {
         if (s.username) return `@${s.username}`;
         if (s.uid)      return `uid·${s.uid.slice(0, 12)}`;
@@ -67,6 +78,8 @@
 
     /* ── Toast ──────────────────────────────────────────────── */
     function showToast(session, type) {
+        // Admin-only feature — never surface these for store/company accounts.
+        if (_presenceBlockedForRole()) return;
         // Suppress toasts during boot grace period (avoids flood on page load)
         if (Date.now() - bootTime < BOOT_GRACE_MS) return;
 
@@ -215,6 +228,9 @@
 
     /* ── Toggle modal ───────────────────────────────────────── */
     window.togglePresencePanel = function () {
+        // Admin-only feature — store/company accounts share this loaded
+        // script but must never see who's browsing the customer-facing site.
+        if (_presenceBlockedForRole()) return;
         const overlay = document.getElementById('presence-modal');
         if (!overlay) return;
         modalOpen = !modalOpen;
