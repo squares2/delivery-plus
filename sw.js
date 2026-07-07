@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    sw.js — Delivo Service Worker
    AUTO-VERSIONING: cache key includes build timestamp so every
    new deployment automatically busts the old cache.
@@ -9,7 +9,7 @@
    Replace BUILD_TIMESTAMP with your deploy script, or just
    change this number whenever you upload new files.
    Even changing it by 1 is enough to bust all caches.        */
-const BUILD_TS    = '20260707123404';   // replaced by deploy.bat at deploy time
+const BUILD_TS    = '20260707172007';   // replaced by deploy.bat at deploy time
 const CACHE_NAME  = `delivo-${BUILD_TS}`;
 
 /* ── Assets to pre-cache on install ──────────────────────────

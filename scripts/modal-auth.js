@@ -472,6 +472,25 @@ function initModalAuth() {
                 return;
             }
 
+            // Restrict registration to the admin-configured delivery coverage
+            // circle (settings/deliveryCenter). Only runs once — the OTP
+            // confirm step reuses the location already validated when the
+            // code was first sent, same as the required-location check above.
+            if (!isOtpConfirmStep) {
+                const regLat = parseFloat(document.getElementById('reg-lat')?.value);
+                const regLng = parseFloat(document.getElementById('reg-lng')?.value);
+                if (typeof window._checkCoverageOrWarn === 'function') {
+                    const insideCoverage = await window._checkCoverageOrWarn(regLat, regLng, () => {
+                        // "Change location" from the coverage popup — scroll back
+                        // to the registration location picker so the customer can
+                        // pick a point inside the circle.
+                        document.getElementById('reg-location-status')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        document.getElementById('reg-location-map')?.click();
+                    });
+                    if (!insideCoverage) return;
+                }
+            }
+
             hideError(errorEl);
 
             if (isOtpMode) {
@@ -1009,9 +1028,25 @@ function initModalAuth() {
             const errorEl     = document.getElementById('edit-error');
             const successEl   = document.getElementById('edit-success');
 
-            setLoading(editSubmit, true, 'جاري الحفظ...');
             hideError(errorEl);
             hideSuccess(successEl);
+
+            // Restrict any location set/changed here to the admin-configured
+            // delivery coverage circle, same rule as registration and checkout.
+            if (lat && lng && typeof window._checkCoverageOrWarn === 'function') {
+                setLoading(editSubmit, true, '⏳ جاري التحقق من الموقع...');
+                const insideCoverage = await window._checkCoverageOrWarn(parseFloat(lat), parseFloat(lng), () => {
+                    // "Change location" from the coverage popup — reopen this
+                    // profile's own map picker so the customer can pick a
+                    // point inside the circle, instead of the cart's.
+                    document.getElementById('edit-location-status')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    document.getElementById('edit-location-map')?.click();
+                });
+                setLoading(editSubmit, false, 'حفظ التغييرات');
+                if (!insideCoverage) return;
+            }
+
+            setLoading(editSubmit, true, 'جاري الحفظ...');
 
             const result = await window.DelivoAuth.updateProfile({ displayName, phone, lat, lng });
 

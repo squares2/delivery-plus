@@ -150,11 +150,33 @@ async function _checkDeliveryRadius(lat, lng) {
     }
     return { ok: true };
 }
+window._checkDeliveryRadius = _checkDeliveryRadius;
+window._getDeliveryCenter   = _getDeliveryCenter;
+
+// Convenience one-call helper for any flow that sets a customer location
+// (checkout, registration, edit-profile): checks the point against the
+// admin-configured coverage circle, and if it falls outside, pops up the
+// same map warning used at checkout — with an optional custom callback
+// for what "change location" should do in that specific context (e.g.
+// reopen the registration map picker instead of the cart's).
+// Resolves to `true` if the point is OK to use, `false` if it was rejected
+// (the warning modal is already showing in that case).
+async function _checkCoverageOrWarn(lat, lng, onChangeLocation = null) {
+    const check = await _checkDeliveryRadius(lat, lng);
+    if (check.ok) return true;
+    await _showCoverageWarning(check.center, check.radiusKm, lat, lng, check.distanceKm, onChangeLocation);
+    return false;
+}
+window._checkCoverageOrWarn = _checkCoverageOrWarn;
 
 // Show the "outside coverage" warning with a live map: coverage circle,
 // Delivo center pin, and the customer's chosen (rejected) location.
-let _covWarnMap = null, _covWarnAcceptOnce = false;
-async function _showCoverageWarning(center, radiusKm, custLat, custLng, distanceKm) {
+// `onChangeLocation`, if provided, is called instead of the default
+// cart-location-picker re-open when the customer clicks "change location" —
+// used by registration/edit-profile so each context reopens its own picker.
+let _covWarnMap = null, _covWarnAcceptOnce = false, _covWarnOnChange = null;
+async function _showCoverageWarning(center, radiusKm, custLat, custLng, distanceKm, onChangeLocation = null) {
+    _covWarnOnChange = onChangeLocation;
     const modal  = document.getElementById('coverage-warning-modal');
     const mapDiv = document.getElementById('coverage-warning-map');
     const msgEl  = document.getElementById('coverage-warning-msg');
@@ -222,6 +244,7 @@ function _closeCoverageWarning() {
     const modal = document.getElementById('coverage-warning-modal');
     if (modal) modal.style.display = 'none';
     if (_covWarnMap) { _covWarnMap.remove(); _covWarnMap = null; }
+    _covWarnOnChange = null;
 }
 window._closeCoverageWarning = _closeCoverageWarning;
 
@@ -234,9 +257,14 @@ function _initCoverageWarningModal() {
     if (overlay)   overlay.addEventListener('click', (e) => { if (e.target === overlay) _closeCoverageWarning(); });
     if (changeBtn) {
         changeBtn.addEventListener('click', () => {
+            const customHandler = _covWarnOnChange;
             _closeCoverageWarning();
-            // Re-open the delivery-location picker so the customer can
-            // choose a point inside the coverage circle.
+            if (typeof customHandler === 'function') {
+                customHandler();
+                return;
+            }
+            // Default (cart/checkout context): re-open the delivery-location
+            // picker so the customer can choose a point inside the circle.
             const mapBtn = document.getElementById('cart-loc-map');
             if (mapBtn) mapBtn.click();
         });
