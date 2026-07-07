@@ -9,6 +9,27 @@ const RTDB_CART_URL    = 'https://deliveryonline-300f7-default-rtdb.firebaseio.c
 let DELIVERY_FEE_PER_STORE = 2; // $2 default — overwritten by settings/deliveryFee on load
 const POINTS_PER_ORDER = 10;    // loyalty points awarded per store order
 
+// Top-level toast helper (reuses the same #cart-toast element/styling as
+// the cart's own internal _showToast). Needed because that one is private
+// to initCart() and unreachable from top-level functions like the
+// coverage-warning flow below.
+let _covToastTimer = null;
+function _showToast(msg, type = 'success') {
+    let toast = document.getElementById('cart-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'cart-toast';
+        toast.className = 'cart-toast';
+        document.body.appendChild(toast);
+    }
+    if (_covToastTimer) { clearTimeout(_covToastTimer); _covToastTimer = null; }
+    toast.classList.remove('visible');
+    toast.textContent = msg;
+    toast.className   = `cart-toast cart-toast--${type}`;
+    requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('visible')));
+    _covToastTimer = setTimeout(() => { toast.classList.remove('visible'); _covToastTimer = null; }, 4000);
+}
+
 /* ── Prefetch admin phone for the warning link in cart footer ────────── */
 function _applyAdminPhoneLink(phone) {
     const clean = String(phone).replace(/[^0-9]/g, '');
@@ -161,22 +182,61 @@ window._getDeliveryCenter   = _getDeliveryCenter;
 // reopen the registration map picker instead of the cart's).
 // Resolves to `true` if the point is OK to use, `false` if it was rejected
 // (the warning modal is already showing in that case).
-async function _checkCoverageOrWarn(lat, lng, onChangeLocation = null) {
+async function _checkCoverageOrWarn(lat, lng, onChangeLocation = null, onConfirm = null) {
     const check = await _checkDeliveryRadius(lat, lng);
     if (check.ok) return true;
-    await _showCoverageWarning(check.center, check.radiusKm, lat, lng, check.distanceKm, onChangeLocation);
+    await _showCoverageWarning(check.center, check.radiusKm, lat, lng, check.distanceKm, onChangeLocation, onConfirm);
     return false;
 }
 window._checkCoverageOrWarn = _checkCoverageOrWarn;
 
-// Show the "outside coverage" warning with a live map: coverage circle,
-// Delivo center pin, and the customer's chosen (rejected) location.
-// `onChangeLocation`, if provided, is called instead of the default
-// cart-location-picker re-open when the customer clicks "change location" —
-// used by registration/edit-profile so each context reopens its own picker.
-let _covWarnMap = null, _covWarnAcceptOnce = false, _covWarnOnChange = null;
-async function _showCoverageWarning(center, radiusKm, custLat, custLng, distanceKm, onChangeLocation = null) {
-    _covWarnOnChange = onChangeLocation;
+// Show the "outside coverage" warning with a live, INTERACTIVE map:
+// coverage circle, Delivo center pin, and a draggable pin for the
+// customer's location. The customer can drag the pin, click anywhere
+// on this same map, or tap "موقعي الحالي" (GPS) to reposition it —
+// no need to leave this modal to fix an out-of-range location.
+// `onChangeLocation`, if provided, is kept as a legacy escape hatch —
+// unused by the buttons below now, but still callable programmatically.
+// `onConfirm(lat, lng)`, if provided, is called once the customer picks
+// a point that IS inside the coverage circle and presses "تأكيد الموقع".
+// If not provided, the default (cart/checkout context) writes straight
+// into the cart's own location fields.
+let _covWarnMap = null, _covWarnOnChange = null, _covWarnOnConfirm = null;
+let _covWarnMarker = null, _covWarnLat = null, _covWarnLng = null;
+let _covWarnCenter = null, _covWarnRadiusKm = null;
+
+function _covWarnUpdateMsg(distanceKm, radiusKm, stillOutside) {
+    const msgEl = document.getElementById('coverage-warning-msg');
+    if (!msgEl) return;
+    if (stillOutside) {
+        msgEl.innerHTML = `<b style="color:#dc2626;">لا يزال هذا الموقع خارج النطاق</b> — يبعد ${distanceKm.toFixed(1)} كم عن مركز التوصيل (النطاق المسموح ${radiusKm} كم). حرّك الدبوس ضمن الدائرة البرتقالية ثم اضغط "تأكيد الموقع".`;
+    } else {
+        msgEl.innerHTML = `<b style="color:#16a34a;">✓ هذا الموقع ضمن نطاق التغطية</b> — يبعد ${distanceKm.toFixed(1)} كم عن المركز. اضغط "تأكيد الموقع" للمتابعة.`;
+    }
+}
+
+// Move the working pin to a new lat/lng — used by drag, map click, and
+// the GPS button. `fly`, when true, animates the map over to the point
+// (used for GPS since the new point may be far from the current view).
+function _covWarnSetLocation(lat, lng, fly = false) {
+    _covWarnLat = lat;
+    _covWarnLng = lng;
+    if (_covWarnMarker) _covWarnMarker.setLatLng([lat, lng]);
+    if (_covWarnMap && fly) _covWarnMap.flyTo([lat, lng], 15, { animate: true, duration: 0.9 });
+    if (_covWarnCenter) {
+        const d = _haversineKm(lat, lng, _covWarnCenter.lat, _covWarnCenter.lng);
+        _covWarnUpdateMsg(d, _covWarnRadiusKm, d > _covWarnRadiusKm);
+    }
+}
+
+async function _showCoverageWarning(center, radiusKm, custLat, custLng, distanceKm, onChangeLocation = null, onConfirm = null) {
+    _covWarnOnChange  = onChangeLocation;
+    _covWarnOnConfirm = onConfirm;
+    _covWarnCenter    = center;
+    _covWarnRadiusKm  = radiusKm;
+    _covWarnLat       = !isNaN(custLat) ? custLat : center.lat;
+    _covWarnLng       = !isNaN(custLng) ? custLng : center.lng;
+
     const modal  = document.getElementById('coverage-warning-modal');
     const mapDiv = document.getElementById('coverage-warning-map');
     const msgEl  = document.getElementById('coverage-warning-msg');
@@ -186,23 +246,63 @@ async function _showCoverageWarning(center, radiusKm, custLat, custLng, distance
         return;
     }
 
-    if (msgEl) {
-        msgEl.textContent =
-            `موقعك المحدد يبعد ${distanceKm.toFixed(1)} كم عن مركز التوصيل — خارج نطاق التغطية البالغ ${radiusKm} كم. ` +
-            `الرجاء اختيار موقع أقرب ضمن الدائرة الموضحة أدناه، أو التواصل معنا لمزيد من المساعدة.`;
-    }
+    if (msgEl) _covWarnUpdateMsg(distanceKm, radiusKm, true);
 
     modal.style.display = 'flex';
     await _ensureLeafletLoaded();
 
     if (_covWarnMap) { _covWarnMap.remove(); _covWarnMap = null; }
     mapDiv.innerHTML = '';
+    _covWarnMarker = null;
 
     requestAnimationFrame(() => {
         const map = L.map(mapDiv, { zoomControl: true, tap: false }).setView([center.lat, center.lng], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+        // ── Tile layers — standard (OSM) + satellite/hybrid (Google, with
+        // place labels) so the customer can switch to whichever makes it
+        // easier to recognize their own street/building, same toggle used
+        // on the registration map picker.
+        const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
+        const standardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap', maxZoom: 19,
-        }).addTo(map);
+        });
+        const satelliteLayer = L.tileLayer(
+            `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${GOOGLE_KEY}`,
+            { attribution: '© Google Maps', maxZoom: 20, subdomains: '0123' }
+        );
+        standardLayer.addTo(map);
+        let covWarnLayer = 'standard';
+
+        const toggleCtrl = L.control({ position: 'topright' });
+        toggleCtrl.onAdd = function () {
+            const btn = L.DomUtil.create('button', 'map-toggle-btn');
+            btn.innerHTML = '🛰 صورة جوية';
+            btn.title     = 'تبديل نوع الخريطة';
+            btn.style.cssText = `
+                background:#fff; border:2px solid #FF5C00;
+                border-radius:6px; padding:5px 9px;
+                font-size:12px; font-weight:700;
+                cursor:pointer; color:#FF5C00;
+                box-shadow:0 1px 5px rgba(0,0,0,0.3);
+                white-space:nowrap;
+            `;
+            L.DomEvent.on(btn, 'click', function (e) {
+                L.DomEvent.stopPropagation(e);
+                if (covWarnLayer === 'standard') {
+                    map.removeLayer(standardLayer);
+                    satelliteLayer.addTo(map);
+                    covWarnLayer = 'satellite';
+                    btn.innerHTML = '🗺 خريطة';
+                } else {
+                    map.removeLayer(satelliteLayer);
+                    standardLayer.addTo(map);
+                    covWarnLayer = 'standard';
+                    btn.innerHTML = '🛰 صورة جوية';
+                }
+            });
+            return btn;
+        };
+        toggleCtrl.addTo(map);
 
         const centerIcon = L.divIcon({
             className: '',
@@ -223,16 +323,28 @@ async function _showCoverageWarning(center, radiusKm, custLat, custLng, distance
 
         let bounds = circle.getBounds();
 
-        if (!isNaN(custLat) && !isNaN(custLng)) {
-            const custIcon = L.divIcon({
-                className: '',
-                html: '<div style="width:26px;height:26px;background:#ef4444;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>',
-                iconSize: [26, 26], iconAnchor: [13, 26],
-            });
-            L.marker([custLat, custLng], { icon: custIcon })
-                .addTo(map).bindPopup('📍 موقعك المحدد (خارج النطاق)');
-            bounds = bounds.extend([custLat, custLng]);
-        }
+        const custIcon = L.divIcon({
+            className: '',
+            html: '<div style="width:26px;height:26px;background:#ef4444;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>',
+            iconSize: [26, 26], iconAnchor: [13, 26],
+        });
+
+        // Draggable pin for the customer's (currently rejected) location —
+        // this is the whole point: fix it right here instead of opening
+        // a second map elsewhere.
+        _covWarnMarker = L.marker([_covWarnLat, _covWarnLng], { icon: custIcon, draggable: true })
+            .addTo(map).bindPopup('📍 موقعك — اسحب لتعديله');
+        bounds = bounds.extend([_covWarnLat, _covWarnLng]);
+
+        _covWarnMarker.on('dragend', (e) => {
+            const pos = e.target.getLatLng();
+            _covWarnSetLocation(pos.lat, pos.lng, false);
+        });
+
+        // Click anywhere on the map to move the pin there directly
+        map.on('click', (e) => {
+            _covWarnSetLocation(e.latlng.lat, e.latlng.lng, false);
+        });
 
         map.fitBounds(bounds, { padding: [28, 28] });
         _covWarnMap = map;
@@ -244,29 +356,79 @@ function _closeCoverageWarning() {
     const modal = document.getElementById('coverage-warning-modal');
     if (modal) modal.style.display = 'none';
     if (_covWarnMap) { _covWarnMap.remove(); _covWarnMap = null; }
-    _covWarnOnChange = null;
+    _covWarnMarker    = null;
+    _covWarnOnChange  = null;
+    _covWarnOnConfirm = null;
+    _covWarnCenter    = null;
+    _covWarnRadiusKm  = null;
 }
 window._closeCoverageWarning = _closeCoverageWarning;
 
 function _initCoverageWarningModal() {
-    const closeBtn  = document.getElementById('coverage-warning-close');
-    const changeBtn = document.getElementById('coverage-warning-change-btn');
-    const overlay   = document.getElementById('coverage-warning-modal');
+    const closeBtn   = document.getElementById('coverage-warning-close');
+    const closeBtn2  = document.getElementById('coverage-warning-close-btn');
+    const gpsBtn     = document.getElementById('coverage-warning-gps-btn');
+    const confirmBtn = document.getElementById('coverage-warning-confirm-btn');
+    const overlay    = document.getElementById('coverage-warning-modal');
 
     if (closeBtn)  closeBtn.addEventListener('click', _closeCoverageWarning);
     if (overlay)   overlay.addEventListener('click', (e) => { if (e.target === overlay) _closeCoverageWarning(); });
-    if (changeBtn) {
-        changeBtn.addEventListener('click', () => {
-            const customHandler = _covWarnOnChange;
-            _closeCoverageWarning();
-            if (typeof customHandler === 'function') {
-                customHandler();
+
+    // "موقعي الحالي" — re-run GPS right here and fly the map to the
+    // fresh position; still subject to the same coverage check as
+    // everything else (message updates, doesn't auto-confirm).
+    if (gpsBtn) {
+        gpsBtn.addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                _showToast('جهازك لا يدعم تحديد الموقع', 'error');
                 return;
             }
-            // Default (cart/checkout context): re-open the delivery-location
-            // picker so the customer can choose a point inside the circle.
-            const mapBtn = document.getElementById('cart-loc-map');
-            if (mapBtn) mapBtn.click();
+            const orig = gpsBtn.innerHTML;
+            gpsBtn.disabled  = true;
+            gpsBtn.innerHTML = '⏳ جاري التحديد...';
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    gpsBtn.disabled  = false;
+                    gpsBtn.innerHTML = orig;
+                    _covWarnSetLocation(pos.coords.latitude, pos.coords.longitude, true);
+                },
+                () => {
+                    gpsBtn.disabled  = false;
+                    gpsBtn.innerHTML = orig;
+                    _showToast('تعذّر تحديد موقعك. حرّك الدبوس يدوياً على الخريطة', 'error');
+                },
+                { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
+            );
+        });
+    }
+
+    // "تأكيد الموقع" — confirm the pin's current spot on THIS map.
+    // Re-checks it against the coverage circle first; if it's still
+    // outside, keeps the modal open and updates the warning instead of
+    // silently accepting an invalid point.
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+            if (_covWarnLat == null || _covWarnLng == null || !_covWarnCenter) return;
+            const dist = _haversineKm(_covWarnLat, _covWarnLng, _covWarnCenter.lat, _covWarnCenter.lng);
+            if (dist > _covWarnRadiusKm) {
+                _covWarnUpdateMsg(dist, _covWarnRadiusKm, true);
+                return;
+            }
+            const finalLat = _covWarnLat, finalLng = _covWarnLng;
+            const cb = _covWarnOnConfirm;
+            _closeCoverageWarning();
+            if (typeof cb === 'function') {
+                cb(finalLat, finalLng);
+                return;
+            }
+            // Default (cart/checkout context): write straight into the
+            // checkout's own location fields so "إرسال الطلب" picks up
+            // the corrected point without reopening any other picker.
+            const latEl = document.getElementById('cart-loc-lat');
+            const lngEl = document.getElementById('cart-loc-lng');
+            if (latEl) latEl.value = finalLat;
+            if (lngEl) lngEl.value = finalLng;
+            _showToast('✓ تم تحديث موقع التوصيل، بإمكانك إتمام الطلب الآن', 'success');
         });
     }
 }

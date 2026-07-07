@@ -486,6 +486,30 @@ function initModalAuth() {
                         // pick a point inside the circle.
                         document.getElementById('reg-location-status')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         document.getElementById('reg-location-map')?.click();
+                    }, (lat, lng) => {
+                        // Confirmed directly on the coverage-warning map (drag,
+                        // click, or GPS there) — write it straight back into the
+                        // registration form's own fields, same as the reg map does.
+                        document.getElementById('reg-lat').value = lat;
+                        document.getElementById('reg-lng').value = lng;
+                        window._regLocationSource = 'map';
+                        setLocationStatus('success', '✓ تم تحديث موقعك — تابع التسجيل الآن');
+                        // The reg map picker (if it was already opened earlier
+                        // with the old, out-of-range pin) is likely hidden right
+                        // now (reg-map-wrap is display:none unless the customer
+                        // has that picker open). Leaflet can't reliably reposition
+                        // itself on a hidden 0×0 container, so instead of trying
+                        // to live-update it, just tear it down — it fully
+                        // reinitializes centered on the corrected reg-lat/reg-lng
+                        // the next time "اختر على الخريطة" is opened.
+                        if (window._regMap) {
+                            window._regMap.remove();
+                            window._regMap    = null;
+                            window._regMarker = null;
+                        }
+                        const regMapWrap = document.getElementById('reg-map-wrap');
+                        if (regMapWrap) regMapWrap.style.display = 'none';
+                        document.getElementById('reg-location-map')?.classList.remove('location-opt-btn--active');
                     });
                     if (!insideCoverage) return;
                 }
@@ -1056,6 +1080,26 @@ function initModalAuth() {
                     // point inside the circle, instead of the cart's.
                     document.getElementById('edit-location-status')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     document.getElementById('edit-location-map')?.click();
+                }, (newLat, newLng) => {
+                    // Confirmed directly on the coverage-warning map — write
+                    // back into this profile's own fields, same as its map does.
+                    document.getElementById('edit-lat').value = newLat;
+                    document.getElementById('edit-lng').value = newLng;
+                    if (typeof setEditLocationStatus === 'function') {
+                        setEditLocationStatus('success', '✓ تم تحديث موقعك — اضغط "حفظ التغييرات" مجدداً للمتابعة');
+                    }
+                    // Same reasoning as registration: don't try to live-update
+                    // a Leaflet map that may currently be hidden (0×0 container)
+                    // — destroy it so it reinitializes cleanly, centered on the
+                    // corrected point, the next time the picker is opened.
+                    if (window._editMap) {
+                        window._editMap.remove();
+                        window._editMap    = null;
+                        window._editMarker = null;
+                    }
+                    const editMapWrap = document.getElementById('edit-map-wrap');
+                    if (editMapWrap) editMapWrap.style.display = 'none';
+                    document.getElementById('edit-location-map')?.classList.remove('location-opt-btn--active');
                 });
                 setLoading(editSubmit, false, 'حفظ التغييرات');
                 if (!insideCoverage) return;

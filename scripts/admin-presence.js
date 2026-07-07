@@ -36,6 +36,19 @@
         return (s.device === 'mobile') ? '📱' : '💻';
     }
 
+    /* ── Match a session's device UUID against registered accounts ──
+       Covers the case where a visitor is browsing logged-out (or was
+       never logged in this session) but their device fingerprint
+       already belongs to one or more registered users — e.g. they
+       registered earlier and are now just browsing signed out. */
+    function matchRegisteredAccounts(uuid) {
+        if (!uuid) return [];
+        const users = window.allUsers || {};
+        return Object.entries(users)
+            .filter(([, u]) => u && u.deviceUUID === uuid)
+            .map(([uid, u]) => ({ uid, username: u.username, name: u.displayName || u.fullname || u.username || '—' }));
+    }
+
     function typeTag(s) {
         if (s.username) return `<span class="ps-tag ps-tag--user">مسجّل</span>`;
         if (s.uid)      return `<span class="ps-tag ps-tag--uid">uid</span>`;
@@ -142,6 +155,11 @@
             const ago    = timeAgo(s.connectedAt);
             const isUser = !!s.username;
             const uuid   = (s.uuid || s.sid || '');
+
+            // Not logged in right now — check if this device fingerprint
+            // already belongs to one or more registered (but logged-out) accounts
+            const matches = isUser ? [] : matchRegisteredAccounts(uuid);
+
             return `
             <div class="pm-row ${isUser ? 'pm-row--user' : ''}" data-connected="${s.connectedAt || Date.now()}">
                 <div class="pm-rank">${i + 1}</div>
@@ -149,6 +167,11 @@
                 <div class="pm-info">
                     <div class="pm-name" style="font-size:1.05rem">${icon} ${name} ${typeTag(s)}</div>
                     <div class="pm-uuid-full">🔑 ${uuid}</div>
+                    ${matches.length ? `
+                    <div class="pm-known-account">
+                        🔗 هذا الجهاز مسجّل باسم:
+                        ${matches.map(m => `<button class="pm-known-account-btn" data-username="${m.username||''}" data-uid="${m.uid}">@${m.username||m.name}</button>`).join(' ')}
+                    </div>` : ''}
                     <div class="pm-meta">
                         <span class="pm-timer" data-ts="${s.connectedAt || Date.now()}">⏱ ${ago}</span>
                         ${s.username && s.uid ? `<span class="pm-uid-badge">uid·${s.uid.slice(0,12)}</span>` : ''}
@@ -157,6 +180,21 @@
                 <div class="pm-device" style="font-size:.85rem">${s.device === 'mobile' ? '📱 موبايل' : '💻 ويب'}</div>
             </div>`;
         }).join('');
+
+        // Wire "jump to this account in Customers" buttons
+        list.querySelectorAll('.pm-known-account-btn').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const uname = btn.dataset.username;
+                if (typeof window.switchPanel === 'function') window.switchPanel('customers');
+                const search = document.getElementById('customers-search');
+                if (search) {
+                    search.value = uname || '';
+                    search.dispatchEvent(new Event('input'));
+                }
+                window.togglePresencePanel();
+            });
+        });
     }
 
     /* ── Live timer tick ────────────────────────────────────── */
@@ -314,6 +352,16 @@
             user-select:all;cursor:text;
         }
         .pm-uid-badge { font-family:monospace;font-size:.68rem;color:#818cf8;background:rgba(129,140,248,.1);border-radius:4px;padding:1px 6px; }
+        .pm-known-account {
+            font-size:.72rem;color:#f59e0b;margin-top:5px;
+            display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+        }
+        .pm-known-account-btn {
+            font-family:inherit;font-size:.72rem;font-weight:800;color:#f59e0b;
+            background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);
+            border-radius:99px;padding:2px 10px;cursor:pointer;
+        }
+        .pm-known-account-btn:hover { background:rgba(245,158,11,.2); }
         .pt-uuid { font-family:monospace;font-size:.58rem;color:var(--gray,#6b7280);margin-top:1px;letter-spacing:.02em; }
         .pm-timer { font-variant-numeric:tabular-nums; }
         `;

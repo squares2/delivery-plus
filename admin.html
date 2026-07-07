@@ -3962,6 +3962,7 @@ async function loadAllData() {
 
 
         allUsers   = users   || {};
+        window.allUsers = allUsers; // exposed for admin-presence.js (matches guest sessions to registered accounts)
         adminUsers = admins  || {};
 
         // ── Merge RTDB points into allUsers ───────────────────
@@ -6750,6 +6751,9 @@ function renderCustomers() {
                         <div>
                             <div class="ut-name">${u.displayName||u.fullname||'\u2014'}</div>
                             ${blEntry ? `<div style="font-size:0.62rem;color:var(--red);margin-top:1px;">\u26d4 ${blEntry.reason||'\u0645\u062d\u0638\u0648\u0631'}</div>` : ''}
+                            <div style="font-size:0.6rem;color:var(--gray);margin-top:1px;font-family:var(--mono);display:flex;align-items:center;gap:3px;">
+                                🔑 ${uuid ? `<span title="${uuid}">${uuid.slice(0,16)}…</span><button class="cust-uuid-copy" data-uuid="${uuid}" title="نسخ UUID" style="background:none;border:none;color:var(--gray);cursor:pointer;padding:0 2px;font-size:0.62rem;">&#9112;</button>` : '<span>—</span>'}
+                            </div>
                         </div>
                     </div>
                 </td>
@@ -6828,6 +6832,15 @@ function renderCustomers() {
                 e.stopPropagation();
                 const btn = e.currentTarget;
                 openCustomerLocationModal(btn.dataset.uid, btn.dataset.name, parseFloat(btn.dataset.lat)||null, parseFloat(btn.dataset.lng)||null);
+            });
+            tr.querySelector('.cust-uuid-copy')?.addEventListener('click', e => {
+                e.stopPropagation();
+                const btn = e.currentTarget;
+                navigator.clipboard.writeText(btn.dataset.uuid).then(() => {
+                    const orig = btn.innerHTML;
+                    btn.innerHTML = '✓';
+                    setTimeout(() => { btn.innerHTML = orig; }, 1200);
+                }).catch(() => toast('فشل النسخ'));
             });
             tbody.appendChild(tr);
         }
@@ -12551,6 +12564,7 @@ async function resetProject() {
 
     // ── 6. Reload data ────────────────────────────────────────────────
     allUsers = {}; allOrders = {}; allBlacklist = {};
+    window.allUsers = allUsers;
     await loadAllData().catch(()=>{});
 
     log('', 'bk-info');
