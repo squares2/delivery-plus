@@ -70,6 +70,7 @@ function onFirebaseReady() {
             'auth/user-not-found':          'No account found with this email.',
             'auth/wrong-password':          'Incorrect password.',
             'auth/invalid-credential':      'Incorrect email or password.',
+            'auth/invalid-login-credentials': 'Incorrect email or password.',
             'auth/invalid-email':           'Invalid email address.',
             'auth/email-already-in-use':    'This email is already registered.',
             'auth/weak-password':           'Password must be at least 8 characters.',
@@ -727,7 +728,8 @@ function onFirebaseReady() {
                 return { success: true };
             } catch (e) {
                 console.error('[Delivo] changePassword:', e);
-                if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
+                if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ||
+                    e.code === 'auth/invalid-login-credentials')
                     return { error: true, message: 'كلمة المرور الحالية غير صحيحة.' };
                 return { error: true, message: authMsg(e.code) };
             }

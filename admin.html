@@ -2381,6 +2381,19 @@ input, select, textarea { font-family: var(--font); }
                 <label class="perm-check"><input type="checkbox" value="settings"> <span>⚙️ الإعدادات</span></label>
             </div>
         </div>
+        <div class="modal-field" id="emp-notify-row" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+            <label id="emp-notify-label">🔔 إشعار واتساب بالطلبات الجديدة</label>
+            <div style="font-size:0.7rem;color:var(--gray);margin-bottom:8px;" id="emp-notify-sub">يصل إشعار واتساب لهذا الموظف عند وصول أي طلب جديد</div>
+            <div style="display:flex;gap:10px;align-items:center;">
+                <input type="tel" id="emp-notify-phone" placeholder="96176884643" dir="ltr"
+                       style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
+                              padding:8px 10px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;">
+                <label class="toggle" style="transform:scale(0.8);flex-shrink:0;" title="تفعيل/إيقاف الإشعار">
+                    <input type="checkbox" id="emp-notify-active">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
         <div class="modal-actions">
             <button class="modal-btn" id="emp-cancel-btn">إلغاء</button>
             <button class="modal-btn primary" id="emp-save-btn">حفظ الموظف</button>
@@ -2529,7 +2542,27 @@ input, select, textarea { font-family: var(--font); }
 // admin.html previously never registered a service worker, so push
 // notifications (and any offline support) had nothing to attach to.
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('[Admin] SW registration failed:', err));
+    navigator.serviceWorker.register('./sw.js')
+        .then(reg => reg.update().catch(() => {}))
+        .catch(err => console.warn('[Admin] SW registration failed:', err));
+
+    // Same reasoning as driver.html: an admin tab left open indefinitely
+    // was stuck on whatever JS loaded at session start. Listen for the
+    // service worker's "new deploy took over" signal and reload.
+    navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.type === 'SW_UPDATED') {
+            console.log('[Admin] New version detected — reloading for fresh files');
+            if (typeof toast === 'function') toast('🔄 تحديث جديد — جاري إعادة تحميل اللوحة');
+            setTimeout(() => window.location.reload(), 800);
+        }
+    });
+
+    let _admRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_admRefreshing) return;
+        _admRefreshing = true;
+        window.location.reload();
+    });
 }
 </script>
 <script>
@@ -2943,6 +2976,7 @@ function _detectAndAlertNewOrders(ordersMap, storeFilter) {
     // store owner sitting in their own dashboard doesn't WhatsApp themselves.
     if (!storeFilter) {
         fresh.forEach(k => _notifyStoreWhatsapp(k, ordersMap[k]));
+        fresh.forEach(k => _notifyEmployeesWhatsapp(k, ordersMap[k]));
     }
 }
 
@@ -2962,6 +2996,35 @@ async function _notifyStoreWhatsapp(orderKey, order) {
         await _sendWhatsappMessage(store.whatsapp, message);
     } catch (e) {
         console.warn('[Delivo] Store WhatsApp notify failed:', e.message);
+    }
+}
+
+// Pings employees who opted in to WhatsApp notifications on new orders
+// (set per-employee in the الموظفون panel). Two behaviours depending on role:
+//   - admin-type employee (any role other than 'company'): notified for
+//     every new order, platform-wide.
+//   - store-linked ('company') employee: notified only when the new order
+//     belongs to their own linked store.
+// Silently does nothing for employees with the toggle off or no saved number.
+async function _notifyEmployeesWhatsapp(orderKey, order) {
+    try {
+        if (!order) return;
+        const orderNum = String(orderKey || '').replace(/^id_/, '');
+        const employees = Object.values(adminUsers || {});
+        for (const emp of employees) {
+            if (!emp || !emp.notifyNewOrders || !emp.notifyPhone) continue;
+            if (emp.role === 'company') {
+                if (!emp.linkedStore || emp.linkedStore !== order.store) continue;
+            }
+            const message =
+                `🔔 طلب جديد رقم #${orderNum}` +
+                (order.store ? ` من متجر ${order.store}` : '') + ` وصل على Delivo!\n` +
+                `الرجاء فتح لوحة التحكم للاطلاع على تفاصيل الطلب:\n` +
+                `https://delivolb.com/admin`;
+            await _sendWhatsappMessage(emp.notifyPhone, message);
+        }
+    } catch (e) {
+        console.warn('[Delivo] Employee WhatsApp notify failed:', e.message);
     }
 }
 
@@ -8967,6 +9030,12 @@ function renderEmployees() {
                     return `<span class="ec-perm${has?' has':''}">${PERM_LABELS[p]}</span>`;
                 }).join('')}
             </div>
+            ${emp.notifyNewOrders && emp.notifyPhone ? `
+            <div class="ec-perms" style="margin-top:4px;">
+                <span class="ec-perm has" style="color:#25D366;border-color:rgba(37,211,102,0.35);background:rgba(37,211,102,0.08);">
+                    💬 ${emp.role === 'company' ? 'إشعار واتساب — طلبات متجره' : 'إشعار واتساب — كل الطلبات'}
+                </span>
+            </div>` : ''}
             ${!isSelf && emp._key !== '__seed' ? `
             <div class="ec-actions-row">
                 <button class="ec-btn" data-edit="${emp._key}">✏️ تعديل</button>
@@ -9057,7 +9126,30 @@ function openEmpModal(emp) {
         if (permRow) permRow.style.display = 'block';
     }
 
+    // WhatsApp new-order notification (phone + on/off), label adapts to role
+    document.getElementById('emp-notify-phone').value  = emp?.notifyPhone || '';
+    document.getElementById('emp-notify-active').checked = !!emp?.notifyNewOrders;
+    _updateEmpNotifyLabel(role, emp?.linkedStore);
+
     document.getElementById('modal-emp').classList.add('open');
+}
+
+// The notification means something different depending on the employee's
+// role: an admin-type employee gets pinged for every new order platform-wide,
+// while a store-linked (company) user only cares about their own store's orders.
+function _updateEmpNotifyLabel(role, linkedStore) {
+    const label = document.getElementById('emp-notify-label');
+    const sub   = document.getElementById('emp-notify-sub');
+    if (!label || !sub) return;
+    if (role === 'company') {
+        label.textContent = '🔔 إشعار واتساب بطلبات متجره';
+        sub.textContent = linkedStore
+            ? `يصل إشعار واتساب لهذا المستخدم فقط عند وصول طلب جديد لمتجر "${linkedStore}"`
+            : 'يصل إشعار واتساب لهذا المستخدم فقط عند وصول طلب جديد لمتجره المرتبط';
+    } else {
+        label.textContent = '🔔 إشعار واتساب بكل الطلبات الجديدة';
+        sub.textContent = 'يصل إشعار واتساب لهذا الموظف عند وصول أي طلب جديد من أي متجر';
+    }
 }
 
 // ── Add button ────────────────────────────────────────────────
@@ -9080,6 +9172,9 @@ document.getElementById('emp-save-btn').addEventListener('click', async () => {
     const role     = document.getElementById('emp-role').value;
     const perms    = [...document.querySelectorAll('#perm-checks input:checked')].map(c => c.value);
     const linkedStore = document.getElementById('emp-linked-store')?.value || '';
+    const notifyPhoneRaw = document.getElementById('emp-notify-phone').value.trim();
+    const notifyPhone    = notifyPhoneRaw.replace(/[^\d]/g, ''); // digits only, matches store whatsapp format
+    const notifyNewOrders = document.getElementById('emp-notify-active').checked;
     const errorEl  = document.getElementById('emp-modal-error');
 
     errorEl.style.display = 'none';
@@ -9087,15 +9182,18 @@ document.getElementById('emp-save-btn').addEventListener('click', async () => {
     if (isNew && !password)     { errorEl.textContent = '⚠️ كلمة المرور مطلوبة';              errorEl.style.display = 'block'; return; }
     if (password && password.length < 6) { errorEl.textContent = '⚠️ كلمة المرور قصيرة جداً'; errorEl.style.display = 'block'; return; }
     if (role === 'company' && !linkedStore) { errorEl.textContent = '⚠️ اختر متجراً لهذا المستخدم'; errorEl.style.display = 'block'; return; }
+    if (notifyNewOrders && !notifyPhone) { errorEl.textContent = '⚠️ أدخل رقم واتساب لتفعيل الإشعار'; errorEl.style.display = 'block'; return; }
 
     try {
         if (isNew) {
-            const payload = { fullname, username, password, role, permissions: perms, createdAt: Date.now() };
+            const payload = { fullname, username, password, role, permissions: perms, createdAt: Date.now(),
+                               notifyPhone: notifyPhone || null, notifyNewOrders };
             if (linkedStore) payload.linkedStore = linkedStore;
             await fbPush('adminUsers', payload);
             toast('✅ تم إضافة الموظف');
         } else {
-            const updates = { fullname, username, role, permissions: perms };
+            const updates = { fullname, username, role, permissions: perms,
+                               notifyPhone: notifyPhone || null, notifyNewOrders };
             if (password) updates.password = password;
             if (linkedStore) updates.linkedStore = linkedStore;
             await fbUpdate(`adminUsers/${key}`, updates);
@@ -9136,6 +9234,11 @@ document.getElementById('emp-role').addEventListener('change', function() {
         storeRow.style.display = 'none';
         if (permRow) permRow.style.display = 'block';
     }
+    _updateEmpNotifyLabel(this.value, document.getElementById('emp-linked-store')?.value);
+});
+
+document.getElementById('emp-linked-store')?.addEventListener('change', function() {
+    _updateEmpNotifyLabel(document.getElementById('emp-role').value, this.value);
 });
 
 // ═══════════════════════════════════════════════════════════════

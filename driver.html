@@ -1071,7 +1071,29 @@
 // driver.html previously never registered a service worker, so push
 // notifications (and any offline support) had nothing to attach to.
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('[Driver] SW registration failed:', err));
+    navigator.serviceWorker.register('./sw.js')
+        .then(reg => reg.update().catch(() => {}))
+        .catch(err => console.warn('[Driver] SW registration failed:', err));
+
+    // A driver who leaves the app open (no manual refresh) was stuck on
+    // whatever JS was loaded at the time — including stale permission
+    // logic like the self-claim/admin-only assignment mode. The service
+    // worker already tells every open tab when a new deploy has taken
+    // over; we just weren't listening for it. Now we are.
+    navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.type === 'SW_UPDATED') {
+            console.log('[Driver] New version detected — reloading for fresh files');
+            if (typeof showToast === 'function') showToast('🔄 تحديث جديد — جاري إعادة تحميل التطبيق');
+            setTimeout(() => window.location.reload(), 800);
+        }
+    });
+
+    let _drvRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (_drvRefreshing) return;
+        _drvRefreshing = true;
+        window.location.reload();
+    });
 }
 </script>
 

@@ -200,11 +200,84 @@ function initModalAuth() {
 
     // ── Real-time username availability check ───────────────────
     const FS_BASE = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
-    let _usernameCheckTimer = null;
-    let _usernameAvailable  = null;  // null=unchecked, true=available, false=taken
-    let _phoneAvailable     = true;
+    const RTDB_CHECK = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+    let _usernameCheckTimer   = null;
+    let _usernameAvailable    = null;  // null=unchecked, true=available, false=taken
+    let _usernameCheckedVal   = null;  // the exact value _usernameAvailable currently reflects
+    let _usernameCheckPromise = null;  // in-flight check, so submit can await it instead of racing it
+    let _phoneAvailable       = true;
 
     const regUsernameEl = document.getElementById('reg-username');
+
+    // Does the actual availability lookup for `val` and updates state/UI.
+    // Shared by both the debounced typing check and the submit-time
+    // re-verification, so there's only one source of truth for the result.
+    async function _checkUsernameNow(val) {
+        const hint = regUsernameEl?.closest('.modal-field')?.querySelector('.field-hint');
+        try {
+            // Step 1: RTDB deletedUsernames — admin-deleted usernames are always re-available
+            try {
+                const delResp = await fetch(`${RTDB_CHECK}/deletedUsernames/${encodeURIComponent(val)}.json`);
+                const delData = delResp.ok ? await delResp.json() : null;
+                if (delData && delData.deletedAt) {
+                    _usernameAvailable = true; _usernameCheckedVal = val;
+                    _setFieldState(regUsernameEl, 'success', hint, '✅ اسم المستخدم متاح');
+                    return true;
+                }
+            } catch(_) {}
+
+            // Step 2: Firestore usernames collection
+            const resp = await fetch(`${FS_BASE}/usernames/${encodeURIComponent(val)}`).catch(() => ({ status: 0 }));
+            if (resp.status === 404 || resp.status === 0) {
+                _usernameAvailable = true; _usernameCheckedVal = val;
+                _setFieldState(regUsernameEl, 'success', hint, '✅ اسم المستخدم متاح');
+                return true;
+            } else if (resp.status === 200) {
+                _usernameAvailable = false; _usernameCheckedVal = val;
+                _setFieldState(regUsernameEl, 'error', hint, '❌ اسم المستخدم محجوز، اختر اسماً آخر');
+                return false;
+            } else {
+                // Ambiguous network response (e.g. transient error) — don't
+                // claim it's taken, just leave it unresolved so submit knows
+                // to re-try rather than trusting a false negative.
+                _usernameAvailable = null; _usernameCheckedVal = null;
+                _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
+                return null;
+            }
+        } catch (_) {
+            _usernameAvailable = null; _usernameCheckedVal = null;
+            _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
+            return null;
+        }
+    }
+
+    // Called right before submit. If the field's current value already
+    // matches what _usernameAvailable reflects (and nothing is mid-flight),
+    // the cached result is trustworthy and we return instantly. Otherwise
+    // (user typed fast and hit submit before the debounce fired, or the
+    // last check was inconclusive) we run one immediate, un-debounced check
+    // against the CURRENT value before letting the form proceed or block.
+    async function _ensureUsernameChecked() {
+        if (!regUsernameEl) return _usernameAvailable;
+        const val = regUsernameEl.value.trim().toLowerCase();
+        if (!val || val.length < 3 || !/^[a-z0-9_]{3,30}$/.test(val)) {
+            _usernameAvailable = false; _usernameCheckedVal = val;
+            return false;
+        }
+        if (_usernameCheckedVal === val && _usernameAvailable !== null && !_usernameCheckPromise) {
+            return _usernameAvailable; // already verified against this exact value
+        }
+        clearTimeout(_usernameCheckTimer);
+        if (_usernameCheckPromise) { await _usernameCheckPromise; }
+        if (_usernameCheckedVal === val) return _usernameAvailable; // the in-flight check we awaited already covered it
+        const hint = regUsernameEl.closest('.modal-field')?.querySelector('.field-hint');
+        _setFieldState(regUsernameEl, 'loading', hint, '⏳ جاري التحقق…');
+        _usernameCheckPromise = _checkUsernameNow(val);
+        const result = await _usernameCheckPromise;
+        _usernameCheckPromise = null;
+        return result;
+    }
+
     if (regUsernameEl) {
         regUsernameEl.addEventListener('input', () => {
             clearTimeout(_usernameCheckTimer);
@@ -212,48 +285,20 @@ function initModalAuth() {
             const hint = regUsernameEl.closest('.modal-field')?.querySelector('.field-hint');
 
             if (!val || val.length < 3) {
-                _usernameAvailable = false;
+                _usernameAvailable = false; _usernameCheckedVal = val;
                 _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
                 return;
             }
             if (!/^[a-z0-9_]{3,30}$/.test(val)) {
-                _usernameAvailable = false;
+                _usernameAvailable = false; _usernameCheckedVal = val;
                 _setFieldState(regUsernameEl, 'error', hint, 'أحرف إنجليزية صغيرة، أرقام، _ فقط (3-30 حرف)');
                 return;
             }
 
             _setFieldState(regUsernameEl, 'loading', hint, '⏳ جاري التحقق…');
-            _usernameCheckTimer = setTimeout(async () => {
-                try {
-                    const RTDB_CHECK = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-
-                    // Step 1: RTDB deletedUsernames — admin-deleted usernames are always re-available
-                    try {
-                        const delResp = await fetch(`${RTDB_CHECK}/deletedUsernames/${encodeURIComponent(val)}.json`);
-                        const delData = delResp.ok ? await delResp.json() : null;
-                        if (delData && delData.deletedAt) {
-                            _usernameAvailable = true;
-                            _setFieldState(regUsernameEl, 'success', hint, '✅ اسم المستخدم متاح');
-                            return;
-                        }
-                    } catch(_) {}
-
-                    // Step 2: Firestore usernames collection
-                    const resp = await fetch(`${FS_BASE}/usernames/${encodeURIComponent(val)}`).catch(() => ({ status: 0 }));
-                    if (resp.status === 404 || resp.status === 0) {
-                        _usernameAvailable = true;
-                        _setFieldState(regUsernameEl, 'success', hint, '✅ اسم المستخدم متاح');
-                    } else if (resp.status === 200) {
-                        _usernameAvailable = false;
-                        _setFieldState(regUsernameEl, 'error', hint, '❌ اسم المستخدم محجوز، اختر اسماً آخر');
-                    } else {
-                        _usernameAvailable = null;
-                        _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
-                    }
-                } catch (_) {
-                    _usernameAvailable = null;
-                    _setFieldState(regUsernameEl, 'idle', hint, 'أحرف إنجليزية، أرقام، _ فقط');
-                }
+            _usernameCheckTimer = setTimeout(() => {
+                _usernameCheckPromise = _checkUsernameNow(val);
+                _usernameCheckPromise.finally(() => { _usernameCheckPromise = null; });
             }, 500);
         });  // end regUsernameEl.addEventListener
     }  // end if (regUsernameEl)
@@ -434,7 +479,10 @@ function initModalAuth() {
                 if (!saved || otpStep?.style.display === 'none') {
                     if (_otpSendInFlight) return; // ignore extra taps while a send is already in the air
                     if (!username)           { showError(errorEl, 'اسم المستخدم مطلوب'); return; }
-                    if (_usernameAvailable === false) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
+                    setLoading(regBtn, true, '⏳ جاري التحقق من اسم المستخدم...');
+                    const _uAvail = await _ensureUsernameChecked();
+                    setLoading(regBtn, false, 'إرسال كود التحقق');
+                    if (_uAvail === false) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
                     if (!displayName)        { showError(errorEl, 'الاسم الظاهر مطلوب'); return; }
                     if (password.length < 8) { showError(errorEl, 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
                     if (!_phoneAvailable)    { showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
@@ -501,8 +549,10 @@ function initModalAuth() {
             }
 
             // ── Direct mode ───────────────────────────────────
-            if (_usernameAvailable === false) { showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
-            if (!_phoneAvailable)    { showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
+            setLoading(regBtn, true, '⏳ جاري التحقق من اسم المستخدم...');
+            const _uAvailDirect = await _ensureUsernameChecked();
+            if (_uAvailDirect === false) { setLoading(regBtn, false, 'إنشاء الحساب'); showError(errorEl, 'اسم المستخدم محجوز أو غير صحيح. اختر اسماً آخر'); document.getElementById('reg-username')?.focus(); return; }
+            if (!_phoneAvailable)    { setLoading(regBtn, false, 'إنشاء الحساب'); showError(errorEl, 'هذا الرقم مسجّل مسبقاً. استخدم رقماً آخر أو سجّل دخولك'); document.getElementById('reg-phone')?.focus(); return; }
             setLoading(regBtn, true, 'جاري الإنشاء...');
             const result = await window.DelivoAuth.register({ username, displayName, password, phone: phoneDigits, lat, lng, locationSource: window._regLocationSource || null });
             setLoading(regBtn, false, 'إنشاء الحساب');
