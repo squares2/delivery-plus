@@ -620,11 +620,20 @@ function initModalAuth() {
                         2: 'تعذّر تحديد الموقع. حاول مرة أخرى.',
                         3: 'انتهت المهلة. حاول مرة أخرى.',
                     };
-                    setLocationStatus('error', msgs[err.code] || 'تعذّر تحديد الموقع.');
-                    // GPS failed — automatically fall back to an approximate,
-                    // network-based location instead of leaving the customer
-                    // stuck with nothing (see _tryIpFallbackLocation above).
-                    _tryIpFallbackLocation();
+                    // GPS failed — do NOT silently substitute an approximate,
+                    // network-based location as if it were a confirmed pin.
+                    // An IP-based estimate can easily be off by a whole
+                    // neighborhood, and the customer would have no idea their
+                    // "location" isn't actually precise. Registration must be
+                    // satisfied by either a successful GPS fix or an explicit,
+                    // deliberate pin placement on the map — nothing else.
+                    setLocationStatus('error', (msgs[err.code] || 'تعذّر تحديد الموقع.') + ' الرجاء الضغط على "اختر على الخريطة" وتحديد موقعك يدوياً.');
+                    document.querySelectorAll('.location-opt-btn').forEach(b => {
+                        if (b.id === 'reg-location-map') {
+                            b.classList.add('location-opt-btn--required-pulse');
+                            setTimeout(() => b.classList.remove('location-opt-btn--required-pulse'), 1200);
+                        }
+                    });
                 },
                 { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
             );
@@ -871,25 +880,16 @@ function initModalAuth() {
                 (err) => {
                     editGpsBtn.disabled = false;
                     const msgs = { 1: 'رفضت الإذن.', 2: 'تعذّر تحديد الموقع.', 3: 'انتهت المهلة.' };
-                    setEditLocationStatus('error', msgs[err.code] || 'تعذّر تحديد الموقع.');
-                    // Same network-based fallback as registration — only useful
-                    // here for accounts that never had a location set at all.
-                    (async () => {
-                        if (document.getElementById('edit-lat')?.value) return; // already has one — don't touch it
-                        setEditLocationStatus('loading', '📡 جاري تقدير موقعك التقريبي عبر شبكتك...');
-                        const approx = await _fetchApproxIpLocation();
-                        if (!approx) {
-                            setEditLocationStatus('error', '⚠ تعذّر أيضاً تقدير الموقع عبر الشبكة. حدد موقعك يدوياً على الخريطة.');
-                            return;
-                        }
-                        document.getElementById('edit-lat').value = approx.lat.toFixed(6);
-                        document.getElementById('edit-lng').value = approx.lng.toFixed(6);
-                        setEditLocationStatus('info', `📡 تم تقدير موقعك تقريبياً${approx.city ? ' بالقرب من ' + approx.city : ''}. يفضّل الضغط على "اختر على الخريطة" لتدقيقه.`);
-                        if (window._editMap && window._editMarker) {
-                            window._editMap.setView([approx.lat, approx.lng], 15);
-                            window._editMarker.setLatLng([approx.lat, approx.lng]);
-                        }
-                    })();
+                    // Same reasoning as registration: no silent IP-approximate
+                    // substitution. GPS failing must send the customer to the
+                    // map picker for a deliberate, precise pin — not an
+                    // auto-filled estimate they'd have no reason to doubt.
+                    setEditLocationStatus('error', (msgs[err.code] || 'تعذّر تحديد الموقع.') + ' الرجاء الضغط على "اختر على الخريطة" وتحديد موقعك يدوياً.');
+                    const editMapBtnRef = document.getElementById('edit-location-map');
+                    if (editMapBtnRef) {
+                        editMapBtnRef.classList.add('location-opt-btn--required-pulse');
+                        setTimeout(() => editMapBtnRef.classList.remove('location-opt-btn--required-pulse'), 1200);
+                    }
                 },
                 { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
             );
@@ -1210,29 +1210,6 @@ async function _fetchApproxIpLocation() {
         return { lat, lng, city: d.city || '' };
     } catch(_) {
         return null;
-    }
-}
-
-// Triggered automatically when the GPS attempt fails. Fills the required
-// fields with an approximate (network-based) location, tagged so the admin
-// panel can flag it for later confirmation — same "~approx" pattern used
-// for the admin's own auto-locate tool — and nudges the customer to refine
-// it on the map for real delivery accuracy.
-async function _tryIpFallbackLocation() {
-    setLocationStatus('loading', '📡 تعذّر تحديد موقعك بدقة — جاري تقدير موقعك التقريبي عبر شبكتك...');
-    const approx = await _fetchApproxIpLocation();
-    if (!approx) {
-        setLocationStatus('error', '⚠ تعذّر أيضاً تقدير موقعك عبر الشبكة. يرجى الضغط على "اختر على الخريطة" وتحديد موقعك يدوياً.');
-        return;
-    }
-    document.getElementById('reg-lat').value = approx.lat.toFixed(6);
-    document.getElementById('reg-lng').value = approx.lng.toFixed(6);
-    window._regLocationSource = 'ip-approx';
-    setLocationStatus('info', `📡 تم تقدير موقعك تقريبياً${approx.city ? ' بالقرب من ' + approx.city : ''}. للتأكد من وصول طلباتك بدقة، اضغط "اختر على الخريطة" واسحب الدبوس لمكانك الفعلي.`);
-    // If the map is already open, recenter it to the approximate point too
-    if (window._regMap && window._regMarker) {
-        window._regMap.setView([approx.lat, approx.lng], 15);
-        window._regMarker.setLatLng([approx.lat, approx.lng]);
     }
 }
 
