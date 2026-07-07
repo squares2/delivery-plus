@@ -3128,6 +3128,12 @@ async function fbSet(path, data) {
         body: JSON.stringify(data),
     });
     if (!r.ok) throw new Error(`RTDB PUT ${r.status}: ${path}`);
+    // This write came from an admin acting inside this panel (settings save,
+    // employee add/remove, etc.) — it's not a breach, so silently adopt the
+    // new state as the security baseline instead of flagging it on the next poll.
+    if (path.startsWith('settings') || path.startsWith('adminUsers')) {
+        if (typeof _secSilentRebaseline === 'function') _secSilentRebaseline();
+    }
     return r.json();
 }
 async function fbUpdate(path, data) {
@@ -3136,6 +3142,9 @@ async function fbUpdate(path, data) {
         body: JSON.stringify(data),
     });
     if (!r.ok) throw new Error(`RTDB PATCH ${r.status}: ${path}`);
+    if (path.startsWith('settings') || path.startsWith('adminUsers')) {
+        if (typeof _secSilentRebaseline === 'function') _secSilentRebaseline();
+    }
     return r.json();
 }
 async function fbPush(path, data) {
@@ -4008,10 +4017,20 @@ async function runSecurityChecks() {
 
         // ── Fetch current state ───────────────────────────────────
         const [settingsResp, adminsResp, usersPointsResp] = await Promise.all([
-            fetch(`${RTDB_B}/settings.json`).then(r=>r.json()).catch(()=>null),
-            fetch(`${RTDB_B}/adminUsers.json`).then(r=>r.json()).catch(()=>null),
-            fetch(`${RTDB_B}/users.json`).then(r=>r.json()).catch(()=>null),
+            fetch(`${RTDB_B}/settings.json`).then(r=>r.json()).catch(()=>undefined),
+            fetch(`${RTDB_B}/adminUsers.json`).then(r=>r.json()).catch(()=>undefined),
+            fetch(`${RTDB_B}/users.json`).then(r=>r.json()).catch(()=>undefined),
         ]);
+
+        // A transient network hiccup, a rate-limited request, or a brief
+        // Firebase blip returns `undefined` here (fetch threw). Treating
+        // that as "0 admins" or "settings changed" produces false-positive
+        // breach alerts that flip back on the next successful poll. Skip
+        // this cycle entirely rather than compare against a broken read.
+        if (settingsResp === undefined || adminsResp === undefined || usersPointsResp === undefined) {
+            console.warn('[Security] Skipped this cycle — one or more reads failed (likely transient).');
+            return;
+        }
 
         const now = {
             settingsHash:  _secHash(settingsResp),
@@ -4121,6 +4140,11 @@ async function runSecurityChecks() {
                         </div>
                     </div>`;
                 document.body.appendChild(banner);
+                // Auto-dismiss so banners don't stack up forever if left unattended
+                setTimeout(() => {
+                    const b = document.getElementById(bannerId);
+                    if (b) b.remove();
+                }, 30000);
             }
         });
 
@@ -4254,6 +4278,12 @@ async function bkQuickBackup() {
 function secResetBaseline() {
     _secBaseline = null;
     toast('🔄 Security baseline reset — سيتم إعادة الضبط عند التحديث التالي');
+}
+
+// Same effect, no toast — used internally right after fbSet/fbUpdate writes
+// to settings/adminUsers so a legitimate save doesn't trip the next security poll.
+function _secSilentRebaseline() {
+    _secBaseline = null;
 }
 
 function updateTopbarStats() {
