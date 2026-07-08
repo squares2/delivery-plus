@@ -9734,6 +9734,16 @@ function renderSettings() {
                     <span class="toggle-slider"></span>
                 </label>
             </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">👋 تفعيل شاشة التعريف بالتطبيق (Onboarding)</div>
+                    <div class="setting-sub">تُعرض تلقائياً لأول زيارة فقط لكل مستخدم جديد. عند التعطيل لا تظهر إطلاقاً حتى للزوار الجدد</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-intro" onchange="setIntroEnabled(this.checked)" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
         </div>
         <div class="settings-section" id="delivery-settings-section">
             <div class="settings-section-title">🛵 رسوم التوصيل</div>
@@ -10097,6 +10107,11 @@ function renderSettings() {
     // Load current "top stores" section visibility state
     fbGet('settings/topStoresVisible').then(val => {
         const toggle = document.getElementById('toggle-top-stores');
+        if (toggle) toggle.checked = (val === null || val === undefined || val === true || val === 'true');
+    });
+    // Load current onboarding-intro enabled state
+    fbGet('settings/introEnabled').then(val => {
+        const toggle = document.getElementById('toggle-intro');
         if (toggle) toggle.checked = (val === null || val === undefined || val === true || val === 'true');
     });
     // Load current maintenance state — reads from settings/maintenance (same path setMaintenance writes to)
@@ -11226,6 +11241,8 @@ async function loadSettings() {
         if (loyTog) loyTog.checked = (s.loyaltyVisible === null || s.loyaltyVisible === undefined || s.loyaltyVisible === true || s.loyaltyVisible === 'true');
         const topStoresTog = document.getElementById('toggle-top-stores');
         if (topStoresTog) topStoresTog.checked = (s.topStoresVisible === null || s.topStoresVisible === undefined || s.topStoresVisible === true || s.topStoresVisible === 'true');
+        const introTog = document.getElementById('toggle-intro');
+        if (introTog) introTog.checked = (s.introEnabled === null || s.introEnabled === undefined || s.introEnabled === true || s.introEnabled === 'true');
         // Test mode
         const testToggle = document.getElementById('toggle-test-mode');
         const testBadge  = document.getElementById('test-mode-badge');
@@ -12630,6 +12647,13 @@ async function setTopStoresVisible(checked) {
         await fbSet('settings/topStoresVisible', checked);
         toast(checked ? '🏪 قسم "المتاجر الأكثر طلباً" ظاهر للعملاء' : '🙈 قسم "المتاجر الأكثر طلباً" مخفي عن العملاء');
     } catch(e) { toast('فشل تحديث الإعداد', true); }
+}
+
+async function setIntroEnabled(checked) {
+    try {
+        await fbSet('settings/introEnabled', checked);
+        toast(checked ? '👋 شاشة التعريف مُفعَّلة لأول زيارة' : '🙈 شاشة التعريف مُعطَّلة للزوار الجدد');
+    } catch(e) { toast('فشل تحديث إعداد شاشة التعريف', true); }
 }
 
 async function setTestMode(val) {

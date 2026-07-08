@@ -82,7 +82,20 @@ async function loadAll() {
     /* Reveal the page content UNDER the splash (no flash —
        splash is still covering everything at this point)     */
     document.body.classList.add('loaded');
-    if (typeof initOnboarding === 'function') initOnboarding();
+    if (typeof initOnboarding === 'function') {
+        /* Check admin-controlled toggle before showing the first-launch
+           onboarding walkthrough. Defaults to enabled (fail-open) if the
+           setting is missing or the request fails, so a network hiccup
+           never silently hides the intro for real first-time visitors. */
+        fetch('https://deliveryonline-300f7-default-rtdb.firebaseio.com/settings/introEnabled.json')
+            .then(r => r.ok ? r.json() : null)
+            .then(val => {
+                const introOn = (val === null || val === undefined || val === true || val === 'true');
+                window._introEnabled = introOn;
+                if (introOn) initOnboarding();
+            })
+            .catch(() => initOnboarding());
+    }
     console.log('[Delivo] All components loaded ✓');
 
     /* ── Pick up pending sale from sales.html ────────────────
