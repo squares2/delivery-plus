@@ -21,19 +21,6 @@
     pointer-events: all;
 }
 
-/* Launch-gate modal uses its own visibility class instead of ".active" —
-   deliberately so the generic backdrop-click/Escape-key close handlers in
-   scripts/modals.js (which only ever look for ".modal-overlay.active")
-   never touch it. It must only ever be closed by its own submit handler. */
-#modal-launch-gate { z-index: 10100; }
-#modal-launch-gate.lg-active {
-    opacity: 1;
-    pointer-events: all;
-}
-#modal-launch-gate.lg-active .modal-box {
-    transform: scale(1) translateY(0);
-}
-
 /* ── Box ──────────────────────────────────────────────────── */
 .modal-box {
     background: var(--clr-white);

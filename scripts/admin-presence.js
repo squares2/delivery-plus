@@ -175,31 +175,13 @@
             // already belongs to one or more registered (but logged-out) accounts
             const matches = isUser ? [] : matchRegisteredAccounts(uuid);
 
-            // Registration-status recognition symbol (launch-gate feature) —
-            // lets the admin tell at a glance whether this visitor's device
-            // has an official account, is a known "unregistered" launch-gate
-            // capture, or is a brand-new visitor with neither yet.
-            const unregEntry = (window.allUnregisteredUsers || {})[uuid];
-            let regBadge;
-            if (isUser || matches.length) {
-                regBadge = `<span class="pm-reg-badge pm-reg-badge--registered">✅ مسجّل</span>`;
-            } else if (unregEntry) {
-                regBadge = `<span class="pm-reg-badge pm-reg-badge--unregistered" title="${unregEntry.fullname || ''} · ${unregEntry.phone ? '+961'+unregEntry.phone : ''}">🆕 غير مسجل</span>`;
-            } else {
-                regBadge = `<span class="pm-reg-badge pm-reg-badge--unknown">❔ زائر جديد</span>`;
-            }
-
             return `
             <div class="pm-row ${isUser ? 'pm-row--user' : ''}" data-connected="${s.connectedAt || Date.now()}">
                 <div class="pm-rank">${i + 1}</div>
                 <div class="pm-live-dot"></div>
                 <div class="pm-info">
-                    <div class="pm-name" style="font-size:1.05rem">${icon} ${name} ${typeTag(s)} ${regBadge}</div>
+                    <div class="pm-name" style="font-size:1.05rem">${icon} ${name} ${typeTag(s)}</div>
                     <div class="pm-uuid-full">🔑 ${uuid}</div>
-                    ${unregEntry ? `
-                    <div class="pm-known-account" style="color:#f59e0b;">
-                        🆕 بيانات البوابة: ${unregEntry.fullname || '—'} · ${unregEntry.phone ? '+961' + unregEntry.phone : '—'}
-                    </div>` : ''}
                     ${matches.length ? `
                     <div class="pm-known-account">
                         🔗 هذا الجهاز مسجّل باسم:
@@ -402,13 +384,6 @@
             border-radius:99px;padding:2px 10px;cursor:pointer;
         }
         .pm-known-account-btn:hover { background:rgba(245,158,11,.2); }
-        .pm-reg-badge {
-            font-size:.62rem;font-weight:800;border-radius:99px;padding:1px 8px;
-            display:inline-block;vertical-align:middle;
-        }
-        .pm-reg-badge--registered   { color:#22c55e;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3); }
-        .pm-reg-badge--unregistered { color:#f59e0b;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3); }
-        .pm-reg-badge--unknown      { color:#9ca3af;background:rgba(156,163,175,.12);border:1px solid rgba(156,163,175,.3); }
         .pt-uuid { font-family:monospace;font-size:.58rem;color:var(--gray,#6b7280);margin-top:1px;letter-spacing:.02em; }
         .pm-timer { font-variant-numeric:tabular-nums; }
         `;

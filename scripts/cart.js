@@ -1127,49 +1127,7 @@ function initCart() {
         const user = window.DelivoUser;
         if (!user) {
             closeCartSidebar();
-            setTimeout(async () => {
-                let gateOn = false;
-                try {
-                    const gr = await fetch('https://deliveryonline-300f7-default-rtdb.firebaseio.com/settings/launchGateEnabled.json');
-                    const gv = gr.ok ? await gr.json() : null;
-                    gateOn = (gv === true || gv === 'true');
-                } catch (_) {}
-
-                if (!gateOn) {
-                    // Classic mode, unchanged — the login modal's own
-                    // "سجّل الآن" link still leads to the classic register modal.
-                    if (typeof openModal === 'function') openModal('modal-login');
-                    return;
-                }
-
-                // Gate mode is on — there's no username/password account to
-                // "log into" here at all, so never show the classic login
-                // modal. Two possibilities instead:
-                try {
-                    const uuid = (window._delivoGetDeviceUUID ? window._delivoGetDeviceUUID() : localStorage.getItem('delivo_device_uuid')) || '';
-                    if (uuid) {
-                        const r = await fetch(`https://deliveryonline-300f7-default-rtdb.firebaseio.com/unregisteredUsers/${uuid}.json`);
-                        const rec = r.ok ? await r.json() : null;
-                        if (rec && rec._wasRegistered) {
-                            // Previously registered on this device, now logged
-                            // out — offer the quick phone re-confirmation.
-                            // Reset first — this modal's error/field state
-                            // otherwise persists across separate attempts.
-                            const errEl = document.getElementById('gatecheck-error');
-                            if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-                            const phoneEl = document.getElementById('gatecheck-phone');
-                            if (phoneEl) phoneEl.value = '';
-                            if (typeof openModal === 'function') openModal('modal-gate-phone-check');
-                            return;
-                        }
-                    }
-                } catch (_) {}
-
-                // Never registered on this device — straight to the new
-                // phone+OTP registration flow.
-                if (typeof openRegistrationFlow === 'function') openRegistrationFlow();
-                else if (typeof openModal === 'function') openModal('modal-gate-register');
-            }, 200);
+            setTimeout(() => { if (typeof openModal === 'function') openModal('modal-login'); }, 200);
             return;
         }
 
