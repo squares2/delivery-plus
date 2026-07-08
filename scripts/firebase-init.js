@@ -138,6 +138,12 @@ function onFirebaseReady() {
             screen.colorDepth         || '',
             Intl.DateTimeFormat().resolvedOptions().timeZone || '',
             navigator.userAgent       || '',
+            // ── Extra entropy — none of the above differ much between two
+            // people using the same phone model/OS/browser version, which
+            // is exactly the collision problem on a small, homogeneous user
+            // base. These add real per-device variation on top:
+            window.devicePixelRatio   || '',
+            navigator.maxTouchPoints  || '',
         ];
 
         // Add canvas fingerprint (unique per GPU/driver/browser combo)
@@ -149,6 +155,46 @@ function onFirebaseReady() {
             ctx.fillStyle = '#FF5C00';
             ctx.fillText('Delivo🇱🇧', 2, 2);
             components.push(canvas.toDataURL());
+        } catch (_) {}
+
+        // Add WebGL renderer/vendor strings — identifies the actual GPU
+        // (e.g. "Adreno 610" vs "Mali-G57"), which varies far more between
+        // individual devices than the generic 2D canvas hash above, since
+        // it reflects the exact chipset rather than just the OS/browser's
+        // rendering stack.
+        try {
+            const glCanvas = document.createElement('canvas');
+            const gl = glCanvas.getContext('webgl') || glCanvas.getContext('experimental-webgl');
+            if (gl) {
+                const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                if (dbg) {
+                    components.push(gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '');
+                    components.push(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '');
+                }
+            }
+        } catch (_) {}
+
+        // Add an audio-stack fingerprint — rendering a short signal through
+        // an OfflineAudioContext produces tiny, consistent-per-device
+        // floating-point differences driven by the actual audio hardware/
+        // driver stack, independent of screen/canvas/GPU signals above.
+        try {
+            const AudioCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+            if (AudioCtx) {
+                const ctx = new AudioCtx(1, 5000, 44100);
+                const osc = ctx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.value = 10000;
+                const compressor = ctx.createDynamicsCompressor();
+                osc.connect(compressor);
+                compressor.connect(ctx.destination);
+                osc.start(0);
+                const rendered = await ctx.startRendering();
+                let sum = 0;
+                const data = rendered.getChannelData(0);
+                for (let i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
+                components.push(sum.toString());
+            }
         } catch (_) {}
 
         // Hash all components into a short stable ID
