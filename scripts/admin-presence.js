@@ -44,6 +44,8 @@
     }
 
     function deviceIcon(s) {
+        if (s.os === 'ios')     return '🍎';
+        if (s.os === 'android') return '🤖';
         return (s.device === 'mobile') ? '📱' : '💻';
     }
 
@@ -190,7 +192,11 @@
                         ${s.username && s.uid ? `<span class="pm-uid-badge">uid·${s.uid.slice(0,12)}</span>` : ''}
                     </div>
                 </div>
-                <div class="pm-device" style="font-size:.85rem">${s.device === 'mobile' ? '📱 موبايل' : '💻 ويب'}</div>
+                <div class="pm-device" style="font-size:.85rem">${
+                    s.os === 'ios'     ? '🍎 آيفون' :
+                    s.os === 'android' ? '🤖 أندرويد' :
+                    s.device === 'mobile' ? '📱 موبايل' : '💻 ويب'
+                }</div>
             </div>`;
         }).join('');
 

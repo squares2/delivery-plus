@@ -109,11 +109,16 @@
 
     function buildPayload(uuid, connectedAt) {
         const auth = window._delivoAuthUser || null;
+        const ua   = navigator.userAgent;
+        let os = 'other';
+        if (/iPhone|iPad|iPod/i.test(ua)) os = 'ios';
+        else if (/Android/i.test(ua))     os = 'android';
         return {
             uuid,
             uid:         auth?.uid      || null,
             username:    auth?.username || null,
-            device:      /Mobi/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+            device:      /Mobi/i.test(ua) ? 'mobile' : 'desktop',
+            os,          // 'ios' | 'android' | 'other' — lets the admin panel show 🍎/🤖 instead of a generic 📱
             connectedAt: connectedAt || Date.now(),
             lastSeen:    Date.now(),
         };
