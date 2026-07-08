@@ -1953,6 +1953,13 @@ input, select, textarea { font-family: var(--font); }
                     <h2>المتاجر</h2>
                     <span class="panel-header-sub" id="stores-count-label">—</span>
                     <input type="text" class="search-box" id="stores-search" placeholder="بحث باسم المتجر…" style="max-width:200px;">
+                    <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;" title="إخفاء المتاجر المعطّلة من القائمة">
+                        <span style="font-size:0.72rem;font-weight:700;color:var(--gray-light);white-space:nowrap;">🚫 إخفاء المعطّلة</span>
+                        <label class="toggle" style="transform:scale(0.8);">
+                            <input type="checkbox" id="stores-hide-disabled-toggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </span>
                     <button class="ph-btn ph-btn--primary" id="add-store-btn" onclick="openAddStoreModal()">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         إضافة متجر
@@ -2754,6 +2761,7 @@ let customerSearch = '';
 let allBlacklist   = {};
 let storeFilter    = 'all';
 let storeSearch    = '';
+let hideDisabledStores = localStorage.getItem('delivo_hide_disabled_stores') === '1';
 let mapLayers    = { stores: true, drivers: true, customers: true, orders: true, center: true };
 let adminMap     = null;
 let mapMarkers   = { stores: [], drivers: [], customers: [], orders: [], center: [] };
@@ -4379,7 +4387,12 @@ function updateTopbarStats() {
 
 function updateNavBadge() {
     _setNavBadge('orders',     Object.values(allOrders).filter(o => (o.vault||'0') != 1).length);
-    _setNavBadge('online-req', Object.values(allOrders).filter(o => (o.state||'0') === '0' && o.read !== '1').length);
+    // Same criteria as the "طلبات جديدة" topbar chip (state === new) — this
+    // badge previously also required o.read !== '1', which made it drift
+    // out of sync with that chip (and with every other nav badge, which
+    // are all plain counts with no extra "seen" filter) the moment an
+    // order got opened/viewed but hadn't moved past state 0 yet.
+    _setNavBadge('online-req', Object.values(allOrders).filter(o => (o.state||'0') === '0').length);
     _setNavBadge('drivers',    (allDrivers || []).filter(d => d).length);
     _setNavBadge('customers',  Object.keys(allUsers || {}).length);
     _setNavBadge('stores',     Object.keys(allStores || {}).length);
@@ -7251,6 +7264,17 @@ function renderStores() {
         const q = storeSearch.toLowerCase();
         stores = stores.filter(([name]) => name.toLowerCase().includes(q));
     }
+    // Hide disabled entirely, if the admin toggled that on
+    const isStoreDisabled = s => s.disabled === true || s.disabled === '1' || s.disabled === 1;
+    if (hideDisabledStores) {
+        stores = stores.filter(([, s]) => !isStoreDisabled(s));
+    }
+    // Disabled stores always sink to the bottom of the list (stable sort —
+    // relative order within each group is otherwise unchanged)
+    stores = stores
+        .map((entry, i) => ({ entry, i, disabled: isStoreDisabled(entry[1]) }))
+        .sort((a, b) => (a.disabled === b.disabled) ? (a.i - b.i) : (a.disabled ? 1 : -1))
+        .map(x => x.entry);
 
     countEl.textContent = `${stores.length} متجر`;
 
@@ -13207,6 +13231,15 @@ document.getElementById('stores-refresh-btn').addEventListener('click', async ()
 // Stores search
 document.getElementById('stores-search').addEventListener('input', e => {
     storeSearch = e.target.value.trim();
+    renderStores();
+});
+
+// Hide disabled stores toggle
+const storesHideDisabledToggle = document.getElementById('stores-hide-disabled-toggle');
+storesHideDisabledToggle.checked = hideDisabledStores;
+storesHideDisabledToggle.addEventListener('change', e => {
+    hideDisabledStores = e.target.checked;
+    localStorage.setItem('delivo_hide_disabled_stores', hideDisabledStores ? '1' : '0');
     renderStores();
 });
 
