@@ -338,6 +338,34 @@ function onFirebaseReady() {
                 }
             } catch (_) {}
 
+            // Defensive backfill — gate-otp accounts always use the phone
+            // digits as their internal username and a "phone_"-prefixed
+            // synthetic email. If either phone or registrationMethod is
+            // missing from the Firestore doc for any reason (e.g. an
+            // account created before this was fully wired up), infer them
+            // from those two reliable signals rather than leaving the
+            // profile looking broken (phone not showing, password-change
+            // section still visible, etc).
+            if (window.DelivoUser) {
+                const du = window.DelivoUser;
+                const looksLikeGatePhone = /^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(du.username || '');
+                const emailLooksGate = (du.authEmail || du.email || '').startsWith('phone_');
+                const patch = {};
+                if ((looksLikeGatePhone || emailLooksGate) && !du.registrationMethod) {
+                    du.registrationMethod = patch.registrationMethod = 'gate-otp';
+                }
+                if (!du.phone && looksLikeGatePhone) {
+                    du.phone = patch.phone = du.username;
+                }
+                // Persist the fix back to Firestore too (not just this
+                // session's in-memory object), so the admin panel and
+                // everything else that reads the record directly also
+                // sees the correct data from now on.
+                if (Object.keys(patch).length) {
+                    db.collection('users').doc(user.uid).update(patch).catch(() => {});
+                }
+            }
+
             // ── Blacklist check ───────────────────────────────
             try {
                 const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
@@ -577,6 +605,17 @@ function onFirebaseReady() {
                 // Increment device account count
                 await incrementDeviceCount(deviceCheck.uuid);
 
+                // Launch-gate transfer: this device just became a real
+                // registered account, so it's no longer "unregistered" —
+                // remove its pre-registration capture (see
+                // scripts/launch-gate.js) and clear the local cache used
+                // to auto-fill this same form.
+                if (deviceCheck.uuid) {
+                    fetch(`${RTDB_BASE}/unregisteredUsers/${deviceCheck.uuid}.json`, { method: 'DELETE' }).catch(() => {});
+                }
+                localStorage.removeItem('delivo_launch_fullname');
+                localStorage.removeItem('delivo_launch_phone');
+
                 // ── Immediately populate DelivoUser with full profile ─────
                 // onAuthStateChanged fires as soon as createUserWithEmailAndPassword
                 // completes — BEFORE the Firestore write above. So DelivoUser ends up
@@ -615,6 +654,208 @@ function onFirebaseReady() {
             } catch (e) {
                 _registering = false; // always clear on failure too
                 console.error('[Delivo] register:', e.code, e.message);
+                return { error: true, message: authMsg(e.code) };
+            }
+        },
+
+        // ── Register via the gate flow — phone + OTP only, no username/
+        // password from the customer. Only ever called from the OTP-verify
+        // step in modal-auth.js's gate-registration modal, so the phone has
+        // already been proven reachable by that point. The phone number
+        // itself becomes the account's identifying value: internally we
+        // still populate `username` (so every other feature that reads
+        // user.username keeps working untouched), it's just auto-set to
+        // the phone digits instead of something the customer picks.
+        async registerViaGate({ fullname, phone, lat, lng, locationSource = null }) {
+            const phoneDigits = (phone || '').replace(/[\s\-]/g, '');
+            if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits)) {
+                return { error: true, message: 'رقم الهاتف غير صحيح.' };
+            }
+            const safeName = sanitize((fullname || '').trim()) || phoneDigits;
+            const RTDB_BASE_PH = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+            // If this phone already has an account, this is almost always
+            // the SAME person recovering access from a new or cleared
+            // device (e.g. their old device's local storage was wiped, or
+            // they switched phones) — not someone else claiming their
+            // number, since registerViaGate is only ever reached after a
+            // fresh WhatsApp OTP to this exact number was just verified.
+            // Rather than reject with "already registered" and leave them
+            // stuck with no way back into their own account, carry their
+            // existing profile (display name) over onto a freshly created
+            // account tied to this device, and mark the old record as
+            // superseded rather than leaving a confusing live duplicate.
+            let migratedFromUid = null;
+            let carryOverName   = safeName;
+            try {
+                const phResp = await fetch(`${RTDB_BASE_PH}/phoneIndex/${phoneDigits}.json`);
+                const phData = await phResp.json();
+                if (phData && typeof phData === 'object' && !Array.isArray(phData)) {
+                    const oldUid = Object.keys(phData)[0];
+                    if (oldUid) {
+                        migratedFromUid = oldUid;
+                        try {
+                            const oldSnap = await db.collection('users').doc(oldUid).get();
+                            if (oldSnap.exists && oldSnap.data().displayName) {
+                                carryOverName = oldSnap.data().displayName;
+                            }
+                        } catch (_) {}
+                    }
+                } else if (phData !== null) {
+                    // Legacy format: a single uid string, not a map
+                    migratedFromUid = phData;
+                }
+            } catch (_) {}
+
+            // Device fingerprint/UUID — same informational-only role as the
+            // classic flow (see the long comment on register() above).
+            const deviceCheck = await checkDeviceLimit();
+
+            if (deviceCheck.uuid) {
+                try {
+                    const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                    const blResp = await fetch(`${RTDB_BASE}/blacklist/${deviceCheck.uuid}.json`);
+                    const blData = await blResp.json();
+                    if (blData && blData.reason) {
+                        _showBlockedScreen(blData.reason);
+                        return { error: true, message: 'هذا الجهاز محظور من استخدام Delivo.' };
+                    }
+                } catch (_) {}
+            }
+
+            const username = phoneDigits; // internal identifier only — never shown as a "username" to the customer
+
+            _registering = true;
+            let _cred = null;
+            let _email = null;
+            // Random, never-shown-to-the-customer password. Firebase Auth
+            // requires one; the customer never sets or sees it — session
+            // persistence (until they explicitly log out) is what actually
+            // keeps them signed in, same as the classic flow.
+            const _pwArr = new Uint8Array(24);
+            crypto.getRandomValues(_pwArr);
+            const password = Array.from(_pwArr, b => b.toString(16).padStart(2, '0')).join('');
+
+            const _slots = [
+                'phone_' + username + '@delivo.internal',
+                ...Array.from({ length: 19 }, (_, i) => 'phone_' + username + '~' + (i + 1) + '@delivo.internal'),
+            ];
+            for (const _slot of _slots) {
+                try {
+                    _cred  = await auth.createUserWithEmailAndPassword(_slot, password);
+                    _email = _slot;
+                    break;
+                } catch (_slotErr) {
+                    if (_slotErr.code === 'auth/email-already-in-use') continue;
+                    console.error('[Delivo] registerViaGate:', _slotErr.code, _slotErr.message);
+                    _registering = false;
+                    return { error: true, message: authMsg(_slotErr.code) };
+                }
+            }
+            if (!_cred || !_email) {
+                try {
+                    _email = 'phone_' + username + '~' + Date.now() + '@delivo.internal';
+                    _cred  = await auth.createUserWithEmailAndPassword(_email, password);
+                } catch (_fb) {
+                    _registering = false;
+                    return { error: true, message: authMsg(_fb.code) };
+                }
+            }
+
+            try {
+                const email = _email;
+                const cred  = _cred;
+                const user  = cred.user;
+
+                await user.updateProfile({ displayName: carryOverName });
+
+                const userData = {
+                    username:           username,
+                    displayName:        carryOverName,
+                    phone:              phoneDigits,
+                    deviceUUID:         deviceCheck.uuid,
+                    authEmail:          email,
+                    registrationMethod: 'gate-otp',
+                    createdAt:          firebase.firestore.FieldValue.serverTimestamp(),
+                };
+                if (migratedFromUid) userData.migratedFrom = migratedFromUid;
+                if (lat && lng) {
+                    userData.location = { lat: Number(lat), lng: Number(lng) };
+                    if (locationSource) userData.locationSource = locationSource;
+                }
+                await db.collection('users').doc(user.uid).set(userData);
+
+                // Reserve username (= phone digits) + phone index, same as the classic flow
+                await db.collection('usernames').doc(username).set({
+                    uid:       user.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
+                const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                try {
+                    await fetch(`${RTDB_BASE}/deletedUsernames/${encodeURIComponent(username)}.json`, { method: 'DELETE' });
+                } catch (_) {}
+                try {
+                    await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}/${user.uid}.json`, {
+                        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(true),
+                    });
+                } catch (_) {}
+
+                // Recovery cleanup: this device is now the live account for
+                // this phone — mark the old record as superseded (kept, not
+                // deleted, so its order history stays intact for the admin
+                // panel) and free its slot in the phone index so it no
+                // longer counts toward the per-phone account limit.
+                if (migratedFromUid && migratedFromUid !== user.uid) {
+                    try {
+                        await db.collection('users').doc(migratedFromUid).update({
+                            migratedTo:  user.uid,
+                            migratedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+                        });
+                    } catch (_) {}
+                    try {
+                        await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}/${migratedFromUid}.json`, { method: 'DELETE' });
+                    } catch (_) {}
+                }
+
+                await incrementDeviceCount(deviceCheck.uuid);
+
+                // Launch-gate transfer: this device just became a real
+                // registered account — remove its pre-registration capture
+                // and clear the local autofill cache.
+                if (deviceCheck.uuid) {
+                    fetch(`${RTDB_BASE}/unregisteredUsers/${deviceCheck.uuid}.json`, { method: 'DELETE' }).catch(() => {});
+                }
+                localStorage.removeItem('delivo_launch_fullname');
+                localStorage.removeItem('delivo_launch_phone');
+
+                window.DelivoUser = {
+                    uid:                user.uid,
+                    username:           username,
+                    displayName:        carryOverName,
+                    phone:              phoneDigits,
+                    deviceUUID:         deviceCheck.uuid,
+                    authEmail:          email,
+                    registrationMethod: 'gate-otp',
+                };
+                if (lat && lng) {
+                    window.DelivoUser.location = { lat: Number(lat), lng: Number(lng) };
+                    if (locationSource) window.DelivoUser.locationSource = locationSource;
+                }
+
+                if (typeof window.__renderAccountModal === 'function') window.__renderAccountModal();
+                const bbBtn2   = document.getElementById('bb-account-btn');
+                const acctBtn2 = document.getElementById('account-btn');
+                if (bbBtn2)   bbBtn2.classList.add('logged-in');
+                if (acctBtn2) acctBtn2.classList.add('logged-in');
+
+                _registering = false;
+                if (typeof window._checkPlatformStatus === 'function') window._checkPlatformStatus();
+
+                return { success: true };
+            } catch (e) {
+                _registering = false;
+                console.error('[Delivo] registerViaGate:', e.code, e.message);
                 return { error: true, message: authMsg(e.code) };
             }
         },
@@ -781,8 +1022,131 @@ function onFirebaseReady() {
             }
         },
 
+        // ── Returning gate-flow visitor — phone re-confirmation ─────
+        // Called from the checkout flow (cart.js) when this device
+        // previously had a gate-flow account and logged out. Compares the
+        // phone just entered against what was on file for THIS device's
+        // uuid at logout time:
+        //   • Match           → silently signs back in with the rotated
+        //                       credential stashed at logout, restores the
+        //                       account to registered/logged-in, done.
+        //   • No match at all → tells the caller to fall through to a full
+        //                       OTP registration/re-verification instead
+        //                       (same as a first-time signup).
+        async checkReturningGateUser({ phone }) {
+            const digits = (phone || '').replace(/[\s\-]/g, '');
+            const uuid   = (window._delivoGetDeviceUUID ? window._delivoGetDeviceUUID() : localStorage.getItem('delivo_device_uuid')) || '';
+            if (!uuid || !digits) return { matched: false };
+
+            try {
+                const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                const r = await fetch(`${RTDB_BASE}/unregisteredUsers/${uuid}.json`);
+                const rec = r.ok ? await r.json() : null;
+                if (!rec || !rec._wasRegistered || rec.phone !== digits || !rec._authEmail || !rec._authSecret) {
+                    return { matched: false };
+                }
+
+                const cred = await auth.signInWithEmailAndPassword(rec._authEmail, rec._authSecret);
+                // Signed back in successfully — this uuid is a registered
+                // account again, so it's no longer "unregistered".
+                await fetch(`${RTDB_BASE}/unregisteredUsers/${uuid}.json`, { method: 'DELETE' }).catch(() => {});
+
+                // Explicitly (re)populate window.DelivoUser with the full
+                // Firestore profile right here, rather than trusting
+                // onAuthStateChanged's async side effect to have finished
+                // by the time the caller (checkout) proceeds — that race
+                // was leaving DelivoUser with only {uid, displayName,
+                // email} for a moment, dropping phone/registrationMethod.
+                try {
+                    const snap = await db.collection('users').doc(cred.user.uid).get();
+                    window.DelivoUser = {
+                        uid:         cred.user.uid,
+                        displayName: cred.user.displayName || '',
+                        email:       cred.user.email || '',
+                        ...(snap.exists ? snap.data() : {}),
+                    };
+                    if (!window.DelivoUser.phone) window.DelivoUser.phone = digits;
+                    if (!window.DelivoUser.registrationMethod) window.DelivoUser.registrationMethod = 'gate-otp';
+                } catch (_) {}
+
+                return { matched: true };
+            } catch (e) {
+                console.error('[Delivo] checkReturningGateUser:', e.code || e.message);
+                return { matched: false };
+            }
+        },
+
         async logout() {
             try {
+                // Gate-flow accounts (phone+OTP, no username/password) get
+                // demoted back to "unregistered" on logout, per the new
+                // registration rules — their data (name/phone/location) is
+                // preserved, and a freshly-rotated internal credential is
+                // stashed so the SAME device can silently sign back in
+                // later if it re-enters the same phone number (see
+                // checkReturningGateUser below). Classic username/password
+                // accounts are completely unaffected — this only runs for
+                // registrationMethod === 'gate-otp'.
+                // Gate-flow accounts (phone+OTP, no username/password) get
+                // demoted back to "unregistered" on logout, per the new
+                // registration rules — their data (name/phone/location) is
+                // preserved, and a freshly-rotated internal credential is
+                // stashed so the SAME device can silently sign back in
+                // later if it re-enters the same phone number (see
+                // checkReturningGateUser below). Classic username/password
+                // accounts are completely unaffected — this only runs for
+                // registrationMethod === 'gate-otp'.
+                //
+                // Deliberately re-reads the Firestore doc fresh here rather
+                // than trusting window.DelivoUser as-is — a session that's
+                // been running since before some field was added/backfilled
+                // could otherwise silently skip this whole step.
+                let du = window.DelivoUser;
+                if (auth.currentUser) {
+                    try {
+                        const snap = await db.collection('users').doc(auth.currentUser.uid).get();
+                        if (snap.exists) du = { ...du, ...snap.data() };
+                    } catch (_) {}
+                    const looksLikeGatePhone = /^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(du?.username || '');
+                    if (du && !du.registrationMethod && (looksLikeGatePhone || (du.authEmail || '').startsWith('phone_'))) {
+                        du = { ...du, registrationMethod: 'gate-otp' };
+                    }
+                    if (du && !du.phone && looksLikeGatePhone) {
+                        du = { ...du, phone: du.username };
+                    }
+                }
+                const u = du;
+                if (u && u.registrationMethod === 'gate-otp' && u.deviceUUID) {
+                    try {
+                        const newPwArr = new Uint8Array(24);
+                        crypto.getRandomValues(newPwArr);
+                        const newPassword = Array.from(newPwArr, b => b.toString(16).padStart(2, '0')).join('');
+                        await auth.currentUser.updatePassword(newPassword);
+
+                        const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                        const record = {
+                            fullname:  u.displayName || '',
+                            phone:     u.phone || '',
+                            lastSeen:  Date.now(),
+                            createdAt: Date.now(),
+                            _wasRegistered: true,
+                            _prevUid:       u.uid,
+                            _authEmail:     u.authEmail,
+                            _authSecret:    newPassword,
+                        };
+                        if (u.location) { record.lat = u.location.lat; record.lng = u.location.lng; }
+                        if (u.locationSource) record.locationSource = u.locationSource;
+                        await fetch(`${RTDB_BASE}/unregisteredUsers/${u.deviceUUID}.json`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(record),
+                        });
+                    } catch (_) {
+                        // If the rotation/demotion step fails for any reason, still
+                        // proceed with the actual sign-out below — worst case the
+                        // customer just has to go through OTP again next time,
+                        // which is safe, just slightly less convenient.
+                    }
+                }
                 await auth.signOut();
                 return { success: true };
             } catch (e) {

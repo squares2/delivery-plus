@@ -162,7 +162,10 @@
         const user = window.DelivoUser;
         if (!user || !user.uid) {
             closeWc2026Modal();
-            setTimeout(() => { if (typeof openModal === 'function') openModal('modal-login'); }, 200);
+            setTimeout(() => {
+                if (typeof openSigninFlow === 'function') openSigninFlow();
+                else if (typeof openModal === 'function') openModal('modal-login');
+            }, 200);
             return;
         }
 

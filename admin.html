@@ -1936,6 +1936,11 @@ input, select, textarea { font-family: var(--font); }
                     <button class="filter-pill" data-cust-filter="offline">⚫ غير نشط</button>
                     <button class="filter-pill" data-cust-filter="blocked" style="color:var(--red);">🚫 قائمة الحظر</button>
                 </div>
+                <div class="orders-toolbar" style="flex-shrink:0;" id="customers-reg-filter-bar" title="فلترة حسب حالة التسجيل الرسمي (بوابة الدخول)">
+                    <button class="filter-pill active" data-cust-reg-filter="all">👥 الكل (مسجلون وغير مسجلين)</button>
+                    <button class="filter-pill" data-cust-reg-filter="registered">✅ مسجلون فقط</button>
+                    <button class="filter-pill" data-cust-reg-filter="unregistered" style="color:#f59e0b;">🆕 غير مسجلين فقط</button>
+                </div>
                 <div class="users-table-wrap">
                     <table class="users-table">
                         <thead><tr>
@@ -2748,6 +2753,7 @@ let currentAdmin = null;
 let allOrders    = {};
 let allDrivers   = [];
 let allUsers        = {};
+let allUnregisteredUsers = {}; // launch-gate captures: uuid → {fullname, phone, createdAt, lastSeen}
 let allDeviceGroups = {}; // uuid → [user, user, ...]
 let allStores    = {};
 let _assignmentMode = 'both'; // 'both' | 'driver_only' | 'admin_only' — see settings/orderAssignmentMode
@@ -2758,6 +2764,7 @@ let driverFilter   = 'all';
 let driverSearch   = '';
 let customerFilter = 'all';
 let customerSearch = '';
+let customerRegFilter = 'all'; // 'all' | 'registered' | 'unregistered' — launch-gate feature
 let allBlacklist   = {};
 let storeFilter    = 'all';
 let storeSearch    = '';
@@ -3949,7 +3956,7 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode] = await Promise.all([
+        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, unregUsers] = await Promise.all([
             fbGet('requests'),
             fbGet('drivers'),
             fsGetCollection('users'),
@@ -3959,12 +3966,15 @@ async function loadAllData() {
             fbGet('blacklist').catch(()   => null),
             fbGet('storeStatus').catch(() => null),
             fbGet('settings/orderAssignmentMode').catch(() => null),
+            fbGet('unregisteredUsers').catch(() => null),
         ]);
 
         _assignmentMode = assignMode || 'both';
 
         allOrders    = orders    || {};
         allBlacklist = blacklist || {};
+        allUnregisteredUsers = unregUsers || {};
+        window.allUnregisteredUsers = allUnregisteredUsers; // exposed for admin-presence.js
         _detectAndAlertNewOrders(allOrders, null);
         if (typeof _refreshClosePlatformBtn === 'function') _refreshClosePlatformBtn();
 
@@ -6536,6 +6546,21 @@ function renderCustomers() {
 
     const bl = allBlacklist || {};  // { uid: {reason,by,at}, uuid: {...} }
 
+    // Index of old-account uid → mirror pair, built once per render (see
+    // _buildMirrorPairs in the Direct Activation section) so each row can
+    // cheaply check "do I have a mirror account?" without an O(n) scan per row.
+    const _mirrorPairsByOldUid = new Map(
+        (typeof _buildMirrorPairs === 'function' ? _buildMirrorPairs() : []).map(p => [p.oldUid, p])
+    );
+
+    // ── Launch-gate "unregistered" view — a completely separate, much
+    // simpler render path from the registered-customers table below, so it
+    // can never interfere with the fingerprint/device-grouping logic there.
+    if (customerRegFilter === 'unregistered') {
+        _renderUnregisteredCustomers(tbody, countEl);
+        return;
+    }
+
     // Count orders per user
     const userOrders = {};
     Object.values(allOrders).forEach(o => {
@@ -6782,6 +6807,9 @@ function renderCustomers() {
                         <div>
                             <div class="ut-name">${u.displayName||u.fullname||'\u2014'}</div>
                             ${blEntry ? `<div style="font-size:0.62rem;color:var(--red);margin-top:1px;">\u26d4 ${blEntry.reason||'\u0645\u062d\u0638\u0648\u0631'}</div>` : ''}
+                            ${(u.mirroredTo || u.migratedTo) ? `<div style="font-size:0.6rem;font-weight:800;color:#22c55e;margin-top:1px;">🔄 ${u.mirroredTo ? 'أُنشئ له حساب مرآة' : 'سجّل دخوله من البوابة الجديدة'} — uid: ${(u.mirroredTo||u.migratedTo).slice(0,8)}…</div>` : ''}
+                            ${(u.mirroredFrom || u.migratedFrom) ? `<div style="font-size:0.6rem;font-weight:800;color:#3b82f6;margin-top:1px;">🆕 حساب بوابة${u.migratedFrom ? ' (تسجيل دخول فعلي)' : ' (مرآة تلقائية)'} — من uid: ${(u.mirroredFrom||u.migratedFrom).slice(0,8)}…</div>` : ''}
+                            ${u.directLoginActivated ? `<div style="font-size:0.6rem;font-weight:800;color:#22c55e;margin-top:1px;">🔓 دخول مباشر مُفعَّل — لا يحتاج كود تحقق</div>` : ''}
                             <div style="font-size:0.6rem;color:var(--gray);margin-top:1px;font-family:var(--mono);display:flex;align-items:center;gap:3px;">
                                 🔑 ${uuid ? `<span title="${uuid}">${uuid.slice(0,16)}…</span><button class="cust-uuid-copy" data-uuid="${uuid}" title="نسخ UUID" style="background:none;border:none;color:var(--gray);cursor:pointer;padding:0 2px;font-size:0.62rem;">&#9112;</button>` : '<span>—</span>'}
                             </div>
@@ -6828,6 +6856,14 @@ function renderCustomers() {
                             style="width:100%;padding:4px 8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:var(--radius-sm);color:#3b82f6;font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
                             🔑 إعادة تعيين كلمة المرور
                         </button>
+                        ${(() => {
+                            const pair = _mirrorPairsByOldUid.get(uid);
+                            if (!pair || u.directLoginActivated) return '';
+                            return `<button class="cust-activate-btn" data-uid="${uid}"
+                                style="width:100%;padding:4px 8px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:var(--radius-sm);color:#22c55e;font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                🔓 تفعيل الدخول المباشر
+                            </button>`;
+                        })()}
                         <button class="cust-delete-btn"
                             data-uid="${uid}" data-username="${u.username||''}" data-name="${u.displayName||u.username||''}" data-phone="${u.phone||''}"
                             style="width:100%;padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);color:var(--red);font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
@@ -6843,6 +6879,10 @@ function renderCustomers() {
                 e.stopPropagation();
                 const btn = e.currentTarget;
                 resetUserPassword(btn.dataset.uid, btn.dataset.username, btn.dataset.name, btn.dataset.phone);
+            });
+            tr.querySelector('.cust-activate-btn')?.addEventListener('click', e => {
+                e.stopPropagation();
+                activateSingleUser(e.currentTarget.dataset.uid);
             });
             tr.querySelector('.cust-delete-btn')?.addEventListener('click', e => {
                 e.stopPropagation();
@@ -6875,6 +6915,91 @@ function renderCustomers() {
             });
             tbody.appendChild(tr);
         }
+    });
+
+    // "الكل" view also includes the unregistered launch-gate captures,
+    // appended after the registered rows — kept fully separate from the
+    // grouping/fingerprint logic above.
+    if (customerRegFilter === 'all') {
+        _renderUnregisteredCustomers(tbody, countEl, { append: true, registeredCount: rows.length });
+    }
+}
+
+// ── Launch-gate "unregistered" customer rows ────────────────────────
+// Renders visitors who filled the mandatory launch-gate popup (name +
+// phone) but haven't completed official registration yet. Deliberately
+// simple/separate from renderCustomers()'s registered-user rendering —
+// these rows have no points/orders/location, since that data only exists
+// once someone actually creates a real account.
+function _renderUnregisteredCustomers(tbody, countEl, opts = {}) {
+    const { append = false, registeredCount = 0 } = opts;
+    let entries = Object.entries(allUnregisteredUsers || {});
+
+    if (customerSearch) {
+        const q = customerSearch.toLowerCase();
+        entries = entries.filter(([uuid, u]) =>
+            (u.fullname || '').toLowerCase().includes(q) ||
+            (u.phone    || '').includes(q) ||
+            uuid.toLowerCase().includes(q)
+        );
+    }
+
+    entries.sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    if (!append) {
+        tbody.innerHTML = '';
+        countEl.textContent = `${entries.length} غير مسجل`;
+        if (!entries.length) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--gray);">لا يوجد زوار غير مسجلين حالياً</td></tr>`;
+            return;
+        }
+    } else {
+        countEl.textContent = `${registeredCount} جهاز مسجّل · ${entries.length} غير مسجّل`;
+    }
+
+    entries.forEach(([uuid, u]) => {
+        const tr = document.createElement('tr');
+        const fmtDate = ts => ts ? new Date(ts).toLocaleString('ar', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+        tr.innerHTML = `
+            <td>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                    <div class="ut-name">${u.fullname || '—'}</div>
+                    <div style="font-size:0.62rem;font-weight:800;color:#f59e0b;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:50px;padding:1px 8px;display:inline-block;width:fit-content;">🆕 غير مسجل</div>
+                    <div style="font-size:0.6rem;color:var(--gray);margin-top:1px;font-family:var(--mono);display:flex;align-items:center;gap:3px;">
+                        🔑 <span title="${uuid}">${uuid.slice(0,16)}…</span><button class="unreg-uuid-copy" data-uuid="${uuid}" title="نسخ UUID" style="background:none;border:none;color:var(--gray);cursor:pointer;padding:0 2px;font-size:0.62rem;">&#9112;</button>
+                    </div>
+                </div>
+            </td>
+            <td style="color:var(--gray);">—</td>
+            <td style="font-family:var(--mono);color:var(--gray-light);">${u.phone ? '+961' + u.phone : '—'}</td>
+            <td style="color:var(--gray);">—</td>
+            <td style="color:var(--gray);">—</td>
+            <td><span style="font-size:0.68rem;font-weight:800;color:#f59e0b;background:rgba(245,158,11,0.1);border-radius:50px;padding:2px 10px;">🆕 لم يسجّل رسمياً</span></td>
+            <td style="font-size:0.75rem;color:var(--gray-light);">${fmtDate(u.lastSeen || u.createdAt)}</td>
+            <td style="color:var(--gray);">—</td>
+            <td>
+                <button class="unreg-delete-btn" data-uuid="${uuid}" title="حذف هذا السجل" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:var(--red);padding:4px 9px;cursor:pointer;font-size:0.7rem;">🗑</button>
+            </td>`;
+        tr.querySelector('.unreg-uuid-copy')?.addEventListener('click', e => {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            navigator.clipboard.writeText(btn.dataset.uuid).then(() => {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '✓';
+                setTimeout(() => { btn.innerHTML = orig; }, 1200);
+            }).catch(() => toast('فشل النسخ'));
+        });
+        tr.querySelector('.unreg-delete-btn')?.addEventListener('click', async e => {
+            e.stopPropagation();
+            if (!confirm('حذف هذا السجل غير المسجّل؟ سيُطلب من هذا الجهاز إدخال بياناته مجدداً عند زيارته القادمة.')) return;
+            try {
+                await fetch(`${RTDB}/unregisteredUsers/${uuid}.json`, { method: 'DELETE' });
+                delete allUnregisteredUsers[uuid];
+                renderCustomers();
+                toast('🗑 تم حذف السجل');
+            } catch(_) { toast('فشل الحذف', true); }
+        });
+        tbody.appendChild(tr);
     });
 }
 
@@ -9649,6 +9774,75 @@ function renderSettings() {
             </div>
         </div>
 
+        <!-- ═══════════ NEW VISITOR LAUNCH-GATE (pre-registration capture) ═══════════ -->
+        <div class="settings-section">
+            <div class="settings-section-title">🚪 بوابة الدخول للزوار الجدد</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label" style="display:flex;align-items:center;gap:8px;">
+                        تفعيل البوابة الإلزامية
+                        <span id="launch-gate-badge" style="display:none;font-size:0.62rem;font-weight:800;background:rgba(34,197,94,0.15);color:#22c55e;border-radius:50px;padding:2px 8px;">مفعّلة</span>
+                    </div>
+                    <div class="setting-sub">
+                        عند التفعيل: أي جهاز يدخل الموقع لأول مرة (ولم يُنشئ حساباً رسمياً بعد) يُطلب منه إدخال اسمه ورقم هاتفه فوراً قبل أن يتصفح — رقم مُسجَّل مسبقاً يُرفض ويُطلب رقم آخر.
+                        بعدها يمكنه تصفح الموقع والتسوق بحرية، لكن لا يمكنه إرسال أي طلب فعلي إلا بعد إكمال التسجيل الرسمي (نفس نموذج التسجيل الحالي دون أي تغيير)، والذي يُعبَّأ تلقائياً بالاسم ورقم الهاتف اللذين أدخلهما هنا.
+                        عند الإيقاف يبقى الموقع كما هو تماماً دون أي بوابة إضافية.
+                    </div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-launch-gate" onchange="setLaunchGateEnabled(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- ═══════════ MIRROR ACCOUNTS — old users → new-modal login ═══════════ -->
+        <div class="settings-section">
+            <div class="settings-section-title">🪞 حسابات مرآة للمستخدمين القدامى</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">إنشاء حساب مرآة لكل مستخدم قديم (اسم مستخدم/كلمة مرور)</div>
+                    <div class="setting-sub">
+                        ينشئ لكل مستخدم قديم لديه رقم هاتف صحيح <b>حساباً إضافياً منفصلاً</b> متوافقاً مع نظام الدخول الجديد (بوابة الهاتف)، بنفس الاسم ورقم الهاتف —
+                        فيبقى بإمكانه الدخول من النموذج القديم كالمعتاد، <b>وأيضاً</b> من النموذج الجديد برقم هاتفه.
+                        الحساب القديم يبقى دون أي تغيير؛ فقط يُوسَم بأنه تم إنشاء مرآة له لتفادي التكرار.
+                        هذه العملية آمنة حالياً لأن حسابات العملاء لا تحتوي على طلبات فعلية بعد — لا يوجد سجل طلبات يُفقَد.
+                    </div>
+                </div>
+            </div>
+            <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:10px;">
+                <div style="display:flex;gap:8px;">
+                    <button class="ph-btn" id="mirror-scan-btn" onclick="scanMirrorCandidates()" style="flex:1;justify-content:center;">🔍 فحص المستخدمين المؤهّلين</button>
+                    <button class="ph-btn ph-btn--primary" id="mirror-run-btn" onclick="runMirrorMigration()" style="flex:1;justify-content:center;" disabled>▶ تنفيذ الترحيل</button>
+                </div>
+                <button class="ph-btn" id="mirror-backfill-btn" onclick="backfillMirrorProfileData()" style="justify-content:center;">🔄 استيراد الموقع والنقاط لحسابات المرآة الموجودة</button>
+                <div id="mirror-status" style="display:none;font-size:0.78rem;font-weight:700;padding:10px 14px;border-radius:10px;line-height:1.7;"></div>
+                <div id="mirror-log" style="display:none;max-height:220px;overflow-y:auto;font-size:0.72rem;font-family:var(--mono);background:var(--surface2);border-radius:10px;padding:10px 12px;white-space:pre-wrap;"></div>
+            </div>
+        </div>
+
+        <!-- ═══════════ DIRECT ACTIVATION — mirror accounts → silent first login ═══════════ -->
+        <div class="settings-section">
+            <div class="settings-section-title">🔓 تفعيل الدخول المباشر لأصحاب حسابات المرآة</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">ربط كل حساب مرآة بجهاز صاحبه الأصلي ليدخل دون كود تحقق</div>
+                    <div class="setting-sub">
+                        بعد إنشاء حسابات المرآة أعلاه، هذا الخيار يجهّز <b>جهاز كل مستخدم قديم تحديداً</b> (باستخدام UUID المُسجَّل مسبقاً على حسابه القديم) ليتعرّف عليه نموذج الدخول الجديد تلقائياً وبصمت في أول مرة يفتح فيها التطبيق بعد هذا التحديث — <b>دون كود واتساب ودون أي تسجيل يدوي منه</b>.
+                        يعمل فقط للمستخدمين الذين لديهم حساب مرآة بالفعل ولديهم UUID جهاز مسجّل على حسابهم القديم؛ من لا يملك UUID مسجّلاً سيحتاج كوداً لمرة واحدة أو استخدام رابط "الدخول بالحساب القديم".
+                    </div>
+                </div>
+            </div>
+            <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:10px;">
+                <div style="display:flex;gap:8px;">
+                    <button class="ph-btn" id="activation-scan-btn" onclick="scanDirectActivationCandidates()" style="flex:1;justify-content:center;">🔍 فحص الجاهزين للتفعيل</button>
+                    <button class="ph-btn ph-btn--primary" id="activation-run-btn" onclick="runDirectActivation()" style="flex:1;justify-content:center;" disabled>🔓 تفعيل الدخول المباشر للكل</button>
+                </div>
+                <div id="activation-status" style="display:none;font-size:0.78rem;font-weight:700;padding:10px 14px;border-radius:10px;line-height:1.7;"></div>
+                <div id="activation-log" style="display:none;max-height:220px;overflow-y:auto;font-size:0.72rem;font-family:var(--mono);background:var(--surface2);border-radius:10px;padding:10px 12px;white-space:pre-wrap;"></div>
+            </div>
+        </div>
+
         <!-- ═══════════ DRIVER ASSIGNMENT NOTIFICATION METHOD ═══════════ -->
         <div class="settings-section">
             <div class="settings-section-title">🔔 تنبيه السائق عند تعيين طلب</div>
@@ -10316,6 +10510,13 @@ function renderSettings() {
         if (toggle)  toggle.checked        = isTest;
         if (badge)   badge.style.display   = isTest ? 'inline-block' : 'none';
         if (preview) preview.style.display = isTest ? 'block' : 'none';
+    }).catch(() => {});
+    fbGet('settings/launchGateEnabled').then(val => {
+        const isOn   = val === true || val === 'true';
+        const toggle = document.getElementById('toggle-launch-gate');
+        const badge  = document.getElementById('launch-gate-badge');
+        if (toggle) toggle.checked      = isOn;
+        if (badge)  badge.style.display = isOn ? 'inline-block' : 'none';
     }).catch(() => {});
     // Load max orders
     fbGet('settings/orders/maxPerDay').then(val => {
@@ -12632,6 +12833,438 @@ async function setTopStoresVisible(checked) {
     } catch(e) { toast('فشل تحديث الإعداد', true); }
 }
 
+async function setLaunchGateEnabled(val) {
+    try {
+        await fbSet('settings/launchGateEnabled', val);
+        const badge = document.getElementById('launch-gate-badge');
+        if (badge) badge.style.display = val ? 'inline-block' : 'none';
+        toast(val ? '🚪 البوابة الإلزامية مفعّلة للزوار الجدد' : '✅ تم إيقاف البوابة — التسجيل يعمل كالسابق');
+    } catch(e) { toast('فشل تحديث إعداد البوابة', true); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MIRROR ACCOUNTS — old (username/password) users → new phone-modal
+   ═══════════════════════════════════════════════════════════════
+   Creates one additional, fully separate account per eligible old
+   user, using the same phone digits as its identifier, matching the
+   pattern DelivoAuth.registerViaGate() uses on the customer side.
+   Runs on its own secondary Firebase App instance so it never touches
+   window._adminAuth's signed-in session (creating a user always signs
+   the calling context in as that new user — that must not happen to
+   the admin panel's own connection).
+   Safe today specifically because customer accounts carry no real
+   order history yet — nothing to lose by leaving two separate
+   accounts per person.
+═══════════════════════════════════════════════════════════════ */
+let _mirrorCandidates = null;
+let _mirrorSecondaryApp = null;
+
+function _getMirrorSecondaryApp() {
+    if (_mirrorSecondaryApp) return _mirrorSecondaryApp;
+    const FB_CONFIG = {
+        apiKey:            "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
+        authDomain:        "deliveryonline-300f7.firebaseapp.com",
+        databaseURL:       "https://deliveryonline-300f7-default-rtdb.firebaseio.com",
+        projectId:         "deliveryonline-300f7",
+        storageBucket:     "deliveryonline-300f7.firebasestorage.app",
+        messagingSenderId: "294667842345",
+        appId:             "1:294667842345:web:delivo-mirror",
+    };
+    _mirrorSecondaryApp = firebase.initializeApp(FB_CONFIG, 'mirrorMigration');
+    return _mirrorSecondaryApp;
+}
+
+function _mirrorSanitize(s) {
+    return (s || '').toString().trim().slice(0, 60);
+}
+
+// Normalizes a stored phone value into the bare 8-digit local format
+// (e.g. "71 123 456", "+961 71 123 456", "00961-71-123-456" all become
+// "71123456"). Registered numbers have gone through several UI variants
+// over time, so this is intentionally lenient about formatting — it only
+// strips non-digit characters and a leading country code, it never
+// guesses or invents digits.
+function _normalizeLebanesePhone(raw) {
+    let digits = (raw || '').toString().replace(/\D/g, '');
+    if (digits.startsWith('00961')) digits = digits.slice(5);
+    else if (digits.startsWith('961') && digits.length > 8) digits = digits.slice(3);
+    return digits;
+}
+
+function scanMirrorCandidates() {
+    const statusEl = document.getElementById('mirror-status');
+    const logEl    = document.getElementById('mirror-log');
+    const runBtn   = document.getElementById('mirror-run-btn');
+    const phoneRe  = /^(03|70|71|76|78|79|81|82|83|86)\d{6}$/;
+
+    const candidates = [];
+    const skipped = { noPhone: 0, alreadyGate: 0, alreadyMirrored: 0 };
+    const noPhoneDetails = [];
+
+    Object.entries(allUsers).forEach(([uid, u]) => {
+        if (u.registrationMethod === 'gate-otp') { skipped.alreadyGate++; return; }
+        if (u.mirroredTo) { skipped.alreadyMirrored++; return; }
+        const digits = _normalizeLebanesePhone(u.phone);
+        if (!phoneRe.test(digits)) {
+            skipped.noPhone++;
+            const name = u.displayName || u.fullname || u.username || uid;
+            noPhoneDetails.push(`${name} — رقم مخزَّن: "${u.phone || '(فارغ)'}"`);
+            return;
+        }
+        candidates.push({
+            uid, phone: digits, name: u.displayName || u.fullname || u.username || digits,
+            deviceUUID: u.deviceUUID || null,
+            location: u.location || null, locationSource: u.locationSource || null,
+            points: u.points || 0,
+        });
+    });
+
+    _mirrorCandidates = candidates;
+
+    statusEl.style.display = 'block';
+    statusEl.style.background = 'rgba(59,130,246,0.1)';
+    statusEl.style.color = '#3b82f6';
+    statusEl.textContent = `📋 ${candidates.length} مستخدم مؤهّل للترحيل — ${skipped.noPhone} بلا رقم هاتف صحيح، ${skipped.alreadyGate} لديهم حساب بوابة أصلاً، ${skipped.alreadyMirrored} تم ترحيلهم سابقاً.`;
+
+    logEl.style.display = 'block';
+    const parts = [];
+    if (candidates.length) {
+        parts.push('✅ المؤهّلون:\n' + candidates.map(c => `• ${c.name} — ${c.phone}`).join('\n'));
+    }
+    if (noPhoneDetails.length) {
+        parts.push('⚠️ أرقام مرفوضة (راجعها لمعرفة السبب):\n' + noPhoneDetails.join('\n'));
+    }
+    logEl.textContent = parts.length ? parts.join('\n\n') : '(لا يوجد أحد مؤهّل حالياً)';
+
+    runBtn.disabled = candidates.length === 0;
+}
+
+async function runMirrorMigration() {
+    if (!_mirrorCandidates || !_mirrorCandidates.length) return;
+    if (!confirm(`سيتم إنشاء ${_mirrorCandidates.length} حساب مرآة جديد ومنفصل. هذه العملية لا يمكن التراجع عنها تلقائياً. متابعة؟`)) return;
+
+    const statusEl = document.getElementById('mirror-status');
+    const logEl    = document.getElementById('mirror-log');
+    const runBtn   = document.getElementById('mirror-run-btn');
+    const scanBtn  = document.getElementById('mirror-scan-btn');
+    runBtn.disabled = true;
+    scanBtn.disabled = true;
+
+    const secondaryApp  = _getMirrorSecondaryApp();
+    const secondaryAuth = firebase.auth(secondaryApp);
+    const secondaryDb   = firebase.firestore(secondaryApp);
+
+    let done = 0, ok = 0, failed = 0;
+    const lines = [];
+
+    for (const c of _mirrorCandidates) {
+        try {
+            const username = c.phone;
+            const pwArr = new Uint8Array(24);
+            crypto.getRandomValues(pwArr);
+            const password = Array.from(pwArr, b => b.toString(16).padStart(2, '0')).join('');
+
+            const slots = [
+                'phone_' + username + '@delivo.internal',
+                ...Array.from({ length: 19 }, (_, i) => 'phone_' + username + '~' + (i + 1) + '@delivo.internal'),
+            ];
+            let cred = null, email = null;
+            for (const slot of slots) {
+                try {
+                    cred  = await secondaryAuth.createUserWithEmailAndPassword(slot, password);
+                    email = slot;
+                    break;
+                } catch (slotErr) {
+                    if (slotErr.code === 'auth/email-already-in-use') continue;
+                    throw slotErr;
+                }
+            }
+            if (!cred) {
+                email = 'phone_' + username + '~' + Date.now() + '@delivo.internal';
+                cred  = await secondaryAuth.createUserWithEmailAndPassword(email, password);
+            }
+            const newUid = cred.user.uid;
+
+            const mirrorDoc = {
+                username, displayName: _mirrorSanitize(c.name),
+                phone: c.phone, deviceUUID: c.deviceUUID,
+                authEmail: email, registrationMethod: 'gate-otp',
+                mirroredFrom: c.uid, points: c.points || 0,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            };
+            if (c.location && c.location.lat && c.location.lng) {
+                mirrorDoc.location = { lat: Number(c.location.lat), lng: Number(c.location.lng) };
+                if (c.locationSource) mirrorDoc.locationSource = c.locationSource;
+            }
+            await secondaryDb.collection('users').doc(newUid).set(mirrorDoc);
+            await secondaryDb.collection('usernames').doc(username).set({
+                uid: newUid, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+            await fetch(`${RTDB}/phoneIndex/${c.phone}/${newUid}.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(true),
+            });
+            // Mark the original account (via the admin's own connection,
+            // not the secondary app) so it's never mirrored twice.
+            // NOTE: this previously referenced a bare `db` that was never
+            // defined in this file (always threw, silently logged as a
+            // failed migration even though the mirror account above had
+            // already been created) — fixed to use window._adminDb.
+            await window._adminDb.collection('users').doc(c.uid).update({
+                mirroredTo: newUid,
+                mirroredAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+            await secondaryAuth.signOut().catch(() => {});
+
+            ok++;
+            lines.push(`✅ ${c.name} (${c.phone}) → ${newUid.slice(0,8)}…`);
+        } catch (e) {
+            failed++;
+            lines.push(`❌ ${c.name} (${c.phone}) — ${e.message || e.code || 'خطأ غير معروف'}`);
+        }
+        done++;
+        statusEl.textContent = `⏳ جارٍ الترحيل… ${done}/${_mirrorCandidates.length} (✅ ${ok} · ❌ ${failed})`;
+        logEl.textContent = lines.join('\n');
+    }
+
+    statusEl.style.background = failed ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+    statusEl.style.color = failed ? 'var(--red)' : '#22c55e';
+    statusEl.textContent = `✓ انتهى الترحيل — ${ok} نجح، ${failed} فشل، من أصل ${_mirrorCandidates.length}.`;
+
+    scanBtn.disabled = false;
+    _mirrorCandidates = null;
+    runBtn.disabled = true;
+
+    // Refresh so the admin customer list reflects the new mirror accounts + markers
+    await loadAllData().catch(() => {});
+}
+
+// mirror-scan-btn / mirror-run-btn are wired via inline onclick= in their
+// HTML (built inside renderSettings(), which only runs once the admin
+// opens Settings) — an addEventListener call here would run at initial
+// script load, before those buttons exist yet, and silently bind nothing.
+
+// One-time catch-up for mirror accounts created BEFORE location/points were
+// added to the mirror-creation write above — copies location + points from
+// each old account onto its already-existing mirror account. Safe to run
+// more than once (harmless no-op on accounts already carrying this data,
+// since it just re-writes the same source values from the old account).
+async function backfillMirrorProfileData() {
+    const pairs = _buildMirrorPairs();
+    if (!pairs.length) { toast('لا يوجد حسابات مرآة بعد'); return; }
+
+    const needsBackfill = pairs.filter(p => {
+        const hasLoc    = p.oldUser.location && p.oldUser.location.lat && p.oldUser.location.lng;
+        const locMissing = hasLoc && !(p.mirrorUser.location && p.mirrorUser.location.lat);
+        const ptsMissing = (p.oldUser.points || 0) > 0 && (p.mirrorUser.points || 0) === 0;
+        return locMissing || ptsMissing;
+    });
+
+    if (!needsBackfill.length) { toast('✓ كل حسابات المرآة محدَّثة بالفعل بالموقع والنقاط'); return; }
+
+    if (!confirm(`سيتم تحديث ${needsBackfill.length} حساب مرآة بالموقع والنقاط من الحساب القديم المقابل. متابعة؟`)) return;
+
+    let ok = 0, failed = 0;
+    for (const p of needsBackfill) {
+        try {
+            const update = { points: p.oldUser.points || 0 };
+            if (p.oldUser.location && p.oldUser.location.lat && p.oldUser.location.lng) {
+                update.location = { lat: Number(p.oldUser.location.lat), lng: Number(p.oldUser.location.lng) };
+                if (p.oldUser.locationSource) update.locationSource = p.oldUser.locationSource;
+            }
+            await window._adminDb.collection('users').doc(p.mirrorUid).update(update);
+            ok++;
+        } catch (e) { failed++; }
+    }
+    toast(`✓ تم تحديث ${ok} حساب${failed ? `، فشل ${failed}` : ''}`);
+    await loadAllData().catch(() => {});
+}
+
+/* ════════════════════════════════════════════════════════════
+   DIRECT ACTIVATION — silent first-login for mirror-account users
+   ------------------------------------------------------------
+   Builds old→mirror pairs from the mirror accounts' own reliable
+   `mirroredFrom` field (NOT the old account's `mirroredTo`, which
+   was never actually being written due to the `db` bug above —
+   fixed now, and backfilled here as a side effect so future scans
+   don't offer these same users again).
+
+   For each pair with a deviceUUID on file for the OLD account:
+     1. Reset the MIRROR account's Firebase Auth password to a
+        freshly-generated one, via the existing adminResetUserPassword
+        Cloud Function (Admin SDK — the only way to set a password on
+        an account without knowing its current one).
+     2. Write that credential into unregisteredUsers/{deviceUUID} in
+        the exact shape checkReturningGateUser() (firebase-init.js)
+        expects: { _wasRegistered, phone, _authEmail, _authSecret }.
+   The next time that specific device opens the site logged-out and
+   the visitor enters their phone in the new sign-in modal,
+   checkReturningGateUser() will find this record and sign them
+   straight into their gate-otp (mirror) account — no OTP, no form.
+════════════════════════════════════════════════════════════ */
+
+let _activationCandidates = null;
+
+// One old→mirror pair per eligible user. Reconstructed from the mirror
+// account's own mirroredFrom pointer since that's the field that was
+// actually written correctly by runMirrorMigration.
+function _buildMirrorPairs() {
+    const pairs = [];
+    Object.entries(allUsers).forEach(([uid, u]) => {
+        if (u.registrationMethod !== 'gate-otp' || !u.mirroredFrom) return;
+        const oldUser = allUsers[u.mirroredFrom];
+        if (!oldUser) return; // old account no longer exists / was deleted
+        pairs.push({ oldUid: u.mirroredFrom, oldUser, mirrorUid: uid, mirrorUser: u });
+    });
+    return pairs;
+}
+
+async function scanDirectActivationCandidates() {
+    const statusEl = document.getElementById('activation-status');
+    const logEl    = document.getElementById('activation-log');
+    const runBtn   = document.getElementById('activation-run-btn');
+
+    const pairs = _buildMirrorPairs();
+    const ready = [];
+    const noUuid = [];
+    const alreadyDone = [];
+
+    pairs.forEach(p => {
+        if (p.oldUser.directLoginActivated) { alreadyDone.push(p); return; }
+        if (!p.oldUser.deviceUUID) { noUuid.push(p); return; }
+        ready.push(p);
+    });
+
+    _activationCandidates = ready;
+
+    statusEl.style.display = 'block';
+    statusEl.style.background = 'rgba(59,130,246,0.1)';
+    statusEl.style.color = '#3b82f6';
+    statusEl.textContent = `📋 ${ready.length} جاهز للتفعيل — ${alreadyDone.length} مُفعَّل سابقاً، ${noUuid.length} بلا UUID جهاز مسجّل (سيحتاجون كوداً أو الدخول اليدوي).`;
+
+    logEl.style.display = 'block';
+    const parts = [];
+    if (ready.length) {
+        parts.push('✅ جاهزون للتفعيل:\n' + ready.map(p => `• ${p.mirrorUser.displayName || p.mirrorUser.username} — ${p.mirrorUser.phone}`).join('\n'));
+    }
+    if (noUuid.length) {
+        parts.push('⚠️ بلا UUID جهاز (لن يُفعَّلوا تلقائياً):\n' + noUuid.map(p => `• ${p.mirrorUser.displayName || p.mirrorUser.username} — ${p.mirrorUser.phone}`).join('\n'));
+    }
+    if (alreadyDone.length) {
+        parts.push(`✓ مُفعَّلون سابقاً: ${alreadyDone.length}`);
+    }
+    logEl.textContent = parts.length ? parts.join('\n\n') : '(لا يوجد أحد جاهز حالياً — تأكد من تنفيذ ترحيل المرآة أولاً)';
+
+    runBtn.disabled = ready.length === 0;
+}
+
+// Shared core: activates a list of {oldUid, oldUser, mirrorUid, mirrorUser}
+// pairs. Used by both the bulk "run" button and the per-user row button.
+async function _activatePairs(pairs, { onProgress } = {}) {
+    let ok = 0, failed = 0;
+    const lines = [];
+
+    for (const p of pairs) {
+        try {
+            const idToken = await window._adminAuth?.currentUser?.getIdToken();
+            if (!idToken) throw new Error('جلسة المدير غير صالحة، سجّل الدخول من جديد');
+
+            const newPassword = _generateStrongPassword();
+
+            const resp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/adminResetUserPassword', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                body:    JSON.stringify({ uid: p.mirrorUid, newPassword }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) throw new Error(data.error || 'فشل تعيين كلمة مرور حساب المرآة');
+
+            await fetch(`${RTDB}/unregisteredUsers/${p.oldUser.deviceUUID}.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    _wasRegistered: true,
+                    phone:          p.mirrorUser.phone,
+                    fullname:       p.mirrorUser.displayName || p.oldUser.displayName || '',
+                    _authEmail:     p.mirrorUser.authEmail,
+                    _authSecret:    newPassword,
+                    createdAt:      Date.now(),
+                    lastSeen:       Date.now(),
+                }),
+            });
+
+            // Mark the OLD account done + backfill the mirroredTo tag that
+            // the earlier `db` bug prevented from ever being written.
+            await window._adminDb.collection('users').doc(p.oldUid).update({
+                mirroredTo:            p.mirrorUid,
+                mirroredAt:            firebase.firestore.FieldValue.serverTimestamp(),
+                directLoginActivated:  true,
+                directLoginActivatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+
+            ok++;
+            lines.push(`✅ ${p.mirrorUser.displayName || p.mirrorUser.username} (${p.mirrorUser.phone})`);
+        } catch (e) {
+            failed++;
+            lines.push(`❌ ${p.mirrorUser.displayName || p.mirrorUser.username} (${p.mirrorUser.phone}) — ${e.message || e.code || 'خطأ غير معروف'}`);
+        }
+        if (onProgress) onProgress({ ok, failed, lines });
+    }
+    return { ok, failed, lines };
+}
+
+async function runDirectActivation() {
+    if (!_activationCandidates || !_activationCandidates.length) return;
+    if (!confirm(`سيتم تجهيز الدخول المباشر لـ ${_activationCandidates.length} مستخدم. هذا يغيّر كلمة مرور حساب المرآة الخاص بهم (غير المرئية للعميل أصلاً). متابعة؟`)) return;
+
+    const statusEl = document.getElementById('activation-status');
+    const logEl    = document.getElementById('activation-log');
+    const runBtn   = document.getElementById('activation-run-btn');
+    const scanBtn  = document.getElementById('activation-scan-btn');
+    runBtn.disabled = true;
+    scanBtn.disabled = true;
+
+    const total = _activationCandidates.length;
+    const { ok, failed, lines } = await _activatePairs(_activationCandidates, {
+        onProgress: ({ ok, failed, lines }) => {
+            statusEl.textContent = `⏳ جارٍ التفعيل… ${ok + failed}/${total} (✅ ${ok} · ❌ ${failed})`;
+            logEl.textContent = lines.join('\n');
+        },
+    });
+
+    statusEl.style.background = failed ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+    statusEl.style.color = failed ? 'var(--red)' : '#22c55e';
+    statusEl.textContent = `✓ انتهى التفعيل — ${ok} نجح، ${failed} فشل، من أصل ${total}.`;
+
+    scanBtn.disabled = false;
+    _activationCandidates = null;
+    runBtn.disabled = true;
+
+    await loadAllData().catch(() => {});
+}
+
+// Per-user activation, called from the row button in the customers list
+// (see renderCustomers()). Finds this specific user's mirror pair and
+// activates just that one — lets the admin spot-check a couple of
+// accounts before running the bulk tool on everyone else.
+async function activateSingleUser(oldUid) {
+    const pair = _buildMirrorPairs().find(p => p.oldUid === oldUid);
+    if (!pair) { toast('لا يوجد حساب مرآة لهذا المستخدم — نفّذ ترحيل المرآة أولاً', true); return; }
+    if (!pair.oldUser.deviceUUID) { toast('لا يوجد UUID جهاز مسجّل لهذا المستخدم — لا يمكن التفعيل الصامت', true); return; }
+
+    const ok = await showConfirm({
+        title: '🔓 تفعيل الدخول المباشر',
+        msg:   `سيتمكّن <strong>${pair.mirrorUser.displayName || pair.mirrorUser.username}</strong> من الدخول تلقائياً من جهازه المسجّل دون كود تحقق. متابعة؟`,
+        okLabel: '🔓 تفعيل', cancelLabel: 'إلغاء',
+    });
+    if (!ok) return;
+
+    const { ok: okCount, failed } = await _activatePairs([pair]);
+    if (okCount) toast(`✅ تم تفعيل الدخول المباشر لـ ${pair.mirrorUser.displayName || pair.mirrorUser.username}`);
+    if (failed)  toast('❌ فشل التفعيل', true);
+
+    await loadAllData().catch(() => {});
+}
+
 async function setTestMode(val) {
     try {
         await fbSet('settings/testMode', val);
@@ -13211,6 +13844,16 @@ document.querySelectorAll('[data-cust-filter]').forEach(btn => {
         document.querySelectorAll('[data-cust-filter]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         customerFilter = btn.dataset.custFilter;
+        renderCustomers();
+    });
+});
+
+// Customer registration-status filter pills (launch-gate feature)
+document.querySelectorAll('[data-cust-reg-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-cust-reg-filter]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        customerRegFilter = btn.dataset.custRegFilter;
         renderCustomers();
     });
 });

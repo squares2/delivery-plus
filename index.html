@@ -508,7 +508,7 @@
             <button id="login-submit" class="btn-primary"
                     style="width:100%;justify-content:center;padding:12px;">دخول</button>
             <p class="modal-footer-text">
-                ما عندك حساب؟ <a href="#" data-modal="modal-subscribe" data-close>سجّل الآن</a>
+                ما عندك حساب؟ <a href="#" id="modal-login-register-link" data-modal="modal-subscribe" data-close>سجّل الآن</a>
             </p>
         </div>
     </div>
@@ -562,8 +562,12 @@
                 <span class="field-hint">مثال: 03 123 456 أو 71 123 456</span>
             </div>
 
-            <!-- Location (OBLIGATORY) — GPS or Map picker -->
-            <div class="modal-field">
+            <!-- Home slot for #reg-location-field — see openRegistrationFlow()
+                 in modal-auth.js, which moves that block over into
+                 #gatereg-location-slot when the gate-flow modal is active,
+                 then appends it back in here afterward. -->
+            <div id="reg-location-home-slot">
+            <div class="modal-field" id="reg-location-field">
                 <label>📍 عنوان التوصيل <span class="field-required">*</span></label>
 
                 <p class="location-status location-status--info" style="margin:0 0 8px;">
@@ -600,6 +604,8 @@
                 <input type="hidden" id="reg-lat">
                 <input type="hidden" id="reg-lng">
             </div>
+            </div>
+            <!-- /reg-location-home-slot -->
 
             <!-- OTP step — hidden until OTP mode active and phone entered -->
             <div id="otp-step" style="display:none;">
@@ -632,6 +638,153 @@
             </button>
             <p class="modal-footer-text">
                 عندك حساب؟ <a href="#" data-modal="modal-login" data-close>سجّل الدخول</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- ═══════════ Launch Gate — new-visitor mandatory capture ═══════════
+         Feature-flagged via settings/launchGateEnabled (see admin Settings
+         panel). Deliberately NOT wired into the site's generic modal
+         open/close system (no data-close, no [data-modal] trigger, and
+         visibility uses its own "lg-active" class rather than "active") so
+         it can't be dismissed by clicking the backdrop or pressing Escape —
+         see scripts/launch-gate.js. -->
+    <div class="modal-overlay" id="modal-launch-gate">
+        <div class="modal-box">
+            <h2 class="modal-title">👋 أهلاً بك في Delivo</h2>
+            <p class="modal-subtitle">لإكمال دخولك للموقع، أدخل اسمك ورقم هاتفك</p>
+            <p id="launch-gate-error" class="modal-error" style="display:none;"></p>
+
+            <div class="modal-field">
+                <label for="launch-gate-name">الاسم الكامل <span class="field-required">*</span></label>
+                <input type="text" id="launch-gate-name" placeholder="مثال: أحمد علي" autocomplete="name">
+            </div>
+
+            <div class="modal-field">
+                <label for="launch-gate-phone">رقم الهاتف <span class="field-required">*</span></label>
+                <div class="phone-input-row">
+                    <span class="phone-prefix">🇱🇧 +961</span>
+                    <input type="tel" id="launch-gate-phone"
+                           placeholder="03 123 456"
+                           dir="ltr"
+                           autocomplete="tel"
+                           maxlength="10"
+                           inputmode="numeric">
+                </div>
+                <span class="field-hint">مثال: 03 123 456 أو 71 123 456</span>
+            </div>
+
+            <button id="launch-gate-submit" class="btn-primary" style="width:100%;justify-content:center;padding:12px;">
+                متابعة إلى الموقع
+            </button>
+            <p style="font-size:0.7rem;color:rgba(0,0,0,0.45);text-align:center;margin-top:12px;line-height:1.6;">
+                يمكنك تصفح المتاجر والتسوق بعد هذه الخطوة، لكن لإرسال طلب فعلي عليك إكمال التسجيل الرسمي لاحقاً من زر «إنشاء حساب».
+            </p>
+        </div>
+    </div>
+
+    <!-- ═══════════ Gate-flow official registration (phone + OTP, no username/password) ═══════════
+         Used ONLY when settings/launchGateEnabled is true — see openRegistrationFlow() in
+         modal-auth.js, which decides whether this modal or the classic #modal-subscribe
+         opens. Fully dismissible like any normal modal (data-close / backdrop / Escape all
+         work normally here — unlike #modal-launch-gate, which is intentionally not). -->
+    <div class="modal-overlay" id="modal-gate-register">
+        <div class="modal-box">
+            <div class="modal-header-row">
+                <h2 class="modal-title">إكمال إنشاء الحساب</h2>
+                <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+            </div>
+            <p id="gatereg-error" class="modal-error modal-error--popup" style="display:none;"></p>
+
+            <div class="modal-field">
+                <label for="gatereg-displayname">الاسم الكامل</label>
+                <input type="text" id="gatereg-displayname" placeholder="أحمد علي" autocomplete="name">
+            </div>
+
+            <!-- Phone (required) — Lebanon number -->
+            <div class="modal-field">
+                <label for="gatereg-phone">رقم الهاتف <span class="field-required">*</span></label>
+                <div class="phone-input-row">
+                    <span class="phone-prefix">🇱🇧 +961</span>
+                    <input type="tel" id="gatereg-phone"
+                           placeholder="03 123 456"
+                           dir="ltr"
+                           autocomplete="tel"
+                           maxlength="10"
+                           inputmode="numeric">
+                </div>
+                <span class="field-hint">مثال: 03 123 456 أو 71 123 456</span>
+            </div>
+
+            <!-- Location picker gets moved in here at runtime from
+                 #reg-location-field (modal-subscribe) — see
+                 openRegistrationFlow() in modal-auth.js. Reusing that
+                 exact block (map, GPS, coverage-check, everything) rather
+                 than duplicating it avoids maintaining two copies of that
+                 fairly involved logic. -->
+            <div id="gatereg-location-slot"></div>
+
+            <!-- OTP step — hidden until phone verification starts -->
+            <div id="gatereg-otp-step" style="display:none;">
+                <div style="padding:12px 14px;background:rgba(37,211,102,0.07);border:1px solid rgba(37,211,102,0.2);border-radius:12px;margin-bottom:12px;">
+                    <div style="font-size:0.78rem;font-weight:800;color:#4ade80;margin-bottom:3px;">📱 تحقق عبر واتساب</div>
+                    <div id="gatereg-otp-hint" style="font-size:0.72rem;color:rgba(255,255,255,0.55);line-height:1.5;">سيُرسل كود مكوّن من 4 أرقام إلى رقمك على واتساب</div>
+                </div>
+                <div class="modal-field">
+                    <label for="gatereg-otp">كود التحقق</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" id="gatereg-otp" placeholder="1234" dir="ltr" maxlength="4"
+                               inputmode="numeric" autocomplete="one-time-code"
+                               style="flex:1;letter-spacing:0.25em;font-size:1.1rem;font-weight:800;text-align:center;font-family:var(--mono-font,monospace);">
+                        <button id="gatereg-otp-resend-btn" style="padding:0 14px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:rgba(255,255,255,0.6);font-family:inherit;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                            إعادة الإرسال
+                        </button>
+                    </div>
+                    <div id="gatereg-otp-timer" style="font-size:0.68rem;color:var(--clr-gray-400);margin-top:5px;"></div>
+                </div>
+                <button id="gatereg-otp-cancel-btn"
+                        style="display:none;width:100%;align-items:center;justify-content:center;gap:6px;margin-top:4px;padding:9px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;color:rgba(255,120,120,0.85);font-family:inherit;font-size:0.8rem;font-weight:700;cursor:pointer;">
+                    ✕ إلغاء التحقق والرجوع
+                </button>
+            </div>
+
+            <button id="gatereg-submit" class="btn-primary"
+                    style="width:100%;justify-content:center;padding:12px;margin-top:4px;">
+                إرسال كود التحقق
+            </button>
+            <p class="modal-footer-text">
+                عندك حساب؟ <a href="#" id="gatereg-signin-link">تسجيل الدخول</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- ═══════════ Gate-flow returning-visitor phone check ═══════════
+         Shown at checkout instead of the generic login modal when this
+         device previously had a gate-flow account and logged out (see
+         DelivoAuth.logout() in firebase-init.js). Entering the same phone
+         silently signs them back in; a different phone falls through to
+         full OTP re-verification via the gate-registration modal. -->
+    <div class="modal-overlay" id="modal-gate-phone-check">
+        <div class="modal-box">
+            <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+            <h2 class="modal-title">أهلاً بعودتك 👋</h2>
+            <p class="modal-subtitle">أدخل رقم هاتفك لمتابعة طلبك</p>
+            <p id="gatecheck-error" class="modal-error" style="display:none;"></p>
+            <div class="modal-field">
+                <label for="gatecheck-phone">رقم الهاتف <span class="field-required">*</span></label>
+                <div class="phone-input-row">
+                    <span class="phone-prefix">🇱🇧 +961</span>
+                    <input type="tel" id="gatecheck-phone"
+                           placeholder="03 123 456"
+                           dir="ltr"
+                           autocomplete="tel"
+                           maxlength="10"
+                           inputmode="numeric">
+                </div>
+            </div>
+            <button id="gatecheck-submit" class="btn-primary" style="width:100%;justify-content:center;padding:12px;">متابعة</button>
+            <p class="modal-footer-text">
+                عندك حساب قديم باسم مستخدم وكلمة مرور؟ <a href="#" id="gatecheck-classic-login-link">سجّل الدخول به</a>
             </p>
         </div>
     </div>
@@ -810,6 +963,11 @@
                 حفظ التغييرات
             </button>
 
+            <!-- Password-change section — hidden entirely for gate-otp
+                 accounts (phone+OTP, no username/password at all), shown
+                 normally for classic username/password accounts. See
+                 __renderAccountModal() in modal-auth.js. -->
+            <div id="edit-password-section">
             <!-- Divider -->
             <div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px;">
                 <div style="flex:1;height:1px;background:var(--clr-gray-100);"></div>
@@ -847,6 +1005,8 @@
                     style="width:100%;justify-content:center;padding:12px;">
                 تغيير كلمة المرور
             </button>
+            </div>
+            <!-- /edit-password-section -->
         </div>
     </div>
 
@@ -1169,6 +1329,7 @@
     <script src="scripts/mealtime.js?v=6"></script>
     <script src="scripts/pwa.js?v=8"></script>
     <script src="scripts/presence.js?v=1"></script>
+    <script src="scripts/launch-gate.js?v=1"></script>
     <script src="scripts/back-handler.js?v=2"></script>
     <!-- WORLD CUP 2026 PROMO — remove this line + scripts/worldcup2026.js to retire the campaign -->
     <script src="scripts/worldcup2026.js?v=1"></script>
@@ -1179,7 +1340,8 @@
             e.preventDefault();
             const user = window.DelivoUser;
             if (!user) {
-                if (typeof openModal === 'function') openModal('modal-login');
+                if (typeof openSigninFlow === 'function') openSigninFlow();
+                else if (typeof openModal === 'function') openModal('modal-login');
             } else {
                 if (typeof openOrdersModal === 'function') openOrdersModal();
             }
