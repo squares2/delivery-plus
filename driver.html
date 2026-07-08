@@ -1966,6 +1966,7 @@ function startDriverSession() {
     });
 
     // Live listener on requests
+    _loadStoresIndex();
     listenOrders();
     listenPool();
     listenAssignmentMode();
@@ -2039,6 +2040,32 @@ window.appUpdateLocation = function(lat, lng) {
 async function requestWakeLock() {
     if ('wakeLock' in navigator) {
         try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+    }
+}
+
+// ── Store locations index (for "navigate to store" before pickup) ──
+// Regular (non-external) orders only carry the store's display NAME
+// (order.store), not its coordinates — those live in RTDB /pattern,
+// same source admin.html reads to build its store list. We load it
+// once and keep a simple name → {lat,lng} map so order cards can link
+// straight to the store's location, same as they already do for the
+// customer's destination.
+let _drvStoresIndex = {};
+async function _loadStoresIndex() {
+    try {
+        const pattern = await db.ref('pattern').get();
+        if (!pattern.exists()) return;
+        const data = pattern.val();
+        Object.values(data).forEach(list => {
+            const arr = Array.isArray(list) ? list : Object.values(list || {});
+            arr.forEach(s => {
+                if (s && s.companyname && s.lat && s.lng && !_drvStoresIndex[s.companyname]) {
+                    _drvStoresIndex[s.companyname] = { lat: s.lat, lng: s.lng };
+                }
+            });
+        });
+    } catch (e) {
+        console.error('[Delivo Driver] loadStoresIndex:', e);
     }
 }
 
@@ -2493,6 +2520,16 @@ function buildOrderCard(key, order) {
     const hasLocation = order.lat && order.lng && order.lat !== '' && order.lng !== '';
     const mapsUrl = _mapsHref(order.lat, order.lng, (order.city || '') + ' ' + (order.street || ''));
 
+    // Store's own location — for regular (catalog) orders this comes from
+    // the stores index (order.store name → lat/lng), since the order
+    // itself only carries the store's display name. External orders
+    // already carry their own storeLat/storeLng and show their own link
+    // further down in the info grid, so this is only for regular orders.
+    const storeName        = order.store || items[0]?.store || '';
+    const storeLoc         = _drvStoresIndex[storeName];
+    const hasStoreLocation = !isExternalOrder && storeLoc && storeLoc.lat && storeLoc.lng;
+    const storeMapsUrl     = hasStoreLocation ? _mapsHref(storeLoc.lat, storeLoc.lng, storeName) : '';
+
     card.innerHTML = `
         <!-- Summary row (always visible) -->
         <div class="drv-order__summary">
@@ -2562,12 +2599,16 @@ function buildOrderCard(key, order) {
 
             <!-- Phone / Map links -->
             <div class="drv-order__links">
+                ${hasStoreLocation ? `
+                <a class="drv-link-btn" style="background:rgba(255,92,0,0.12);color:var(--clr-orange);border:1px solid rgba(255,92,0,0.3);" href="${storeMapsUrl}" target="_blank">
+                    🏪 موقع المتجر
+                </a>` : ''}
                 ${order.phone ? `
                 <a class="drv-link-btn drv-link-btn--green" href="tel:${order.phone}">
                     📞 اتصال
                 </a>` : ''}
                 <a class="drv-link-btn drv-link-btn--blue" href="${mapsUrl}" target="_blank">
-                    🗺 الموقع
+                    🗺 موقع العميل
                 </a>
                 ${order.phone ? `
                 <a class="drv-link-btn" href="https://wa.me/${order.phone.replace(/\D/g,'')}" target="_blank">
