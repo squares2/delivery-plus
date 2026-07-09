@@ -482,34 +482,107 @@
     ═══════════════════════════════════════════════════════ -->
 
     <!-- Login modal -->
+    <!-- ══ NEW: Launch modal — full name + phone only, shown once per
+         device to brand-new visitors with no lead and no account yet ══ -->
+    <div class="modal-overlay" id="modal-launch">
+        <div class="modal-box">
+            <h2 class="modal-title">مرحباً بك في Delivo 👋</h2>
+            <p class="modal-subtitle">اسمك ورقم هاتفك فقط، وابدأ التصفح فوراً</p>
+            <p id="launch-error" class="modal-error" style="display:none;"></p>
+
+            <div class="modal-field">
+                <label for="launch-fullname">الاسم الكامل</label>
+                <input type="text" id="launch-fullname" placeholder="أحمد علي" autocomplete="name">
+            </div>
+
+            <div class="modal-field">
+                <label for="launch-phone">رقم الهاتف</label>
+                <div class="phone-input-row">
+                    <span class="phone-prefix">🇱🇧 +961</span>
+                    <input type="tel" id="launch-phone" placeholder="03 123 456" dir="ltr"
+                           autocomplete="tel" maxlength="10" inputmode="numeric">
+                </div>
+                <span class="field-hint">سنستخدمه فقط لتأكيد طلباتك لاحقاً</span>
+            </div>
+
+            <button id="launch-submit" class="btn-primary"
+                    style="width:100%;justify-content:center;padding:12px;">متابعة التصفح</button>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="modal-login">
         <div class="modal-box">
             <button class="modal-close" data-close aria-label="إغلاق">✕</button>
             <h2 class="modal-title">تسجيل الدخول</h2>
-            <p class="modal-subtitle">أدخل بياناتك للمتابعة</p>
+            <p class="modal-subtitle">أدخل رقم هاتفك للمتابعة</p>
             <p id="login-error" class="modal-error" style="display:none;"></p>
-            <div class="modal-field">
-                <label for="login-username">اسم المستخدم</label>
-                <input type="text" id="login-username" placeholder="username" dir="ltr"
-                       autocomplete="username" autocapitalize="none">
-            </div>
-            <div class="modal-field">
-                <label for="login-password">كلمة المرور</label>
-                <div class="password-input-row">
-                    <input type="password" id="login-password" placeholder="••••••••"
-                           autocomplete="current-password">
-                    <button type="button" class="password-toggle" data-target="login-password" aria-label="إظهار كلمة المرور">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                        </svg>
-                    </button>
+
+            <!-- ══ NEW: phone-first sign-in — default path for everyone ══ -->
+            <div id="phone-login-fields">
+                <div class="modal-field">
+                    <label for="login-phone">رقم الهاتف</label>
+                    <div class="phone-input-row">
+                        <span class="phone-prefix">🇱🇧 +961</span>
+                        <input type="tel" id="login-phone" placeholder="03 123 456" dir="ltr"
+                               autocomplete="tel" maxlength="10" inputmode="numeric">
+                    </div>
                 </div>
+
+                <!-- OTP step — only shown if this device doesn't already match -->
+                <div id="login-otp-step" style="display:none;">
+                    <div style="padding:12px 14px;background:rgba(37,211,102,0.07);border:1px solid rgba(37,211,102,0.2);border-radius:12px;margin-bottom:12px;">
+                        <div style="font-size:0.78rem;font-weight:800;color:#4ade80;margin-bottom:3px;">📱 تحقق عبر واتساب</div>
+                        <div id="login-otp-hint" style="font-size:0.72rem;color:rgba(255,255,255,0.55);line-height:1.5;">سيُرسل كود مكوّن من 4 أرقام إلى رقمك على واتساب</div>
+                    </div>
+                    <div class="modal-field">
+                        <label for="login-otp">كود التحقق</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="login-otp" placeholder="1234" dir="ltr" maxlength="4"
+                                   inputmode="numeric" autocomplete="one-time-code"
+                                   style="flex:1;letter-spacing:0.25em;font-size:1.1rem;font-weight:800;text-align:center;font-family:var(--mono-font,monospace);">
+                            <button id="login-otp-resend-btn" style="padding:0 14px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:rgba(255,255,255,0.6);font-family:inherit;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                                إعادة الإرسال
+                            </button>
+                        </div>
+                        <div id="login-otp-timer" style="font-size:0.68rem;color:var(--clr-gray-400);margin-top:5px;"></div>
+                    </div>
+                </div>
+
+                <button id="login-phone-submit" class="btn-primary"
+                        style="width:100%;justify-content:center;padding:12px;">متابعة</button>
+
+                <p class="modal-footer-text">
+                    <a href="#" id="login-legacy-toggle">تسجيل الدخول باسم مستخدم قديم</a>
+                </p>
             </div>
-            <button id="login-submit" class="btn-primary"
-                    style="width:100%;justify-content:center;padding:12px;">دخول</button>
-            <p class="modal-footer-text">
-                ما عندك حساب؟ <a href="#" data-modal="modal-subscribe" data-close>سجّل الآن</a>
-            </p>
+
+            <!-- ══ OLD: username/password — completely unchanged, just hidden
+                 by default now. Every existing account can still use this
+                 exactly as before. ══ -->
+            <div id="legacy-login-fields" style="display:none;">
+                <div class="modal-field">
+                    <label for="login-username">اسم المستخدم</label>
+                    <input type="text" id="login-username" placeholder="username" dir="ltr"
+                           autocomplete="username" autocapitalize="none">
+                </div>
+                <div class="modal-field">
+                    <label for="login-password">كلمة المرور</label>
+                    <div class="password-input-row">
+                        <input type="password" id="login-password" placeholder="••••••••"
+                               autocomplete="current-password">
+                        <button type="button" class="password-toggle" data-target="login-password" aria-label="إظهار كلمة المرور">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button id="login-submit" class="btn-primary"
+                        style="width:100%;justify-content:center;padding:12px;">دخول</button>
+                <p class="modal-footer-text">
+                    <a href="#" id="login-phone-toggle">الدخول برقم الهاتف بدلاً من ذلك</a>
+                </p>
+            </div>
         </div>
     </div>
 
@@ -522,19 +595,26 @@
             </div>
             <p id="reg-error" class="modal-error modal-error--popup" style="display:none;"></p>
 
-            <div class="modal-field">
+            <!-- Shown only when this modal is reused in phone-first mode
+                 (name+phone already known from the launch-modal lead) -->
+            <div id="phonefirst-info" style="display:none;padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;margin-bottom:14px;">
+                <div style="font-size:0.85rem;font-weight:800;color:var(--clr-white);" id="phonefirst-name"></div>
+                <div style="font-size:0.78rem;color:rgba(255,255,255,0.55);direction:ltr;text-align:right;" id="phonefirst-phone"></div>
+            </div>
+
+            <div id="reg-username-field" class="modal-field">
                 <label for="reg-username">اسم المستخدم</label>
                 <input type="text" id="reg-username" placeholder="مثال: ahmad_baalbek"
                        dir="ltr" autocomplete="username" autocapitalize="none" maxlength="30">
                 <span class="field-hint">أحرف إنجليزية، أرقام، _ فقط</span>
             </div>
 
-            <div class="modal-field">
+            <div id="reg-displayname-field" class="modal-field">
                 <label for="reg-displayname">الاسم الظاهر</label>
                 <input type="text" id="reg-displayname" placeholder="أحمد علي" autocomplete="name">
             </div>
 
-            <div class="modal-field">
+            <div id="reg-password-field" class="modal-field">
                 <label for="reg-password">كلمة المرور</label>
                 <div class="password-input-row">
                     <input type="password" id="reg-password" placeholder="8 أحرف على الأقل"
@@ -564,7 +644,7 @@
 
             <!-- Location (OBLIGATORY) — GPS or Map picker -->
             <div class="modal-field">
-                <label>📍 عنوان التوصيل <span class="field-required">*</span></label>
+                <label>📍 عنوان التوصيل <span class="field-required" id="reg-location-required">*</span></label>
 
                 <p class="location-status location-status--info" style="margin:0 0 8px;">
                     لضمان وصول طلبك بأسرع وقت ودون التباس، حدّد موقعك بإحدى الطريقتين:<br>
@@ -811,42 +891,44 @@
             </button>
 
             <!-- Divider -->
-            <div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px;">
-                <div style="flex:1;height:1px;background:var(--clr-gray-100);"></div>
-                <span style="font-size:0.72rem;color:var(--clr-gray-400);font-weight:600;">تغيير كلمة المرور</span>
-                <div style="flex:1;height:1px;background:var(--clr-gray-100);"></div>
-            </div>
-
-            <div class="modal-field">
-                <label for="edit-current-password">كلمة المرور الحالية</label>
-                <div class="password-input-row">
-                    <input type="password" id="edit-current-password" placeholder="••••••••"
-                           autocomplete="current-password">
-                    <button type="button" class="password-toggle" data-target="edit-current-password">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                        </svg>
-                    </button>
+            <div id="edit-password-section">
+                <div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px;">
+                    <div style="flex:1;height:1px;background:var(--clr-gray-100);"></div>
+                    <span style="font-size:0.72rem;color:var(--clr-gray-400);font-weight:600;">تغيير كلمة المرور</span>
+                    <div style="flex:1;height:1px;background:var(--clr-gray-100);"></div>
                 </div>
-            </div>
 
-            <div class="modal-field">
-                <label for="edit-new-password">كلمة المرور الجديدة</label>
-                <div class="password-input-row">
-                    <input type="password" id="edit-new-password" placeholder="8 أحرف على الأقل"
-                           autocomplete="new-password">
-                    <button type="button" class="password-toggle" data-target="edit-new-password">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                        </svg>
-                    </button>
+                <div class="modal-field">
+                    <label for="edit-current-password">كلمة المرور الحالية</label>
+                    <div class="password-input-row">
+                        <input type="password" id="edit-current-password" placeholder="••••••••"
+                               autocomplete="current-password">
+                        <button type="button" class="password-toggle" data-target="edit-current-password">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <button id="edit-password-submit" class="btn-secondary"
-                    style="width:100%;justify-content:center;padding:12px;">
-                تغيير كلمة المرور
-            </button>
+                <div class="modal-field">
+                    <label for="edit-new-password">كلمة المرور الجديدة</label>
+                    <div class="password-input-row">
+                        <input type="password" id="edit-new-password" placeholder="8 أحرف على الأقل"
+                               autocomplete="new-password">
+                        <button type="button" class="password-toggle" data-target="edit-new-password">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <button id="edit-password-submit" class="btn-secondary"
+                        style="width:100%;justify-content:center;padding:12px;">
+                    تغيير كلمة المرور
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1165,7 +1247,6 @@
     <script src="scripts/categories.js?v=9"></script>
     <script src="scripts/cart.js?v=19"></script>
     <script src="scripts/store-panel.js?v=16"></script>
-    <script src="scripts/store-status-listener.js?v=1"></script>
     <script src="scripts/mealtime.js?v=6"></script>
     <script src="scripts/pwa.js?v=8"></script>
     <script src="scripts/presence.js?v=1"></script>
@@ -1179,7 +1260,7 @@
             e.preventDefault();
             const user = window.DelivoUser;
             if (!user) {
-                if (typeof openModal === 'function') openModal('modal-login');
+                if (typeof window.openAuthModal === 'function') window.openAuthModal();
             } else {
                 if (typeof openOrdersModal === 'function') openOrdersModal();
             }

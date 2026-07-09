@@ -49,10 +49,7 @@
     function _openModal() {
         const user = window.DelivoUser;
         if (!user) {
-            // Nudge login
-            const loginEl = document.querySelector('[data-modal="modal-login"]') ||
-                            document.getElementById('login-modal-trigger');
-            if (loginEl) loginEl.click();
+            if (typeof window.openAuthModal === 'function') window.openAuthModal();
             else alert('يرجى تسجيل الدخول أولاً');
             return;
         }

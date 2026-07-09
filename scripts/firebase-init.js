@@ -211,27 +211,46 @@ function onFirebaseReady() {
 
     // Get or create a UUID, cross-referencing fingerprint in Firestore
     async function getOrCreateDeviceUUID() {
+        // Try localStorage first (fast path) — and if this device already has
+        // its own UUID, that always wins, full stop. We deliberately do NOT
+        // consult the fingerprint collection at all in this case.
+        //
+        // Why: Apple's anti-fingerprinting means identical iPhone models on
+        // the same iOS version/region render IDENTICAL canvas/WebGL/audio
+        // fingerprints — there's no missing entropy source to fix that with,
+        // it's by design on Apple's end. The old code let a fingerprint
+        // match silently overwrite an already-established device's own
+        // stored UUID with some other unrelated device's UUID just because
+        // they share an iPhone model, permanently merging two different
+        // real customers' device history. Now the fingerprint lookup is
+        // used ONLY as a last-resort recovery when there's truly no local
+        // UUID yet (first visit, or storage was cleared) — never to
+        // override a device that already knows who it is.
+        const stored = localStorage.getItem('delivo_device_uuid');
+        if (stored) return stored;
+
         const fp = await getDeviceFingerprint();
 
-        // Try localStorage first (fast path)
-        const stored = localStorage.getItem('delivo_device_uuid');
-
         try {
-            // Check Firestore for this fingerprint
+            // Check Firestore for this fingerprint — best-effort recovery only.
+            // Note: this can still collide on iPhones (two different devices,
+            // both with empty local storage, recovering the same UUID) — that
+            // residual case has no real fix on iOS, but it's now limited to
+            // the "storage was empty" scenario instead of overriding a device
+            // that already had its own identity.
             const fpDoc = await db.collection('device_fingerprints').doc(fp).get();
 
             if (fpDoc.exists) {
-                // Fingerprint known — use its UUID (even if localStorage was cleared)
                 const uuid = fpDoc.data().uuid;
                 localStorage.setItem('delivo_device_uuid', uuid);
                 return uuid;
             }
 
-            // New fingerprint — generate UUID
-            const uuid = stored || ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            // Brand new fingerprint — generate a fresh UUID
+            const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
                 const r = Math.random() * 16 | 0;
                 return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-            }));
+            });
 
             // Save fingerprint → UUID mapping in Firestore
             await db.collection('device_fingerprints').doc(fp).set({
@@ -243,9 +262,8 @@ function onFirebaseReady() {
             return uuid;
 
         } catch (e) {
-            // Firestore unavailable — fall back to localStorage
-            console.warn('[Delivo] Fingerprint check failed, using localStorage:', e.message);
-            if (stored) return stored;
+            // Firestore unavailable — generate a fresh local UUID
+            console.warn('[Delivo] Fingerprint check failed, generating local UUID:', e.message);
             const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
                 const r = Math.random() * 16 | 0;
                 return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
@@ -398,6 +416,16 @@ function onFirebaseReady() {
         // Platform-wide closed overlay may allowlist specific usernames —
         // re-check it now that we know who's logged in (or logged out).
         if (typeof window._checkPlatformStatus === 'function') window._checkPlatformStatus();
+
+        // One-time signal for anything that needs to wait until Firebase's
+        // own (async) auth check has actually resolved at least once —
+        // e.g. deciding whether to show the launch modal, which must never
+        // flash for an already-logged-in returning user just because this
+        // callback hadn't fired yet.
+        if (!window._authStateReady) {
+            window._authStateReady = true;
+            document.dispatchEvent(new CustomEvent('delivoAuthReady'));
+        }
     });
 
     // ── window.DelivoAuth ─────────────────────────────────────
@@ -702,6 +730,310 @@ function onFirebaseReady() {
             }
         },
 
+        // ══════════════════════════════════════════════════════
+        // PHONE-FIRST FLOW (new, simplified — no password, ever)
+        // Everything below is purely additive: it never touches an
+        // existing account's stored fields except deviceUUID (updated
+        // only at the moment that account itself signs in via this
+        // flow — see finishPhoneLogin), and the old username/password
+        // register()/login() above are completely untouched.
+        // ══════════════════════════════════════════════════════
+
+        // ── Save a "lead" — full name + phone captured on first launch,
+        // before any real account exists. Keyed by this device's UUID
+        // (the one getOrCreateDeviceUUID resolves — collision-safe as of
+        // the fingerprint fix). Visible to the admin panel as a lead, not
+        // a real user, until registerByPhone() converts it.
+        async saveDeviceLead({ fullName, phone }) {
+            const phoneDigits = (phone || '').replace(/[\s\-]/g, '');
+            if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits))
+                return { error: true, message: 'رقم الهاتف غير صحيح.' };
+            if (!fullName || fullName.trim().length < 2)
+                return { error: true, message: 'أدخل الاسم الكامل (حرفان على الأقل).' };
+
+            try {
+                const uuid = await getOrCreateDeviceUUID();
+                const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                await fetch(`${RTDB_BASE}/deviceLeads/${uuid}.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fullName:  sanitize(fullName.trim()),
+                        phone:     phoneDigits,
+                        createdAt: new Date().toISOString(),
+                        converted: false,
+                    }),
+                });
+                return { success: true };
+            } catch (e) {
+                return { error: true, message: 'تعذر حفظ البيانات. تحقق من اتصالك.' };
+            }
+        },
+
+        // ── Read back this device's lead (if any) — used on page load to
+        // decide whether to show the launch modal at all.
+        async getDeviceLead() {
+            try {
+                const uuid = await getOrCreateDeviceUUID();
+                const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                const r = await fetch(`${RTDB_BASE}/deviceLeads/${uuid}.json`);
+                return r.ok ? await r.json() : null;
+            } catch (_) { return null; }
+        },
+
+        // ── Register with phone + full name only — no username, no
+        // password, no location required. Mirrors register() above for
+        // everything it needs to share (device/blacklist checks, slot
+        // retry, Firestore/RTDB writes), just without those three fields.
+        async registerByPhone({ fullName, phone, lat, lng, locationSource = null }) {
+            if (!fullName || fullName.trim().length < 2)
+                return { error: true, message: 'أدخل الاسم الكامل (حرفان على الأقل).' };
+
+            const phoneDigits = (phone || '').replace(/[\s\-]/g, '');
+            if (!phoneDigits)
+                return { error: true, message: 'رقم الهاتف مطلوب.' };
+            if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits))
+                return { error: true, message: 'رقم الهاتف غير صحيح. أدخل رقماً لبنانياً صحيحاً.' };
+            const safePhone = '+961' + phoneDigits;
+
+            if (!rateLimit('registerByPhone', 3, 60_000))
+                return { error: true, message: 'حاولت كثيراً. انتظر دقيقة.' };
+
+            // Guard: this function assumes a brand-new phone. If it's
+            // already registered, point the caller at the login flow
+            // instead of silently creating a duplicate account.
+            try {
+                const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                const phResp = await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}.json`);
+                const phData = await phResp.json();
+                if (phData !== null) {
+                    return { error: true, alreadyRegistered: true, message: 'هذا الرقم مسجّل مسبقاً. سجّل الدخول برقم هاتفك.' };
+                }
+            } catch (_) { /* fail open — same posture as register()'s own phone-limit check */ }
+
+            const deviceCheck = await checkDeviceLimit();
+
+            if (deviceCheck.uuid) {
+                try {
+                    const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                    const blResp = await fetch(`${RTDB_BASE}/blacklist/${deviceCheck.uuid}.json`);
+                    const blData = await blResp.json();
+                    if (blData && blData.reason) {
+                        _showBlockedScreen(blData.reason);
+                        return { error: true, message: 'هذا الجهاز محظور من استخدام Delivo.' };
+                    }
+                } catch (_) {}
+            }
+
+            // Auto-generate username from the phone digits — deterministic,
+            // effectively collision-free since phone numbers are already
+            // gated unique above. Slot-retry kept anyway, same safety net
+            // register() uses for its Auth-email slots.
+            const baseUsername = 'p' + phoneDigits;
+            const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+            // Auto-generate a throwaway password — Firebase's email/password
+            // provider requires SOME value at creation time, but nothing
+            // ever signs in with it again after this moment. All future
+            // logins for this account go through the phone+device/OTP flow
+            // below, which mints a real Auth token server-side instead.
+            const throwawayPassword = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+                .map(b => b.toString(16).padStart(2, '0')).join('');
+
+            _registering = true;
+            let _cred = null, _email = null, _username = baseUsername;
+            const _slots = [
+                baseUsername + '@delivo.internal',
+                ...Array.from({ length: 19 }, (_, i) => baseUsername + '~' + (i + 1) + '@delivo.internal'),
+            ];
+            let slotIdx = 0;
+            for (const _slot of _slots) {
+                try {
+                    _cred  = await auth.createUserWithEmailAndPassword(_slot, throwawayPassword);
+                    _email = _slot;
+                    _username = slotIdx === 0 ? baseUsername : (baseUsername + '~' + slotIdx);
+                    break;
+                } catch (_slotErr) {
+                    if (_slotErr.code === 'auth/email-already-in-use') { slotIdx++; continue; }
+                    console.error('[Delivo] registerByPhone:', _slotErr.code, _slotErr.message);
+                    _registering = false;
+                    return { error: true, message: authMsg(_slotErr.code) };
+                }
+            }
+            if (!_cred || !_email) {
+                try {
+                    _email = baseUsername + '~' + Date.now() + '@delivo.internal';
+                    _username = _email.split('@')[0];
+                    _cred  = await auth.createUserWithEmailAndPassword(_email, throwawayPassword);
+                } catch (_fb) {
+                    _registering = false;
+                    return { error: true, message: authMsg(_fb.code) };
+                }
+            }
+
+            try {
+                const email = _email;
+                const cred  = _cred;
+                const user  = cred.user;
+                const safeFullName = sanitize(fullName.trim());
+
+                await user.updateProfile({ displayName: safeFullName });
+
+                const userData = {
+                    username:           _username,
+                    displayName:        safeFullName,
+                    phone:              safePhone,
+                    deviceUUID:         deviceCheck.uuid,
+                    authEmail:          email,
+                    registrationMethod: 'phone-otp',
+                    createdAt:          firebase.firestore.FieldValue.serverTimestamp(),
+                };
+                if (lat && lng) {
+                    userData.location = { lat: Number(lat), lng: Number(lng) };
+                    if (locationSource) userData.locationSource = locationSource;
+                }
+                await db.collection('users').doc(user.uid).set(userData);
+
+                await db.collection('usernames').doc(_username).set({
+                    uid:       user.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
+
+                try {
+                    await fetch(`${RTDB_BASE}/deletedUsernames/${encodeURIComponent(_username)}.json`, { method: 'DELETE' });
+                } catch(_) {}
+
+                try {
+                    await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}/${user.uid}.json`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(true),
+                    });
+                } catch(_) {}
+
+                await incrementDeviceCount(deviceCheck.uuid);
+
+                // Mark this device's lead as converted, keeping the record
+                // for admin visibility rather than deleting it.
+                try {
+                    const uuid = deviceCheck.uuid;
+                    if (uuid) {
+                        await fetch(`${RTDB_BASE}/deviceLeads/${uuid}/converted.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(true),
+                        });
+                        await fetch(`${RTDB_BASE}/deviceLeads/${uuid}/uid.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(user.uid),
+                        });
+                    }
+                } catch(_) {}
+
+                window.DelivoUser = {
+                    uid: user.uid, username: _username, displayName: safeFullName,
+                    phone: safePhone, deviceUUID: deviceCheck.uuid, authEmail: email,
+                    registrationMethod: 'phone-otp',
+                };
+                if (lat && lng) {
+                    window.DelivoUser.location = { lat: Number(lat), lng: Number(lng) };
+                    if (locationSource) window.DelivoUser.locationSource = locationSource;
+                }
+
+                if (typeof window.__renderAccountModal === 'function') window.__renderAccountModal();
+                const bbBtn2 = document.getElementById('bb-account-btn');
+                const acctBtn2 = document.getElementById('account-btn');
+                if (bbBtn2) bbBtn2.classList.add('logged-in');
+                if (acctBtn2) acctBtn2.classList.add('logged-in');
+
+                _registering = false;
+                if (typeof window._checkPlatformStatus === 'function') window._checkPlatformStatus();
+
+                return { success: true };
+            } catch (e) {
+                _registering = false;
+                console.error('[Delivo] registerByPhone:', e.code, e.message);
+                return { error: true, message: authMsg(e.code) };
+            }
+        },
+
+        // ── Step 1 of returning login — given a phone number, find the
+        // account and decide whether this device already matches (instant
+        // login) or an OTP is required (new/different device).
+        async resolvePhoneLogin({ phone }) {
+            const phoneDigits = (phone || '').replace(/[\s\-]/g, '');
+            if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits))
+                return { error: true, message: 'رقم الهاتف غير صحيح.' };
+
+            if (!rateLimit('resolvePhoneLogin', 8, 300_000))
+                return { error: true, message: 'محاولات كثيرة. انتظر قليلاً.' };
+
+            const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+            try {
+                const phResp = await fetch(`${RTDB_BASE}/phoneIndex/${phoneDigits}.json`);
+                const phData = await phResp.json();
+                if (!phData) return { error: true, notFound: true, message: 'لا يوجد حساب بهذا الرقم. سجّل حساباً جديداً.' };
+
+                // phData is normally { uid: true }; take the first uid.
+                // (Multiple accounts sharing one phone is an admin-enabled
+                // edge case — this picks the first, same posture register()
+                // already takes toward that setting.)
+                const uid = (typeof phData === 'object' && !Array.isArray(phData))
+                    ? Object.keys(phData)[0]
+                    : null;
+                if (!uid) return { error: true, notFound: true, message: 'لا يوجد حساب بهذا الرقم. سجّل حساباً جديداً.' };
+
+                const thisDeviceUuid = await getOrCreateDeviceUUID();
+
+                return { success: true, uid, phone: phoneDigits, deviceUUID: thisDeviceUuid };
+            } catch (e) {
+                return { error: true, message: 'تعذر التحقق. تحقق من اتصالك.' };
+            }
+        },
+
+        // ── Step 2 of returning login — calls the Cloud Function. If the
+        // device already matches, this signs in immediately with no OTP.
+        // Otherwise pass otpVerified: true only after the caller has
+        // already checked the WhatsApp code client-side (same trust
+        // boundary the registration OTP already uses).
+        async finishPhoneLogin({ uid, phone, deviceUUID, otpVerified = false }) {
+            if (!rateLimit('finishPhoneLogin', 8, 300_000))
+                return { error: true, message: 'محاولات كثيرة. انتظر قليلاً.' };
+            try {
+                const resp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/customerPhoneLogin', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ uid, phone, deviceUUID, otpVerified }),
+                });
+                const data = await resp.json();
+                if (!resp.ok || data.error) return { error: true, message: data.error || 'تعذر تسجيل الدخول' };
+                if (data.requiresOtp) return { requiresOtp: true };
+
+                _registering = true;
+                await auth.signInWithCustomToken(data.token);
+                // onAuthStateChanged will populate window.DelivoUser from
+                // Firestore normally — but do it here too so the caller's
+                // very next line (closing the modal, redirecting, etc.)
+                // already has a populated DelivoUser to work with.
+                const snap = await db.collection('users').doc(uid).get();
+                window.DelivoUser = { uid, ...(snap.exists ? snap.data() : {}) };
+                _registering = false;
+
+                if (typeof window.__renderAccountModal === 'function') window.__renderAccountModal();
+                const bbBtn2 = document.getElementById('bb-account-btn');
+                const acctBtn2 = document.getElementById('account-btn');
+                if (bbBtn2) bbBtn2.classList.add('logged-in');
+                if (acctBtn2) acctBtn2.classList.add('logged-in');
+                if (typeof window._checkPlatformStatus === 'function') window._checkPlatformStatus();
+
+                return { success: true };
+            } catch (e) {
+                _registering = false;
+                return { error: true, message: 'تعذر تسجيل الدخول. تحقق من اتصالك وحاول مجدداً.' };
+            }
+        },
+
         // ── Update profile (display name + phone + location) ────
         async updateProfile({ displayName, phone, lat, lng }) {
             const user = auth.currentUser;
@@ -958,6 +1290,20 @@ function _showBlockedScreen(reason) {
     // Inject blocked screen if not already there
     if (document.getElementById('delivo-blocked')) return;
 
+    // Local-number formatter — strips a leading 961 country code (kept in
+    // the wa.me link itself, just not shown to the customer) and groups
+    // the remaining digits for readability.
+    function _formatLocalPhone(raw) {
+        let digits = String(raw || '').replace(/[^\d]/g, '');
+        if (digits.startsWith('961')) digits = digits.slice(3);
+        if (digits.length === 8) return digits.slice(0, 2) + ' ' + digits.slice(2, 5) + ' ' + digits.slice(5);
+        return digits;
+    }
+
+    // Fallback used only if settings/adminPhone hasn't been configured yet
+    // or the fetch fails — same number this screen always showed before.
+    const FALLBACK_PHONE = '96170714152';
+
     const el = document.createElement('div');
     el.id = 'delivo-blocked';
     el.innerHTML = `
@@ -973,7 +1319,7 @@ function _showBlockedScreen(reason) {
             </div>
             <p class="blk-contact">
                 إذا كنت تعتقد أن هذا خطأ، تواصل معنا عبر واتساب
-                <a href="https://wa.me/96170714152">📞 +961 70 714 152</a>
+                <a id="blk-contact-link" href="https://wa.me/${FALLBACK_PHONE}">📞 <span dir="ltr">${_formatLocalPhone(FALLBACK_PHONE)}</span></a>
             </p>
         </div>
     `;
@@ -1023,6 +1369,22 @@ function _showBlockedScreen(reason) {
     `;
     document.head.appendChild(style);
     document.body.appendChild(el);
+
+    // Show the fallback number instantly (no network wait for something
+    // this important), then swap in the admin's actual configured number
+    // — same settings/adminPhone value cart.js already reads elsewhere —
+    // once it arrives. If nothing's configured, the fallback simply stays.
+    fetch('https://deliveryonline-300f7-default-rtdb.firebaseio.com/settings/adminPhone.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(phone => {
+            if (!phone) return;
+            const link = document.getElementById('blk-contact-link');
+            if (!link) return;
+            const digits = String(phone).replace(/[^\d]/g, '');
+            link.href = `https://wa.me/${digits}`;
+            link.innerHTML = `📞 <span dir="ltr">${_formatLocalPhone(digits)}</span>`;
+        })
+        .catch(() => {}); // fallback number already showing — fail silent
 
     // Also block all interaction
     document.body.style.overflow = 'hidden';

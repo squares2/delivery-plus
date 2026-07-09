@@ -1127,7 +1127,32 @@ function initCart() {
         const user = window.DelivoUser;
         if (!user) {
             closeCartSidebar();
-            setTimeout(() => { if (typeof openModal === 'function') openModal('modal-login'); }, 200);
+            setTimeout(async () => {
+                let lead = null;
+                try { lead = await window.DelivoAuth.getDeviceLead(); } catch (_) {}
+
+                if (lead && !lead.converted) {
+                    // Already gave us name+phone at launch — just need
+                    // location + OTP now, then the order goes through.
+                    if (typeof window.startPhoneFirstRegistration === 'function') {
+                        window.startPhoneFirstRegistration(lead.fullName, lead.phone, () => window.cartCheckout());
+                    } else if (typeof openModal === 'function') {
+                        openModal('modal-login'); // defensive fallback
+                    }
+                } else if (typeof openModal === 'function') {
+                    // No lead at all yet (rare — e.g. cart survived from
+                    // before the launch modal was ever completed). Capture
+                    // name+phone first, then chain straight into the same
+                    // registration-completion step above.
+                    window._launchModalOnSuccess = async () => {
+                        const freshLead = await window.DelivoAuth.getDeviceLead();
+                        if (freshLead && typeof window.startPhoneFirstRegistration === 'function') {
+                            window.startPhoneFirstRegistration(freshLead.fullName, freshLead.phone, () => window.cartCheckout());
+                        }
+                    };
+                    openModal('modal-launch');
+                }
+            }, 200);
             return;
         }
 

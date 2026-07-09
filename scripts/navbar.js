@@ -521,18 +521,6 @@ function _resetLogo() {
     _setLogoState('logo');
 }
 
-function _updateFromData(data) {
-    _activeOrders = [];
-    if (data && typeof data === 'object') {
-        Object.entries(data).forEach(([id, o]) => {
-            if (o && (o.trackorder === '1' || o.trackorder === 1)) {
-                _activeOrders.push({ id, order: o });
-            }
-        });
-    }
-    _applyLogoState();
-}
-
 function _applyLogoState() {
     if (_activeOrders.length === 0)      _setLogoState('logo');
     else if (_activeOrders.length === 1) _setLogoState('track');

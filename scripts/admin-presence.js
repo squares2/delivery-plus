@@ -34,13 +34,29 @@
     }
 
     function displayName(s) {
+        // Prefer the account's real full name — looked up here on the admin
+        // side from window.allUsers (already loaded for the Customers panel)
+        // rather than from the session payload itself, since presence.js
+        // only ever sends {uid, username}, never displayName. This means no
+        // customer-facing file needs to change for this to work.
+        if (s.uid && window.allUsers && window.allUsers[s.uid]) {
+            const full = window.allUsers[s.uid].displayName || window.allUsers[s.uid].fullname;
+            if (full) return full;
+        }
         if (s.username) return `@${s.username}`;
         if (s.uid)      return `uid·${s.uid.slice(0, 12)}`;
         return `uuid·${(s.uuid || s.sid || '?').slice(0, 13)}`;
     }
 
-    function shortUUID(s) {
-        return (s.uuid || s.sid || '').slice(0, 18) + '…';
+    // Smaller "@username" shown beside the full name — only when we
+    // actually resolved a full name above (otherwise displayName() itself
+    // already IS the username, and repeating it would be redundant).
+    function usernameSubtext(s) {
+        if (s.uid && s.username && window.allUsers && window.allUsers[s.uid]) {
+            const full = window.allUsers[s.uid].displayName || window.allUsers[s.uid].fullname;
+            if (full) return `@${s.username}`;
+        }
+        return '';
     }
 
     function deviceIcon(s) {
@@ -89,7 +105,8 @@
         if (!box) return;
 
         const isJoin = type === 'join';
-        const name   = displayName(session);
+        const name    = displayName(session);
+        const subName = usernameSubtext(session);
         const icon   = deviceIcon(session);
         const color  = isJoin ? '#22c55e' : '#ef4444';
         const uuid   = (session.uuid || session.sid || '').slice(0, 16);
@@ -99,7 +116,7 @@
         t.innerHTML = `
             <div class="pt-dot" style="background:${color}"></div>
             <div class="pt-body">
-                <div class="pt-name">${icon} ${name}</div>
+                <div class="pt-name">${icon} ${name}${subName ? ` <span style="font-size:0.72em;font-weight:600;opacity:0.65;">${subName}</span>` : ''}</div>
                 <div class="pt-uuid">${uuid}…</div>
                 <div class="pt-action" style="color:${color}">${isJoin ? '🟢 اتصل بالموقع' : '🔴 غادر الموقع'}</div>
             </div>
@@ -165,7 +182,8 @@
         }
 
         list.innerHTML = entries.map((s, i) => {
-            const name   = displayName(s);
+            const name    = displayName(s);
+            const subName = usernameSubtext(s);
             const icon   = deviceIcon(s);
             const ago    = timeAgo(s.connectedAt);
             const isUser = !!s.username;
@@ -180,7 +198,7 @@
                 <div class="pm-rank">${i + 1}</div>
                 <div class="pm-live-dot"></div>
                 <div class="pm-info">
-                    <div class="pm-name" style="font-size:1.05rem">${icon} ${name} ${typeTag(s)}</div>
+                    <div class="pm-name" style="font-size:1.05rem">${icon} ${name}${subName ? ` <span style="font-size:0.72em;font-weight:600;color:var(--clr-gray-400);opacity:0.75;">${subName}</span>` : ''} ${typeTag(s)}</div>
                     <div class="pm-uuid-full">🔑 ${uuid}</div>
                     ${matches.length ? `
                     <div class="pm-known-account">

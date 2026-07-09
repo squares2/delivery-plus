@@ -446,6 +446,11 @@ function initModalAuth() {
 
     if (regBtn) {
         regBtn.addEventListener('click', async () => {
+            // ══ Phone-first mode — this modal is being reused from checkout
+            // to complete a lead's registration. Handled entirely separately
+            // below so the existing username/password paths are untouched. ══
+            if (window._phoneFirstMode) { await _handlePhoneFirstRegSubmit(); return; }
+
             const username    = document.getElementById('reg-username')?.value    || '';
             const displayName = document.getElementById('reg-displayname')?.value || '';
             const password    = document.getElementById('reg-password')?.value    || '';
@@ -606,6 +611,237 @@ function initModalAuth() {
                 resetLocationBtn();
             }
         });
+    }
+
+    // ══════════════════════════════════════════════════════
+    // PHONE-FIRST REGISTRATION (reuses modal-subscribe's own
+    // location picker + OTP machinery) — two distinct modes:
+    //   'checkout' — triggered from cart checkout for a guest who
+    //                already gave name+phone at launch. Phone is
+    //                locked (already known), location is required
+    //                (an order needs a delivery address).
+    //   'fresh'    — triggered by the explicit "إنشاء حساب مجاني"
+    //                button. Name+phone are typed fresh right here,
+    //                location is optional (can be set later at
+    //                first order instead).
+    // ══════════════════════════════════════════════════════
+
+    window.startPhoneFirstRegistration = function(fullName, phone, onSuccess) {
+        window._phoneFirstMode      = 'checkout';
+        window._phoneFirstLead      = { fullName, phone };
+        window._phoneFirstOnSuccess = onSuccess;
+
+        document.getElementById('reg-username-field').style.display    = 'none';
+        document.getElementById('reg-displayname-field').style.display = 'none';
+        document.getElementById('reg-password-field').style.display    = 'none';
+
+        const info = document.getElementById('phonefirst-info');
+        if (info) {
+            info.style.display = 'block';
+            document.getElementById('phonefirst-name').textContent  = fullName;
+            document.getElementById('phonefirst-phone').textContent = '+961 ' + phone;
+        }
+
+        // Phone field stays visible but locked — customer can SEE their
+        // number before the OTP goes out, just can't accidentally change it
+        // and desync it from the lead record.
+        const phoneInput = document.getElementById('reg-phone');
+        if (phoneInput) { phoneInput.value = phone; phoneInput.readOnly = true; }
+
+        const regBtnEl = document.getElementById('reg-submit');
+        if (regBtnEl) regBtnEl.textContent = 'تأكيد الموقع وإرسال كود التحقق';
+        document.querySelector('#modal-subscribe .modal-title').textContent = 'خطوة أخيرة لإرسال طلبك';
+        document.querySelector('#modal-subscribe .modal-subtitle')?.remove();
+
+        if (typeof openModal === 'function') openModal('modal-subscribe');
+    };
+
+    // Explicit "create a new account" entry point — no existing lead
+    // needed. Name + phone are typed here directly; location is entirely
+    // optional (a small skip-friendly hint replaces the "required" one),
+    // since there's no order in progress that needs a delivery address yet.
+    window.startFreshRegistration = function(onSuccess) {
+        window._phoneFirstMode      = 'fresh';
+        window._phoneFirstLead      = null;
+        window._phoneFirstOnSuccess = onSuccess;
+
+        document.getElementById('reg-username-field').style.display    = 'none';
+        document.getElementById('reg-password-field').style.display    = 'none';
+        const dnField = document.getElementById('reg-displayname-field');
+        if (dnField) {
+            dnField.style.display = '';
+            const label = dnField.querySelector('label');
+            if (label) label.textContent = 'الاسم الكامل';
+        }
+
+        const info = document.getElementById('phonefirst-info');
+        if (info) info.style.display = 'none';
+
+        const phoneInput = document.getElementById('reg-phone');
+        if (phoneInput) { phoneInput.value = ''; phoneInput.readOnly = false; }
+        clearFields(['reg-displayname']);
+
+        // Location becomes optional — swap the "required" copy for a
+        // friendlier one and drop the required-asterisk visually. Uses a
+        // dedicated ID so the phone field's own required-mark (which
+        // shares the same CSS class) is never touched.
+        const locRequiredMark = document.getElementById('reg-location-required');
+        if (locRequiredMark) locRequiredMark.style.display = 'none';
+        const locInfoP = document.querySelector('#modal-subscribe .location-status--info');
+        if (locInfoP) locInfoP.innerHTML = 'يمكنك تحديد موقعك الآن، أو تركه وتحديده لاحقاً عند أول طلب.';
+
+        const regBtnEl = document.getElementById('reg-submit');
+        if (regBtnEl) regBtnEl.textContent = 'إنشاء الحساب';
+        document.querySelector('#modal-subscribe .modal-title').textContent = 'إنشاء حساب جديد';
+
+        if (typeof openModal === 'function') openModal('modal-subscribe');
+    };
+
+    // Reverses everything either mode above changed, so the classic
+    // registration modal goes back to its normal appearance the next
+    // time something opens it directly (defensive — nothing does anymore).
+    function _resetPhoneFirstMode() {
+        window._phoneFirstMode      = false;
+        window._phoneFirstLead      = null;
+        window._phoneFirstOnSuccess = null;
+
+        const uf = document.getElementById('reg-username-field');
+        const df = document.getElementById('reg-displayname-field');
+        const pf = document.getElementById('reg-password-field');
+        if (uf) uf.style.display = '';
+        if (df) { df.style.display = ''; const l = df.querySelector('label'); if (l) l.textContent = 'الاسم الظاهر'; }
+        if (pf) pf.style.display = '';
+
+        const info = document.getElementById('phonefirst-info');
+        if (info) info.style.display = 'none';
+
+        const phoneInput = document.getElementById('reg-phone');
+        if (phoneInput) phoneInput.readOnly = false;
+
+        const locRequiredMark = document.getElementById('reg-location-required');
+        if (locRequiredMark) locRequiredMark.style.display = '';
+
+        const regBtnEl = document.getElementById('reg-submit');
+        if (regBtnEl) regBtnEl.textContent = 'إنشاء الحساب';
+        const titleEl = document.querySelector('#modal-subscribe .modal-title');
+        if (titleEl) titleEl.textContent = 'إنشاء حساب';
+    }
+
+    async function _handlePhoneFirstRegSubmit() {
+        const regBtnEl = document.getElementById('reg-submit');
+        const errorEl  = document.getElementById('reg-error');
+        const mode     = window._phoneFirstMode;
+        const isFresh  = mode === 'fresh';
+
+        // 'checkout' mode already knows fullName+phone from the lead;
+        // 'fresh' mode reads them live from the (now-editable) fields.
+        let fullName, phone;
+        if (isFresh) {
+            fullName = document.getElementById('reg-displayname')?.value?.trim() || '';
+            const phoneRaw = document.getElementById('reg-phone')?.value || '';
+            phone = phoneRaw.replace(/[\s\-]/g, '');
+            if (fullName.length < 2) { showError(errorEl, 'أدخل اسمك الكامل (حرفان على الأقل)'); return; }
+            if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phone)) { showError(errorEl, 'رقم الهاتف غير صحيح'); return; }
+        } else {
+            const lead = window._phoneFirstLead;
+            if (!lead) return;
+            fullName = lead.fullName; phone = lead.phone;
+        }
+
+        const lat = document.getElementById('reg-lat')?.value || null;
+        const lng = document.getElementById('reg-lng')?.value || null;
+
+        const otpStepEl = document.getElementById('otp-step');
+        const saved      = _loadOtpState();
+        const isConfirmStep = saved && otpStepEl?.style.display !== 'none';
+
+        if (!isConfirmStep) {
+            // Step 1 — validate location (required in checkout mode,
+            // optional-but-validated-if-attempted in fresh mode), send OTP
+            const hasAnyLocationInput = !!(lat && lng);
+            if (!isFresh) {
+                if (!_requireRegLocation()) {
+                    showError(errorEl, '📍 يجب تحديد موقعك لإتمام الطلب');
+                    return;
+                }
+            } else if (hasAnyLocationInput && !_requireRegLocation()) {
+                // They started picking a location but it didn't validate —
+                // don't silently drop it, ask them to fix or clear it.
+                showError(errorEl, '📍 تعذّر تأكيد الموقع الذي حددته. عدّله أو تخطَّه.');
+                return;
+            }
+
+            if (hasAnyLocationInput) {
+                const regLat = parseFloat(document.getElementById('reg-lat')?.value);
+                const regLng = parseFloat(document.getElementById('reg-lng')?.value);
+                if (typeof window._checkCoverageOrWarn === 'function') {
+                    const insideCoverage = await window._checkCoverageOrWarn(regLat, regLng, () => {
+                        document.getElementById('reg-location-status')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        document.getElementById('reg-location-map')?.click();
+                    }, (mLat, mLng) => {
+                        document.getElementById('reg-lat').value = mLat;
+                        document.getElementById('reg-lng').value = mLng;
+                        window._regLocationSource = 'map';
+                        setLocationStatus('success', '✓ تم تحديث موقعك — تابع الآن');
+                    });
+                    if (!insideCoverage) return;
+                }
+            }
+            hideError(errorEl);
+
+            if (_otpSendInFlight) return;
+            _otpSendInFlight = true;
+            setLoading(regBtnEl, true, '⏳ جاري الإرسال...');
+            try {
+                const code      = await _sendOtpWhatsapp(phone);
+                const expiresAt = Date.now() + OTP_TIMEOUT;
+                _saveOtpState({ fullName, phone, lat, lng, locationSource: window._regLocationSource || null, code, expiresAt });
+                if (otpStepEl) { otpStepEl.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(phone)}`; }
+                regBtnEl.disabled = false;
+                regBtnEl.textContent = isFresh ? 'تأكيد الكود وإنشاء الحساب' : 'تأكيد الكود وإرسال الطلب';
+                _startOtpCountdown(60); _startExpireCountdown(expiresAt);
+                document.getElementById('reg-otp')?.focus();
+            } catch (e) {
+                showError(errorEl, e.message);
+                _lockButtonWithCooldown(regBtnEl, OTP_RETRY_COOLDOWN, isFresh ? 'إنشاء الحساب' : 'تأكيد الموقع وإرسال كود التحقق');
+                _otpSendInFlight = false;
+                return;
+            }
+            _otpSendInFlight = false;
+            return;
+        }
+
+        // Step 2 — verify code, create the real account
+        const entered = document.getElementById('reg-otp')?.value.trim() || '';
+        if (!entered)      { showError(errorEl, 'أدخل كود التحقق المُرسَل على واتساب'); return; }
+        if (!saved?.code)  { showError(errorEl, 'انتهت صلاحية الكود. اضغط إعادة الإرسال'); return; }
+        if (Date.now() > saved.expiresAt) { _cancelOtpStep(); return; }
+        if (entered !== saved.code) { showError(errorEl, '❌ الكود غير صحيح. تحقق من واتساب وحاول مجدداً'); document.getElementById('reg-otp')?.select(); return; }
+
+        if (_otpSendInFlight) return;
+        _otpSendInFlight = true;
+        setLoading(regBtnEl, true, '⏳ جاري إنشاء الحساب...');
+        let result;
+        try {
+            result = await window.DelivoAuth.registerByPhone({ fullName: saved.fullName, phone: saved.phone, lat: saved.lat, lng: saved.lng, locationSource: saved.locationSource });
+        } catch (e) {
+            result = { error: true, message: e?.message || 'تعذر الاتصال بالخادم. حاول مجدداً' };
+        }
+        _otpSendInFlight = false;
+        setLoading(regBtnEl, false, isFresh ? 'تأكيد الكود وإنشاء الحساب' : 'تأكيد الكود وإرسال الطلب');
+        if (result.error) {
+            showError(errorEl, result.message + ' — الكود ما زال صالحاً، اضغط "تأكيد" مجدداً بدون طلب كود جديد.');
+            return;
+        }
+
+        _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
+        closeModal('modal-subscribe');
+        const onSuccess = window._phoneFirstOnSuccess;
+        _resetPhoneFirstMode();
+        if (otpStepEl) otpStepEl.style.display = 'none';
+        resetLocationBtn();
+        clearFields(['reg-displayname', 'reg-phone', 'reg-otp']);
+        if (typeof onSuccess === 'function') onSuccess();
     }
 
     // ── Location: GPS button ────────────────────────────────
@@ -1180,12 +1416,12 @@ function initModalAuth() {
         }
         if (e.target.closest('.acct-btn-signin')) {
             closeModal('modal-account');
-            setTimeout(() => openModal('modal-login'), 180);
+            setTimeout(() => window.openAuthModal(), 180);
             return;
         }
         if (e.target.closest('.acct-btn-register')) {
             closeModal('modal-account');
-            setTimeout(() => openModal('modal-subscribe'), 180);
+            setTimeout(() => { if (typeof window.startFreshRegistration === 'function') window.startFreshRegistration(); }, 180);
             return;
         }
     });
@@ -1201,6 +1437,18 @@ function initModalAuth() {
 }
 
 // ── Render account modal ──────────────────────────────────────
+// ── Single entry point for every "guest needs to sign in" moment in the
+// app (track-order link, World Cup entry, account modal buttons, external
+// order nudge, etc.) — decides between the launch modal (genuinely new
+// device) and the phone-login modal (device already has a lead or a real
+// account), so nothing anywhere shows the wrong one of the two.
+window.openAuthModal = async function() {
+    if (typeof openModal !== 'function') return;
+    let lead = null;
+    try { lead = await window.DelivoAuth.getDeviceLead(); } catch (_) {}
+    openModal(lead ? 'modal-login' : 'modal-launch');
+};
+
 function renderAccountModal() {
     const user    = window.DelivoUser;
     const guestEl = document.getElementById('acct-guest');
@@ -1219,6 +1467,12 @@ function renderAccountModal() {
         if (nameEl)   nameEl.textContent   = user.displayName || user.username || 'User';
         if (emailEl)  emailEl.textContent  = user.username ? '@' + user.username : '';
         if (acctBtn)  acctBtn.classList.add('logged-in');
+
+        // Phone-first accounts never had a real password — there's nothing
+        // to "change" — so hide that row for them. Every legacy username/
+        // password account keeps seeing it exactly as before.
+        const pwBtn = document.getElementById('acct-password-btn');
+        if (pwBtn) pwBtn.style.display = (user.registrationMethod === 'phone-otp') ? 'none' : '';
         // sync bottom bar
         const bbBtn = document.getElementById('bb-account-btn');
         if (bbBtn) bbBtn.classList.add('logged-in');
@@ -1304,6 +1558,12 @@ function resetLocationBtn() {
 function populateEditForm() {
     const user = window.DelivoUser;
     if (!user) return;
+
+    // Same rule as the account menu row — no real password exists for
+    // phone-otp accounts, so there's nothing here to change.
+    const pwSection = document.getElementById('edit-password-section');
+    if (pwSection) pwSection.style.display = (user.registrationMethod === 'phone-otp') ? 'none' : '';
+
     const nameEl  = document.getElementById('edit-displayname');
     const phoneEl = document.getElementById('edit-phone');
     const latEl   = document.getElementById('edit-lat');
@@ -2607,6 +2867,198 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('modalOpen', (e) => {
         if (e.detail === 'modal-account') _updateOrdersBadge();
     });
+
+    // ══════════════════════════════════════════════════════
+    // LAUNCH MODAL — shown once per device, only to a genuinely
+    // brand-new visitor (no lead saved yet, not already logged in)
+    // ══════════════════════════════════════════════════════
+    async function _showLaunchModalIfNeeded() {
+        if (window.DelivoUser) return; // already a real logged-in account
+        try {
+            const lead = await window.DelivoAuth.getDeviceLead();
+            if (lead) return; // this device already has a lead on file
+        } catch (_) { return; } // fail closed — never show on a network hiccup
+        if (typeof openModal === 'function') openModal('modal-launch');
+    }
+    if (window._authStateReady) {
+        _showLaunchModalIfNeeded();
+    } else {
+        document.addEventListener('delivoAuthReady', _showLaunchModalIfNeeded, { once: true });
+    }
+
+    const launchBtn = document.getElementById('launch-submit');
+    if (launchBtn) {
+        launchBtn.addEventListener('click', async () => {
+            const fullName = document.getElementById('launch-fullname')?.value || '';
+            const phoneRaw = document.getElementById('launch-phone')?.value    || '';
+            const phoneDigits = phoneRaw.replace(/[\s\-]/g, '');
+            const errorEl = document.getElementById('launch-error');
+
+            if (fullName.trim().length < 2) { showError(errorEl, 'أدخل اسمك الكامل (حرفان على الأقل)'); return; }
+            if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits)) {
+                showError(errorEl, 'رقم الهاتف غير صحيح. مثال: 03 123 456'); return;
+            }
+            hideError(errorEl);
+            setLoading(launchBtn, true, '⏳');
+            const result = await window.DelivoAuth.saveDeviceLead({ fullName, phone: phoneDigits });
+            setLoading(launchBtn, false, 'متابعة التصفح');
+            if (result.error) { showError(errorEl, result.message); return; }
+            closeModal('modal-launch');
+            const onSuccess = window._launchModalOnSuccess;
+            window._launchModalOnSuccess = null;
+            if (typeof onSuccess === 'function') onSuccess();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════
+    // PHONE-FIRST LOGIN — the new default content of modal-login
+    // ══════════════════════════════════════════════════════
+    const legacyToggle = document.getElementById('login-legacy-toggle');
+    const phoneToggle   = document.getElementById('login-phone-toggle');
+    if (legacyToggle) {
+        legacyToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('phone-login-fields').style.display  = 'none';
+            document.getElementById('legacy-login-fields').style.display = 'block';
+        });
+    }
+    if (phoneToggle) {
+        phoneToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('legacy-login-fields').style.display = 'none';
+            document.getElementById('phone-login-fields').style.display  = 'block';
+        });
+    }
+
+    let _loginPhoneState = null; // { uid, phone, deviceUUID } once resolved
+
+    const loginPhoneBtn = document.getElementById('login-phone-submit');
+    if (loginPhoneBtn) {
+        loginPhoneBtn.addEventListener('click', async () => {
+            const errorEl  = document.getElementById('login-error');
+            const otpStepEl = document.getElementById('login-otp-step');
+            const isConfirmStep = _loginPhoneState && otpStepEl?.style.display !== 'none';
+
+            if (!isConfirmStep) {
+                const phoneRaw = document.getElementById('login-phone')?.value || '';
+                const phoneDigits = phoneRaw.replace(/[\s\-]/g, '');
+                if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits)) {
+                    showError(errorEl, 'رقم الهاتف غير صحيح'); return;
+                }
+                hideError(errorEl);
+                setLoading(loginPhoneBtn, true, '⏳');
+                const resolved = await window.DelivoAuth.resolvePhoneLogin({ phone: phoneDigits });
+                if (resolved.error) {
+                    setLoading(loginPhoneBtn, false, 'متابعة');
+                    if (resolved.notFound) {
+                        errorEl.innerHTML = `
+                            لا يوجد حساب بهذا الرقم.
+                            <a href="#" id="login-notfound-register" style="color:#b91c1c;text-decoration:underline;font-weight:800;">سجّل حساباً جديداً بهذا الرقم</a>
+                            — أو إذا كان لديك حساب قديم،
+                            <a href="#" id="login-notfound-legacy" style="color:#b91c1c;text-decoration:underline;font-weight:800;">سجّل الدخول باسم المستخدم وكلمة المرور</a>
+                        `;
+                        errorEl.style.display     = 'block';
+                        errorEl.style.background  = '#fff1f1';
+                        errorEl.style.borderColor = '#fca5a5';
+                        errorEl.style.color       = '#b91c1c';
+
+                        document.getElementById('login-notfound-register')?.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            closeModal('modal-login');
+                            setTimeout(() => {
+                                if (typeof window.startFreshRegistration === 'function') {
+                                    window.startFreshRegistration();
+                                    // Carry over the phone they already typed —
+                                    // no reason to make them retype it.
+                                    const phoneInput = document.getElementById('reg-phone');
+                                    if (phoneInput) phoneInput.value = phoneDigits;
+                                }
+                            }, 180);
+                        });
+                        document.getElementById('login-notfound-legacy')?.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            document.getElementById('phone-login-fields').style.display  = 'none';
+                            document.getElementById('legacy-login-fields').style.display = 'block';
+                            hideError(errorEl);
+                        });
+                    } else {
+                        showError(errorEl, resolved.message);
+                    }
+                    return;
+                }
+                _loginPhoneState = resolved;
+
+                // Try the instant path first — no OTP required if this
+                // device already matches the account's stored deviceUUID.
+                const finish = await window.DelivoAuth.finishPhoneLogin({
+                    uid: resolved.uid, phone: resolved.phone, deviceUUID: resolved.deviceUUID, otpVerified: false,
+                });
+                if (finish.success) {
+                    setLoading(loginPhoneBtn, false, 'متابعة');
+                    closeModal('modal-login');
+                    clearFields(['login-phone']);
+                    _loginPhoneState = null;
+                    return;
+                }
+                if (finish.error) {
+                    setLoading(loginPhoneBtn, false, 'متابعة');
+                    showError(errorEl, finish.message);
+                    return;
+                }
+                // finish.requiresOtp — send the WhatsApp code and reveal the OTP step
+                try {
+                    const code      = await _sendOtpWhatsapp(resolved.phone);
+                    const expiresAt = Date.now() + OTP_TIMEOUT;
+                    _loginPhoneState = { ...resolved, code, expiresAt };
+                    if (otpStepEl) { otpStepEl.style.display = 'block'; document.getElementById('login-otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(resolved.phone)}`; }
+                    setLoading(loginPhoneBtn, false, 'تأكيد الكود والدخول');
+                    document.getElementById('login-otp')?.focus();
+                } catch (e) {
+                    setLoading(loginPhoneBtn, false, 'متابعة');
+                    showError(errorEl, e.message);
+                    _loginPhoneState = null;
+                }
+                return;
+            }
+
+            // Confirm step — verify the code, then finish via the Cloud Function
+            const entered = document.getElementById('login-otp')?.value.trim() || '';
+            if (!entered) { showError(errorEl, 'أدخل كود التحقق'); return; }
+            if (Date.now() > _loginPhoneState.expiresAt) { showError(errorEl, 'انتهت صلاحية الكود. أعد المحاولة'); _loginPhoneState = null; otpStepEl.style.display = 'none'; return; }
+            if (entered !== _loginPhoneState.code) { showError(errorEl, '❌ الكود غير صحيح'); document.getElementById('login-otp')?.select(); return; }
+
+            setLoading(loginPhoneBtn, true, '⏳ جاري الدخول...');
+            const finish = await window.DelivoAuth.finishPhoneLogin({
+                uid: _loginPhoneState.uid, phone: _loginPhoneState.phone,
+                deviceUUID: _loginPhoneState.deviceUUID, otpVerified: true,
+            });
+            setLoading(loginPhoneBtn, false, 'تأكيد الكود والدخول');
+            if (finish.error) { showError(errorEl, finish.message); return; }
+
+            closeModal('modal-login');
+            clearFields(['login-phone', 'login-otp']);
+            if (otpStepEl) otpStepEl.style.display = 'none';
+            _loginPhoneState = null;
+        });
+    }
+
+    const loginOtpResendBtn = document.getElementById('login-otp-resend-btn');
+    if (loginOtpResendBtn) {
+        loginOtpResendBtn.addEventListener('click', async () => {
+            if (!_loginPhoneState) return;
+            const errorEl = document.getElementById('login-error');
+            setLoading(loginOtpResendBtn, true, '⏳');
+            try {
+                const code      = await _sendOtpWhatsapp(_loginPhoneState.phone);
+                const expiresAt = Date.now() + OTP_TIMEOUT;
+                _loginPhoneState = { ..._loginPhoneState, code, expiresAt };
+                document.getElementById('login-otp-hint').textContent = `✅ أُعيد إرسال الكود إلى واتساب رقم 961${_toIntlPhone(_loginPhoneState.phone)}`;
+            } catch (e) {
+                showError(errorEl, e.message);
+            }
+            setLoading(loginOtpResendBtn, false, 'إعادة الإرسال');
+        });
+    }
 });
 
 async function _updateOrdersBadge() {
