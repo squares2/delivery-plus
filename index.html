@@ -1235,24 +1235,24 @@
         </div>
     </div>
 
-    <script src="scripts/navbar.js?v=12"></script>
-    <script src="scripts/firebase-init.js?v=8"></script>
+    <script src="scripts/navbar.js?v=13"></script>
+    <script src="scripts/firebase-init.js?v=9"></script>
     <script src="scripts/platform-status.js?v=1"></script>
-    <script src="scripts/modal-auth.js?v=29"></script>
+    <script src="scripts/modal-auth.js?v=30"></script>
     <script src="scripts/onboarding.js?v=1"></script>
 
     <script src="scripts/loader.js?v=16"></script>
     <script src="scripts/modals.js?v=7"></script>
     <script src="scripts/stores.js?v=14"></script>
     <script src="scripts/categories.js?v=9"></script>
-    <script src="scripts/cart.js?v=19"></script>
+    <script src="scripts/cart.js?v=20"></script>
     <script src="scripts/store-panel.js?v=16"></script>
     <script src="scripts/mealtime.js?v=6"></script>
-    <script src="scripts/pwa.js?v=8"></script>
+    <script src="scripts/pwa.js?v=9"></script>
     <script src="scripts/presence.js?v=1"></script>
     <script src="scripts/back-handler.js?v=2"></script>
     <!-- WORLD CUP 2026 PROMO — remove this line + scripts/worldcup2026.js to retire the campaign -->
-    <script src="scripts/worldcup2026.js?v=1"></script>
+    <script src="scripts/worldcup2026.js?v=2"></script>
     <script>
     // ── Wire "تتبع الطلب" nav links ──────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
@@ -1316,66 +1316,49 @@
 <!-- ══════════════════════════════════════════════════════════
      EXTERNAL ORDER MODAL — طلب من متجر خارجي
 ══════════════════════════════════════════════════════════ -->
-<div id="ext-order-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.65);backdrop-filter:blur(3px);align-items:flex-end;justify-content:center;overscroll-behavior:contain;" onclick="if(event.target===this)_extCloseModal()">
-    <div id="ext-order-sheet" style="width:100%;max-width:500px;background:var(--surface,#1a1a2e);border-radius:22px 22px 0 0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;position:relative;" onclick="event.stopPropagation()">
+<div id="ext-order-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:flex-end;justify-content:center;overscroll-behavior:contain;" onclick="if(event.target===this)_extCloseModal()">
+    <div id="ext-order-sheet" style="width:100%;max-width:500px;background:rgba(255,255,255,0.86);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border-radius:22px 22px 0 0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;box-shadow:0 -8px 40px rgba(0,0,0,0.18);" onclick="event.stopPropagation()">
 
         <!-- Handle -->
-        <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:99px;margin:10px auto 0;flex-shrink:0;"></div>
+        <div style="width:40px;height:4px;background:var(--clr-gray-200,#e2e2e6);border-radius:99px;margin:10px auto 0;flex-shrink:0;"></div>
 
         <!-- Header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.07);">
-            <div>
-                <div style="font-size:1.05rem;font-weight:900;color:#fff;">🛍️ طلب خارجي</div>
-                <div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:2px;">اطلب من أي متجر — نوصّله لبابك</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;flex-shrink:0;border-bottom:1px solid var(--clr-gray-100,#f0f0f2);">
+            <div style="display:flex;align-items:center;gap:11px;">
+                <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#ff7a2e,var(--clr-orange,#ff5c00));display:flex;align-items:center;justify-content:center;font-size:1.15rem;box-shadow:0 4px 14px rgba(255,92,0,0.35);flex-shrink:0;">🛍️</div>
+                <div>
+                    <div style="font-size:1.1rem;font-weight:900;color:var(--clr-black,#0f0f0f);">طلب خارجي</div>
+                    <div style="font-size:0.75rem;color:var(--clr-gray-500,#65657a);margin-top:2px;">اطلب من أي متجر — نوصّله لبابك</div>
+                </div>
             </div>
-            <button onclick="_extCloseModal()" style="background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
-        </div>
-
-        <!-- Steps indicator -->
-        <div id="ext-steps-bar" style="display:flex;align-items:center;justify-content:center;gap:0;padding:14px 18px 10px;flex-shrink:0;">
-            <div class="ext-step-dot" id="ext-dot-1" data-step="1" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
-                <div style="width:28px;height:28px;border-radius:50%;background:var(--orange,#ff5c00);color:#fff;font-size:0.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;">1</div>
-                <span style="font-size:0.58rem;font-weight:700;color:var(--orange,#ff5c00);">المتجر</span>
-            </div>
-            <div style="flex:1;height:2px;background:rgba(255,255,255,0.1);margin:0 6px;margin-bottom:16px;" id="ext-line-1"></div>
-            <div class="ext-step-dot" id="ext-dot-2" data-step="2" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
-                <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:0.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;">2</div>
-                <span style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.35);">الطلب</span>
-            </div>
-            <div style="flex:1;height:2px;background:rgba(255,255,255,0.1);margin:0 6px;margin-bottom:16px;" id="ext-line-2"></div>
-            <div class="ext-step-dot" id="ext-dot-3" data-step="3" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
-                <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:0.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;">3</div>
-                <span style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.35);">التوصيل</span>
-            </div>
-            <div style="flex:1;height:2px;background:rgba(255,255,255,0.1);margin:0 6px;margin-bottom:16px;" id="ext-line-3"></div>
-            <div class="ext-step-dot" id="ext-dot-4" data-step="4" style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:0.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;">4</div>
-                <span style="font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.35);">التأكيد</span>
-            </div>
+            <button onclick="_extCloseModal()" style="background:var(--clr-gray-100,#f0f0f2);border:none;color:var(--clr-gray-500,#65657a);width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
         </div>
 
         <!-- Scrollable content -->
         <div id="ext-order-content" style="overflow-y:auto;flex:1;padding:0 18px 24px;-webkit-overflow-scrolling:touch;"></div>
 
-        <!-- Footer nav -->
-        <div style="padding:12px 18px 20px;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:10px;">
-            <button id="ext-btn-back" onclick="_extBack()" style="display:none;flex:0 0 auto;padding:13px 20px;background:rgba(255,255,255,0.08);border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:0.9rem;font-weight:700;cursor:pointer;">‹ رجوع</button>
-            <button id="ext-btn-next" onclick="_extNext()" style="flex:1;padding:13px;background:var(--orange,#ff5c00);border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:0.95rem;font-weight:900;cursor:pointer;transition:opacity .2s;">التالي ›</button>
+        <!-- Footer -->
+        <div style="padding:12px 18px 20px;flex-shrink:0;border-top:1px solid var(--clr-gray-100,#f0f0f2);display:flex;gap:10px;">
+            <button id="ext-btn-next" onclick="_extSubmit()" style="flex:1;padding:13px;background:var(--clr-orange,#ff5c00);border:none;border-radius:14px;color:#fff;font-family:inherit;font-size:0.95rem;font-weight:900;cursor:pointer;transition:opacity .2s;box-shadow:var(--shadow-orange,0 4px 16px rgba(255,92,0,0.28));">✔ إرسال الطلب</button>
         </div>
     </div>
 </div>
 
 <!-- External order map picker -->
-<div id="ext-map-modal" style="display:none;position:fixed;inset:0;z-index:10100;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;">
-    <div style="width:100%;max-width:500px;background:#1a1a2e;border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,0.08);">
-            <span id="ext-map-title" style="font-size:0.95rem;font-weight:800;color:#fff;">📍 حدد الموقع</span>
-            <button onclick="_extMapCancel()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:rgba(255,255,255,0.5);padding:4px 8px;">✕</button>
+<div id="ext-map-modal" style="display:none;position:fixed;inset:0;z-index:10100;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);align-items:flex-end;justify-content:center;">
+    <div style="width:100%;max-width:500px;background:rgba(255,255,255,0.9);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(0,0,0,0.18);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--clr-gray-100,#f0f0f2);">
+            <span id="ext-map-title" style="font-size:0.95rem;font-weight:800;color:var(--clr-black,#0f0f0f);">📍 حدد الموقع</span>
+            <button onclick="_extMapCancel()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--clr-gray-400,#9898a6);padding:4px 8px;">✕</button>
         </div>
         <div id="ext-map-leaflet" style="width:100%;height:55vh;min-height:260px;"></div>
-        <p style="text-align:center;font-size:0.72rem;color:rgba(255,255,255,0.35);margin:6px 0;font-weight:600;">اسحب الدبوس أو انقر لتحديد الموقع</p>
-        <div style="padding:10px 16px 20px;">
-            <button id="ext-map-confirm" onclick="_extMapConfirm()" style="width:100%;background:var(--orange,#ff5c00);color:#fff;border:none;border-radius:12px;padding:13px;font-size:0.95rem;font-weight:900;cursor:pointer;font-family:inherit;">✔ تأكيد الموقع</button>
+        <p style="text-align:center;font-size:0.72rem;color:var(--clr-gray-400,#9898a6);margin:6px 0;font-weight:600;">اسحب الدبوس أو انقر لتحديد الموقع</p>
+        <div style="padding:0 16px;">
+            <button id="ext-map-gps-btn" class="ext-gps-btn">📍 موقعي الحالي</button>
+            <p id="ext-map-gps-status" style="display:none;text-align:center;font-size:0.75rem;color:#dc2626;font-weight:700;margin:0 0 8px;"></p>
+        </div>
+        <div style="padding:0 16px 20px;">
+            <button id="ext-map-confirm" onclick="_extMapConfirm()" style="width:100%;background:var(--clr-orange,#ff5c00);color:#fff;border:none;border-radius:12px;padding:13px;font-size:0.95rem;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:var(--shadow-orange,0 4px 16px rgba(255,92,0,0.28));">✔ تأكيد الموقع</button>
         </div>
     </div>
 </div>
@@ -1396,7 +1379,7 @@
 </div>
 
 <!-- ── Delivery Coverage Warning — shown when the chosen pin falls outside the radius ── -->
-<div id="coverage-warning-modal" style="display:none;position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,0.65);align-items:flex-end;justify-content:center;">
+<div id="coverage-warning-modal" style="display:none;position:fixed;inset:0;z-index:10200;background:rgba(0,0,0,0.65);align-items:flex-end;justify-content:center;">
     <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px;border-bottom:1px solid #f0f0f0;">
             <span style="font-size:1rem;font-weight:800;color:#111;display:flex;align-items:center;gap:6px;">🚫 خارج نطاق التوصيل</span>
@@ -1819,54 +1802,148 @@
     100% { background-position: -200% 0; }
 }
 
-/* ══ External Order Modal ══════════════════════════════════ */
+/* ══ External Order Modal — light/bright brand system with a
+   frosted-glass treatment and a signature warm orange glow ══ */
+#ext-order-overlay { opacity: 0; transition: opacity .28s ease; }
+#ext-order-sheet {
+    position: relative;
+    transform: translateY(60px);
+    opacity: 0;
+    transition: transform .42s cubic-bezier(.34,1.2,.64,1), opacity .32s ease;
+}
+#ext-order-sheet.ext-sheet-visible { transform: translateY(0); opacity: 1; }
+#ext-order-sheet::before {
+    content: '';
+    position: absolute; top: -70px; left: 50%; transform: translateX(-50%);
+    width: 300px; height: 200px;
+    background: radial-gradient(circle, rgba(255,92,0,0.32) 0%, rgba(255,92,0,0) 72%);
+    filter: blur(18px); pointer-events: none; z-index: 0;
+}
+#ext-order-sheet > * { position: relative; z-index: 1; }
+
+.ext-section-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.92rem; font-weight: 900; color: var(--clr-black);
+    margin-bottom: 14px; padding-bottom: 10px;
+    border-bottom: 1.5px solid var(--clr-gray-100);
+}
+.ext-section-icon {
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.95rem; flex-shrink: 0;
+}
+.ext-section-icon--store  { background: var(--clr-orange-light); box-shadow: 0 0 0 4px rgba(255,92,0,0.08); }
+.ext-section-icon--order  { background: #eef3ff; box-shadow: 0 0 0 4px rgba(59,130,246,0.08); }
+.ext-section-icon--dest   { background: #dcfce7; box-shadow: 0 0 0 4px rgba(22,163,74,0.08); }
 .ext-field { margin-bottom: 15px; }
 .ext-label {
-    display: block; font-size: 0.74rem; font-weight: 800;
-    color: rgba(255,255,255,0.55); margin-bottom: 7px; letter-spacing: 0.02em;
+    display: block; font-size: 0.78rem; font-weight: 700;
+    color: var(--clr-gray-500); margin-bottom: 7px; letter-spacing: 0.01em;
 }
 .ext-input {
-    width: 100%; padding: 11px 13px; background: rgba(255,255,255,0.06);
-    border: 1.5px solid rgba(255,255,255,0.1); border-radius: 12px;
-    color: #fff; font-family: inherit; font-size: 0.88rem;
-    outline: none; box-sizing: border-box; transition: border-color .18s;
+    width: 100%; padding: 11px 13px; background: var(--clr-white);
+    border: 1.5px solid var(--clr-gray-200); border-radius: var(--radius-md);
+    color: var(--clr-black); font-family: inherit; font-size: 0.9rem;
+    outline: none; box-sizing: border-box; transition: border-color .18s, box-shadow .18s;
 }
-.ext-input:focus { border-color: var(--orange, #ff5c00); }
-.ext-input::placeholder { color: rgba(255,255,255,0.25); }
+.ext-input:focus { border-color: var(--clr-orange); box-shadow: 0 0 0 3px var(--clr-orange-glow); }
+.ext-input::placeholder { color: var(--clr-gray-400); }
 .ext-map-btn {
     display: flex; align-items: center; gap: 5px;
-    padding: 0 13px; background: rgba(255,92,0,0.12);
-    border: 1.5px solid rgba(255,92,0,0.3); border-radius: 12px;
-    color: var(--orange, #ff5c00); font-family: inherit; font-size: 0.78rem;
+    padding: 0 13px; background: var(--clr-orange-light);
+    border: 1.5px solid rgba(255,92,0,0.25); border-radius: var(--radius-md);
+    color: var(--clr-orange); font-family: inherit; font-size: 0.78rem;
     font-weight: 800; cursor: pointer; white-space: nowrap; flex-shrink: 0;
-    transition: background .15s;
+    transition: background .15s, transform .15s;
 }
-.ext-map-btn:hover { background: rgba(255,92,0,0.22); }
+.ext-map-btn:hover { background: #ffe6d9; }
+.ext-map-btn:active { transform: scale(0.96); }
+.ext-gps-btn {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 11px; background: var(--clr-orange-light);
+    border: 1.5px solid rgba(255,92,0,0.3); border-radius: 12px;
+    color: var(--clr-orange); font-family: inherit; font-size: 0.85rem;
+    font-weight: 800; cursor: pointer; margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(255,92,0,0.12);
+    transition: background .15s, transform .15s, box-shadow .15s;
+}
+.ext-gps-btn:hover { background: #ffe6d9; box-shadow: 0 3px 12px rgba(255,92,0,0.18); }
+.ext-gps-btn:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(255,92,0,0.1); }
+.ext-gps-btn:disabled { opacity: 0.6; cursor: default; transform: none; }
 .ext-coord-badge {
-    margin-top: 6px; font-size: 0.68rem; color: rgba(255,92,0,0.7);
-    font-weight: 700; font-family: monospace;
+    margin-top: 6px; font-size: 0.7rem; color: var(--clr-orange-dim);
+    font-weight: 700; font-family: var(--mono-font, monospace);
 }
 .ext-chip {
-    padding: 5px 13px; background: rgba(255,255,255,0.06);
-    border: 1.5px solid rgba(255,255,255,0.1); border-radius: 50px;
-    color: rgba(255,255,255,0.55); font-family: inherit; font-size: 0.75rem;
+    padding: 6px 14px; background: var(--clr-gray-50);
+    border: 1.5px solid var(--clr-gray-200); border-radius: var(--radius-pill);
+    color: var(--clr-gray-500); font-family: inherit; font-size: 0.78rem;
     font-weight: 700; cursor: pointer; transition: all .15s;
 }
-.ext-chip:hover, .ext-chip.active { background: rgba(255,92,0,0.15); border-color: rgba(255,92,0,0.4); color: var(--orange,#ff5c00); }
-.ext-chip--item { font-size: 0.72rem; }
-.ext-summary-card {
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px; overflow: hidden;
+.ext-chip:hover, .ext-chip.active { background: var(--clr-orange-light); border-color: rgba(255,92,0,0.35); color: var(--clr-orange); }
+.ext-chip:active { transform: scale(0.96); }
+.ext-item-popup-overlay {
+    position: fixed; inset: 0; z-index: 10300;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
 }
-.ext-summary-row {
-    display: flex; gap: 12px; align-items: flex-start;
-    padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.05);
+.ext-item-popup {
+    width: min(420px, 92vw); max-height: 78vh;
+    background: rgba(255,255,255,0.97); backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 20px; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.3);
 }
-.ext-summary-row:last-child { border-bottom: none; }
-.ext-summary-icon { font-size: 1.2rem; flex-shrink: 0; padding-top: 2px; }
-.ext-summary-label { font-size: 0.65rem; font-weight: 800; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
-.ext-summary-val { font-size: 0.88rem; font-weight: 800; color: #fff; }
-.ext-summary-sub { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.ext-item-popup__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px 12px; border-bottom: 1px solid var(--clr-gray-100,#f0f0f2);
+    font-size: 1rem; font-weight: 900; color: var(--clr-black,#0f0f0f);
+}
+.ext-item-popup__close {
+    background: var(--clr-gray-100,#f0f0f2); border: none; color: var(--clr-gray-500,#65657a);
+    width: 30px; height: 30px; border-radius: 50%; font-size: 1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ext-item-popup__body {
+    padding: 16px 18px 20px; overflow-y: auto;
+    display: flex; flex-wrap: wrap; gap: 9px;
+}
+.ext-item-popup__pill {
+    padding: 10px 16px; background: var(--clr-gray-50); border: 1.5px solid var(--clr-gray-200);
+    border-radius: var(--radius-pill); color: var(--clr-black,#0f0f0f);
+    font-family: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all .15s;
+}
+.ext-item-popup__pill:hover, .ext-item-popup__pill:active { background: var(--clr-orange-light); border-color: rgba(255,92,0,0.35); color: var(--clr-orange); transform: scale(0.97); }
+.ext-item-popup__pill--added {
+    background: #dcfce7 !important; border-color: rgba(22,163,74,0.4) !important;
+    color: #16a34a !important; transform: scale(1.04) !important;
+}
+.ext-item-popup__tray {
+    padding: 12px 18px; border-bottom: 1px solid var(--clr-gray-100,#f0f0f2);
+    background: var(--clr-gray-50,#f7f7f9); transition: background .3s;
+}
+.ext-item-popup__tray--flash { background: #dcfce7; }
+.ext-item-popup__tray-empty { font-size: 0.78rem; color: var(--clr-gray-400,#9898a6); font-weight: 600; }
+.ext-item-popup__tray-label { font-size: 0.72rem; font-weight: 800; color: #16a34a; display: block; margin-bottom: 7px; }
+.ext-item-popup__tray-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.ext-item-popup__tray-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 6px 5px 10px; background: #fff; border: 1px solid rgba(22,163,74,0.3);
+    border-radius: var(--radius-pill); color: var(--clr-black,#0f0f0f);
+    font-size: 0.76rem; font-weight: 700;
+}
+.ext-item-popup__tray-x {
+    background: rgba(22,163,74,0.12); border: none; color: #16a34a;
+    width: 18px; height: 18px; border-radius: 50%; font-size: 0.62rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0;
+}
+.ext-item-popup__tray-x:hover { background: rgba(220,38,38,0.15); color: #dc2626; }
+
+#ext-btn-next {
+    background: linear-gradient(135deg, #ff7a2e, var(--clr-orange, #ff5c00)) !important;
+    transition: transform .15s, box-shadow .15s !important;
+}
+#ext-btn-next:active { transform: scale(0.98); box-shadow: 0 2px 10px rgba(255,92,0,0.25) !important; }
+
 @keyframes extPop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes extShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
 </style>
@@ -2303,6 +2380,6 @@ if (_origAcctBtn) {
 }
 </script>
 
-    <script src="scripts/external-order.js?v=1"></script>
+    <script src="scripts/external-order.js?v=5"></script>
 </body>
 </html>

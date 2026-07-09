@@ -4,7 +4,16 @@
    ============================================================ */
 
 // ── 1. Register Service Worker ────────────────────────────────
-if ('serviceWorker' in navigator) {
+// Skipped entirely on localhost/127.0.0.1 — the whole point of this
+// service worker is production caching behavior (instant repeat visits,
+// controlled rollout via BUILD_TS), which actively works against rapid
+// local iteration by serving stale cached JS under the same URL. Real
+// deployments (delivolb.com / GitHub Pages) are unaffected — this only
+// checks the hostname, nothing about the production registration path
+// below changes.
+const _isLocalDev = ['localhost', '127.0.0.1'].includes(location.hostname);
+
+if ('serviceWorker' in navigator && !_isLocalDev) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => {

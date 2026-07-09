@@ -401,6 +401,20 @@ input, select, textarea { font-family: var(--font); }
 .oc-customer-un   { font-family: var(--mono); font-size: 0.76rem; color: var(--orange); }
 .oc-customer-ph   { font-family: var(--mono); font-size: 0.76rem; color: var(--gray-light); direction: ltr; }
 .oc-total { font-family: var(--mono); font-size: var(--fs-md); font-weight: 600; color: var(--green); flex-shrink: 0; }
+.oc-total-edit { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.oc-total-cur { font-family: var(--mono); font-size: var(--fs-md); font-weight: 600; color: var(--green); }
+.oc-total-input {
+    width: 98px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--green); font-family: var(--mono);
+    font-size: var(--fs-md); font-weight: 600; padding: 2px 6px; text-align: left;
+}
+.oc-total-input:focus { border-color: var(--orange); outline: none; }
+.oc-fee-input {
+    width: 88px; background: transparent; border: none; border-bottom: 1px dashed rgba(245,158,11,0.5);
+    color: var(--yellow); font-family: var(--mono); font-size: var(--fs-sm); font-weight: 700;
+    padding: 0 2px; text-align: left;
+}
+.oc-fee-input:focus { outline: none; border-bottom-style: solid; }
 .oc-state { flex-shrink: 0; padding: 3px var(--pad-sm); border-radius: 50px; font-size: var(--fs-xs); font-weight: 800; }
 .state-badge-0 { background: rgba(255,92,0,0.15);  color: var(--orange); }
 .state-badge-1 { background: var(--green-glow);     color: var(--green);  }
@@ -928,6 +942,19 @@ input, select, textarea { font-family: var(--font); }
 }
 .or-assign-btn:hover { background:rgba(255,92,0,0.18); }
 .or-price { font-family:var(--mono); font-size:var(--fs-sm); color:var(--white); white-space:nowrap; }
+.or-price-cur, .or-fee-cur { font-family: var(--mono); font-size: var(--fs-xs); font-weight: 700; color: var(--gray-light); margin-left: 3px; }
+.or-price-input {
+    width: 100px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--white); font-family: var(--mono);
+    font-size: var(--fs-sm); padding: 3px 6px; text-align: left;
+}
+.or-price-input:focus { border-color: var(--orange); outline: none; }
+.or-fee-input {
+    width: 92px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--green); font-family: var(--mono);
+    font-size: var(--fs-xs); padding: 3px 6px; text-align: left;
+}
+.or-fee-input:focus { border-color: var(--orange); outline: none; }
 .or-profit { font-family:var(--mono); font-size:var(--fs-xs); color:var(--green); white-space:nowrap; }
 .or-drivercost { font-family:var(--mono); font-size:var(--fs-xs); color:var(--yellow); white-space:nowrap; }
 .or-profit-loading { color:var(--gray); font-size:var(--fs-xs); font-style:italic; }
@@ -2666,7 +2693,7 @@ const ITEM_GH_TOKEN  = 'github_pat_11BXOIQGA0hwJuekrWWzt6_InNTv9j81508DNxD2YC1N1
     /* Load admin presence monitor after DOM ready */
     window.addEventListener('load', () => {
         const s = document.createElement('script');
-        s.src = 'scripts/admin-presence.js?v=1';
+        s.src = 'scripts/admin-presence.js?v=2';
         document.body.appendChild(s);
     });
 const FIRESTORE   = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
@@ -4003,7 +4030,8 @@ async function loadAllData() {
         } catch(_) {}
 
         allDeviceGroups = {};
-        Object.values(allUsers).forEach(u => {
+        Object.entries(allUsers).forEach(([uid, u]) => {
+            u.uid = uid; // tag each record with its key so downstream code (map popups) can reference it
             const uuid = u.deviceUUID;
             if (!uuid) return;
             if (!allDeviceGroups[uuid]) allDeviceGroups[uuid] = [];
@@ -4976,17 +5004,17 @@ function renderMap() {
             if (uuid && renderedUUIDs.has(uuid)) return;
             if (uuid) renderedUUIDs.add(uuid);
 
-            const label  = u.username || u.displayName || '—';
+            const label  = u.displayName || u.fullname || u.username || '—';
             const online = _isCustomerOnline(uid, u.username);
 
             if (isMulti) {
                 // ── Multi-account marker ──────────────────────────
-                const names  = peers.map(p => '@'+(p.username||p.displayName||'?')).join(', ');
+                const names  = peers.map(p => p.displayName||p.fullname||p.username||'?').join(', ');
                 const count  = peers.length;
                 const icon = mkDiv(
                     `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
                         <div style="${labelStyle}background:rgba(239,68,68,0.92);color:#fff;border:1px solid rgba(255,255,255,0.3);">
-                            ⚠️ ${count} حسابات · @${label}
+                            ⚠️ ${count} حسابات · ${label}
                         </div>
                         <div style="position:relative;width:28px;height:28px;">
                             <div style="width:28px;height:28px;border-radius:50%;background:#ef4444;
@@ -5000,15 +5028,16 @@ function renderMap() {
                     </div>`,
                     null, [14, 52]
                 );
-                const popupRows = peers.map(p =>
-                    `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.07);">
-                        <div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;">${(p.username||'?')[0].toUpperCase()}</div>
+                const popupRows = peers.map(p => {
+                    const pName = p.displayName||p.fullname||p.username||'—';
+                    return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.07);">
+                        <div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;">${pName[0].toUpperCase()}</div>
                         <div>
-                            <div style="font-weight:800;font-size:12px;">@${p.username||'—'}</div>
-                            <div style="font-size:10px;color:#9ca3af;">${p.displayName||p.fullname||''} ${p.phone?'· '+formatPhone(p.phone):''}</div>
+                            <div style="font-weight:800;font-size:12px;">${pName} <span style="font-weight:600;color:#9ca3af;">@${p.username||'—'}</span></div>
+                            <div style="font-size:10px;color:#9ca3af;word-break:break-all;">${p.uid||'—'} · ${p.phone?formatPhone(p.phone):'—'}</div>
                         </div>
-                    </div>`
-                ).join('');
+                    </div>`;
+                }).join('');
                 const m = L.marker([lat, lng], { icon })
                     .bindPopup(`
                         <div style="font-family:Almarai;min-width:180px;">
@@ -5027,14 +5056,14 @@ function renderMap() {
                 const dotColor = online ? '#22c55e' : '#3b82f6';
                 const icon = mkDiv(
                     `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
-                        <div style="${labelStyle}">@${label}</div>
+                        <div style="${labelStyle}">${label}</div>
                         <div style="width:22px;height:22px;border-radius:50%;background:${dotColor};
                                     border:2px solid #fff;box-shadow:0 2px 8px ${online ? 'rgba(34,197,94,0.5)' : 'rgba(59,130,246,0.4)'};"></div>
                     </div>`,
                     null, [11, 38]
                 );
                 const m = L.marker([lat, lng], { icon })
-                    .bindPopup(`<b style="font-family:Almarai">${u.displayName||u.fullname||u.username||'—'}</b><br><small style="color:${online ? '#22c55e' : '#888'}">${online ? '🟢 متصل الآن' : '⚪ غير متصل'}</small><br><small style="color:#888">${u.phone?formatPhone(u.phone):''}</small>`)
+                    .bindPopup(`<b style="font-family:Almarai">${label}</b><br><small style="color:#888">@${u.username||'—'}</small><br><small style="color:${online ? '#22c55e' : '#888'}">${online ? '🟢 متصل الآن' : '⚪ غير متصل'}</small><br><small style="color:#888;word-break:break-all;">${uid} · ${u.phone?formatPhone(u.phone):'—'}</small>`)
                     .addTo(adminMap);
                 mapMarkers.customers.push(m);
             }
@@ -5339,6 +5368,8 @@ function renderMap() {
 // ═══════════════════════════════════════════════════════════════
 const STATE_LABELS = { '0':'جديد','1':'وُصِّل','2':'ملغي','3':'متأخر','5':'ملغي/مدفوع','6':'استُلم','7':'قيد التحضير','8':'جاهز ✓' };
 
+let _orderCardSnapshots = {}; // orderKey -> last-rendered JSON, avoids needless card rebuilds
+
 function renderOrders() {
     fetchCompanyVars(); // fire-and-forget — populates the cached companyVars used below
     const list    = document.getElementById('orders-list');
@@ -5367,7 +5398,11 @@ function renderOrders() {
     countEl.textContent = `${entries.length} طلب`;
     emptyEl.style.display = entries.length === 0 ? 'flex' : 'none';
 
-    // ── Smart diff: preserve expanded state & scroll position ──
+    // ── Smart diff: preserve expanded state & scroll position, and
+    // don't touch cards whose data hasn't changed or that the admin is
+    // currently interacting with (typing a price, driver select focused)
+    // — this refresh runs on a timer, so rebuilding every card every
+    // tick was closing open dropdowns and resetting in-progress edits.
     const newKeys = new Set(entries.map(([k]) => k));
 
     // Remove cards that are no longer in the filtered list
@@ -5376,11 +5411,17 @@ function renderOrders() {
     });
 
     entries.forEach(([key, order]) => {
-        const existing    = list.querySelector(`.order-card[data-id="${key}"]`);
+        const existing = list.querySelector(`.order-card[data-id="${key}"]`);
+        const snapshot = JSON.stringify(order);
+
+        if (existing && _orderCardSnapshots[key] === snapshot) return; // nothing changed — leave it alone
+        if (existing && existing.contains(document.activeElement)) return; // admin is editing this card right now — defer
+
         const wasExpanded = existing ? existing.classList.contains('expanded') : false;
 
         const newCard = buildOrderCard(key, order);
         if (wasExpanded) newCard.classList.add('expanded');
+        _orderCardSnapshots[key] = snapshot;
 
         if (existing) {
             // Replace in-place — keeps position and doesn't affect scroll
@@ -5423,7 +5464,9 @@ function buildOrderCard(key, order) {
                     ${order.phone    ? `<span class="oc-customer-ph">${formatPhone(order.phone)}</span>` : ''}
                 </div>
             </span>
-            <span class="oc-total">$${order.total || '0'}</span>
+            <span class="oc-total-edit" title="اضغط لتعديل السعر">
+                <span class="oc-total-cur">${_currencySymbol(order.total)}</span><input type="number" class="oc-total-input" data-oid="${key}" value="${order.total ? String(order.total).replace(/[^0-9.]/g,'') : ''}" placeholder="0" step="0.01">
+            </span>
             <span class="oc-state state-badge-${state}">${STATE_LABELS[state] || state}</span>
             <span class="oc-toggle">▾</span>
         </div>
@@ -5448,7 +5491,9 @@ function buildOrderCard(key, order) {
                 <span class="oc-meta-chip">🏙 ${order.city || '—'}</span>
                 ${order.street ? `<span class="oc-meta-chip">🛣 ${order.street}</span>` : ''}
                 ${order.lat && order.lat !== '0' ? `<span class="oc-meta-chip">📍 ${parseFloat(order.lat).toFixed(5)}, ${parseFloat(order.lng).toFixed(5)}</span>` : ''}
-                <span class="oc-meta-chip" style="color:var(--yellow);border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);">💵 ربح التوصيل: ${deliveryProfit !== null ? formatMoney(deliveryProfit) : '—'}</span>
+                <span class="oc-meta-chip oc-fee-chip" style="color:var(--yellow);border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);" title="رسم التوصيل — محسوب تلقائياً، يمكن تعديله يدوياً">
+                    💵 رسم التوصيل: <span class="oc-fee-cur">${_currencySymbol(order.deliveryFee)}</span><input type="number" class="oc-fee-input" data-oid="${key}" value="${order.deliveryFee != null && order.deliveryFee !== '' ? order.deliveryFee : (deliveryProfit !== null ? deliveryProfit.toFixed(2) : '')}" placeholder="—" step="0.01">
+                </span>
                 <span class="oc-meta-chip ${driverAssigned ? 'has' : ''}" style="${driverAssigned ? 'border-color:rgba(34,197,94,0.3);color:var(--green);background:var(--green-glow);' : ''}">
                     🛵 ${driverAssigned ? order.driver : 'غير معين'}
                 </span>
@@ -5510,6 +5555,46 @@ function buildOrderCard(key, order) {
         card.classList.toggle('expanded');
         if (card.classList.contains('expanded') && isUnread) markRead(key);
     });
+
+    // Editable order price ("total") — lets admin fill in / correct the
+    // price directly, e.g. for "طلب خارجي" orders placed without one.
+    const totalInput = card.querySelector('.oc-total-input');
+    if (totalInput) {
+        totalInput.addEventListener('click', e => e.stopPropagation());
+        const totalCur = card.querySelector('.oc-total-cur');
+        totalInput.addEventListener('input', () => {
+            const sym = _currencySymbol(totalInput.value);
+            if (totalCur) totalCur.textContent = sym;
+            totalInput.step = sym === 'ل.ل' ? '1000' : '0.01';
+        });
+        totalInput.addEventListener('change', async () => {
+            const val = _normalizeMoneyValue(totalInput.value.trim());
+            totalInput.value = val;
+            if (totalCur) totalCur.textContent = _currencySymbol(val);
+            await updateOrderField(key, 'total', val);
+            toast('✅ تم تحديث سعر الطلب');
+        });
+    }
+
+    // Editable delivery fee — admin override of the auto ("smart")
+    // calculated fee, when the distance-based estimate needs adjusting.
+    const feeInput = card.querySelector('.oc-fee-input');
+    if (feeInput) {
+        feeInput.addEventListener('click', e => e.stopPropagation());
+        const feeCur = card.querySelector('.oc-fee-cur');
+        feeInput.addEventListener('input', () => {
+            const sym = _currencySymbol(feeInput.value);
+            if (feeCur) feeCur.textContent = sym;
+            feeInput.step = sym === 'ل.ل' ? '1000' : '0.01';
+        });
+        feeInput.addEventListener('change', async () => {
+            const val = _normalizeMoneyValue(feeInput.value.trim());
+            feeInput.value = val;
+            if (feeCur) feeCur.textContent = _currencySymbol(val);
+            await updateOrderField(key, 'deliveryFee', val);
+            toast('✅ تم تحديث رسم التوصيل');
+        });
+    }
 
     // Assign driver
     const assignBtn = card.querySelector('[data-assign]');
@@ -9846,6 +9931,23 @@ function renderSettings() {
                 </button>
             </div>
         </div>
+        <div class="settings-section" id="otlob-fast-items-section">
+            <div class="settings-section-title" id="ofi-toggle-header"
+                 style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;">
+                <span>🍽 أصناف اطلب السريعة</span>
+                <span id="ofi-toggle-chevron" style="transition:transform 0.2s;font-size:0.9rem;">▸</span>
+            </div>
+            <div id="ofi-admin-body" style="display:none;padding:16px;">
+                <div style="font-size:0.72rem;color:var(--gray);margin-bottom:14px;line-height:1.6;">
+                    الفئات والأصناف التي تظهر كأزرار سريعة للعميل عند وصف طلبه في نموذج "اطلب خارجي" — كل فئة (مثل 🍔 برغر) تفتح قائمة منبثقة بأصنافها الفرعية.
+                </div>
+                <div id="ofi-categories-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+                <button onclick="ofiAddCategory()" style="margin-top:12px;width:100%;padding:9px;background:rgba(255,92,0,0.12);color:var(--orange);border:1px solid rgba(255,92,0,0.3);border-radius:8px;font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.8rem;">+ فئة جديدة</button>
+                <button onclick="ofiSave()" style="margin-top:14px;width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.88rem;">
+                    💾 حفظ الأصناف السريعة
+                </button>
+            </div>
+        </div>
         <div class="settings-section">
             <div class="settings-section-title">الحد اليومي للطلبات</div>
             <div class="setting-row">
@@ -10341,6 +10443,9 @@ function renderSettings() {
     }).catch(() => {});
     // Load smart delivery config
     sdLoad();
+    // Load otlob fast-item categories
+    ofiLoad();
+    _ofiBindToggle();
     // Load keyword chips
     kwLoad();
     // Load mealtime boundaries
@@ -12815,6 +12920,117 @@ async function sdLoad() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   OTLOB FAST ITEMS — admin editor for the "اطلب خارجي" quick-item
+   category popup. Firebase path: /settings/otlobFastItems
+   Shape: [ { label: "🍔 برغر", items: ["برغر لحم", ...] }, ... ]
+   Read by scripts/external-order.js on the customer side; falls
+   back to DEFAULT_OTLOB_FAST_ITEMS below if nothing is saved yet.
+   ═══════════════════════════════════════════════════════════════ */
+
+const DEFAULT_OTLOB_FAST_ITEMS = [
+    { label: '🍔 برغر',    items: ['برغر لحم', 'برغر دجاج', 'برغر مشوي', 'دبل برغر'] },
+    { label: '🍕 بيتزا',   items: ['بيتزا مارغريتا', 'بيتزا خضار', 'بيتزا دجاج', 'بيتزا لحمة'] },
+    { label: '🍗 دجاج',    items: ['دجاج مشوي', 'بروست', 'تشيكن ونجز', 'شاورما دجاج'] },
+    { label: '🌯 ساندويش', items: ['شاورما لحمة', 'صاندويش فلافل', 'صاندويش تونا', 'مناقيش'] },
+    { label: '🍟 مقبلات',  items: ['بطاطا مقلية', 'بطاطا ويدجز', 'حلقات بصل', 'ناغتس'] },
+    { label: '🥗 سلطة',    items: ['فتوش', 'تبولة', 'سلطة سيزر', 'سلطة خضار'] },
+    { label: '🥤 مشروبات', items: ['مشروب غازي', 'عصير طازج', 'مويا', 'آيس تي'] },
+    { label: '☕ حلويات',  items: ['قهوة', 'نسكافيه', 'كنافة', 'مهلبية'] },
+];
+
+let _ofiCatIdx = 0;
+
+// Add one category row (with its sub-item pills) to the editor
+function ofiAddCategory(label = '', items = []) {
+    const list = document.getElementById('ofi-categories-list');
+    if (!list) return;
+    const idx = _ofiCatIdx++;
+    const row = document.createElement('div');
+    row.id = `ofi-cat-${idx}`;
+    row.className = 'ofi-cat-row';
+    row.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;';
+    row.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <input type="text" class="ofi-cat-label" value="${label.replace(/"/g,'&quot;')}" placeholder="🍔 اسم الفئة (مع إيموجي)"
+                   style="flex:1;background:var(--surface3,#1a1a2a);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:var(--font);outline:none;box-sizing:border-box;">
+            <button onclick="this.closest('.ofi-cat-row').remove()" title="حذف الفئة"
+                    style="background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:8px;width:32px;height:32px;flex-shrink:0;cursor:pointer;">🗑</button>
+        </div>
+        <div class="ofi-items-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+        <button onclick="ofiAddItem(${idx})" style="font-size:0.72rem;background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:5px 10px;cursor:pointer;">+ صنف</button>`;
+    list.appendChild(row);
+    (items.length ? items : ['']).forEach(item => ofiAddItem(idx, item));
+    if (!items.length) {
+        // Freshly-added empty category — drop the one blank placeholder
+        // pill it just got, so it starts clean instead of with an
+        // empty input.
+        const pills = row.querySelectorAll('.ofi-item-pill');
+        if (pills.length === 1 && !pills[0].querySelector('input').value) pills[0].remove();
+    }
+}
+
+// Add one sub-item pill (editable text + remove ✕) inside a category row
+function ofiAddItem(catIdx, value = '') {
+    const row = document.getElementById(`ofi-cat-${catIdx}`);
+    const itemsList = row?.querySelector('.ofi-items-list');
+    if (!itemsList) return;
+    const pill = document.createElement('span');
+    pill.className = 'ofi-item-pill';
+    pill.style.cssText = 'display:inline-flex;align-items:center;gap:5px;background:var(--surface3,#1a1a2a);border:1px solid var(--border);border-radius:50px;padding:4px 4px 4px 10px;';
+    pill.innerHTML = `
+        <input type="text" class="ofi-item-input" value="${value.replace(/"/g,'&quot;')}" placeholder="اسم الصنف"
+               style="background:none;border:none;color:var(--white);font-size:0.78rem;outline:none;width:90px;font-family:var(--font);">
+        <button onclick="this.closest('.ofi-item-pill').remove()"
+                style="background:rgba(239,68,68,0.15);color:var(--red);border:none;border-radius:50%;width:18px;height:18px;font-size:0.6rem;cursor:pointer;flex-shrink:0;">✕</button>`;
+    itemsList.appendChild(pill);
+}
+
+// Read the full editor state from the DOM — categories with an empty
+// label, and items with empty text, are dropped rather than saved.
+function ofiReadCategories() {
+    return [...document.querySelectorAll('#ofi-categories-list > .ofi-cat-row')].map(row => {
+        const label = row.querySelector('.ofi-cat-label')?.value.trim() || '';
+        const items = [...row.querySelectorAll('.ofi-item-input')]
+            .map(inp => inp.value.trim())
+            .filter(Boolean);
+        return { label, items };
+    }).filter(c => c.label && c.items.length);
+}
+
+async function ofiSave() {
+    const categories = ofiReadCategories();
+    if (!categories.length) { toast('أضف فئة واحدة على الأقل بصنف واحد', true); return; }
+    try {
+        await fbSet('settings/otlobFastItems', categories);
+        toast('💾 تم حفظ الأصناف السريعة');
+    } catch (e) { toast('فشل الحفظ', true); }
+}
+
+async function ofiLoad() {
+    const list = document.getElementById('ofi-categories-list');
+    if (!list) return;
+    let categories = await fbGet('settings/otlobFastItems').catch(() => null);
+    if (!Array.isArray(categories) || !categories.length) categories = DEFAULT_OTLOB_FAST_ITEMS;
+    list.innerHTML = '';
+    _ofiCatIdx = 0;
+    categories.forEach(c => ofiAddCategory(c.label, c.items || []));
+}
+
+// Collapsed by default — expands on click, chevron rotates to indicate state.
+function _ofiBindToggle() {
+    if (window._ofiToggleBound) return;
+    window._ofiToggleBound = true;
+    document.getElementById('ofi-toggle-header')?.addEventListener('click', () => {
+        const body    = document.getElementById('ofi-admin-body');
+        const chevron = document.getElementById('ofi-toggle-chevron');
+        if (!body) return;
+        const expanded = body.style.display !== 'none';
+        body.style.display = expanded ? 'none' : 'block';
+        if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
    REWARDS / LOYALTY LADDER  —  admin editor
    Firebase path: /settings/loyaltyRewards   (array, sorted asc by pts)
    Each step: { pts, icon, reward, desc, type, value }
@@ -14644,6 +14860,26 @@ function formatMoney(val) {
     return val >= 1000 ? (val/1000).toFixed(2) + 'k ل.ل' : '$' + parseFloat(val).toFixed(2);
 }
 
+// Currency symbol for an editable price/fee field — LBP amounts are
+// always well over 1000, USD amounts (almost) never are, so the
+// magnitude alone tells us which currency the admin is typing.
+function _currencySymbol(val) {
+    const n = parseFloat(val);
+    if (isNaN(n)) return '$';
+    return n > 1000 ? 'ل.ل' : '$';
+}
+
+// Lebanese Lira is never dealt with in fractions of a lira in practice,
+// and prices/fees are conventionally round numbers — so once a typed
+// value crosses into LBP territory (>1000), snap it to a whole number
+// rounded to the nearest 1000. USD values are left exactly as typed.
+function _normalizeMoneyValue(raw) {
+    const n = parseFloat(raw);
+    if (isNaN(n)) return '';
+    if (n > 1000) return String(Math.round(n / 1000) * 1000);
+    return String(n);
+}
+
 /* Format Lebanese phone numbers stored as "96170714152+" (or with the
    "+" anywhere, or already with "+961" prefix) into the standard
    "+961 70 714 152" form — "+" first, country code, then grouped digits. */
@@ -14668,6 +14904,8 @@ function orStateLabel(state) {
     return map[state] || state;
 }
 
+let _orRowSnapshots = {}; // orderKey -> last-rendered row signature, avoids needless row rebuilds
+
 async function renderOnlineRequests() {
     const tbody   = document.getElementById('or-tbody');
     const emptyEl = document.getElementById('or-empty');
@@ -14675,7 +14913,14 @@ async function renderOnlineRequests() {
     const table   = document.getElementById('or-table');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--gray);padding:24px;font-size:var(--fs-xs);">جارٍ التحميل…</td></tr>';
+    // Only show the loading placeholder before the very first real
+    // render — doing this unconditionally on every background refresh
+    // wiped every row (and any open select / in-progress typing) on
+    // every tick, even when nothing had actually changed.
+    const isFirstRender = !tbody.querySelector('tr[data-key]');
+    if (isFirstRender) {
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--gray);padding:24px;font-size:var(--fs-xs);">جارٍ التحميل…</td></tr>';
+    }
 
     const cv = await fetchCompanyVars();
 
@@ -14722,7 +14967,13 @@ async function renderOnlineRequests() {
     document.getElementById('or-sum-revenue').textContent = formatMoney(totalRevenue);
     document.getElementById('or-sum-profit').textContent  = totalProfit > 0 ? formatMoney(totalProfit) : '—';
 
-    tbody.innerHTML = '';
+    // Drop stale rows no longer in the filtered/searched list; everything
+    // else is diffed per-row below instead of a full wipe-and-rebuild.
+    const newRowKeys = new Set(entries.map(([k]) => k));
+    tbody.querySelectorAll('tr[data-key]').forEach(tr => {
+        if (!newRowKeys.has(tr.dataset.key)) tr.remove();
+    });
+    if (isFirstRender) tbody.innerHTML = ''; // clear the one-time loading row
 
     // ── Detect synchronized groups (same date = placed together) ──
     // A "sync group" = 2+ consecutive entries sharing the exact same o.date.
@@ -14781,6 +15032,18 @@ async function renderOnlineRequests() {
         const syncBadge = isFirstInGroup
             ? `<div class="or-sync-label ${syncBadgeClass}">${syncBadgeColor} متزامن</div>` : '';
 
+        // ── Skip rebuilding this row if nothing about it changed, or if
+        // the admin is currently interacting with it (typing a price,
+        // has the driver dropdown focused) — this function runs on a
+        // refresh timer, so rebuilding unconditionally was closing open
+        // selects and wiping in-progress edits on every tick.
+        const driverStatus = allDrivers.find(d => d && (d.owner === o.driver || d.username === o.driver))?.status || '';
+        const rowSnapshot = JSON.stringify(o) + '|' + driverStatus + '|' + syncClass + '|' + (isFirstInGroup ? 1 : 0);
+        const existingRow = tbody.querySelector(`tr[data-key="${key}"]`);
+        if (existingRow && _orRowSnapshots[key] === rowSnapshot) return;
+        if (existingRow && existingRow.contains(document.activeElement)) return;
+        _orRowSnapshots[key] = rowSnapshot;
+
         const tr = document.createElement('tr');
         tr.dataset.key = key;
         if (isUnread) tr.classList.add('or-unread');
@@ -14799,8 +15062,8 @@ async function renderOnlineRequests() {
             </td>
             <td dir="ltr" style="text-align:left;"><span class="or-phone">${formatPhone(o.phone)}</span></td>
             <td><span class="or-city">${o.city || '—'}${o.street ? ' · '+o.street : ''}</span></td>
-            <td><span class="or-price">${formatMoney(orderPrice)}</span></td>
-            <td><span class="${profit !== null ? 'or-profit' : 'or-profit-loading'}">${profit !== null ? formatMoney(profit) : '—'}</span></td>
+            <td><span class="or-price-cur" data-oid="${key}">${_currencySymbol(orderPrice)}</span><input type="number" class="or-price-input" data-oid="${key}" value="${orderPrice ? orderPrice : ''}" placeholder="0" step="0.01" title="اضغط لتعديل السعر"></td>
+            <td><span class="or-fee-cur" data-oid="${key}">${_currencySymbol(o.deliveryFee != null && o.deliveryFee !== '' ? o.deliveryFee : profit)}</span><input type="number" class="or-fee-input" data-oid="${key}" value="${o.deliveryFee != null && o.deliveryFee !== '' ? o.deliveryFee : (profit !== null ? profit.toFixed(2) : '')}" placeholder="—" step="0.01" title="رسم التوصيل — يمكن تعديله يدوياً"></td>
             <td><span class="${driverCost !== null ? 'or-drivercost' : 'or-profit-loading'}">${driverCost !== null ? formatMoney(driverCost) : (assigned ? '—' : '—')}</span></td>
             <td>
                 ${_assignmentMode !== 'driver_only' ? `
@@ -14831,6 +15094,42 @@ async function renderOnlineRequests() {
             await orAssignDriver(key, dname);
         });
 
+        // Editable price
+        const orPriceInput = tr.querySelector('.or-price-input');
+        if (orPriceInput) {
+            const orPriceCur = tr.querySelector('.or-price-cur');
+            orPriceInput.addEventListener('input', () => {
+                const sym = _currencySymbol(orPriceInput.value);
+                if (orPriceCur) orPriceCur.textContent = sym;
+                orPriceInput.step = sym === 'ل.ل' ? '1000' : '0.01';
+            });
+            orPriceInput.addEventListener('change', async () => {
+                const val = _normalizeMoneyValue(orPriceInput.value.trim());
+                orPriceInput.value = val;
+                if (orPriceCur) orPriceCur.textContent = _currencySymbol(val);
+                await updateOrderField(key, 'total', val);
+                toast('✅ تم تحديث سعر الطلب');
+            });
+        }
+
+        // Editable delivery fee (admin override of the smart auto-fee)
+        const orFeeInput = tr.querySelector('.or-fee-input');
+        if (orFeeInput) {
+            const orFeeCur = tr.querySelector('.or-fee-cur');
+            orFeeInput.addEventListener('input', () => {
+                const sym = _currencySymbol(orFeeInput.value);
+                if (orFeeCur) orFeeCur.textContent = sym;
+                orFeeInput.step = sym === 'ل.ل' ? '1000' : '0.01';
+            });
+            orFeeInput.addEventListener('change', async () => {
+                const val = _normalizeMoneyValue(orFeeInput.value.trim());
+                orFeeInput.value = val;
+                if (orFeeCur) orFeeCur.textContent = _currencySymbol(val);
+                await updateOrderField(key, 'deliveryFee', val);
+                toast('✅ تم تحديث رسم التوصيل');
+            });
+        }
+
         // Permanently delete the order — from /requests AND its synced
         // /historyRequests copy. Irreversible, so the confirm dialog is explicit.
         tr.querySelector('[data-ordelete]').addEventListener('click', async () => {
@@ -14846,8 +15145,29 @@ async function renderOnlineRequests() {
             await orDeleteOrder(key);
         });
 
-        tbody.appendChild(tr);
+        if (existingRow) {
+            existingRow.replaceWith(tr);
+        } else {
+            const rows = [...tbody.querySelectorAll('tr[data-key]')];
+            const nextRow = rows.find(r => (parseInt(r.dataset.key.replace('id_','')) || 0) < (parseInt(key.replace('id_','')) || 0));
+            if (nextRow) tbody.insertBefore(tr, nextRow);
+            else tbody.appendChild(tr);
+        }
     });
+}
+
+// Generic single-field order update — writes to /requests and its
+// /historyRequests mirror, same convention as orAssignDriver etc.
+// Used by the editable price ("total") and delivery-fee inputs so admin
+// can fill in a price for orders placed without one (e.g. "طلب خارجي")
+// or override the auto-calculated ("smart") delivery fee when needed.
+async function updateOrderField(orderId, field, value) {
+    const uid = allOrders[orderId]?.delivryplusid;
+    const upd = {};
+    upd[`/requests/${orderId}/${field}`] = value;
+    if (uid) upd[`/historyRequests/${uid}/${orderId}/${field}`] = value;
+    await fbUpdate('', upd);
+    if (allOrders[orderId]) allOrders[orderId][field] = value;
 }
 
 async function orAssignDriver(orderId, driverName) {

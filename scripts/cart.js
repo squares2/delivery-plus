@@ -876,7 +876,7 @@ function initCart() {
                 const badge = isSmartMode
                     ? `<span style="font-size:0.68em;background:rgba(255,92,0,0.12);color:var(--clr-orange);border-radius:4px;padding:1px 5px;margin-right:4px;">ذكي</span>`
                     : '';
-                hintEl.innerHTML = `🛵 رسوم توصيل هذا المتجر: ${badge}<strong>$${fee.toFixed(2)}</strong>`;
+                hintEl.innerHTML = `🛵 رسوم توصيل هذا المتجر: ${badge}<strong>${_formatDeliveryFee(fee)}</strong>`;
             } catch(_) {}
         }
         // Also refresh totals with smart fees
@@ -1054,15 +1054,15 @@ function initCart() {
         const subtotalUSD  = _cartTotalUSD();
         const storeCount   = cart.getStores().length;
 
-        let deliveryFee = storeCount * DELIVERY_FEE_PER_STORE;
+        let deliveryFee = storeCount * DELIVERY_FEE_PER_STORE; // raw USD — used for the actual total math
         const { grandTotal } = _applyActiveRewardToTotals(subtotalUSD, deliveryFee, false);
 
         if (subtotalEl)   subtotalEl.textContent   = '$' + subtotalUSD.toFixed(2);
         if (deliveryEl) {
             if (_activeReward && _activeReward.type === 'free_delivery') {
-                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${(storeCount * DELIVERY_FEE_PER_STORE).toFixed(2)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
+                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">${_formatDeliveryFee(storeCount * DELIVERY_FEE_PER_STORE)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
             } else {
-                deliveryEl.textContent = deliveryFee > 0 ? '$' + deliveryFee.toFixed(2) : 'مجاناً';
+                deliveryEl.textContent = deliveryFee > 0 ? _formatDeliveryFee(deliveryFee) : 'مجاناً';
             }
         }
         if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);
@@ -1094,13 +1094,15 @@ function initCart() {
             const fee     = await _getStoreFee(storeName, coords.lat, coords.lng, storeSub);
             totalDelivery += fee;
         }
+        // totalDelivery stays raw USD here — it feeds the actual grand-total
+        // math below; only the displayed delivery line is shown in LBP.
 
         const { deliveryFee, grandTotal } = _applyActiveRewardToTotals(subtotalUSD, totalDelivery, false);
         if (deliveryEl) {
             if (_activeReward && _activeReward.type === 'free_delivery') {
-                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">$${totalDelivery.toFixed(2)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
+                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">${_formatDeliveryFee(totalDelivery)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
             } else {
-                deliveryEl.textContent = '$' + deliveryFee.toFixed(2);
+                deliveryEl.textContent = _formatDeliveryFee(deliveryFee);
             }
         }
         if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);
@@ -1213,6 +1215,9 @@ function initCart() {
                 const storeItems     = cart.getStoreItems(storeName);
                 const storeSub       = _storeUSD(storeItems);
                 let   smartFee       = await _getStoreFee(storeName, coords.lat, coords.lng, storeSub);
+                // smartFee stays raw USD here — it drives storeTotalNum below.
+                // The LBP-converted value (for saving/display) is derived
+                // separately further down, after any free-delivery reward.
 
                 // Apply free-delivery reward
                 if (activeRewardNow && activeRewardNow.type === 'free_delivery') {
@@ -1231,6 +1236,7 @@ function initCart() {
 
                 const cartStr        = storeItems.map(i => `${i.qty}:${i.name}:${i.price}:${storeName}:${(i.notes||'').replace(/,/g,'،').replace(/:/g,'؛')}`).join(',');
                 const storeTotal     = storeTotalNum.toFixed(2);
+                const deliveryFeeLBP = smartFee > 0 ? _normalizeDeliveryFee(smartFee) : 0;
                 const requestKey = `id_${nextId}`;
 
                 const requestObj = {
@@ -1238,7 +1244,7 @@ function initCart() {
                     city         : 'Baalbeck',
                     date         : dateStr,
                     delivryplusid: user.uid || '',
-                    deliveryFee  : smartFee.toFixed(2),
+                    deliveryFee  : String(deliveryFeeLBP),
                     driver       : '0',
                     rewardApplied: activeRewardNow ? `${activeRewardNow.type}:${activeRewardNow.value || ''}` : '',
                     fullname     : userProfile.displayName || user.displayName || user.email || '',
@@ -1691,6 +1697,23 @@ function _initCartSwipe() {
 }
 
 /* ── Utilities ──────────────────────────────────────────────── */
+
+// Delivery fees (smart or standard) are configured by the admin almost
+// always in USD (small numbers like 1.5, 2, 5) — but the customer should
+// always see the delivery fee in Lebanese Lira, rounded to a clean
+// whole number to the nearest 10,000 LL. If the raw fee is already
+// LBP-scale (an admin set it directly in LL, so already > 1000) it's
+// just rounded; otherwise it's converted using the live exchange rate.
+function _normalizeDeliveryFee(fee) {
+    let n = parseFloat(fee);
+    if (isNaN(n)) return 0;
+    if (n <= 1000) n = n * (window._LBP_RATE || 90000);
+    return Math.round(n / 10000) * 10000;
+}
+
+function _formatDeliveryFee(fee) {
+    return _normalizeDeliveryFee(fee).toLocaleString('en-US') + ' ل.ل';
+}
 
 function _fmt(n) {
     const v = parseFloat(n);

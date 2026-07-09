@@ -1,7 +1,8 @@
 /* ============================================================
    scripts/external-order.js
    "اطلب خارجي" — let customers order from any store not on
-   Delivo. 4-step wizard: Store → Order → Delivery → Confirm.
+   Delivo. Single-screen form: store info + order description +
+   delivery destination, all visible at once, one submit button.
    Submits to the same Firebase requests/ + historyRequests/
    paths so admin sees it in the dashboard like any other order.
    ============================================================ */
@@ -9,39 +10,115 @@
 (function () {
     const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 
-    /* ── State ──────────────────────────────────────────────── */
-    let _step = 1;
-    let _data = {
-        // Step 1 — Store
-        storeName    : '',
-        storeAddress : '',
-        storeLat     : null,
-        storeLng     : null,
-        storePhone   : '',
-        // Step 2 — Order
-        orderItems   : [],   // { qty, name, note } objects
-        orderNote    : '',
-        approxTotal  : '',
-        // Step 3 — Delivery
-        destAddress  : '',
-        destLat      : null,
-        destLng      : null,
+    /* ── Quick-item picker data ────────────────────────────────
+       Category chip → sub-items shown in the popup once tapped.
+       Editable by the admin at settings/otlobFastItems (Admin →
+       الإعدادات → 🍽 أصناف اطلب السريعة); these are just the
+       fallback used until that loads, or if it's never configured. */
+    let _quickItemCategories = {
+        '🍔 برغر':    ['برغر لحم', 'برغر دجاج', 'برغر مشوي', 'دبل برغر'],
+        '🍕 بيتزا':   ['بيتزا مارغريتا', 'بيتزا خضار', 'بيتزا دجاج', 'بيتزا لحمة'],
+        '🍗 دجاج':    ['دجاج مشوي', 'بروست', 'تشيكن ونجز', 'شاورما دجاج'],
+        '🌯 ساندويش': ['شاورما لحمة', 'صاندويش فلافل', 'صاندويش تونا', 'مناقيش'],
+        '🍟 مقبلات':  ['بطاطا مقلية', 'بطاطا ويدجز', 'حلقات بصل', 'ناغتس'],
+        '🥗 سلطة':    ['فتوش', 'تبولة', 'سلطة سيزر', 'سلطة خضار'],
+        '🥤 مشروبات': ['مشروب غازي', 'عصير طازج', 'مويا', 'آيس تي'],
+        '☕ حلويات':  ['قهوة', 'نسكافيه', 'كنافة', 'مهلبية'],
     };
+    let _quickItemsLoaded = false;
+
+    // Renders just the category chip row's inner HTML — kept separate
+    // from the fetch so it can be called both on first render (with
+    // whatever's cached/default) and again once the admin-configured
+    // categories arrive, without touching anything else the customer
+    // may already be typing.
+    function _renderCategoryChips() {
+        return Object.keys(_quickItemCategories).map(cat =>
+            `<button type="button" class="ext-chip ext-cat-chip" data-cat="${cat}" onclick="_extOpenItemPopup('${cat}')">${cat}</button>`
+        ).join('');
+    }
+
+    // Fire-and-forget: pulls the admin-configured categories once per
+    // page load and swaps them in without disrupting the open form —
+    // only the chip row itself is replaced, not the whole modal.
+    async function _loadQuickItemCategories() {
+        if (_quickItemsLoaded) return;
+        _quickItemsLoaded = true;
+        try {
+            const res  = await fetch(`${RTDB}/settings/otlobFastItems.json`);
+            const data = await res.json();
+            if (Array.isArray(data) && data.length) {
+                const next = {};
+                data.forEach(c => {
+                    if (c && c.label && Array.isArray(c.items) && c.items.length) next[c.label] = c.items;
+                });
+                if (Object.keys(next).length) {
+                    _quickItemCategories = next;
+                    const chipsEl = document.getElementById('ext-cat-chips');
+                    if (chipsEl) chipsEl.innerHTML = _renderCategoryChips();
+                }
+            }
+        } catch (_) { /* keep defaults on any failure */ }
+    }
+
+    /* ── State ──────────────────────────────────────────────── */
+    let _data = {
+        storeName        : '',
+        storeAddress     : '',
+        storeLat         : null,
+        storeLng         : null,
+        storePhone       : '',
+        orderDescription : '',
+        approxTotal      : '',
+        destAddress      : '',
+        destLat          : null,
+        destLng          : null,
+        smartFee         : null,  // auto-calculated once both locations are known
+    };
+    let _currency = 'USD';
 
     /* ── Map state ──────────────────────────────────────────── */
-    let _mapInstance  = null;
-    let _mapMarker    = null;
-    let _mapTarget    = null;   // 'store' | 'dest'
-    let _mapResolve   = null;
+    let _mapInstance = null;
+    let _mapMarker   = null;
+    let _mapTarget   = null;   // 'store' | 'dest'
 
-    /* ── Common categories for quick item chips ─────────────── */
-    const QUICK_ITEMS = {
-        'مطعم / وجبات': ['برغر', 'شاورما', 'بيتزا', 'مشاوي', 'فلافل', 'صندويش', 'فروج مشوي', 'سلطة'],
-        'مخبز / حلويات': ['خبز', 'كعك', 'كنافة', 'بقلاوة', 'مناقيش', 'معجنات', 'كرواسون', 'بوظة'],
-        'بقالة / سوبرماركت': ['ماء', 'عصير', 'حليب', 'بيض', 'خضار', 'فاكهة', 'مواد تنظيف', 'شيبس'],
-        'دواء / صيدلية': ['مسكنات', 'فيتامينات', 'مضادات حيوية', 'كريم', 'شامبو', 'ضماد'],
-        'أخرى': [],
-    };
+    /* ── "موقعي الحالي" — GPS button on the map picker ─────────
+       Bound once at load (the modal markup is static, only its
+       content re-renders), moves the existing pin + re-centers
+       the map on success; shows an inline error and leaves the
+       pin untouched on failure/denial. ────────────────────── */
+    (function _initExtMapGps() {
+        const btn = document.getElementById('ext-map-gps-btn');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            const statusEl = document.getElementById('ext-map-gps-status');
+            if (statusEl) statusEl.style.display = 'none';
+
+            if (!navigator.geolocation) {
+                if (statusEl) { statusEl.textContent = 'تعذّر تحديد موقعك — جهازك لا يدعم تحديد المواقع'; statusEl.style.display = 'block'; }
+                return;
+            }
+            const orig = btn.innerHTML;
+            btn.disabled  = true;
+            btn.innerHTML = '⏳ جاري التحديد...';
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    btn.disabled  = false;
+                    btn.innerHTML = orig;
+                    if (_mapMarker && _mapInstance) {
+                        _mapMarker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
+                        _mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
+                    }
+                },
+                () => {
+                    btn.disabled  = false;
+                    btn.innerHTML = orig;
+                    if (statusEl) { statusEl.textContent = 'تعذّر تحديد موقعك'; statusEl.style.display = 'block'; }
+                },
+                { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
+            );
+        });
+    })();
 
     /* ═══════════════════════════════════════════════════════
        OPEN / CLOSE
@@ -54,437 +131,358 @@
             return;
         }
         // Reset state
-        _step = 1;
         _data = { storeName:'', storeAddress:'', storeLat:null, storeLng:null, storePhone:'',
-                  orderItems:[], orderNote:'', approxTotal:'', destAddress:'', destLat:null, destLng:null };
+                  orderDescription:'', approxTotal:'', destAddress:'', destLat:null, destLng:null, smartFee:null };
+        _currency = 'USD';
 
         const overlay = document.getElementById('ext-order-overlay');
+        const sheet   = document.getElementById('ext-order-sheet');
         overlay.style.display = 'flex';
-        requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+        sheet?.classList.remove('ext-sheet-visible');
+        requestAnimationFrame(() => {
+            overlay.style.opacity = '1';
+            requestAnimationFrame(() => sheet?.classList.add('ext-sheet-visible'));
+        });
         document.body.classList.add('modal-open');
-        _renderStep();
+        _render();
+        _loadQuickItemCategories();
     }
 
     function _closeModal() {
         const overlay = document.getElementById('ext-order-overlay');
+        const sheet   = document.getElementById('ext-order-sheet');
         overlay.style.display = 'none';
+        overlay.style.opacity = '';                     // revert to CSS default (0) for next open
+        sheet?.classList.remove('ext-sheet-visible');    // same — re-arm the slide-up animation
         document.body.classList.remove('modal-open');
     }
 
     /* ═══════════════════════════════════════════════════════
-       STEP RENDERING
+       SINGLE-SCREEN FORM
     ═══════════════════════════════════════════════════════ */
-    function _renderStep() {
-        _updateStepBar();
+    function _render() {
         const content = document.getElementById('ext-order-content');
-        const backBtn = document.getElementById('ext-btn-back');
-        const nextBtn = document.getElementById('ext-btn-next');
-
-        backBtn.style.display = _step > 1 ? 'block' : 'none';
-
-        switch (_step) {
-            case 1: content.innerHTML = _tmplStep1(); _bindStep1(); nextBtn.textContent = 'التالي ›'; break;
-            case 2: content.innerHTML = _tmplStep2(); _bindStep2(); nextBtn.textContent = 'التالي ›'; break;
-            case 3: content.innerHTML = _tmplStep3(); _bindStep3(); nextBtn.textContent = 'التالي ›'; break;
-            case 4: content.innerHTML = _tmplStep4(); nextBtn.textContent = '✔ تأكيد الطلب'; break;
-        }
+        content.innerHTML = _tmplForm();
         content.scrollTop = 0;
+        _bindForm();
     }
 
-    function _updateStepBar() {
-        for (let i = 1; i <= 4; i++) {
-            const dot   = document.getElementById(`ext-dot-${i}`);
-            const circle = dot?.querySelector('div');
-            const label  = dot?.querySelector('span');
-            const line   = document.getElementById(`ext-line-${i}`);
-            const active = i === _step;
-            const done   = i < _step;
-
-            if (circle) {
-                circle.style.background = active ? 'var(--orange,#ff5c00)' : done ? 'rgba(255,92,0,0.35)' : 'rgba(255,255,255,0.1)';
-                circle.style.color      = (active || done) ? '#fff' : 'rgba(255,255,255,0.35)';
-                circle.innerHTML        = done ? '✓' : String(i);
-            }
-            if (label) {
-                label.style.color = active ? 'var(--orange,#ff5c00)' : done ? 'rgba(255,92,0,0.6)' : 'rgba(255,255,255,0.3)';
-            }
-            if (line) {
-                line.style.background = done ? 'rgba(255,92,0,0.4)' : 'rgba(255,255,255,0.1)';
-            }
-        }
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       STEP 1 — Store info
-    ═══════════════════════════════════════════════════════ */
-    function _tmplStep1() {
-        return `
-        <div style="padding-top:6px;">
-            <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:16px;line-height:1.6;">
-                حدد المتجر الذي تريد الطلب منه — يمكنك تحديد موقعه على الخريطة أو كتابة عنوانه يدوياً.
-            </p>
-
-            <div class="ext-field">
-                <label class="ext-label">🏪 اسم المتجر <span style="color:var(--orange)">*</span></label>
-                <input id="ext-store-name" type="text" class="ext-input" placeholder="مثال: مطعم الشام، سوبرماركت الريف…" value="${_esc(_data.storeName)}">
-            </div>
-
-            <div class="ext-field">
-                <label class="ext-label">📍 موقع المتجر <span style="color:var(--orange)">*</span></label>
-                <div style="display:flex;gap:8px;align-items:stretch;">
-                    <input id="ext-store-addr" type="text" class="ext-input" style="flex:1;" placeholder="المنطقة، الشارع، البناية…" value="${_esc(_data.storeAddress)}">
-                    <button onclick="_extPickMap('store')" class="ext-map-btn" title="حدد على الخريطة">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-                        خريطة
-                    </button>
-                </div>
-                ${_data.storeLat ? `<div class="ext-coord-badge">📌 ${_data.storeLat.toFixed(5)}, ${_data.storeLng.toFixed(5)}</div>` : ''}
-            </div>
-
-            <div class="ext-field">
-                <label class="ext-label">📞 رقم المتجر <span style="color:rgba(255,255,255,0.3);font-size:0.68rem;">(اختياري — للتأكيد معهم)</span></label>
-                <input id="ext-store-phone" type="tel" class="ext-input" placeholder="07xxxxxxxx" value="${_esc(_data.storePhone)}">
-            </div>
-        </div>`;
-    }
-
-    function _bindStep1() {
-        document.getElementById('ext-store-name')?.addEventListener('input', e => _data.storeName = e.target.value.trim());
-        document.getElementById('ext-store-addr')?.addEventListener('input', e => _data.storeAddress = e.target.value.trim());
-        document.getElementById('ext-store-phone')?.addEventListener('input', e => _data.storePhone = e.target.value.trim());
-    }
-
-    function _validateStep1() {
-        _data.storeName    = document.getElementById('ext-store-name')?.value.trim() || '';
-        _data.storeAddress = document.getElementById('ext-store-addr')?.value.trim() || '';
-        if (!_data.storeName)    return _shake('ext-store-name',    'أدخل اسم المتجر');
-        if (!_data.storeAddress && !_data.storeLat) return _shake('ext-store-addr', 'أدخل عنوان المتجر أو حدده على الخريطة');
-        return true;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       STEP 2 — Order details
-    ═══════════════════════════════════════════════════════ */
-    function _tmplStep2() {
-        const cats = Object.keys(QUICK_ITEMS);
-        return `
-        <div style="padding-top:6px;">
-            <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;line-height:1.6;">
-                اختر أو اكتب ما تريد طلبه. يمكنك إضافة أكثر من صنف.
-            </p>
-
-            <!-- Category quick-select -->
-            <div class="ext-field">
-                <label class="ext-label">📂 نوع المتجر</label>
-                <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:6px;" id="ext-cat-chips">
-                    ${cats.map(cat => `
-                        <button class="ext-chip" onclick="_extSelectCat(this,'${_esc(cat)}')">${cat}</button>
-                    `).join('')}
-                </div>
-            </div>
-
-            <!-- Quick item chips -->
-            <div id="ext-quick-items" style="display:none;" class="ext-field">
-                <label class="ext-label">⚡ اختر بسرعة</label>
-                <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:6px;" id="ext-quick-chips"></div>
-            </div>
-
-            <!-- Item rows -->
-            <div class="ext-field">
-                <label class="ext-label">🧾 قائمة الطلب <span style="color:var(--orange)">*</span></label>
-                <div id="ext-item-rows">
-                    ${_data.orderItems.length ? _data.orderItems.map((it, i) => _itemRowHTML(it, i)).join('') : _itemRowHTML({qty:1,name:'',note:''}, 0)}
-                </div>
-                <button onclick="_extAddItemRow()" style="margin-top:10px;width:100%;padding:9px;background:rgba(255,255,255,0.05);border:1.5px dashed rgba(255,255,255,0.15);border-radius:12px;color:rgba(255,255,255,0.5);font-family:inherit;font-size:0.82rem;cursor:pointer;">+ إضافة صنف آخر</button>
-            </div>
-
-            <div class="ext-field">
-                <label class="ext-label">💬 ملاحظات للمتجر <span style="color:rgba(255,255,255,0.3);font-size:0.68rem;">(اختياري)</span></label>
-                <textarea id="ext-order-note" class="ext-input" rows="2" placeholder="بدون بصل، إضافات خاصة…" style="resize:none;">${_esc(_data.orderNote)}</textarea>
-            </div>
-
-            <div class="ext-field">
-                <label class="ext-label">💵 السعر التقريبي للطلب <span style="color:var(--orange)">*</span></label>
-                <div style="display:flex;gap:6px;">
-                    <input id="ext-approx-total" type="number" min="0" step="0.5" class="ext-input" style="flex:1;" placeholder="0.00" value="${_esc(_data.approxTotal)}">
-                    <div style="display:flex;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.12);">
-                        <button id="ext-curr-usd" onclick="_extSetCurr('USD')" style="padding:0 14px;background:var(--orange,#ff5c00);border:none;color:#fff;font-weight:800;cursor:pointer;font-size:0.82rem;">$</button>
-                        <button id="ext-curr-lbp" onclick="_extSetCurr('LBP')" style="padding:0 14px;background:rgba(255,255,255,0.07);border:none;color:rgba(255,255,255,0.5);font-weight:800;cursor:pointer;font-size:0.82rem;">ل.ل</button>
-                    </div>
-                </div>
-                <div id="ext-curr-indicator" style="font-size:0.68rem;color:rgba(255,255,255,0.3);margin-top:4px;">العملة: دولار أمريكي</div>
-            </div>
-        </div>`;
-    }
-
-    let _currency = 'USD';
-    function _bindStep2() {
-        document.getElementById('ext-order-note')?.addEventListener('input', e => _data.orderNote = e.target.value);
-        document.getElementById('ext-approx-total')?.addEventListener('input', e => _data.approxTotal = e.target.value);
-        // Restore currency button state
-        _extSetCurr(_currency, true);
-        // Restore cat selection if any
-        if (_lastCat) {
-            const chip = [...document.querySelectorAll('#ext-cat-chips .ext-chip')].find(c => c.textContent === _lastCat);
-            if (chip) { chip.classList.add('active'); _showQuickItems(_lastCat); }
-        }
-    }
-
-    let _lastCat = '';
-    window._extSelectCat = function(btn, cat) {
-        document.querySelectorAll('#ext-cat-chips .ext-chip').forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        _lastCat = cat;
-        _showQuickItems(cat);
-    };
-    function _showQuickItems(cat) {
-        const items = QUICK_ITEMS[cat] || [];
-        const wrap  = document.getElementById('ext-quick-items');
-        const chips = document.getElementById('ext-quick-chips');
-        if (!wrap || !chips) return;
-        if (!items.length) { wrap.style.display = 'none'; return; }
-        chips.innerHTML = items.map(it => `<button class="ext-chip ext-chip--item" onclick="_extAddQuickItem('${_esc(it)}')">${it}</button>`).join('');
-        wrap.style.display = 'block';
-    }
-    window._extAddQuickItem = function(name) {
-        // Add to first empty row or append new
-        const rows = document.querySelectorAll('#ext-item-rows .ext-item-name');
-        for (const inp of rows) {
-            if (!inp.value.trim()) { inp.value = name; inp.dispatchEvent(new Event('input')); return; }
-        }
-        _extAddItemRow(name);
-    };
-
-    function _itemRowHTML(item, idx) {
-        return `
-        <div class="ext-item-row" id="ext-row-${idx}" style="display:flex;gap:7px;align-items:center;margin-bottom:8px;">
-            <input type="number" min="1" max="99" value="${item.qty || 1}" class="ext-input ext-qty" style="width:52px;text-align:center;flex-shrink:0;" oninput="_extSyncRows()">
-            <input type="text" placeholder="اسم الصنف…" value="${_esc(item.name)}" class="ext-input ext-item-name" style="flex:1;" oninput="_extSyncRows()">
-            <input type="text" placeholder="ملاحظة…" value="${_esc(item.note)}" class="ext-input ext-item-note" style="width:80px;font-size:0.75rem;" oninput="_extSyncRows()">
-            <button onclick="_extRemoveRow(this)" style="background:rgba(255,80,80,0.12);border:1px solid rgba(255,80,80,0.2);color:rgba(255,120,120,0.8);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:1rem;flex-shrink:0;display:flex;align-items:center;justify-content:center;">×</button>
-        </div>`;
-    }
-
-    window._extSyncRows = function() {
-        _data.orderItems = [];
-        document.querySelectorAll('#ext-item-rows .ext-item-row').forEach(row => {
-            const qty  = parseInt(row.querySelector('.ext-qty')?.value) || 1;
-            const name = row.querySelector('.ext-item-name')?.value.trim() || '';
-            const note = row.querySelector('.ext-item-note')?.value.trim() || '';
-            _data.orderItems.push({ qty, name, note });
-        });
-    };
-
-    window._extAddItemRow = function(prefillName = '') {
-        _extSyncRows();
-        const idx = document.querySelectorAll('#ext-item-rows .ext-item-row').length;
-        const div = document.createElement('div');
-        div.innerHTML = _itemRowHTML({ qty:1, name: prefillName, note:'' }, idx);
-        document.getElementById('ext-item-rows').appendChild(div.firstElementChild);
-    };
-
-    window._extRemoveRow = function(btn) {
-        const row = btn.closest('.ext-item-row');
-        const container = document.getElementById('ext-item-rows');
-        if (container.querySelectorAll('.ext-item-row').length <= 1) return; // keep at least 1
-        row.remove();
-        _extSyncRows();
-    };
-
-    window._extSetCurr = function(curr, silent = false) {
-        _currency = curr;
-        const usdBtn = document.getElementById('ext-curr-usd');
-        const lbpBtn = document.getElementById('ext-curr-lbp');
-        const ind    = document.getElementById('ext-curr-indicator');
-        if (usdBtn) { usdBtn.style.background = curr === 'USD' ? 'var(--orange,#ff5c00)' : 'rgba(255,255,255,0.07)'; usdBtn.style.color = curr === 'USD' ? '#fff' : 'rgba(255,255,255,0.5)'; }
-        if (lbpBtn) { lbpBtn.style.background = curr === 'LBP' ? 'var(--orange,#ff5c00)' : 'rgba(255,255,255,0.07)'; lbpBtn.style.color = curr === 'LBP' ? '#fff' : 'rgba(255,255,255,0.5)'; }
-        if (ind)    ind.textContent = curr === 'USD' ? 'العملة: دولار أمريكي' : 'العملة: ليرة لبنانية';
-    };
-
-    function _validateStep2() {
-        _extSyncRows();
-        _data.orderNote    = document.getElementById('ext-order-note')?.value.trim() || '';
-        _data.approxTotal  = document.getElementById('ext-approx-total')?.value.trim() || '';
-        const hasItem = _data.orderItems.some(it => it.name);
-        if (!hasItem) return _shake('ext-item-rows', 'أدخل صنفاً واحداً على الأقل');
-        if (!_data.approxTotal || isNaN(parseFloat(_data.approxTotal))) return _shake('ext-approx-total', 'أدخل السعر التقريبي للطلب');
-        return true;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       STEP 3 — Delivery destination
-    ═══════════════════════════════════════════════════════ */
-    function _tmplStep3() {
-        // Pre-fill from user profile if available
+    function _tmplForm() {
+        // Pre-fill destination from user profile if available and not yet set
         const user = window.DelivoUser;
         if (!_data.destAddress && user?.street) _data.destAddress = user.street;
 
         return `
         <div style="padding-top:6px;">
-            <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;line-height:1.6;">
-                أين تريد استلام طلبك؟ حدد موقعك على الخريطة أو اكتب عنوانك.
-            </p>
+
+            <!-- Store ─────────────────────────────────────── -->
+            <div style="background:var(--clr-orange-light);border:1px solid rgba(255,92,0,0.18);border-radius:14px;padding:14px 14px 4px;">
+                <div class="ext-section-title"><span class="ext-section-icon ext-section-icon--store">🏪</span> معلومات المتجر</div>
+
+                <div class="ext-field">
+                    <label class="ext-label">اسم المتجر <span style="color:var(--orange)">*</span></label>
+                    <input id="ext-store-name" type="text" class="ext-input" placeholder="مثال: مطعم قصر بعلبك، سوبرماركت الجميّل…" value="${_esc(_data.storeName)}">
+                </div>
+
+                <div class="ext-field">
+                    <label class="ext-label">📍 موقع المتجر <span style="color:var(--orange)">*</span></label>
+                    <div style="display:flex;gap:8px;align-items:stretch;">
+                        <input id="ext-store-addr" type="text" class="ext-input" style="flex:1;" placeholder="المنطقة، الشارع، البناية…" value="${_esc(_data.storeAddress)}">
+                        <button onclick="_extPickMap('store')" class="ext-map-btn" title="حدد على الخريطة">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                            خريطة
+                        </button>
+                    </div>
+                    ${_data.storeLat ? `<div class="ext-coord-badge">📌 ${_data.storeLat.toFixed(5)}, ${_data.storeLng.toFixed(5)}</div>` : ''}
+                </div>
+            </div>
+
+            <!-- Order ─────────────────────────────────────── -->
+            <div class="ext-section-title" style="margin-top:22px;"><span class="ext-section-icon ext-section-icon--order">🧾</span> تفاصيل الطلب</div>
 
             <div class="ext-field">
-                <label class="ext-label">🏠 عنوان التوصيل <span style="color:var(--orange)">*</span></label>
-                <div style="display:flex;gap:8px;align-items:stretch;">
-                    <input id="ext-dest-addr" type="text" class="ext-input" style="flex:1;" placeholder="المنطقة، الشارع، رقم البناية…" value="${_esc(_data.destAddress)}">
-                    <button onclick="_extPickMap('dest')" class="ext-map-btn">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-                        خريطة
-                    </button>
-                </div>
-                ${_data.destLat ? `<div class="ext-coord-badge">📌 ${_data.destLat.toFixed(5)}, ${_data.destLng.toFixed(5)}</div>` : ''}
-            </div>
-
-            <!-- Quick address shortcuts -->
-            <div class="ext-field">
-                <label class="ext-label" style="margin-bottom:8px;">📌 مواقع سريعة</label>
-                <div style="display:flex;flex-wrap:wrap;gap:7px;">
-                    ${['بعلبك - وسط المدينة','شمسطار','تعلبايا','يونين','الهرمل','قب الياس'].map(loc =>
-                        `<button class="ext-chip" onclick="document.getElementById('ext-dest-addr').value='${loc}';_data.destAddress='${loc}';">${loc}</button>`
-                    ).join('')}
+                <label class="ext-label">صف طلبك بالتفصيل <span style="color:var(--orange)">*</span></label>
+                <textarea id="ext-order-desc" class="ext-input" rows="4" style="resize:vertical;" placeholder="مثال: برغر دجاج حار بدون بصل، طلبين بطاطا وسط، عصير ليمون كبير…">${_esc(_data.orderDescription)}</textarea>
+                <div id="ext-cat-chips" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;">
+                    ${_renderCategoryChips()}
                 </div>
             </div>
 
-            <div class="ext-field" style="background:rgba(255,92,0,0.05);border:1px solid rgba(255,92,0,0.15);border-radius:14px;padding:12px 14px;">
-                <div style="font-size:0.75rem;color:rgba(255,255,255,0.5);line-height:1.7;">
-                    💡 <strong style="color:rgba(255,255,255,0.7);">ملاحظة:</strong> رسوم التوصيل تُحسب بعد تأكيد الطلب بناءً على المسافة والمتجر. سيتواصل معك أحد موظفينا قبل التأكيد النهائي.
+            <!-- Delivery ──────────────────────────────────── -->
+            <div style="background:rgba(22,163,74,0.06);border:1px solid rgba(22,163,74,0.18);border-radius:14px;padding:14px 14px 4px;margin-top:22px;">
+                <div class="ext-section-title" style="margin-top:0;"><span class="ext-section-icon ext-section-icon--dest">🏠</span> عنوان التوصيل</div>
+
+                <div class="ext-field">
+                    <label class="ext-label">عنوان التوصيل <span style="color:var(--orange)">*</span></label>
+                    <div style="display:flex;gap:8px;align-items:stretch;">
+                        <input id="ext-dest-addr" type="text" class="ext-input" style="flex:1;" placeholder="المنطقة، الشارع، رقم البناية…" value="${_esc(_data.destAddress)}">
+                        <button onclick="_extPickMap('dest')" class="ext-map-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                            خريطة
+                        </button>
+                    </div>
+                    ${_data.destLat ? `<div class="ext-coord-badge">📌 ${_data.destLat.toFixed(5)}, ${_data.destLng.toFixed(5)}</div>` : ''}
+                </div>
+
+                <!-- Quick address shortcuts — verified close to Baalbek itself,
+                     not just plausible-sounding names. Each carries real
+                     coordinates and still passes through the same coverage
+                     check as a manual map pin. -->
+                <div class="ext-field">
+                    <label class="ext-label" style="margin-bottom:8px;">📌 مواقع سريعة</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:7px;">
+                        ${[
+                            { name: 'بعلبك - وسط المدينة', lat: 34.0058, lng: 36.2181 },
+                            { name: 'دورس',                 lat: 33.9833, lng: 36.1833 },
+                            { name: 'إيعات',                 lat: 34.0597, lng: 36.1526 },
+                        ].map(loc =>
+                            `<button class="ext-chip" onclick="_extQuickDest('${loc.name}', ${loc.lat}, ${loc.lng})">${loc.name}</button>`
+                        ).join('')}
+                    </div>
                 </div>
             </div>
+
+            <!-- Live delivery-fee estimate — updates once both the store
+                 and destination locations are known, no separate step
+                 needed to see it. -->
+            <div class="ext-field" id="ext-fee-estimate-wrap" style="background:var(--clr-orange-light);border:1px solid rgba(255,92,0,0.18);border-radius:14px;padding:12px 14px;">
+                <div id="ext-fee-estimate" style="font-size:0.78rem;color:var(--clr-gray-500);line-height:1.7;">
+                    💡 <strong style="color:var(--clr-black);">رسوم التوصيل:</strong> ${_feeEstimateText()}
+                </div>
+            </div>
+
+            <div id="ext-submit-err" style="display:none;margin-top:10px;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;font-size:0.78rem;color:#dc2626;font-weight:700;"></div>
         </div>`;
     }
 
-    function _bindStep3() {
-        document.getElementById('ext-dest-addr')?.addEventListener('input', e => _data.destAddress = e.target.value.trim());
+    function _feeEstimateText() {
+        if (_data.smartFee != null) {
+            const feeStr = typeof _formatDeliveryFee === 'function'
+                ? _formatDeliveryFee(_data.smartFee)
+                : `$${_data.smartFee.toFixed(2)}`;
+            return `<span style="color:var(--clr-black);">${feeStr}</span> تقديرياً حسب المسافة — قد تتغيّر قليلاً بعد تأكيد الموظف.`;
+        }
+        return 'حدّد موقع المتجر وموقع التوصيل لعرض تقدير الرسوم — الرسوم النهائية يحدّدها فريق Delivo بعد التأكيد.';
     }
 
-    function _validateStep3() {
-        _data.destAddress = document.getElementById('ext-dest-addr')?.value.trim() || '';
+    async function _refreshFeeEstimate() {
+        await _computeSmartFee();
+        const el = document.getElementById('ext-fee-estimate');
+        if (el) el.innerHTML = `💡 <strong style="color:var(--clr-black);">رسوم التوصيل:</strong> ${_feeEstimateText()}`;
+    }
+
+    function _bindForm() {
+        document.getElementById('ext-store-name')?.addEventListener('input', e => _data.storeName = e.target.value.trim());
+        document.getElementById('ext-store-addr')?.addEventListener('input', e => _data.storeAddress = e.target.value.trim());
+        document.getElementById('ext-order-desc')?.addEventListener('input', e => _data.orderDescription = e.target.value.trim());
+        document.getElementById('ext-dest-addr')?.addEventListener('input', e => _data.destAddress = e.target.value.trim());
+        _refreshFeeEstimate();
+    }
+
+    function _validateForm() {
+        _data.storeName        = document.getElementById('ext-store-name')?.value.trim() || '';
+        _data.storeAddress     = document.getElementById('ext-store-addr')?.value.trim() || '';
+        _data.orderDescription = document.getElementById('ext-order-desc')?.value.trim() || '';
+        _data.destAddress      = document.getElementById('ext-dest-addr')?.value.trim() || '';
+
+        if (!_data.storeName)    return _shake('ext-store-name', 'أدخل اسم المتجر');
+        if (!_data.storeAddress && !_data.storeLat) return _shake('ext-store-addr', 'أدخل عنوان المتجر أو حدده على الخريطة');
+        if (!_data.orderDescription) return _shake('ext-order-desc', 'صف طلبك بالتفصيل');
         if (!_data.destAddress && !_data.destLat) return _shake('ext-dest-addr', 'أدخل عنوان التوصيل أو حدده على الخريطة');
         return true;
     }
 
-    /* ═══════════════════════════════════════════════════════
-       STEP 4 — Confirm summary
-    ═══════════════════════════════════════════════════════ */
-    function _tmplStep4() {
-        const user      = window.DelivoUser;
-        const itemsList = _data.orderItems.filter(it => it.name)
-            .map(it => `<li style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-                <span style="color:var(--orange);font-weight:800;">${it.qty}×</span>
-                <span style="margin-right:6px;">${_esc(it.name)}</span>
-                ${it.note ? `<span style="color:rgba(255,255,255,0.35);font-size:0.72rem;">(${_esc(it.note)})</span>` : ''}
-            </li>`).join('');
+    // Uses the exact same settings/smartDelivery config and formula as
+    // regular checkout (_calcSmartFee in cart.js) — just computes distance
+    // directly from this order's own store/destination pins instead of
+    // looking a store up by name, since external stores aren't part of
+    // the registered `pattern` collection that lookup relies on.
+    async function _computeSmartFee() {
+        if (!_data.storeLat || !_data.destLat) { _data.smartFee = null; return; }
+        try {
+            const cfg = typeof _loadSmartCfg === 'function' ? await _loadSmartCfg() : null;
+            if (!cfg || !cfg.enabled) { _data.smartFee = null; return; }
 
-        return `
-        <div style="padding-top:6px;">
-            <p style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:14px;line-height:1.6;">
-                راجع تفاصيل طلبك قبل الإرسال.
-            </p>
+            const baseFee   = parseFloat(cfg.baseFee   ?? 1.5);
+            const ratePerKm = parseFloat(cfg.ratePerKm ?? 0.3);
+            const minFee    = parseFloat(cfg.minFee    ?? 0.5);
+            const maxFee    = parseFloat(cfg.maxFee    ?? 5.0);
 
-            <div class="ext-summary-card">
-                <div class="ext-summary-row">
-                    <span class="ext-summary-icon">🏪</span>
-                    <div>
-                        <div class="ext-summary-label">المتجر</div>
-                        <div class="ext-summary-val">${_esc(_data.storeName)}</div>
-                        <div class="ext-summary-sub">${_esc(_data.storeAddress)}${_data.storeLat ? ` · 📍${_data.storeLat.toFixed(4)},${_data.storeLng.toFixed(4)}` : ''}</div>
-                        ${_data.storePhone ? `<div class="ext-summary-sub">📞 ${_esc(_data.storePhone)}</div>` : ''}
-                    </div>
-                </div>
-
-                <div class="ext-summary-row">
-                    <span class="ext-summary-icon">🧾</span>
-                    <div style="flex:1;">
-                        <div class="ext-summary-label">الطلب</div>
-                        <ul style="margin:6px 0 0;padding:0;list-style:none;">${itemsList}</ul>
-                        ${_data.orderNote ? `<div class="ext-summary-sub" style="margin-top:6px;">💬 ${_esc(_data.orderNote)}</div>` : ''}
-                    </div>
-                </div>
-
-                <div class="ext-summary-row">
-                    <span class="ext-summary-icon">💵</span>
-                    <div>
-                        <div class="ext-summary-label">السعر التقريبي للطلب</div>
-                        <div class="ext-summary-val">${_esc(_data.approxTotal)} ${_currency === 'USD' ? '$' : 'ل.ل'}</div>
-                    </div>
-                </div>
-
-                <div class="ext-summary-row">
-                    <span class="ext-summary-icon">🏠</span>
-                    <div>
-                        <div class="ext-summary-label">التوصيل إلى</div>
-                        <div class="ext-summary-val">${_esc(_data.destAddress || '—')}</div>
-                        ${_data.destLat ? `<div class="ext-summary-sub">📍 ${_data.destLat.toFixed(4)},${_data.destLng.toFixed(4)}</div>` : ''}
-                    </div>
-                </div>
-
-                <div class="ext-summary-row">
-                    <span class="ext-summary-icon">👤</span>
-                    <div>
-                        <div class="ext-summary-label">الحساب</div>
-                        <div class="ext-summary-val">${_esc(user?.displayName || user?.username || '—')}</div>
-                        <div class="ext-summary-sub">📞 ${_esc(user?.phone || '—')}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="ext-submit-err" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.25);border-radius:10px;font-size:0.78rem;color:#ff8080;font-weight:700;"></div>
-        </div>`;
+            const km = _haversineKm(_data.storeLat, _data.storeLng, _data.destLat, _data.destLng);
+            const distFee = baseFee + km * ratePerKm;
+            const rawFee = Math.min(maxFee, Math.max(minFee, distFee));
+            // Reuses cart.js's global helper so LBP-scale fees round to
+            // the nearest 10,000 the same way regular checkout does.
+            _data.smartFee = typeof _normalizeDeliveryFee === 'function' ? _normalizeDeliveryFee(rawFee) : rawFee;
+        } catch (_) { _data.smartFee = null; }
     }
 
-    /* ═══════════════════════════════════════════════════════
-       NAV — Next / Back
-    ═══════════════════════════════════════════════════════ */
-    async function _next() {
-        const nextBtn = document.getElementById('ext-btn-next');
+    async function _extQuickDest(name, lat, lng) {
+        const addrInput = document.getElementById('ext-dest-addr');
 
-        if (_step === 1 && !_validateStep1()) return;
-        if (_step === 2 && !_validateStep2()) return;
-        if (_step === 3 && !_validateStep3()) return;
-
-        if (_step === 4) {
-            // Submit
-            nextBtn.disabled    = true;
-            nextBtn.textContent = '⏳ جاري الإرسال…';
-            try {
-                await _submitOrder();
-                nextBtn.disabled    = false;
-                nextBtn.textContent = '✔ تأكيد الطلب';
-            } catch (e) {
-                nextBtn.disabled    = false;
-                nextBtn.textContent = '✔ تأكيد الطلب';
-                const errEl = document.getElementById('ext-submit-err');
-                if (errEl) { errEl.textContent = '❌ حدث خطأ أثناء الإرسال. يرجى المحاولة مجدداً.'; errEl.style.display = 'block'; }
+        const applyIt = async (finalLat, finalLng) => {
+            _data.destAddress = name;
+            _data.destLat = finalLat;
+            _data.destLng = finalLng;
+            if (addrInput) addrInput.value = name;
+            const badgeHost = addrInput?.closest('.ext-field');
+            if (badgeHost) {
+                let badge = badgeHost.querySelector('.ext-coord-badge');
+                if (!badge) { badge = document.createElement('div'); badge.className = 'ext-coord-badge'; badgeHost.appendChild(badge); }
+                badge.textContent = `📌 ${finalLat.toFixed(5)}, ${finalLng.toFixed(5)}`;
             }
+            await _refreshFeeEstimate();
+        };
+
+        if (typeof _checkCoverageOrWarn === 'function') {
+            const ok = await _checkCoverageOrWarn(lat, lng, null, (fixedLat, fixedLng) => applyIt(fixedLat, fixedLng));
+            if (!ok) return; // outside coverage — warning modal is already showing
+        }
+        applyIt(lat, lng);
+    }
+
+    // Category chip tap — opens a popup in front of the whole form (same
+    // pattern as admin's "الزوار المتصلون" presence panel: fixed overlay,
+    // centered card, click-outside or ✕ to close) instead of pushing an
+    // inline panel into the form's flow. Since the description textarea
+    // sits behind this popup and isn't visible while it's open, a live
+    // "tray" of what's been added so far sits between the header and the
+    // item pills — so tapping an item shows immediate, visible proof it
+    // landed in the description, without needing to see the textarea.
+    function _extEnsureItemPopup() {
+        if (document.getElementById('ext-item-popup-overlay')) return;
+        document.body.insertAdjacentHTML('beforeend', `
+        <div id="ext-item-popup-overlay" class="ext-item-popup-overlay" style="display:none;" onclick="if(event.target===this)_extCloseItemPopup()">
+            <div class="ext-item-popup">
+                <div class="ext-item-popup__header">
+                    <span id="ext-item-popup-title">—</span>
+                    <button type="button" class="ext-item-popup__close" onclick="_extCloseItemPopup()">✕</button>
+                </div>
+                <div id="ext-item-popup-tray" class="ext-item-popup__tray"></div>
+                <div id="ext-item-popup-body" class="ext-item-popup__body"></div>
+            </div>
+        </div>`);
+    }
+
+    function _extOpenItemPopup(cat) {
+        _extEnsureItemPopup();
+        const overlay = document.getElementById('ext-item-popup-overlay');
+        const titleEl  = document.getElementById('ext-item-popup-title');
+        const bodyEl   = document.getElementById('ext-item-popup-body');
+        if (!overlay || !bodyEl) return;
+
+        document.querySelectorAll('.ext-cat-chip').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+
+        const items = _quickItemCategories[cat] || [];
+        if (titleEl) titleEl.textContent = cat;
+        bodyEl.innerHTML = items.map(item =>
+            `<button type="button" class="ext-item-popup__pill" onclick="_extQuickItem('${item.replace(/'/g, "\\'")}', this)">${item}</button>`
+        ).join('');
+        _extRenderTray();
+        overlay.style.display = 'flex';
+    }
+
+    function _extCloseItemPopup() {
+        const overlay = document.getElementById('ext-item-popup-overlay');
+        if (overlay) overlay.style.display = 'none';
+        document.querySelectorAll('.ext-cat-chip').forEach(b => b.classList.remove('active'));
+    }
+
+    // Renders the "أُضيف إلى طلبك" tray from the current description —
+    // always reflects real state (works whether items came from the
+    // popup or were hand-typed), and each tag can be removed directly.
+    function _extRenderTray() {
+        const tray = document.getElementById('ext-item-popup-tray');
+        if (!tray) return;
+        const parts = _data.orderDescription ? _data.orderDescription.split('،').map(s => s.trim()).filter(Boolean) : [];
+
+        if (!parts.length) {
+            tray.innerHTML = `<span class="ext-item-popup__tray-empty">لسّا ما ضفت شي — دوس على صنف تحت 👇</span>`;
             return;
         }
-
-        _step++;
-        _renderStep();
+        tray.innerHTML = `
+            <span class="ext-item-popup__tray-label">✓ مُضاف لطلبك:</span>
+            <div class="ext-item-popup__tray-list">
+                ${parts.map((p, i) => `
+                    <span class="ext-item-popup__tray-tag">
+                        ${_esc(p)}
+                        <button type="button" class="ext-item-popup__tray-x" onclick="_extRemoveItem(${i})" title="إزالة">✕</button>
+                    </span>
+                `).join('')}
+            </div>`;
     }
 
-    function _back() {
-        if (_step <= 1) return;
-        _step--;
-        _renderStep();
+    function _extRemoveItem(index) {
+        const parts = (_data.orderDescription || '').split('،').map(s => s.trim()).filter(Boolean);
+        parts.splice(index, 1);
+        _data.orderDescription = parts.join('، ');
+        const el = document.getElementById('ext-order-desc');
+        if (el) el.value = _data.orderDescription;
+        _extRenderTray();
+    }
+
+    // Appends a quick-pick item label into the order description —
+    // doesn't replace what the customer already typed, just adds to it
+    // (comma-separated). Popup stays open so multiple items from the
+    // same category can be added in one go. Since the textarea is
+    // hidden behind this popup, the tapped pill itself flashes a quick
+    // "✓ أُضيف" confirmation and the tray above pulses, so the transfer
+    // is visibly obvious without needing to peek at the description.
+    function _extQuickItem(label, btnEl) {
+        const el = document.getElementById('ext-order-desc');
+        if (!el) return;
+        const current = el.value.trim();
+        el.value = current ? `${current}، ${label}` : label;
+        _data.orderDescription = el.value.trim();
+        _extRenderTray();
+
+        if (btnEl) {
+            const original = btnEl.textContent;
+            btnEl.classList.add('ext-item-popup__pill--added');
+            btnEl.disabled = true;
+            btnEl.textContent = '✓ أُضيف';
+            setTimeout(() => {
+                btnEl.classList.remove('ext-item-popup__pill--added');
+                btnEl.textContent = original;
+                btnEl.disabled = false;
+            }, 600);
+        }
+
+        const tray = document.getElementById('ext-item-popup-tray');
+        if (tray) {
+            tray.classList.add('ext-item-popup__tray--flash');
+            setTimeout(() => tray.classList.remove('ext-item-popup__tray--flash'), 500);
+        }
     }
 
     /* ═══════════════════════════════════════════════════════
        SUBMIT
     ═══════════════════════════════════════════════════════ */
+    async function _submit() {
+        if (!_validateForm()) return;
+
+        const submitBtn = document.getElementById('ext-btn-next');
+        submitBtn.disabled    = true;
+        submitBtn.textContent = '⏳ جاري الإرسال…';
+        try {
+            await _computeSmartFee();
+            await _submitOrder();
+        } catch (e) {
+            submitBtn.disabled    = false;
+            submitBtn.textContent = '✔ إرسال الطلب';
+            const errEl = document.getElementById('ext-submit-err');
+            if (errEl) { errEl.textContent = '❌ حدث خطأ أثناء الإرسال. يرجى المحاولة مجدداً.'; errEl.style.display = 'block'; }
+        }
+    }
+
     async function _submitOrder() {
         const user = window.DelivoUser;
         if (!user) throw new Error('not logged in');
 
-        // Build cart string in qty:name:price:store:note format (matches admin parseCart)
-        const cartLines = _data.orderItems.filter(it => it.name)
-            .map(it => `${it.qty}:${it.name}:0:${_data.storeName}:${it.note || ''}`).join(',');
-        // Append order note as a special sentinel item so admin sees it
-        const noteEntry = _data.orderNote ? `,1:💬 ${_data.orderNote}:0::` : '';
-        const cartStr   = cartLines + noteEntry;
-        const totalStr  = `${_data.approxTotal} ${_currency}`;
+        // Single free-text description line (matches admin's parseCart
+        // format: qty:name:price:store:note) instead of itemized rows.
+        const cartStr  = `1:${_data.orderDescription}:0:${_data.storeName}:`;
+        const totalStr = ''; // price is no longer collected from the customer — admin fills it in from the dashboard
 
         // Counter
         const counterResp = await fetch(`${RTDB}/globalCounter.json`);
@@ -519,6 +517,7 @@
             storeLat      : _data.storeLat  ? String(_data.storeLat) : '',
             storeLng      : _data.storeLng  ? String(_data.storeLng) : '',
             storePhone    : _data.storePhone || '',
+            deliveryFee   : _data.smartFee != null ? (_data.smartFee > 1000 ? String(_data.smartFee) : _data.smartFee.toFixed(2)) : '',
         };
 
         await Promise.all([
@@ -538,8 +537,7 @@
                     `🛍️ طلب خارجي جديد #${nextId}\n` +
                     `👤 ${name} | 📞 +961${phone}\n` +
                     `🏪 المتجر: ${_data.storeName} (${_data.storeAddress})\n` +
-                    `🧾 ${cartLines}\n` +
-                    `💵 السعر التقريبي: ${totalStr}\n` +
+                    `🧾 ${_data.orderDescription}\n` +
                     `🏠 التوصيل إلى: ${_data.destAddress}`
                 );
                 const waLink = `https://wa.me/${adminPhone}?text=${waMsg}`;
@@ -559,85 +557,167 @@
     function _showSuccess(requestKey) {
         const content = document.getElementById('ext-order-content');
         const nextBtn = document.getElementById('ext-btn-next');
-        const backBtn = document.getElementById('ext-btn-back');
 
-        backBtn.style.display = 'none';
-        nextBtn.textContent   = '✕ إغلاق';
-        nextBtn.onclick       = _closeModal;
+        nextBtn.disabled     = false;
+        nextBtn.textContent  = '✕ إغلاق';
+        nextBtn.onclick      = _closeModal;
 
         content.innerHTML = `
         <div style="text-align:center;padding:30px 0 10px;">
             <div style="font-size:3.5rem;margin-bottom:14px;animation:extPop .4s cubic-bezier(.2,1.4,.5,1) both;">✅</div>
-            <div style="font-size:1.15rem;font-weight:900;color:#fff;margin-bottom:8px;">تم إرسال طلبك!</div>
-            <div style="font-size:0.8rem;color:rgba(255,255,255,0.45);line-height:1.7;max-width:280px;margin:0 auto;">
-                رقم طلبك: <strong style="color:var(--orange,#ff5c00);">${requestKey.replace('id_','#')}</strong><br>
+            <div style="font-size:1.15rem;font-weight:900;color:var(--clr-black);margin-bottom:8px;">تم إرسال طلبك!</div>
+            <div style="font-size:0.82rem;color:var(--clr-gray-500);line-height:1.7;max-width:280px;margin:0 auto;">
+                رقم طلبك: <strong style="color:var(--clr-orange);">${requestKey.replace('id_','#')}</strong><br>
                 سيتواصل معك فريق Delivo قريباً لتأكيد التفاصيل ورسوم التوصيل.
             </div>
-            <div style="margin-top:20px;padding:14px 18px;background:rgba(255,92,0,0.08);border:1px solid rgba(255,92,0,0.2);border-radius:14px;text-align:right;">
-                <div style="font-size:0.72rem;font-weight:800;color:rgba(255,255,255,0.5);margin-bottom:8px;">ملخص الطلب</div>
-                <div style="font-size:0.82rem;color:rgba(255,255,255,0.75);">🏪 ${_esc(_data.storeName)}</div>
-                <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-top:4px;">💵 ${_esc(_data.approxTotal)} ${_currency === 'USD' ? '$' : 'ل.ل'}</div>
-                <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-top:4px;">🏠 ${_esc(_data.destAddress || '—')}</div>
+            <div style="margin-top:20px;padding:14px 18px;background:var(--clr-orange-light);border:1px solid rgba(255,92,0,0.18);border-radius:14px;text-align:right;">
+                <div style="font-size:0.72rem;font-weight:800;color:var(--clr-gray-500);margin-bottom:8px;">ملخص الطلب</div>
+                <div style="font-size:0.82rem;color:var(--clr-black);">🏪 ${_esc(_data.storeName)}</div>
+                <div style="font-size:0.78rem;color:var(--clr-gray-500);margin-top:4px;">🏠 ${_esc(_data.destAddress || '—')}</div>
             </div>
         </div>`;
-
-        // Update step bar to all done
-        _step = 5;
-        _updateStepBar();
     }
 
     /* ═══════════════════════════════════════════════════════
        MAP PICKER
     ═══════════════════════════════════════════════════════ */
+    // Real Baalbek city coordinates — used only if the admin hasn't
+    // configured settings/deliveryCenter yet.
+    const BAALBEK_FALLBACK = { lat: 34.0058, lng: 36.2181, radiusKm: 7 };
+
+    let _mapCoverageCenter = null; // resolved once per modal-open, reused by both store/dest pickers
+
     function _pickMap(target) {
         _mapTarget  = target;
         const modal = document.getElementById('ext-map-modal');
         const title = document.getElementById('ext-map-title');
         title.textContent = target === 'store' ? '📍 موقع المتجر' : '🏠 موقع التوصيل';
+
+        // "موقعي الحالي" only makes sense for the delivery destination —
+        // a customer's own GPS position is never the store's location.
+        const gpsBtn = document.getElementById('ext-map-gps-btn');
+        const gpsStatus = document.getElementById('ext-map-gps-status');
+        if (gpsBtn) gpsBtn.style.display = target === 'store' ? 'none' : '';
+        if (gpsStatus) gpsStatus.style.display = 'none';
         modal.style.display = 'flex';
         requestAnimationFrame(async () => {
             await _ensureLeafletLoaded();
-            // Init or reuse map
-            const mapEl = document.getElementById('ext-map-leaflet');
-            const existingLat = target === 'store' ? (_data.storeLat || 33.8547) : (_data.destLat || 33.8547);
-            const existingLng = target === 'store' ? (_data.storeLng || 36.2185) : (_data.destLng || 36.2185);
 
-            if (!_mapInstance) {
-                _mapInstance = L.map('ext-map-leaflet', { zoomControl: true }).setView([existingLat, existingLng], 14);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap',
-                    maxZoom: 19,
-                }).addTo(_mapInstance);
-
-                const icon = L.divIcon({
-                    className: '',
-                    html: '<div style="font-size:2rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">📍</div>',
-                    iconSize: [36, 36], iconAnchor: [18, 36],
-                });
-                _mapMarker = L.marker([existingLat, existingLng], { draggable: true, icon }).addTo(_mapInstance);
-                _mapInstance.on('click', e => _mapMarker.setLatLng(e.latlng));
-            } else {
-                _mapInstance.setView([existingLat, existingLng], 14);
-                _mapMarker.setLatLng([existingLat, existingLng]);
-                setTimeout(() => _mapInstance.invalidateSize(), 100);
+            if (!_mapCoverageCenter) {
+                try { _mapCoverageCenter = (typeof _getDeliveryCenter === 'function' ? await _getDeliveryCenter() : null) || BAALBEK_FALLBACK; }
+                catch (_) { _mapCoverageCenter = BAALBEK_FALLBACK; }
             }
+            const center = _mapCoverageCenter;
+
+            const mapEl = document.getElementById('ext-map-leaflet');
+            const existingLat = target === 'store' ? (_data.storeLat || center.lat) : (_data.destLat || center.lat);
+            const existingLng = target === 'store' ? (_data.storeLng || center.lng) : (_data.destLng || center.lng);
+
+            if (_mapInstance) { _mapInstance.remove(); _mapInstance = null; }
+            mapEl.innerHTML = '';
+
+            _mapInstance = L.map('ext-map-leaflet', { zoomControl: true }).setView([existingLat, existingLng], 14);
+
+            // ── Tile layers: standard (OSM) + satellite (Google), same
+            // toggle pattern used on the registration map and the
+            // coverage-warning map elsewhere in the app.
+            const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
+            const standardLayer  = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap', maxZoom: 19,
+            });
+            const satelliteLayer = L.tileLayer(
+                `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${GOOGLE_KEY}`,
+                { attribution: '© Google Maps', maxZoom: 20, subdomains: '0123' }
+            );
+            standardLayer.addTo(_mapInstance);
+            let _extMapLayer = 'standard';
+
+            const toggleCtrl = L.control({ position: 'topright' });
+            toggleCtrl.onAdd = function () {
+                const btn = L.DomUtil.create('button', 'map-toggle-btn');
+                btn.innerHTML = '🛰 صورة جوية';
+                btn.title     = 'تبديل نوع الخريطة';
+                btn.style.cssText = `
+                    background:#fff; border:2px solid #FF5C00;
+                    border-radius:6px; padding:5px 9px;
+                    font-size:12px; font-weight:700;
+                    cursor:pointer; color:#FF5C00;
+                    box-shadow:0 1px 5px rgba(0,0,0,0.3);
+                    white-space:nowrap;
+                `;
+                L.DomEvent.on(btn, 'click', function (e) {
+                    L.DomEvent.stopPropagation(e);
+                    if (_extMapLayer === 'standard') {
+                        _mapInstance.removeLayer(standardLayer);
+                        satelliteLayer.addTo(_mapInstance);
+                        _extMapLayer = 'satellite';
+                        btn.innerHTML = '🗺 خريطة';
+                    } else {
+                        _mapInstance.removeLayer(satelliteLayer);
+                        standardLayer.addTo(_mapInstance);
+                        _extMapLayer = 'standard';
+                        btn.innerHTML = '🛰 صورة جوية';
+                    }
+                });
+                return btn;
+            };
+            toggleCtrl.addTo(_mapInstance);
+
+            // ── Coverage circle — same visual language as the rest of
+            // the app, so the customer can see the boundary directly
+            // instead of only finding out after picking a point.
+            if (center) {
+                L.circle([center.lat, center.lng], {
+                    radius: (center.radiusKm || 7) * 1000,
+                    color: '#FF5C00', weight: 2, dashArray: '6,8',
+                    fillColor: '#FF5C00', fillOpacity: 0.07,
+                }).addTo(_mapInstance);
+            }
+
+            const icon = L.divIcon({
+                className: '',
+                html: '<div style="font-size:2rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">📍</div>',
+                iconSize: [36, 36], iconAnchor: [18, 36],
+            });
+            _mapMarker = L.marker([existingLat, existingLng], { draggable: true, icon }).addTo(_mapInstance);
+            _mapInstance.on('click', e => _mapMarker.setLatLng(e.latlng));
+
             setTimeout(() => _mapInstance.invalidateSize(), 200);
         });
     }
 
-    function _mapConfirm() {
+    async function _mapConfirm() {
         const ll = _mapMarker.getLatLng();
-        if (_mapTarget === 'store') {
-            _data.storeLat = ll.lat;
-            _data.storeLng = ll.lng;
-            if (!_data.storeAddress) _data.storeAddress = `${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`;
-        } else {
-            _data.destLat = ll.lat;
-            _data.destLng = ll.lng;
-            if (!_data.destAddress) _data.destAddress = `${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`;
+
+        // Reject picks outside the delivery coverage circle — same check
+        // used everywhere else a customer sets a location. If outside,
+        // _checkCoverageOrWarn shows its own interactive fix-it map and
+        // this confirm is aborted; the customer can just reopen this
+        // picker once they've adjusted, or use that warning map directly.
+        if (typeof _checkCoverageOrWarn === 'function') {
+            const ok = await _checkCoverageOrWarn(ll.lat, ll.lng, null, (fixedLat, fixedLng) => {
+                _applyMapPick(fixedLat, fixedLng);
+                document.getElementById('ext-map-modal').style.display = 'none';
+                _render();
+            });
+            if (!ok) return; // warning shown — do not close this modal's picker state below
         }
+
+        _applyMapPick(ll.lat, ll.lng);
         document.getElementById('ext-map-modal').style.display = 'none';
-        _renderStep(); // re-render to show coordinate badge
+        _render(); // re-render to show coordinate badge + refresh fee estimate
+    }
+
+    function _applyMapPick(lat, lng) {
+        if (_mapTarget === 'store') {
+            _data.storeLat = lat;
+            _data.storeLng = lng;
+            if (!_data.storeAddress) _data.storeAddress = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        } else {
+            _data.destLat = lat;
+            _data.destLng = lng;
+            if (!_data.destAddress) _data.destAddress = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        }
     }
 
     function _mapCancel() {
@@ -678,11 +758,15 @@
     ═══════════════════════════════════════════════════════ */
     window._extOpenModal  = _openModal;
     window._extCloseModal = _closeModal;
-    window._extNext       = _next;
-    window._extBack       = _back;
+    window._extSubmit     = _submit;
     window._extPickMap    = _pickMap;
     window._extMapConfirm = _mapConfirm;
     window._extMapCancel  = _mapCancel;
+    window._extQuickDest      = _extQuickDest;
+    window._extQuickItem      = _extQuickItem;
+    window._extOpenItemPopup  = _extOpenItemPopup;
+    window._extCloseItemPopup = _extCloseItemPopup;
+    window._extRemoveItem     = _extRemoveItem;
 
     // Expose _data for inline onchange handlers
     window._data = _data;
