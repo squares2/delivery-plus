@@ -744,6 +744,36 @@ function onFirebaseReady() {
         // (the one getOrCreateDeviceUUID resolves — collision-safe as of
         // the fingerprint fix). Visible to the admin panel as a lead, not
         // a real user, until registerByPhone() converts it.
+        // ── Silently patch device/OS info onto an EXISTING lead that
+        // predates this field — the launch modal only ever fires once
+        // per device (getDeviceLead() short-circuits it forever after),
+        // so a lead saved before this detection was added would
+        // otherwise stay "unknown" forever with no way to re-trigger
+        // saveDeviceLead(). Runs on every page load, fire-and-forget;
+        // does nothing once a lead already has both fields, and does
+        // nothing at all if this device has no lead yet.
+        async backfillDeviceLeadInfo() {
+            try {
+                const uuid = await getOrCreateDeviceUUID();
+                const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                const r = await fetch(`${RTDB_BASE}/deviceLeads/${uuid}.json`);
+                const lead = r.ok ? await r.json() : null;
+                if (!lead || (lead.device && lead.os)) return;
+
+                const ua = navigator.userAgent;
+                let os = 'other';
+                if (/iPhone|iPad|iPod/i.test(ua)) os = 'ios';
+                else if (/Android/i.test(ua))     os = 'android';
+                const device = /Mobi/i.test(ua) ? 'mobile' : 'desktop';
+
+                await fetch(`${RTDB_BASE}/deviceLeads/${uuid}.json`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device, os }),
+                });
+            } catch (_) { /* silent — non-critical, next visit will retry */ }
+        },
+
         async saveDeviceLead({ fullName, phone }) {
             const phoneDigits = (phone || '').replace(/[\s\-]/g, '');
             if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneDigits))
@@ -754,6 +784,15 @@ function onFirebaseReady() {
             try {
                 const uuid = await getOrCreateDeviceUUID();
                 const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                // Same device/OS detection as scripts/presence.js, so the
+                // admin panel's "الزوار" list matches the icons/labels
+                // already used for the live-presence view.
+                const ua = navigator.userAgent;
+                let os = 'other';
+                if (/iPhone|iPad|iPod/i.test(ua)) os = 'ios';
+                else if (/Android/i.test(ua))     os = 'android';
+                const device = /Mobi/i.test(ua) ? 'mobile' : 'desktop';
+
                 await fetch(`${RTDB_BASE}/deviceLeads/${uuid}.json`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -762,6 +801,8 @@ function onFirebaseReady() {
                         phone:     phoneDigits,
                         createdAt: new Date().toISOString(),
                         converted: false,
+                        device,
+                        os,
                     }),
                 });
                 return { success: true };

@@ -2882,8 +2882,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (window._authStateReady) {
         _showLaunchModalIfNeeded();
+        window.DelivoAuth?.backfillDeviceLeadInfo?.();
     } else {
-        document.addEventListener('delivoAuthReady', _showLaunchModalIfNeeded, { once: true });
+        document.addEventListener('delivoAuthReady', () => {
+            _showLaunchModalIfNeeded();
+            window.DelivoAuth?.backfillDeviceLeadInfo?.();
+        }, { once: true });
     }
 
     const launchBtn = document.getElementById('launch-submit');

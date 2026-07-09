@@ -1973,6 +1973,43 @@ input, select, textarea { font-family: var(--font); }
                 </div>
             </div>
 
+            <!-- VISITORS panel — unregistered leads captured by the
+                 first-launch modal (full name + phone), before they
+                 create a real account. Lets admin see, contact, and
+                 track conversion of everyone who's ever landed on the
+                 site, not just people who finished registering. -->
+            <div class="panel" id="panel-visitors">
+                <div class="panel-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <h2>الزوار</h2>
+                    <span class="panel-header-sub" id="visitors-count-label">—</span>
+                    <input type="text" class="search-box" id="visitors-search" placeholder="بحث بالاسم أو الهاتف…" style="max-width:220px;">
+                    <button class="ph-btn" id="visitors-refresh-btn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        تحديث
+                    </button>
+                </div>
+                <!-- Summary bar -->
+                <div class="or-summary-bar" id="visitors-summary-bar">
+                    <div class="or-sum-chip orange">إجمالي الزوار <span id="vis-sum-total">0</span></div>
+                    <div class="or-sum-chip yellow">لم يسجّلوا بعد <span id="vis-sum-pending">0</span></div>
+                    <div class="or-sum-chip green">أصبحوا عملاء <span id="vis-sum-converted">0</span></div>
+                </div>
+                <div class="orders-toolbar" style="flex-shrink:0;">
+                    <button class="filter-pill active" data-vis-filter="all">الكل</button>
+                    <button class="filter-pill" data-vis-filter="pending">⏳ لم يسجّلوا بعد</button>
+                    <button class="filter-pill" data-vis-filter="converted">✅ أصبحوا عملاء</button>
+                </div>
+                <div class="users-table-wrap">
+                    <table class="users-table">
+                        <thead><tr>
+                            <th>الاسم الكامل</th><th>الهاتف</th><th>الجهاز</th><th>UUID</th><th>تاريخ الزيارة</th><th>الحالة</th><th>إجراءات</th>
+                        </tr></thead>
+                        <tbody id="visitors-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- STORES panel -->
             <div class="panel" id="panel-stores">
                 <div class="panel-header">
@@ -2775,6 +2812,7 @@ let currentAdmin = null;
 let allOrders    = {};
 let allDrivers   = [];
 let allUsers        = {};
+let allVisitors     = {}; // deviceLeads: unregistered visitors (full name + phone captured pre-signup)
 let allDeviceGroups = {}; // uuid → [user, user, ...]
 let allStores    = {};
 let _assignmentMode = 'both'; // 'both' | 'driver_only' | 'admin_only' — see settings/orderAssignmentMode
@@ -2785,6 +2823,8 @@ let driverFilter   = 'all';
 let driverSearch   = '';
 let customerFilter = 'all';
 let customerSearch = '';
+let visitorFilter = 'all';
+let visitorSearch = '';
 let allBlacklist   = {};
 let storeFilter    = 'all';
 let storeSearch    = '';
@@ -2831,6 +2871,7 @@ const NAV_ITEMS = [
     { id: 'online-req', label: 'طلبات أونلاين',      icon: onlineReqIcon(), perm: 'orders'    },
     { id: 'drivers',   label: 'السائقون',           icon: driverIcon(), perm: 'drivers'   },
     { id: 'customers', label: 'العملاء',            icon: usersIcon(),  perm: 'customers' },
+    { id: 'visitors',  label: 'الزوار',              icon: visitorsIcon(), perm: 'customers' },
     { id: 'stores',    label: 'المتاجر',            icon: storeIcon(),  perm: 'stores'    },
     { id: 'catalog',   label: 'المنتجات',            icon: catalogIcon(), perm: 'stores'   },
     { id: 'sales',     label: 'عروض المتاجر',         icon: salesIcon(),   perm: 'stores'   },
@@ -2846,6 +2887,7 @@ const NAV_COUNT_IDS = {
     'online-req': true, // new (unread, state 0) orders
     'drivers':    true, // active/online drivers
     'customers':  true, // total customers
+    'visitors':   true, // visitors who haven't converted to a real account yet
     'stores':     true, // total stores
     'employees':  true, // total employees
 };
@@ -2856,6 +2898,7 @@ function mapIcon()     { return `<svg width="15" height="15" viewBox="0 0 24 24"
 function ordersIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 17H5a2 2 0 0 0-2 2"/><path d="M9 3H5a2 2 0 0 0-2 2v14"/><rect x="9" y="3" width="12" height="18" rx="2"/></svg>`; }
 function driverIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`; }
 function usersIcon()   { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`; }
+function visitorsIcon(){ return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`; }
 function storeIcon()   { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`; }
 function empIcon()     { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`; }
 function onlineReqIcon(){ return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M2 20c0-4 4-7 10-7s10 3 10 7"/><polyline points="16 12 18 14 22 10"/></svg>`; }
@@ -3411,6 +3454,7 @@ function startApp() {
         if (id === 'online-req') renderOnlineRequests();
         if (id === 'drivers')    renderDrivers();
         if (id === 'customers')  renderCustomers();
+        if (id === 'visitors')   renderVisitors();
         if (id === 'stores')     renderStores();
         if (id === 'employees')  renderEmployees();
         if (id === 'settings')   renderSettings();
@@ -3480,7 +3524,7 @@ function switchPanel(id) {
     const btn = document.querySelector(`[data-panel="${id}"]`);
     if (btn) btn.classList.add('active');
 
-    const labels = { map:'الخريطة', orders:'الطلبات', drivers:'السائقون', customers:'العملاء', stores:'المتاجر', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط', sales:'عروض المتاجر' };
+    const labels = { map:'الخريطة', orders:'الطلبات', drivers:'السائقون', customers:'العملاء', visitors:'الزوار', stores:'المتاجر', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط', sales:'عروض المتاجر' };
     document.getElementById('topbar-panel-name').textContent = labels[id] || '';
 
     if (id === 'map' && adminMap) setTimeout(() => adminMap.invalidateSize(), 100);
@@ -3490,6 +3534,7 @@ function switchPanel(id) {
     if (id === 'online-req') renderOnlineRequests();
     if (id === 'drivers')   renderDrivers();
     if (id === 'customers') renderCustomers();
+    if (id === 'visitors')  renderVisitors();
     if (id === 'stores')    renderStores();
     if (id === 'employees') renderEmployees();
     if (id === 'settings')  renderSettings();
@@ -3973,7 +4018,7 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode] = await Promise.all([
+        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads] = await Promise.all([
             fbGet('requests'),
             fbGet('drivers'),
             fsGetCollection('users'),
@@ -3983,7 +4028,10 @@ async function loadAllData() {
             fbGet('blacklist').catch(()   => null),
             fbGet('storeStatus').catch(() => null),
             fbGet('settings/orderAssignmentMode').catch(() => null),
+            fbGet('deviceLeads').catch(() => null),
         ]);
+
+        allVisitors = deviceLeads || {};
 
         _assignmentMode = assignMode || 'both';
 
@@ -4420,6 +4468,7 @@ function updateNavBadge() {
     _setNavBadge('online-req', Object.values(allOrders).filter(o => (o.state||'0') === '0').length);
     _setNavBadge('drivers',    (allDrivers || []).filter(d => d).length);
     _setNavBadge('customers',  Object.keys(allUsers || {}).length);
+    _setNavBadge('visitors',   Object.values(allVisitors || {}).filter(v => !v.converted).length);
     _setNavBadge('stores',     Object.keys(allStores || {}).length);
     _setNavBadge('employees',  Object.keys(adminUsers || {}).length + 1); // +1 for seed super-admin
 }
@@ -6957,6 +7006,119 @@ function renderCustomers() {
             });
             tbody.appendChild(tr);
         }
+    });
+}
+
+// ── VISITORS — unregistered leads (settings/deviceLeads) ─────────────────
+// Full name + phone captured by the first-launch modal before any real
+// account exists. Lets admin see everyone who's ever landed on the site,
+// contact them directly via WhatsApp, and track how many eventually
+// convert into real customers (converted flips true in registerByPhone()).
+function _visitorDeviceLabel(v) {
+    // Records saved before device/OS capture was added have neither
+    // field at all — showing those as "كمبيوتر" would be a guess
+    // dressed up as data, so they get an explicit "unknown" instead.
+    if (!v.device && !v.os) return '❔ غير معروف';
+    const icon  = v.os === 'ios' ? '🍎' : v.os === 'android' ? '🤖' : (v.device === 'mobile' ? '📱' : '💻');
+    const label = v.os === 'ios' ? 'iPhone' : v.os === 'android' ? 'أندرويد' : (v.device === 'mobile' ? 'موبايل' : 'كمبيوتر');
+    return `${icon} ${label}`;
+}
+
+function renderVisitors() {
+    const tbody   = document.getElementById('visitors-tbody');
+    const countEl = document.getElementById('visitors-count-label');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    let entries = Object.entries(allVisitors || {});
+
+    // Summary bar — always reflects the FULL set, regardless of active filter/search
+    const total     = entries.length;
+    const converted = entries.filter(([, v]) => v.converted).length;
+    const pending   = total - converted;
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setTxt('vis-sum-total',     total);
+    setTxt('vis-sum-pending',   pending);
+    setTxt('vis-sum-converted', converted);
+
+    if (visitorFilter === 'pending')   entries = entries.filter(([, v]) => !v.converted);
+    if (visitorFilter === 'converted') entries = entries.filter(([, v]) => v.converted);
+
+    if (visitorSearch) {
+        const q = visitorSearch.toLowerCase();
+        entries = entries.filter(([uuid, v]) =>
+            (v.fullName || '').toLowerCase().includes(q) ||
+            (v.phone    || '').includes(q) ||
+            uuid.toLowerCase().includes(q)
+        );
+    }
+
+    entries.sort(([, a], [, b]) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    if (countEl) countEl.textContent = `${entries.length} زائر`;
+
+    if (!entries.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--gray);">لا يوجد زوار</td></tr>`;
+        return;
+    }
+
+    entries.forEach(([uuid, v]) => {
+        const tr = document.createElement('tr');
+        const waDigits = (v.phone || '').replace(/\D/g, '').replace(/^0/, '');
+        const waLink   = waDigits ? `https://wa.me/961${waDigits}` : '';
+        const dateStr  = v.createdAt
+            ? new Date(v.createdAt).toLocaleDateString('ar-LB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : '—';
+
+        tr.innerHTML = `
+            <td style="font-weight:700;">${v.fullName || '—'}</td>
+            <td dir="ltr" style="text-align:left;">${formatPhone(v.phone)}</td>
+            <td>${_visitorDeviceLabel(v)}</td>
+            <td>
+                <span class="vis-uuid-copy" data-uuid="${uuid}" title="نسخ UUID" style="cursor:pointer;font-family:var(--mono);font-size:0.7rem;color:var(--gray);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 7px;white-space:nowrap;">
+                    ${uuid.slice(0, 10)}… 📋
+                </span>
+            </td>
+            <td style="font-size:0.78rem;color:var(--gray-light);white-space:nowrap;">${dateStr}</td>
+            <td>
+                ${v.converted
+                    ? `<span class="or-state-badge" style="background:var(--green-glow);color:var(--green);">✅ عميل مسجّل</span>`
+                    : `<span class="or-state-badge" style="background:rgba(245,158,11,0.15);color:var(--yellow);">⏳ زائر فقط</span>`}
+            </td>
+            <td style="display:flex;gap:6px;">
+                ${waLink ? `<a href="${waLink}" target="_blank" style="background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:5px 10px;font-size:0.72rem;font-weight:800;text-decoration:none;white-space:nowrap;">💬 واتساب</a>` : ''}
+                <button class="vis-delete-btn" title="حذف السجل نهائياً" style="background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:5px 8px;font-size:0.72rem;cursor:pointer;flex-shrink:0;">🗑</button>
+            </td>
+        `;
+
+        tr.querySelector('.vis-uuid-copy')?.addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            navigator.clipboard.writeText(uuid).then(() => {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '✓ تم النسخ';
+                setTimeout(() => { btn.innerHTML = orig; }, 1200);
+            }).catch(() => toast('فشل النسخ'));
+        });
+
+        tr.querySelector('.vis-delete-btn')?.addEventListener('click', async () => {
+            const confirmed = await showConfirm({
+                title: 'حذف سجل الزائر',
+                msg: `هل تريد حذف بيانات <b>${v.fullName || 'هذا الزائر'}</b> نهائياً؟<br>لا يمكن التراجع عن هذا الإجراء.`,
+                type: 'danger',
+                icon: '🗑',
+                okLabel: 'نعم، احذف',
+                cancelLabel: 'إلغاء',
+            });
+            if (!confirmed) return;
+            try {
+                await fetch(`${RTDB}/deviceLeads/${uuid}.json`, { method: 'DELETE' });
+                delete allVisitors[uuid];
+                toast('🗑 تم حذف سجل الزائر');
+                renderVisitors();
+            } catch (e) { toast('فشل الحذف', true); }
+        });
+
+        tbody.appendChild(tr);
     });
 }
 
@@ -13456,6 +13618,27 @@ document.querySelectorAll('[data-cust-filter]').forEach(btn => {
 document.getElementById('customers-search').addEventListener('input', e => {
     customerSearch = e.target.value.trim();
     renderCustomers();
+});
+
+// Visitors refresh
+document.getElementById('visitors-refresh-btn').addEventListener('click', async () => {
+    await loadAllData(); renderVisitors(); toast('✅ تم تحديث الزوار');
+});
+
+// Visitors filter pills
+document.querySelectorAll('[data-vis-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-vis-filter]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        visitorFilter = btn.dataset.visFilter;
+        renderVisitors();
+    });
+});
+
+// Visitors search
+document.getElementById('visitors-search').addEventListener('input', e => {
+    visitorSearch = e.target.value.trim();
+    renderVisitors();
 });
 
 // Stores refresh
