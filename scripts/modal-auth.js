@@ -397,17 +397,44 @@ function initModalAuth() {
         const state = _loadOtpState();
         if (!state || Date.now() > state.expiresAt) { _clearOtpState(); return; }
 
-        // Re-fill fields
+        // Registration is phone-first only now — a restored session (from
+        // before this change, or from any legacy save shape) is always
+        // treated as 'fresh' phone-first mode on restore, never the old
+        // username+password flow. This is what makes reg-submit's confirm
+        // step call _handlePhoneFirstRegSubmit() instead of falling
+        // through to legacy account creation (window._phoneFirstMode was
+        // never set here before, so it defaulted to falsy = legacy).
+        window._phoneFirstMode      = 'fresh';
+        window._phoneFirstLead      = null;
+        window._phoneFirstOnSuccess = null;
+
+        // Re-fill fields — supports both the current save shape
+        // ({fullName, phone, lat, lng}) and any older one still sitting
+        // in a visitor's sessionStorage ({displayName, phone, lat, lng}).
         const fillField = (id, val) => { const el=document.getElementById(id); if(el&&val) el.value=val; };
-        fillField('reg-username',   state.username);
-        fillField('reg-displayname',state.displayName);
-        fillField('reg-password',   state.password);
-        fillField('reg-phone',      state.phone);
-        fillField('reg-lat',        state.lat);
-        fillField('reg-lng',        state.lng);
-        // Username was already validated before OTP was sent — mark as available
-        _usernameAvailable = true;
-        _phoneAvailable    = true;
+        fillField('reg-displayname', state.fullName || state.displayName);
+        fillField('reg-phone',       state.phone);
+        fillField('reg-lat',         state.lat);
+        fillField('reg-lng',         state.lng);
+        _phoneAvailable = true;
+
+        // Username/password fields must stay hidden here too, exactly
+        // like startFreshRegistration()/startPhoneFirstRegistration()
+        // already do when opening this modal directly. Without this,
+        // refreshing mid-OTP (page reload wipes the inline styles those
+        // functions had set) brought back the old-looking full form with
+        // those fields visible again, even though nothing can actually
+        // be created through them anymore.
+        const usernameField = document.getElementById('reg-username-field');
+        const passwordField = document.getElementById('reg-password-field');
+        const displaynameField = document.getElementById('reg-displayname-field');
+        if (usernameField) usernameField.style.display = 'none';
+        if (passwordField) passwordField.style.display = 'none';
+        if (displaynameField) {
+            displaynameField.style.display = '';
+            const label = displaynameField.querySelector('label');
+            if (label) label.textContent = 'الاسم الكامل';
+        }
 
         // Open modal and show OTP step
         document.getElementById('modal-subscribe')?.classList.add('active');
@@ -422,13 +449,6 @@ function initModalAuth() {
         if (regBtn) regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
         const cancelBtn = document.getElementById('otp-cancel-btn');
         if (cancelBtn) cancelBtn.style.display = 'flex';
-
-        // Show ✅ on username field hint since it was validated before OTP
-        if (state.username) {
-            const uEl = document.getElementById('reg-username');
-            const uHint = uEl?.closest('.modal-field')?.querySelector('.field-hint');
-            _setFieldState(uEl, 'success', uHint, '✅ اسم المستخدم متاح');
-        }
 
         const remainSec = Math.floor((state.expiresAt - Date.now()) / 1000);
         _startOtpCountdown(Math.min(60, remainSec));
@@ -2938,6 +2958,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof onSuccess === 'function') onSuccess();
         });
     }
+
+    // ── "لديك حساب مسبقاً؟ سجّل الدخول" — the escape hatch inside the
+    // mandatory launch modal for a returning customer whose device UUID
+    // got reset (cleared storage, new browser/device, etc.) and so looks
+    // like a brand-new visitor. Lets them log into their real account
+    // instead of being forced through name+phone capture again.
+    const launchGotoLogin = document.getElementById('launch-goto-login');
+    if (launchGotoLogin) {
+        launchGotoLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            window._launchModalPendingReturn = true;
+            closeModal('modal-launch');
+            openModal('modal-login');
+        });
+    }
+
+    // If that login attempt gets abandoned (closed via its own ✕, the
+    // backdrop, or Escape) without actually signing in, the visitor is
+    // right back to having neither an account nor a saved lead — bring
+    // the mandatory launch modal back rather than leaving the site
+    // fully unblocked. _showLaunchModalIfNeeded() re-checks the real
+    // state itself, so a genuinely successful login is a no-op here.
+    document.addEventListener('modalClose', (e) => {
+        if (e.detail !== 'modal-login' || !window._launchModalPendingReturn) return;
+        window._launchModalPendingReturn = false;
+        setTimeout(() => { _showLaunchModalIfNeeded(); }, 400);
+    });
 
     // ══════════════════════════════════════════════════════
     // PHONE-FIRST LOGIN — the new default content of modal-login

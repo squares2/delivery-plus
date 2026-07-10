@@ -1169,6 +1169,33 @@ function initCart() {
             return;
         }
 
+        // ── Require a delivery location — once ──────────────────────
+        // Applies equally to brand-new and long-existing accounts: this
+        // checks the CURRENT profile at the moment of checkout, not
+        // signup date, so any account (old or new) that never set a
+        // location gets caught here on its next order, regardless of
+        // when it was created. The cart's own location picker (GPS or
+        // map pin, in the "extras" panel below the cart items) already
+        // existed as an optional convenience — this just makes it
+        // mandatory the first time, and once picked it's written back
+        // to the profile further down so this gate never fires again.
+        const profileLocOnFile = window.DelivoUser.location || {};
+        const hasProfileLoc    = !!((profileLocOnFile.lat || window.DelivoUser.lat));
+        const cartLocLatEl     = document.getElementById('cart-loc-lat');
+        const cartLocLngEl     = document.getElementById('cart-loc-lng');
+        const hasCartPickedLoc = !!(cartLocLatEl && cartLocLatEl.value && cartLocLngEl && cartLocLngEl.value);
+        if (!hasProfileLoc && !hasCartPickedLoc) {
+            const extrasToggle = document.getElementById('cart-extras-toggle');
+            const extrasPanel  = document.getElementById('cart-extras-panel');
+            if (extrasPanel && !extrasPanel.classList.contains('open')) {
+                extrasPanel.classList.add('open');
+                extrasToggle?.classList.add('open');
+            }
+            extrasPanel?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+            _showToast('📍 حدد موقعك أولاً لإتمام الطلب — اضغط "موقعي الحالي" أو "تحديد على الخريطة" بالأسفل', 'error');
+            return;
+        }
+
         const btn = document.getElementById('cart-checkout-btn');
         const btnOriginalHtml = btn ? btn.innerHTML : '';
         if (btn) { btn.disabled = true; btn.innerHTML = '<span>جاري…</span>'; }
@@ -1202,6 +1229,20 @@ function initCart() {
                 if (btn) { btn.disabled = false; btn.innerHTML = btnOriginalHtml; }
                 _showCoverageWarning(radiusCheck.center, radiusCheck.radiusKm, parseFloat(orderLat), parseFloat(orderLng), radiusCheck.distanceKm);
                 return;
+            }
+
+            // Save this location to the profile if it wasn't on file yet —
+            // this is what makes the checkout-time location gate above a
+            // true one-time step instead of asking again on every order.
+            // Fire-and-forget: never worth blocking or failing an order
+            // over a profile write, the gate above already guarantees
+            // orderLat/orderLng are set at this point.
+            if (!hasProfileLoc && orderLat && orderLng) {
+                const newLoc = { lat: parseFloat(orderLat), lng: parseFloat(orderLng) };
+                fetch(`${RTDB_CART_URL}/users/${user.uid}/location.json`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newLoc),
+                }).then(() => { window.DelivoUser.location = newLoc; }).catch(() => {});
             }
 
             // Compute effective delivery fee per store (smart or flat)

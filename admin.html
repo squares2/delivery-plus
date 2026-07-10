@@ -3309,6 +3309,29 @@ function _detectAndAlertNewOrders(ordersMap, storeFilter) {
 // number — only if that store has whatsappActive = true AND a saved
 // whatsapp number. Silently does nothing otherwise (e.g. GREEN-API not
 // configured yet, or the store hasn't set/activated a number).
+// Tells the customer via WhatsApp their order is now trackable, with a
+// direct deep link straight into the live tracking map (see index.html's
+// ?track=&uid= handler, which opens it automatically on load — no need
+// for the customer to be logged in on that device/browser). Silently
+// does nothing if there's no phone on the order or GREEN-API isn't
+// configured — a failed notification should never block the actual
+// track-toggle action itself.
+async function _notifyCustomerTrackingWhatsapp(orderKey, order) {
+    try {
+        if (!order || !order.phone) return;
+        const orderNum = String(orderKey || '').replace(/^id_/, '');
+        const uid  = order.delivryplusid || '';
+        const link = `https://delivolb.com/index.html?track=${orderKey}${uid ? `&uid=${uid}` : ''}`;
+        const message =
+            `📡 طلبك رقم #${orderNum} أصبح قابلاً للتتبع الآن!\n` +
+            `تابع سائقك مباشرة على الخريطة من هنا:\n` +
+            link;
+        await _sendWhatsappMessage(order.phone, message);
+    } catch (e) {
+        console.warn('[Delivo] Track WhatsApp notify failed:', e.message);
+    }
+}
+
 async function _notifyStoreWhatsapp(orderKey, order) {
     try {
         const store = order && order.store && allStores[order.store];
@@ -5979,6 +6002,7 @@ function buildOrderCard(key, order) {
             await fbUpdate('', updates);
             allOrders[oid].trackorder = newVal;
             toast(newVal === '1' ? '📡 تم تفعيل التتبع' : '🔴 تم إيقاف التتبع');
+            if (newVal === '1') _notifyCustomerTrackingWhatsapp(oid, allOrders[oid]);
             const card2 = document.querySelector(`.order-card[data-id="${oid}"]`);
             if (card2) { const expanded = card2.classList.contains('expanded'); card2.replaceWith(buildOrderCard(oid, allOrders[oid])); if (expanded) document.querySelector(`.order-card[data-id="${oid}"]`)?.classList.add('expanded'); }
         });
@@ -6319,6 +6343,7 @@ async function changeState(orderId, newState) {
                         allOrders[orderId].trackorder = newVal;
                         await fbUpdate('', upd);
                         toast(newVal === '1' ? '📡 تم تفعيل التتبع' : '🔴 تم إيقاف التتبع');
+                        if (newVal === '1') _notifyCustomerTrackingWhatsapp(orderId, allOrders[orderId]);
                         const c2 = document.querySelector(`.order-card[data-id="${orderId}"]`);
                         if (c2) { const exp = c2.classList.contains('expanded'); c2.replaceWith(buildOrderCard(orderId, allOrders[orderId])); if (exp) document.querySelector(`.order-card[data-id="${orderId}"]`)?.classList.add('expanded'); }
                     });

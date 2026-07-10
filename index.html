@@ -507,6 +507,11 @@
 
             <button id="launch-submit" class="btn-primary"
                     style="width:100%;justify-content:center;padding:12px;">متابعة التصفح</button>
+
+            <p style="text-align:center;font-size:0.82rem;color:var(--clr-gray-500);margin-top:14px;">
+                لديك حساب مسبقاً؟
+                <a href="#" id="launch-goto-login" style="color:var(--clr-orange);font-weight:700;text-decoration:none;">سجّل الدخول</a>
+            </p>
         </div>
     </div>
 
@@ -1280,6 +1285,36 @@
         if (navTrack)    navTrack.addEventListener('click',    openTrackFlow);
         if (mobileTrack) mobileTrack.addEventListener('click', openTrackFlow);
     });
+
+    // ── Deep link: ?track=<orderId>&uid=<uid> ─────────────────
+    // Opens the live tracking map straight away — this is what the
+    // "طلبك #x أصبح قابلاً للتتبع" WhatsApp message (sent from admin's
+    // "الطلبات" panel / the driver app when tracking is switched on)
+    // links to, so tapping it goes directly to the map instead of
+    // dropping the customer on the homepage to go find it themselves.
+    // _openTrackModal() itself only needs the order ID (uid is an
+    // optional fallback for the historyRequests lookup), so this works
+    // whether or not the visitor happens to be logged in on this
+    // particular device/browser.
+    (function () {
+        const params  = new URLSearchParams(window.location.search);
+        const trackId = params.get('track');
+        if (!trackId) return;
+        const uid = params.get('uid') || '';
+
+        function tryOpen() {
+            if (typeof window._openTrackModal === 'function') {
+                window._openTrackModal(trackId, uid);
+            } else {
+                setTimeout(tryOpen, 200); // scripts still loading — retry briefly
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => setTimeout(tryOpen, 300));
+        } else {
+            setTimeout(tryOpen, 300);
+        }
+    })();
     </script>
 
 <!-- ══════════════════════════════════════════════════════════
