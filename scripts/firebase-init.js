@@ -431,6 +431,16 @@ function onFirebaseReady() {
     // ── window.DelivoAuth ─────────────────────────────────────
     window.DelivoAuth = {
 
+        // Single source of truth for this device's UUID — fingerprint-aware,
+        // collision-safe (see getOrCreateDeviceUUID's own comments above).
+        // Exposed specifically so presence.js never has to compute its own:
+        // two independent implementations racing to write
+        // localStorage['delivo_device_uuid'] on the same first visit is
+        // exactly what let a live-presence session end up tagged with a
+        // different UUID than the one deviceLeads/devices/users end up
+        // saved under — this makes that class of bug impossible.
+        getDeviceUUID: getOrCreateDeviceUUID,
+
         // ── Register with username + password ──────────────────
         async register({ username, displayName, password, phone, lat, lng, locationSource = null, skipDeviceLimit = false }) {
 
@@ -1476,6 +1486,20 @@ window._greenApiToken    = '';
                 register: stubFn, login: stubFn, logout: stubFn,
                 updateProfile: stubFn, changePassword: stubFn,
                 sendOTP: stubFn, verifyOTP: stubFn, resendOTP: stubFn,
+                // Firebase never came up, so there's no fingerprint/Firestore
+                // recovery available — just resolve the plain localStorage
+                // UUID (creating one if needed) so presence.js still works.
+                getDeviceUUID: () => Promise.resolve((function () {
+                    let uuid = localStorage.getItem('delivo_device_uuid');
+                    if (!uuid) {
+                        uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                            const r = Math.random() * 16 | 0;
+                            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                        });
+                        localStorage.setItem('delivo_device_uuid', uuid);
+                    }
+                    return uuid;
+                })()),
             };
         }
         if (!window.DelivoDB) {

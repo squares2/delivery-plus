@@ -75,7 +75,23 @@
         }
     }
 
-    function getDeviceUUID() {
+    // Delegates to firebase-init.js's fingerprint-aware resolver — this used
+    // to generate its own UUID independently whenever localStorage was empty,
+    // which raced against firebase-init.js doing the exact same thing (e.g.
+    // during the first-launch name/phone modal's async Firestore fingerprint
+    // lookup) and could leave this session heartbeating under a DIFFERENT
+    // UUID than the one deviceLeads/devices/users ultimately got saved under.
+    // Only falls back to the old simple logic if, for whatever reason,
+    // firebase-init.js hasn't defined window.DelivoAuth.getDeviceUUID yet —
+    // script load order (firebase-init.js is included before this file)
+    // means that should never actually happen in practice.
+    async function getDeviceUUID() {
+        if (window.DelivoAuth && typeof window.DelivoAuth.getDeviceUUID === 'function') {
+            try {
+                const uuid = await window.DelivoAuth.getDeviceUUID();
+                if (uuid) return uuid;
+            } catch (_) { /* fall through to the local fallback below */ }
+        }
         let uuid = localStorage.getItem('delivo_device_uuid');
         if (!uuid) {
             uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -254,9 +270,9 @@
     }
 
     function init() {
-        setTimeout(() => {
+        setTimeout(async () => {
             loadBoostRange();
-            const uuid = getDeviceUUID();
+            const uuid = await getDeviceUUID();
             function trySDK() {
                 if (window.firebase?.database) { initWithSDK(uuid, window.firebase.database()); return true; }
                 return false;

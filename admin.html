@@ -5268,6 +5268,7 @@ function renderMap() {
     if (mapLayers.stores) {
         Object.values(allStores).forEach(s => {
             if (!s.lat || !s.lng) return;
+            if (s.showOnMap === false) return; // admin hid this store's pin via its "🗺 على الخريطة" toggle
             const icon = mkDiv(
                 `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
                     <div style="${labelStyle}">${s.companyname}</div>
@@ -7903,6 +7904,19 @@ function renderStores() {
                     <button class="sc-whatsapp-save" title="حفظ رقم واتساب وحالة التفعيل"
                             style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:var(--green);padding:4px 8px;cursor:pointer;font-size:0.72rem;flex-shrink:0;">✓</button>
                 </div>
+                <!-- Show/hide this store's pin on the live map ("الخريطة
+                     المباشرة"), independent of its open/closed or
+                     enabled/disabled status — lets admin declutter the
+                     map (e.g. for a store with no confirmed location yet,
+                     or one being temporarily kept off the map) without
+                     touching its actual availability to customers. -->
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+                    <span style="font-size:0.6rem;color:var(--gray);flex-shrink:0;" title="إظهار/إخفاء دبوس المتجر على الخريطة المباشرة">🗺 على الخريطة</span>
+                    <label class="toggle" style="transform:scale(0.72);margin-right:auto;" title="${s.showOnMap === false ? 'مخفي عن الخريطة الآن' : 'ظاهر على الخريطة الآن'}">
+                        <input type="checkbox" class="sc-map-toggle" ${s.showOnMap === false ? '' : 'checked'}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
                 <div class="sc-meta">
                     <span class="sc-items">${ordCount} طلب إجمالي</span>
                     <span class="sc-rank">${s.rank ? '⭐ '+s.rank : ''}</span>
@@ -8031,6 +8045,25 @@ function renderStores() {
         // toggle to look "reset" after a refresh whenever the OTHER type's
         // copy (with no whatsappActive saved) was the one that ended up
         // feeding the admin's in-memory store record.
+        card.querySelector('.sc-map-toggle').addEventListener('change', async (e) => {
+            e.stopPropagation();
+            const checked = e.target.checked;
+            const types = (s.allTypes && s.allTypes.length) ? s.allTypes : [s.type];
+            e.target.disabled = true;
+            try {
+                for (const t of types) {
+                    await _storeSetField(name, t, 'showOnMap', checked ? null : false); // null = default (shown), matches "unset means visible"
+                }
+                s.showOnMap = checked ? undefined : false;
+                toast(checked ? `🗺 ${name} ظاهر الآن على الخريطة المباشرة` : `🙈 تم إخفاء ${name} عن الخريطة المباشرة`);
+                if (typeof renderMap === 'function' && document.getElementById('panel-map')?.classList.contains('active')) renderMap();
+            } catch (err) {
+                e.target.checked = !checked;
+                toast('❌ فشل تحديث حالة الخريطة: ' + err.message, true);
+            } finally {
+                e.target.disabled = false;
+            }
+        });
         card.querySelector('.sc-whatsapp-save').addEventListener('click', async (e) => {
             e.stopPropagation();
             const btn    = card.querySelector('.sc-whatsapp-save');

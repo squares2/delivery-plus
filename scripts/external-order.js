@@ -60,10 +60,21 @@
         } catch (_) { /* no suggested stores available — manual entry still works fine */ }
     }
 
+    /* Same store-type → emoji taxonomy as Admin → متاجر خارجية (EXT_STORE_TYPES
+       in admin.html) — kept in sync manually since these are separate files;
+       falls back to 🏬 for an unrecognized/blank type. */
+    const EXT_STORE_TYPE_EMOJI = {
+        restaurant: '🍔', butcher: '🥩', bakery: '🥖', market: '🛒',
+        grocery: '🧺', sweets: '🍰', fish: '🐟', coffee: '☕',
+        chicken: '🍗', dairy: '🥛', flowers: '💐', pharmacy: '💊',
+        clothing: '👕', electronics: '🔌', other: '🏬',
+    };
+    function _extStoreTypeEmoji(type) { return EXT_STORE_TYPE_EMOJI[type] || '🏬'; }
+
     function _renderSuggestedStoreChips() {
         if (!_extStoreOptions.length) return '';
         return _extStoreOptions.map(s =>
-            `<button type="button" class="ext-chip" onclick="_extQuickStore('${s.key}')">🏬 ${s.name}</button>`
+            `<button type="button" class="ext-chip" onclick="_extQuickStore('${s.key}')">${_extStoreTypeEmoji(s.type)} ${s.name}</button>`
         ).join('');
     }
 
