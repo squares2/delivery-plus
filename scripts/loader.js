@@ -43,6 +43,19 @@ async function loadComponent(slotId, file) {
     }
 }
 
+/* Formats a raw Lebanese phone number (digits only, with or without
+   the 961 country code) into "+961 70 714 152" — same grouping the
+   admin dashboard uses, so the footer always matches. */
+function _formatFooterPhone(raw) {
+    let digits = String(raw || '').replace(/\D/g, '');
+    if (digits.startsWith('961') && digits.length > 8) digits = digits.slice(3);
+    if (!digits) return '';
+    const part1 = digits.slice(0, 2);
+    const rest  = digits.slice(2);
+    const grouped = rest.length > 3 ? `${rest.slice(0, 3)} ${rest.slice(3)}` : rest;
+    return `+961 ${part1}${grouped ? ' ' + grouped : ''}`.trim();
+}
+
 /* ── Splash hide ─────────────────────────────────────────────*/
 function hideSplash() {
     const splash = document.getElementById('delivo-splash');
@@ -68,6 +81,26 @@ async function loadAll() {
         loadComponent('join-partner', 'join-partner.html'),
         loadComponent('footer',       'footer.html'),
     ]);
+
+    /* Footer phone number — always the live admin-configured number
+       (settings/adminPhone, digits only e.g. "96170714152") rather
+       than a hardcoded fallback, so it stays correct if the admin
+       ever changes it from the dashboard without a code deploy.
+       Drives both the "tel:" link and the WhatsApp ("wa.me") link. */
+    fetch('https://deliveryonline-300f7-default-rtdb.firebaseio.com/settings/adminPhone.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(raw => {
+            if (!raw) return; // keep the static fallbacks already in the markup
+            const digits = String(raw).replace(/\D/g, '');
+            if (!digits) return;
+            const phoneLink = document.getElementById('footer-phone-link');
+            const phoneText = document.getElementById('footer-phone-number');
+            const waLink    = document.getElementById('footer-whatsapp-link');
+            if (phoneLink) phoneLink.href = `tel:+${digits}`;
+            if (phoneText) phoneText.textContent = _formatFooterPhone(digits);
+            if (waLink)    waLink.href = `https://wa.me/${digits}`;
+        })
+        .catch(() => {});
 
     /* Init scripts — DOM is fully ready */
     if (typeof initNavbar     === 'function') initNavbar();

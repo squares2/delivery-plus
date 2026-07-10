@@ -54,18 +54,12 @@
     margin-bottom: clamp(16px, 3vw, 28px);
 }
 
-/* ── ROW 2 — Two columns ──────────────────────────────────── */
+/* ── ROW 2 — Contact (single, centered column) ────────────── */
 .footer__cols-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(16px, 4vw, 48px);
+    display: flex;
+    justify-content: center;
     margin-bottom: clamp(16px, 3vw, 28px);
-    direction: rtl; /* col 1 = right (contact), col 2 = left (info) */
-}
-
-/* Info col — align text to the right within its left column */
-.footer__col:last-child {
-    text-align: right;
+    direction: rtl;
 }
 
 .footer__col { display: flex; flex-direction: column; }
@@ -101,22 +95,10 @@
     flex-shrink: 0;
     width: 20px;
     text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
-
-/* ── Info links ───────────────────────────────────────────── */
-.footer__links {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(4px, 0.9vw, 8px);
-}
-.footer__links a {
-    font-size: clamp(0.80rem, 1.5vw, 0.92rem);
-    color: #5a5a6a;
-    text-decoration: none;
-    transition: color 0.18s;
-    line-height: 1.9;
-}
-.footer__links a:hover { color: rgba(255,255,255,0.78); }
 
 /* ── Bottom bar ───────────────────────────────────────────── */
 .footer__bottom {

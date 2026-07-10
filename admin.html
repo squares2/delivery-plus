@@ -4288,6 +4288,7 @@ async function loadAllData() {
         allExtStores = extStoresRaw || {};
 
         allVisitors = deviceLeads || {};
+        window.allVisitors = allVisitors; // exposed for admin-presence.js (matches guest sessions to unregistered name+phone leads)
 
         _assignmentMode = assignMode || 'both';
 

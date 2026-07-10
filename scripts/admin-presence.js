@@ -44,6 +44,13 @@
             if (full) return full;
         }
         if (s.username) return `@${s.username}`;
+        // Not logged in and no account at all — but this device may still be
+        // a known *unregistered* lead (settings/deviceLeads: full name + phone
+        // captured by the first-launch modal, before any real account exists).
+        // Keyed by device UUID, same field presence.js sends as `uuid`.
+        const uuid  = s.uuid || s.sid;
+        const lead  = uuid && window.allVisitors && window.allVisitors[uuid];
+        if (lead && lead.fullName) return lead.fullName;
         if (s.uid)      return `uid·${s.uid.slice(0, 12)}`;
         return `uuid·${(s.uuid || s.sid || '?').slice(0, 13)}`;
     }
@@ -78,9 +85,20 @@
             .map(([uid, u]) => ({ uid, username: u.username, name: u.displayName || u.fullname || u.username || '—' }));
     }
 
-    function typeTag(s) {
+    /* ── Match a session's device UUID against unregistered leads ───
+       settings/deviceLeads is keyed directly by device UUID, so this is
+       a straight lookup (not a search) — full name + phone captured by
+       the first-launch modal before the visitor ever created an account. */
+    function matchVisitorLead(uuid) {
+        if (!uuid) return null;
+        const lead = (window.allVisitors || {})[uuid];
+        return (lead && lead.fullName) ? lead : null;
+    }
+
+    function typeTag(s, lead) {
         if (s.username) return `<span class="ps-tag ps-tag--user">مسجّل</span>`;
         if (s.uid)      return `<span class="ps-tag ps-tag--uid">uid</span>`;
+        if (lead)       return `<span class="ps-tag ps-tag--lead">غير مسجّل</span>`;
         return `<span class="ps-tag ps-tag--guest">زائر</span>`;
     }
 
@@ -192,18 +210,28 @@
             // Not logged in right now — check if this device fingerprint
             // already belongs to one or more registered (but logged-out) accounts
             const matches = isUser ? [] : matchRegisteredAccounts(uuid);
+            // ...or, failing that, to an unregistered lead (name + phone
+            // captured pre-signup, no account at all yet).
+            const lead    = (isUser || matches.length) ? null : matchVisitorLead(uuid);
+            const waDigits = lead ? (lead.phone || '').replace(/\D/g, '').replace(/^0/, '') : '';
 
             return `
             <div class="pm-row ${isUser ? 'pm-row--user' : ''}" data-connected="${s.connectedAt || Date.now()}">
                 <div class="pm-rank">${i + 1}</div>
                 <div class="pm-live-dot"></div>
                 <div class="pm-info">
-                    <div class="pm-name" style="font-size:1.05rem">${icon} ${name}${subName ? ` <span style="font-size:0.72em;font-weight:600;color:var(--clr-gray-400);opacity:0.75;">${subName}</span>` : ''} ${typeTag(s)}</div>
+                    <div class="pm-name" style="font-size:1.05rem">${icon} ${name}${subName ? ` <span style="font-size:0.72em;font-weight:600;color:var(--clr-gray-400);opacity:0.75;">${subName}</span>` : ''} ${typeTag(s, lead)}</div>
                     <div class="pm-uuid-full">🔑 ${uuid}</div>
                     ${matches.length ? `
                     <div class="pm-known-account">
                         🔗 هذا الجهاز مسجّل باسم:
                         ${matches.map(m => `<button class="pm-known-account-btn" data-username="${m.username||''}" data-uid="${m.uid}">@${m.username||m.name}</button>`).join(' ')}
+                    </div>` : ''}
+                    ${lead ? `
+                    <div class="pm-known-account">
+                        📇 زائر غير مسجّل — بيانات مُلتقطة مسبقاً: <b>${lead.fullName}</b>
+                        ${lead.phone ? `<span dir="ltr" style="font-family:var(--mono,monospace);">${lead.phone}</span>` : ''}
+                        ${waDigits ? `<a class="pm-known-account-btn" href="https://wa.me/961${waDigits}" target="_blank" rel="noopener" style="text-decoration:none;">💬 واتساب</a>` : ''}
                     </div>` : ''}
                     <div class="pm-meta">
                         <span class="pm-timer" data-ts="${s.connectedAt || Date.now()}">⏱ ${ago}</span>
@@ -383,6 +411,7 @@
         .ps-tag { font-size:.72rem;font-weight:800;border-radius:99px;padding:2px 10px;border:1px solid; }
         .ps-tag--user  { color:#f97316;border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.1); }
         .ps-tag--uid   { color:#818cf8;border-color:rgba(129,140,248,.4);background:rgba(129,140,248,.1); }
+        .ps-tag--lead  { color:#f59e0b;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1); }
         .ps-tag--guest { color:#6b7280;border-color:rgba(107,114,128,.3);background:rgba(107,114,128,.08); }
         .pm-uuid-full {
             font-family:monospace;font-size:.74rem;color:#64748b;
