@@ -294,6 +294,12 @@
         font-size: 0.83rem; font-weight: 800;
         color: var(--clr-orange); flex-shrink: 0;
     }
+    .drv-order__fee {
+        font-size: 0.72rem; font-weight: 800;
+        color: var(--clr-yellow, #f59e0b); flex-shrink: 0;
+        background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3);
+        border-radius: var(--radius-pill); padding: 2px 8px;
+    }
     .drv-state-badge {
         padding: 3px 8px; border-radius: var(--radius-pill);
         font-size: 0.62rem; font-weight: 800;
@@ -1081,6 +1087,34 @@ function _countKey(name) {
 }
 const fsdb = firebase.firestore();
 const storage = firebase.storage();
+
+// ── Dollar/LBP exchange rate — fetched once at load so the delivery
+// fee (often stored in LBP) can be converted to USD to split it back
+// out of order.total (which is stored merged: order + delivery, USD).
+// Default 90,000 until Firebase responds — same default used in
+// admin.html / scripts/firebase-init.js.
+window._dollarRate = 90000;
+db.ref('settings/dollarRate').get().then(snap => {
+    const n = parseFloat(snap.val());
+    if (n && n > 0) window._dollarRate = n;
+}).catch(() => {});
+
+// A stored delivery fee is either LBP (> 1000 — the normal case) or a
+// raw USD value an admin typed manually (<= 1000). Converts either to USD.
+function _drvDeliveryFeeToUSD(fee) {
+    const n = parseFloat(fee);
+    if (isNaN(n) || n <= 0) return 0;
+    return n > 1000 ? n / (window._dollarRate || 90000) : n;
+}
+
+// order.total is written at checkout as (order subtotal + delivery fee),
+// merged, in USD — split the order-only price back out so the driver
+// sees the order price and delivery fee as two separate numbers.
+function _drvSplitOrderTotal(order) {
+    const merged     = parseFloat(order?.total || 0);
+    const deliveryUSD = _drvDeliveryFeeToUSD(order?.deliveryFee);
+    return Math.max(0, merged - deliveryUSD);
+}
 
 // -- Device UUID helpers (mirrors firebase-init.js) ---------------------------
 // Same fingerprint + UUID logic as the main app so standard users and driver
@@ -2190,7 +2224,7 @@ function renderPool() {
             <div class="drv-pool-card__header">
                 <span class="drv-pool-card__id">#${shortId}</span>
                 <span class="drv-pool-card__store">🏪 ${order.store || '—'}</span>
-                <span class="drv-pool-card__total">${(v => { const n=parseFloat(v)||0; if(n<1000) return '$'+n; if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'')+' مليون ل.ل'; return (n/1000).toFixed(0)+' ألف ل.ل'; })(order.total || '0')}</span>
+                <span class="drv-pool-card__total">${(v => { const n=parseFloat(v)||0; if(n<1000) return '$'+n.toFixed(2); if(n>=1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'')+' مليون ل.ل'; return (n/1000).toFixed(0)+' ألف ل.ل'; })(_drvSplitOrderTotal(order))}</span>
             </div>
             <div class="drv-pool-card__meta">
                 <div class="drv-pool-card__cell">👤 <span>${order.fullname || '—'}</span></div>
@@ -2334,7 +2368,7 @@ function buildOrderCard(key, order) {
     const isCompState = STATE_MAP[state]?.company;      // company-managed state (6,7,8)
     const isFinalState  = ['1','2','5'].includes(state); // delivered / cancelled
     // Format a price value: < 1000 → '$X', 1000–999999 → 'X ألف ل.ل', >= 1000000 → 'X مليون ل.ل'
-    const _fmt = v => { const n = parseFloat(v) || 0; if (n <= 0) return ''; if (n < 1000) return '$' + n; if (n >= 1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'') + ' مليون ل.ل'; return (n/1000).toFixed(0) + ' ألف ل.ل'; };
+    const _fmt = v => { const n = parseFloat(v) || 0; if (n <= 0) return ''; if (n < 1000) return '$' + n.toFixed(2); if (n >= 1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'') + ' مليون ل.ل'; return (n/1000).toFixed(0) + ' ألف ل.ل'; };
     // Lock most actions until store has acknowledged the order.
     // States 0 (new) and 3 (delayed by driver) both mean the store hasn't
     // started yet — driver may only toggle متأخر; delivery/cancel/track
@@ -2390,13 +2424,16 @@ function buildOrderCard(key, order) {
     const hasStoreLocation = !isExternalOrder && storeLoc && storeLoc.lat && storeLoc.lng;
     const storeMapsUrl     = hasStoreLocation ? _mapsHref(storeLoc.lat, storeLoc.lng, storeName) : '';
 
+    const orderOnlyTotal = _drvSplitOrderTotal(order);
+
     card.innerHTML = `
         <!-- Summary row (always visible) -->
         <div class="drv-order__summary">
             <div class="drv-order__toggle">+</div>
             <span class="drv-order__id">#${key.replace('id_','')}</span>
             <span class="drv-order__name">${order.fullname || '—'}</span>
-            <span class="drv-order__total">${_fmt(order.total) || '0'}</span>
+            <span class="drv-order__total">${_fmt(orderOnlyTotal) || '0'}</span>
+            ${order.deliveryFee ? `<span class="drv-order__fee" title="رسم التوصيل">🛵 ${_fmt(order.deliveryFee)}</span>` : ''}
             <span class="drv-state-badge drv-state-badge--${state}">${stateInfo.short}</span>
         </div>
 
@@ -2424,8 +2461,12 @@ function buildOrderCard(key, order) {
                     <div class="drv-info-cell__val">${order.store || items[0]?.store || '—'}</div>
                 </div>
                 <div class="drv-info-cell">
-                    <div class="drv-info-cell__label">الإجمالي</div>
-                    <div class="drv-info-cell__val" style="color:var(--clr-orange)">${_fmt(order.total) || '0'}</div>
+                    <div class="drv-info-cell__label">سعر الطلب</div>
+                    <div class="drv-info-cell__val" style="color:var(--clr-orange)">${_fmt(orderOnlyTotal) || '0'}</div>
+                </div>
+                <div class="drv-info-cell">
+                    <div class="drv-info-cell__label">رسم التوصيل</div>
+                    <div class="drv-info-cell__val" style="color:var(--clr-yellow, #f59e0b)">${_fmt(order.deliveryFee) || '—'}</div>
                 </div>
                 ${order.xnote ? `
                 <div class="drv-info-cell drv-info-cell--full">

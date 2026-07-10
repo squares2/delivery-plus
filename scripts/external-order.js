@@ -28,6 +28,68 @@
     let _quickItemsLoaded  = false;
     let _quickItemsEnabled = true; // settings/otlobFastItemsEnabled — default ON until told otherwise
 
+    /* ── Suggested external stores ─────────────────────────────
+       Admin-managed list at externalStores/{key} (Admin → متاجر
+       خارجية) — stores with no Delivo contract that the admin still
+       wants offered as one-tap picks here, instead of the customer
+       typing the name/address/phone from scratch every time. Only
+       entries with active:true are ever shown. Picking one fills
+       the store fields exactly like a manual entry would — still
+       fully editable afterward. */
+    let _extStoreOptions = []; // [{ key, name, type, phone, address, lat, lng }]
+    let _extStoresLoaded = false;
+
+    async function _loadExternalStoreOptions() {
+        if (_extStoresLoaded) return;
+        _extStoresLoaded = true;
+        try {
+            const res  = await fetch(`${RTDB}/externalStores.json`);
+            const data = await res.json();
+            if (data && typeof data === 'object') {
+                _extStoreOptions = Object.entries(data)
+                    .filter(([, s]) => s && s.active && s.name)
+                    .map(([key, s]) => ({
+                        key, name: s.name, type: s.type || '',
+                        phone: s.phone || '', address: s.address || '',
+                        lat: s.lat ? parseFloat(s.lat) : null,
+                        lng: s.lng ? parseFloat(s.lng) : null,
+                    }));
+            }
+            const wrap = document.getElementById('ext-suggested-stores');
+            if (wrap) wrap.innerHTML = _renderSuggestedStoreChips();
+        } catch (_) { /* no suggested stores available — manual entry still works fine */ }
+    }
+
+    function _renderSuggestedStoreChips() {
+        if (!_extStoreOptions.length) return '';
+        return _extStoreOptions.map(s =>
+            `<button type="button" class="ext-chip" onclick="_extQuickStore('${s.key}')">🏬 ${s.name}</button>`
+        ).join('');
+    }
+
+    function _extQuickStore(key) {
+        const s = _extStoreOptions.find(o => o.key === key);
+        if (!s) return;
+        _data.storeName    = s.name;
+        _data.storeAddress = s.address || _data.storeAddress;
+        _data.storePhone   = s.phone   || '';
+        if (s.lat && s.lng) { _data.storeLat = s.lat; _data.storeLng = s.lng; }
+
+        const nameInp = document.getElementById('ext-store-name');
+        const addrInp = document.getElementById('ext-store-addr');
+        if (nameInp) nameInp.value = _data.storeName;
+        if (addrInp) addrInp.value = _data.storeAddress;
+        if (s.lat && s.lng) {
+            const badgeHost = addrInp?.closest('.ext-field');
+            if (badgeHost) {
+                let badge = badgeHost.querySelector('.ext-coord-badge');
+                if (!badge) { badge = document.createElement('div'); badge.className = 'ext-coord-badge'; badgeHost.appendChild(badge); }
+                badge.textContent = `📌 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`;
+            }
+        }
+        _refreshFeeEstimate();
+    }
+
     // Renders just the category chip row's inner HTML — kept separate
     // from the fetch so it can be called both on first render (with
     // whatever's cached/default) and again once the admin-configured
@@ -161,6 +223,7 @@
         document.body.classList.add('modal-open');
         _render();
         _loadQuickItemCategories();
+        _loadExternalStoreOptions();
     }
 
     function _closeModal() {
@@ -197,6 +260,7 @@
                 <div class="ext-field">
                     <label class="ext-label">اسم المتجر <span style="color:var(--orange)">*</span></label>
                     <input id="ext-store-name" type="text" class="ext-input" placeholder="مثال: مطعم قصر بعلبك، سوبرماركت الجميّل…" value="${_esc(_data.storeName)}">
+                    <div id="ext-suggested-stores" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;">${_renderSuggestedStoreChips()}</div>
                 </div>
 
                 <div class="ext-field">
@@ -778,6 +842,7 @@
     window._extMapConfirm = _mapConfirm;
     window._extMapCancel  = _mapCancel;
     window._extQuickDest      = _extQuickDest;
+    window._extQuickStore     = _extQuickStore;
     window._extQuickItem      = _extQuickItem;
     window._extOpenItemPopup  = _extOpenItemPopup;
     window._extCloseItemPopup = _extCloseItemPopup;
