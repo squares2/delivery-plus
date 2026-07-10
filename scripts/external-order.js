@@ -397,7 +397,7 @@
         const parts = _data.orderDescription ? _data.orderDescription.split('،').map(s => s.trim()).filter(Boolean) : [];
 
         if (!parts.length) {
-            tray.innerHTML = `<span class="ext-item-popup__tray-empty">لسّا ما ضفت شي — دوس على صنف تحت 👇</span>`;
+            tray.innerHTML = `<span class="ext-item-popup__tray-empty">بعدك ما ضفت شي، نرجو تحديد أصنافك 👇</span>`;
             return;
         }
         tray.innerHTML = `
