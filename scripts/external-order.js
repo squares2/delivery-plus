@@ -85,6 +85,8 @@
         _data.storeAddress = s.address || _data.storeAddress;
         _data.storePhone   = s.phone   || '';
         if (s.lat && s.lng) { _data.storeLat = s.lat; _data.storeLng = s.lng; }
+        _data.lockedStoreKey  = key;
+        _data.lockedStoreName = s.name;
 
         const nameInp = document.getElementById('ext-store-name');
         const addrInp = document.getElementById('ext-store-addr');
@@ -94,11 +96,30 @@
             const badgeHost = addrInp?.closest('.ext-field');
             if (badgeHost) {
                 let badge = badgeHost.querySelector('.ext-coord-badge');
-                if (!badge) { badge = document.createElement('div'); badge.className = 'ext-coord-badge'; badgeHost.appendChild(badge); }
+                if (!badge) { badge = document.createElement('div'); badge.className = 'ext-coord-badge'; badgeHost.insertBefore(badge, document.getElementById('ext-store-loc-lock-hint')); }
                 badge.textContent = `📌 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`;
             }
         }
+        // Recognized store with a known location — lock the address/map
+        // fields so the customer can't accidentally overwrite a location
+        // the system already has on file.
+        _setStoreLocationLock(true);
         _refreshFeeEstimate();
+    }
+
+    // Locks (or releases) the store address input + map button. Locked
+    // whenever the typed store name still matches a recognized
+    // externalStores entry the customer just picked — released the
+    // moment they edit that name away from it, since at that point
+    // they're describing a different store and need to set its
+    // location manually themselves.
+    function _setStoreLocationLock(locked) {
+        const addrInp = document.getElementById('ext-store-addr');
+        const mapBtn  = document.querySelector('.ext-map-btn');
+        const hint    = document.getElementById('ext-store-loc-lock-hint');
+        if (addrInp) { addrInp.disabled = locked; addrInp.classList.toggle('ext-input--locked', locked); }
+        if (mapBtn)  { mapBtn.disabled  = locked; mapBtn.classList.toggle('ext-map-btn--locked', locked); }
+        if (hint)    { hint.style.display = locked ? 'block' : 'none'; }
     }
 
     // Renders just the category chip row's inner HTML — kept separate
@@ -162,6 +183,8 @@
         destLat          : null,
         destLng          : null,
         smartFee         : null,  // auto-calculated once both locations are known
+        lockedStoreKey   : null,  // externalStores/{key} of the suggested store currently locked in, or null
+        lockedStoreName  : '',    // exact name of that store — used to detect the customer editing it away
     };
     let _currency = 'USD';
 
@@ -220,7 +243,8 @@
         }
         // Reset state
         _data = { storeName:'', storeAddress:'', storeLat:null, storeLng:null, storePhone:'',
-                  orderDescription:'', approxTotal:'', destAddress:'', destLat:null, destLng:null, smartFee:null };
+                  orderDescription:'', approxTotal:'', destAddress:'', destLat:null, destLng:null, smartFee:null,
+                  lockedStoreKey:null, lockedStoreName:'' };
         _currency = 'USD';
 
         const overlay = document.getElementById('ext-order-overlay');
@@ -277,13 +301,16 @@
                 <div class="ext-field">
                     <label class="ext-label">📍 موقع المتجر <span style="color:var(--orange)">*</span></label>
                     <div style="display:flex;gap:8px;align-items:stretch;">
-                        <input id="ext-store-addr" type="text" class="ext-input" style="flex:1;" placeholder="المنطقة، الشارع، البناية…" value="${_esc(_data.storeAddress)}">
-                        <button onclick="_extPickMap('store')" class="ext-map-btn" title="حدد على الخريطة">
+                        <input id="ext-store-addr" type="text" class="ext-input${_data.lockedStoreKey ? ' ext-input--locked' : ''}" style="flex:1;" placeholder="المنطقة، الشارع، البناية…" value="${_esc(_data.storeAddress)}" ${_data.lockedStoreKey ? 'disabled' : ''}>
+                        <button onclick="_extPickMap('store')" class="ext-map-btn${_data.lockedStoreKey ? ' ext-map-btn--locked' : ''}" ${_data.lockedStoreKey ? 'disabled' : ''} title="حدد على الخريطة">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
                             خريطة
                         </button>
                     </div>
                     ${_data.storeLat ? `<div class="ext-coord-badge">📌 ${_data.storeLat.toFixed(5)}, ${_data.storeLng.toFixed(5)}</div>` : ''}
+                    <div id="ext-store-loc-lock-hint" style="display:${_data.lockedStoreKey ? 'block' : 'none'};margin-top:6px;font-size:0.72rem;color:var(--clr-gray-500);">
+                        🔒 الموقع محدد تلقائياً لهذا المتجر — عدّل اسم المتجر أعلاه إذا كان متجرك مختلفاً لإدخال موقعه يدوياً
+                    </div>
                 </div>
             </div>
 
@@ -362,7 +389,25 @@
     }
 
     function _bindForm() {
-        document.getElementById('ext-store-name')?.addEventListener('input', e => _data.storeName = e.target.value.trim());
+        document.getElementById('ext-store-name')?.addEventListener('input', e => {
+            _data.storeName = e.target.value.trim();
+            // The customer changed the name away from the recognized store
+            // they picked — release the lock and clear its location so they
+            // can assign a different store's address/pin manually instead
+            // of accidentally keeping the old store's location.
+            if (_data.lockedStoreKey && _data.storeName !== _data.lockedStoreName) {
+                _data.lockedStoreKey  = null;
+                _data.lockedStoreName = '';
+                _data.storeAddress = '';
+                _data.storeLat = null;
+                _data.storeLng = null;
+                const addrInp = document.getElementById('ext-store-addr');
+                if (addrInp) addrInp.value = '';
+                addrInp?.closest('.ext-field')?.querySelector('.ext-coord-badge')?.remove();
+                _setStoreLocationLock(false);
+                _refreshFeeEstimate();
+            }
+        });
         document.getElementById('ext-store-addr')?.addEventListener('input', e => _data.storeAddress = e.target.value.trim());
         document.getElementById('ext-order-desc')?.addEventListener('input', e => _data.orderDescription = e.target.value.trim());
         document.getElementById('ext-dest-addr')?.addEventListener('input', e => _data.destAddress = e.target.value.trim());
@@ -580,7 +625,9 @@
         let nextId        = (counter?.requestId || 0) + 1;
         const requestKey  = `id_${nextId}`;
         const now = new Date();
-        const dateStr = now.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).replace(',','');
+        // Match cart.js's checkout date format (Y-M-D H:MM:SS, no zero-padding)
+        // so the admin's date filter can parse this order type consistently.
+        const dateStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
 
         const requestObj = {
             cart          : cartStr,

@@ -366,6 +366,39 @@ input, select, textarea { font-family: var(--font); }
 }
 .filter-pill.active  { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); }
 .filter-pill:hover   { border-color: var(--border-bright); color: var(--white); }
+/* Order-panel pills only — shrink without touching store/driver/customer/visitor
+   pills, which unfortunately share the same .orders-toolbar wrapper class */
+#panel-orders .filter-pill {
+    padding: 3px 8px; font-size: 0.66rem; border-width: 1px;
+}
+.orders-totals-mini {
+    display: flex; align-items: center; gap: 14px;
+    padding: 7px 16px; border-radius: 50px;
+    border: 1.5px solid var(--border); background: var(--surface2);
+    font-size: 0.86rem; font-weight: 700; color: var(--gray-light); white-space: nowrap;
+}
+.orders-totals-mini b { color: var(--white); font-weight: 900; }
+.orders-totals-mini .ot-delivery { color: #22c55e; }
+.orders-date-filter {
+    display: flex; align-items: center; gap: 8px;
+}
+.orders-date-select {
+    background: var(--surface2); border: 1.5px solid var(--border); border-radius: 50px;
+    color: var(--gray-light); font-size: 0.86rem; font-weight: 800;
+    padding: 7px 16px; outline: none; cursor: pointer; font-family: inherit;
+}
+.orders-date-select:focus { border-color: var(--orange); }
+.orders-date-custom {
+    display: none; align-items: center; gap: 7px;
+}
+.orders-date-custom.active { display: flex; }
+.orders-date-custom input[type="date"] {
+    background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--white); font-size: 0.82rem; padding: 6px 10px; outline: none; font-family: inherit;
+    color-scheme: dark;
+}
+.orders-date-custom input[type="date"]:focus { border-color: var(--orange); }
+
 .search-box {
     flex: 1; min-width: 180px; max-width: 320px;
     background: var(--surface2); border: 1.5px solid var(--border);
@@ -375,6 +408,10 @@ input, select, textarea { font-family: var(--font); }
 }
 .search-box:focus { border-color: var(--orange); }
 .search-box::placeholder { color: var(--gray); }
+/* Order-panel search box only — enlarged alongside the totals/date filter above */
+#panel-orders .search-box {
+    font-size: 0.9rem; padding: 9px 14px; min-width: 220px;
+}
 .orders-list { flex: 1; overflow-y: auto; padding: var(--pad-md) var(--pad-lg); display: flex; flex-direction: column; gap: var(--gap-sm); }
 .orders-list::-webkit-scrollbar { width: 5px; }
 .orders-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -415,6 +452,10 @@ input, select, textarea { font-family: var(--font); }
     padding: 0 2px; text-align: left;
 }
 .oc-fee-input:focus { outline: none; border-bottom-style: solid; }
+.oc-fee-edit {
+    display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+    font-size: var(--fs-sm); color: var(--yellow);
+}
 .oc-state { flex-shrink: 0; padding: 3px var(--pad-sm); border-radius: 50px; font-size: var(--fs-xs); font-weight: 800; }
 .state-badge-0 { background: rgba(255,92,0,0.15);  color: var(--orange); }
 .state-badge-1 { background: var(--green-glow);     color: var(--green);  }
@@ -477,8 +518,6 @@ input, select, textarea { font-family: var(--font); }
 .oc-action-btn.btn-late--active { background: var(--yellow, #f59e0b); border-color: var(--yellow, #f59e0b); color: #000; font-weight: 700; cursor: default; }
 .oc-action-btn.btn-new  { border-color: var(--orange, #ff5c00); color: var(--orange, #ff5c00); }
 .oc-action-btn.btn-new--active  { background: var(--orange, #ff5c00); border-color: var(--orange, #ff5c00); color: #fff; font-weight: 700; cursor: default; }
-.oc-action-btn.btn-canc-paid  { border-color: #a855f7; color: #a855f7; }
-.oc-action-btn.btn-canc-paid--active { background: #a855f7; border-color: #a855f7; color: #fff; font-weight: 700; cursor: default; }
 
 /* Track — blue, always last */
 .oc-action-btn.btn-track { border-color: #60a5fa; color: #60a5fa; }
@@ -825,7 +864,7 @@ input, select, textarea { font-family: var(--font); }
 .cs-7 { background:rgba(245,158,11,.12); color:var(--yellow); border-color:rgba(245,158,11,.3); }
 .cs-8 { background:var(--green-glow);   color:var(--green);  border-color:rgba(34,197,94,.3); }
 .cs-1 { background:rgba(34,197,94,.08); color:var(--green);  border-color:rgba(34,197,94,.2); opacity:.7; }
-.cs-2,.cs-5 { background:var(--red-glow); color:var(--red);  border-color:rgba(239,68,68,.3); opacity:.7; }
+.cs-2 { background:var(--red-glow); color:var(--red);  border-color:rgba(239,68,68,.3); opacity:.7; }
 .coc-body { padding:12px 14px; display:flex; flex-direction:column; gap:6px; }
 .coc-row { display:flex; align-items:flex-start; gap:6px; font-size:0.8rem; }
 .coc-label { color:var(--gray); font-size:0.68rem; font-weight:800; min-width:62px; flex-shrink:0; }
@@ -1906,10 +1945,28 @@ input, select, textarea { font-family: var(--font); }
                     <button class="filter-pill active" data-filter="all">الكل</button>
                     <button class="filter-pill" data-filter="0">🔵 جديد</button>
                     <button class="filter-pill" data-filter="1">🟢 وُصِّل</button>
-                    <button class="filter-pill" data-filter="3">🟡 متأخر</button>
                     <button class="filter-pill" data-filter="2">🔴 ملغي</button>
-                    <button class="filter-pill" data-filter="5">💜 ملغي/مدفوع</button>
                     <button class="filter-pill" data-filter="archived" style="border-color:rgba(156,163,175,0.4);color:#9ca3af;">📦 مؤرشف</button>
+                    <div class="orders-totals-mini">
+                        <span>💰 الطلبات: <b id="orders-total-orders">$0.00</b></span>
+                        <span class="ot-delivery">🚗 التوصيل: <b id="orders-total-delivery">$0.00</b></span>
+                    </div>
+                    <div class="orders-date-filter">
+                        <select class="orders-date-select" id="orders-date-select">
+                            <option value="all">📅 كل التواريخ</option>
+                            <option value="today">اليوم</option>
+                            <option value="yesterday">أمس</option>
+                            <option value="7d">آخر 7 أيام</option>
+                            <option value="30d">آخر 30 يوم</option>
+                            <option value="month">هذا الشهر</option>
+                            <option value="custom">نطاق مخصص…</option>
+                        </select>
+                        <div class="orders-date-custom" id="orders-date-custom">
+                            <input type="date" id="orders-date-from" title="من تاريخ">
+                            <span style="color:var(--gray);font-size:0.8rem;">إلى</span>
+                            <input type="date" id="orders-date-to" title="إلى تاريخ">
+                        </div>
+                    </div>
                     <input type="text" class="search-box" id="orders-search" placeholder="بحث باسم العميل أو المتجر…">
                 </div>
                 <div class="orders-list" id="orders-list">
@@ -1956,9 +2013,6 @@ input, select, textarea { font-family: var(--font); }
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         تحديث
                     </button>
-                    <button class="ph-btn" id="customers-autolocate-btn" title="تحديد تلقائي لمواقع العملاء الناقصة من طلباتهم السابقة" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;">
-                        🎯 تحديد تلقائي للمواقع
-                    </button>
                 </div>
                 <div class="orders-toolbar" style="flex-shrink:0;">
                     <button class="filter-pill active" data-cust-filter="all">الكل</button>
@@ -1990,6 +2044,10 @@ input, select, textarea { font-family: var(--font); }
                     <button class="ph-btn" id="visitors-refresh-btn">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         تحديث
+                    </button>
+                    <button class="ph-btn" id="visitors-export-btn" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:#22c55e;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        تصدير Excel
                     </button>
                 </div>
                 <!-- Summary bar -->
@@ -2847,6 +2905,7 @@ input, select, textarea { font-family: var(--font); }
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -3052,6 +3111,9 @@ let _assignmentMode = 'both'; // 'both' | 'driver_only' | 'admin_only' — see s
 let adminUsers   = {};
 let orderFilter    = 'all';
 let orderSearch    = '';
+let orderDateFilter = 'all'; // 'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'
+let orderDateFrom   = '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
+let orderDateTo     = '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
 let driverFilter   = 'all';
 let driverSearch   = '';
 let customerFilter = 'all';
@@ -5469,7 +5531,6 @@ function renderMap() {
             '1':{ bg:'#22c55e', tx:'#fff', lbl:'وُصِّل'     },
             '2':{ bg:'#ef4444', tx:'#fff', lbl:'ملغي'       },
             '3':{ bg:'#f59e0b', tx:'#000', lbl:'متأخر'      },
-            '5':{ bg:'#a855f7', tx:'#fff', lbl:'ملغي/مدفوع' },
         };
 
         // ── Helper: editable popup HTML for one order ─────────
@@ -5663,7 +5724,7 @@ function renderMap() {
     Object.entries(allOrders).forEach(([key, o]) => {
         if (!o.driver || o.driver === '0') return;
         if (o.vault == 1) return;
-        if (['1','2','5'].includes(o.state || '0')) return;
+        if (['1','2'].includes(o.state || '0')) return;
         if (!o.lat || !o.lng) return;
         const lat = parseFloat(o.lat), lng = parseFloat(o.lng);
         if (isNaN(lat) || isNaN(lng)) return;
@@ -5726,9 +5787,82 @@ function renderMap() {
 // ═══════════════════════════════════════════════════════════════
 // ORDERS PANEL
 // ═══════════════════════════════════════════════════════════════
-const STATE_LABELS = { '0':'جديد','1':'وُصِّل','2':'ملغي','3':'متأخر','5':'ملغي/مدفوع','6':'استُلم','7':'قيد التحضير','8':'جاهز ✓' };
+const STATE_LABELS = { '0':'جديد','1':'وُصِّل','2':'ملغي','3':'متأخر','6':'استُلم','7':'قيد التحضير','8':'جاهز ✓' };
 
 let _orderCardSnapshots = {}; // orderKey -> last-rendered JSON, avoids needless card rebuilds
+
+// order.date is saved at checkout as "Y-M-D H:MM:SS" (no zero-padding —
+// see scripts/cart.js's dateStr). Parsed into a real Date for the date
+// filter's day-range comparisons below.
+// Also handles the legacy "DD/MM/YYYY HH:MM:SS" format that the manual
+// "اطلب" order tool used before it was aligned to the same format above —
+// older manual orders already saved with slashes still need to filter.
+function _parseOrderDate(order) {
+    if (!order?.date) return null;
+    const [datePart, timePart] = order.date.split(' ');
+    if (!datePart) return null;
+
+    let y, m, d;
+    if (datePart.includes('/')) {
+        // legacy manual-order format: DD/MM/YYYY
+        [d, m, y] = datePart.split('/').map(Number);
+    } else {
+        [y, m, d] = datePart.split('-').map(Number);
+    }
+    if (!y || !m || !d) return null;
+
+    let h = 0, mi = 0, s = 0;
+    if (timePart) {
+        const parts = timePart.split(':').map(Number);
+        h = parts[0] || 0; mi = parts[1] || 0; s = parts[2] || 0;
+    }
+    const dt = new Date(y, m - 1, d, h, mi, s);
+    return isNaN(dt.getTime()) ? null : dt;
+}
+
+// Does this order's date fall inside the currently selected date filter?
+// Ranges are day-based (local time) so "اليوم"/"أمس"/etc. match what the
+// admin sees on the clock, not a rolling 24h window.
+function _orderMatchesDateFilter(order) {
+    if (orderDateFilter === 'all') return true;
+    const od = _parseOrderDate(order);
+    if (!od) return false;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (orderDateFilter) {
+        case 'today':
+            return od >= startOfToday;
+        case 'yesterday': {
+            const start = new Date(startOfToday); start.setDate(start.getDate() - 1);
+            return od >= start && od < startOfToday;
+        }
+        case '7d': {
+            const start = new Date(startOfToday); start.setDate(start.getDate() - 6);
+            return od >= start;
+        }
+        case '30d': {
+            const start = new Date(startOfToday); start.setDate(start.getDate() - 29);
+            return od >= start;
+        }
+        case 'month':
+            return od >= new Date(now.getFullYear(), now.getMonth(), 1);
+        case 'custom': {
+            if (orderDateFrom) {
+                const from = new Date(orderDateFrom + 'T00:00:00');
+                if (od < from) return false;
+            }
+            if (orderDateTo) {
+                const to = new Date(orderDateTo + 'T23:59:59');
+                if (od > to) return false;
+            }
+            return true;
+        }
+        default:
+            return true;
+    }
+}
 
 function renderOrders() {
     fetchCompanyVars(); // fire-and-forget — populates the cached companyVars used below
@@ -5746,6 +5880,7 @@ function renderOrders() {
                 if (isClosed) return false;
                 if (orderFilter !== 'all' && (o.state||'0') !== orderFilter) return false;
             }
+            if (!_orderMatchesDateFilter(o)) return false;
             if (orderSearch) {
                 const q = orderSearch.toLowerCase();
                 if (!(o.fullname||'').toLowerCase().includes(q) &&
@@ -5757,6 +5892,23 @@ function renderOrders() {
 
     countEl.textContent = `${entries.length} طلب`;
     emptyEl.style.display = entries.length === 0 ? 'flex' : 'none';
+
+    // ── Totals for the currently filtered set — order-only sum and
+    // delivery-fee sum, both in USD, mirroring the same split shown on
+    // each order card (manual deliveryFee override if set, else estimate).
+    let totalOrdersUSD = 0, totalDeliveryUSD = 0;
+    entries.forEach(([, o]) => {
+        const deliveryProfit = getOrderDeliveryProfit(o, companyVars);
+        const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : deliveryProfit;
+        const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
+        totalOrdersUSD   += _splitOrderTotal(o, effectiveDeliveryRaw);
+        totalDeliveryUSD += deliveryUSD;
+    });
+    const totOrdersEl   = document.getElementById('orders-total-orders');
+    const totDeliveryEl = document.getElementById('orders-total-delivery');
+    if (totOrdersEl)   totOrdersEl.textContent   = '$' + totalOrdersUSD.toFixed(2);
+    if (totDeliveryEl) totDeliveryEl.textContent = '$' + totalDeliveryUSD.toFixed(2);
+
 
     // ── Smart diff: preserve expanded state & scroll position, and
     // don't touch cards whose data hasn't changed or that the admin is
@@ -5833,6 +5985,9 @@ function buildOrderCard(key, order) {
             <span class="oc-total-edit" title="سعر الطلب بدون رسم التوصيل — اضغط للتعديل">
                 <span class="oc-total-cur">${_currencySymbol(orderOnlyPrice)}</span><input type="number" class="oc-total-input" data-oid="${key}" value="${orderOnlyPrice ? orderOnlyPrice.toFixed(2) : ''}" placeholder="0" step="0.01">
             </span>
+            <span class="oc-fee-edit" title="رسم التوصيل — محسوب تلقائياً، يمكن تعديله يدوياً">
+                💵<span class="oc-fee-cur">${_currencySymbol(order.deliveryFee)}</span><input type="number" class="oc-fee-input" data-oid="${key}" value="${order.deliveryFee != null && order.deliveryFee !== '' ? order.deliveryFee : (deliveryProfit !== null ? deliveryProfit.toFixed(2) : '')}" placeholder="—" step="0.01">
+            </span>
             <span class="oc-state state-badge-${state}">${STATE_LABELS[state] || state}</span>
             <span class="oc-toggle">▾</span>
         </div>
@@ -5857,9 +6012,6 @@ function buildOrderCard(key, order) {
                 <span class="oc-meta-chip">🏙 ${order.city || '—'}</span>
                 ${order.street ? `<span class="oc-meta-chip">🛣 ${order.street}</span>` : ''}
                 ${order.lat && order.lat !== '0' ? `<span class="oc-meta-chip">📍 ${parseFloat(order.lat).toFixed(5)}, ${parseFloat(order.lng).toFixed(5)}</span>` : ''}
-                <span class="oc-meta-chip oc-fee-chip" style="color:var(--yellow);border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);" title="رسم التوصيل — محسوب تلقائياً، يمكن تعديله يدوياً">
-                    💵 رسم التوصيل: <span class="oc-fee-cur">${_currencySymbol(order.deliveryFee)}</span><input type="number" class="oc-fee-input" data-oid="${key}" value="${order.deliveryFee != null && order.deliveryFee !== '' ? order.deliveryFee : (deliveryProfit !== null ? deliveryProfit.toFixed(2) : '')}" placeholder="—" step="0.01">
-                </span>
                 <span class="oc-meta-chip ${driverAssigned ? 'has' : ''}" style="${driverAssigned ? 'border-color:rgba(34,197,94,0.3);color:var(--green);background:var(--green-glow);' : ''}">
                     🛵 ${driverAssigned ? order.driver : 'غير معين'}
                 </span>
@@ -5894,14 +6046,11 @@ function buildOrderCard(key, order) {
                 <button class="oc-action-btn btn-cancelled ${state==='2'?'btn-cancelled--active':''}"
                         data-state="${key}" data-val="2"
                         title="إلغاء الطلب">✕ ملغي</button>
-                <button class="oc-action-btn btn-canc-paid ${state==='5'?'btn-canc-paid--active':''}"
-                        data-state="${key}" data-val="5"
-                        title="ملغي ومدفوع">💜 ملغي/مدفوع</button>
                 <button class="oc-action-btn btn-ready ${state==='8'?'btn-ready--active':''}"
                         data-state="${key}" data-val="8"
                         title="الطلب جاهز للتسليم للسائق">✅ جاهز</button>
                 ${order.lat && order.lat !== '0' ? `<button class="oc-action-btn" data-locate="${order.lat},${order.lng}">🗺 الخريطة</button>` : ''}
-                ${ (['1','2','5'].includes(state))
+                ${ (['1','2'].includes(state))
                     ? `<button class="oc-action-btn btn-track" disabled title="الطلب منتهٍ — التتبع غير متاح" style="opacity:.4;cursor:not-allowed;">📡 التتبع</button>`
                     : (['6','7'].includes(state))
                     ? `<button class="oc-action-btn btn-track" disabled title="بانتظار المتجر" style="opacity:.4;cursor:not-allowed;">📡 التتبع</button>`
@@ -5991,7 +6140,7 @@ function buildOrderCard(key, order) {
             const oid   = btn.dataset.trackorder;
             const order = allOrders[oid] || {};
             const st    = order.state || '0';
-            if (['1','2','5'].includes(st)) { toast('الطلب منتهٍ — التتبع غير متاح', true); return; }
+            if (['1','2'].includes(st)) { toast('الطلب منتهٍ — التتبع غير متاح', true); return; }
             if (['6','7'].includes(st))     { toast('بانتظار المتجر — التتبع غير متاح بعد', true); return; }
             const cur    = order.trackorder;
             const newVal = (cur == 1) ? '0' : '1';
@@ -6286,13 +6435,12 @@ async function changeState(orderId, newState) {
                 // Remove state, locate AND track buttons — rebuild all in correct fixed order
                 actionsDiv.querySelectorAll('[data-state], [data-locate], [data-trackorder]').forEach(b => b.remove());
 
-                // Rebuild all 5 state buttons matching the driver page
+                // Rebuild all 4 state buttons matching the driver page
                 const btnDefs = [
                     { val:'0', label:'🔵 جديد',        cls: ' btn-new'       + (newState==='0' ? ' btn-new--active' : ''), title:'إعادة الطلب لحالة جديد' },
                     { val:'1', label:'✅ وُصِّل',       cls: ' btn-delivered' + (newState==='1' ? ' btn-delivered--active' : ''), title:'تم التوصيل' },
                     { val:'3', label:'⏳ متأخر',        cls: ' btn-late'      + (newState==='3' ? ' btn-late--active' : ''), title:'تأخير الطلب' },
                     { val:'2', label:'✕ ملغي',         cls: ' btn-cancelled' + (newState==='2' ? ' btn-cancelled--active' : ''), title:'إلغاء الطلب' },
-                    { val:'5', label:'💜 ملغي/مدفوع',  cls: ' btn-canc-paid' + (newState==='5' ? ' btn-canc-paid--active' : ''), title:'ملغي ومدفوع' },
                     { val:'8', label:'✅ جاهز',         cls: ' btn-ready'     + (newState==='8' ? ' btn-ready--active' : ''), title:'الطلب جاهز للتسليم للسائق' },
                 ];
                 btnDefs.forEach(({ val, label, cls, title }) => {
@@ -6321,19 +6469,19 @@ async function changeState(orderId, newState) {
                 const newSt   = allOrders[orderId]?.state || '0';
                 const trackBtn = document.createElement('button');
                 const isTracked = allOrders[orderId]?.trackorder == 1;
-                const trackDisabled = ['1','2','5','6','7'].includes(newSt);
+                const trackDisabled = ['1','2','6','7'].includes(newSt);
                 trackBtn.className = 'oc-action-btn btn-track' + (isTracked && !trackDisabled ? ' btn-track--active' : '');
                 trackBtn.textContent = '📡 ' + (isTracked && !trackDisabled ? 'إيقاف التتبع' : 'تفعيل التتبع');
                 if (trackDisabled) {
                     trackBtn.disabled = true;
                     trackBtn.style.cssText = 'opacity:.4;cursor:not-allowed;';
-                    trackBtn.title = ['1','2','5'].includes(newSt) ? 'الطلب منتهٍ' : 'بانتظار المتجر';
+                    trackBtn.title = ['1','2'].includes(newSt) ? 'الطلب منتهٍ' : 'بانتظار المتجر';
                 } else {
                     trackBtn.dataset.trackorder = orderId;
                     trackBtn.addEventListener('click', async () => {
                         const cur    = allOrders[orderId]?.trackorder;
                         const curSt  = allOrders[orderId]?.state || '0';
-                        if (['1','2','5'].includes(curSt)) { toast('الطلب منتهٍ', true); return; }
+                        if (['1','2'].includes(curSt)) { toast('الطلب منتهٍ', true); return; }
                         if (['6','7'].includes(curSt))     { toast('بانتظار المتجر', true); return; }
                         const newVal = (cur == 1) ? '0' : '1';
                         const uid2   = allOrders[orderId]?.delivryplusid;
@@ -7144,11 +7292,11 @@ function renderCustomers() {
                                 data-action="${bl[p._id]?'unblock-uid':'block-uid'}" style="width:100%;">
                                 ${bl[p._id] ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
                             </button>
-                            <button class="cust-resetpw-btn"
+                            ${p.registrationMethod !== 'phone-otp' ? `<button class="cust-resetpw-btn"
                                 data-uid="${p._id}" data-username="${p.username||''}" data-name="${p.displayName||p.username||''}" data-phone="${p.phone||''}"
                                 style="width:100%;padding:4px 8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:var(--radius-sm);color:#3b82f6;font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
                                 🔑 إعادة تعيين كلمة المرور
-                            </button>
+                            </button>` : ''}
                             <button class="cust-delete-btn"
                                 data-uid="${p._id}" data-username="${p.username||''}" data-name="${p.displayName||p.username||''}" data-phone="${p.phone||''}"
                                 style="width:100%;padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);color:var(--red);font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
@@ -7278,11 +7426,11 @@ function renderCustomers() {
                             data-action="${isBlocked?'unblock-uid':'block-uid'}">
                             ${isBlocked ? '\u2705 \u0631\u0641\u0639 \u0627\u0644\u062d\u0638\u0631' : '\ud83d\udea7 \u062d\u0638\u0631'}
                         </button>
-                        <button class="cust-resetpw-btn"
+                        ${u.registrationMethod !== 'phone-otp' ? `<button class="cust-resetpw-btn"
                             data-uid="${uid}" data-username="${u.username||''}" data-name="${u.displayName||u.username||''}" data-phone="${u.phone||''}"
                             style="width:100%;padding:4px 8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:var(--radius-sm);color:#3b82f6;font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
                             🔑 إعادة تعيين كلمة المرور
-                        </button>
+                        </button>` : ''}
                         <button class="cust-delete-btn"
                             data-uid="${uid}" data-username="${u.username||''}" data-name="${u.displayName||u.username||''}" data-phone="${u.phone||''}"
                             style="width:100%;padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);color:var(--red);font-family:inherit;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">
@@ -7359,22 +7507,11 @@ function _visitorDeviceLabel(v) {
     return `${icon} ${label}`;
 }
 
-function renderVisitors() {
-    const tbody   = document.getElementById('visitors-tbody');
-    const countEl = document.getElementById('visitors-count-label');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
+// Shared by renderVisitors() and exportVisitorsToExcel() so the exported
+// file always matches exactly what's on screen — same active filter pill
+// and search box, same sort order.
+function _getFilteredVisitorEntries() {
     let entries = Object.entries(allVisitors || {});
-
-    // Summary bar — always reflects the FULL set, regardless of active filter/search
-    const total     = entries.length;
-    const converted = entries.filter(([, v]) => v.converted).length;
-    const pending   = total - converted;
-    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    setTxt('vis-sum-total',     total);
-    setTxt('vis-sum-pending',   pending);
-    setTxt('vis-sum-converted', converted);
 
     if (visitorFilter === 'pending')   entries = entries.filter(([, v]) => !v.converted);
     if (visitorFilter === 'converted') entries = entries.filter(([, v]) => v.converted);
@@ -7389,6 +7526,27 @@ function renderVisitors() {
     }
 
     entries.sort(([, a], [, b]) => _visitorTimestamp(b) - _visitorTimestamp(a));
+    return entries;
+}
+
+function renderVisitors() {
+    const tbody   = document.getElementById('visitors-tbody');
+    const countEl = document.getElementById('visitors-count-label');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const allEntries = Object.entries(allVisitors || {});
+
+    // Summary bar — always reflects the FULL set, regardless of active filter/search
+    const total     = allEntries.length;
+    const converted = allEntries.filter(([, v]) => v.converted).length;
+    const pending   = total - converted;
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setTxt('vis-sum-total',     total);
+    setTxt('vis-sum-pending',   pending);
+    setTxt('vis-sum-converted', converted);
+
+    const entries = _getFilteredVisitorEntries();
 
     if (countEl) countEl.textContent = `${entries.length} زائر`;
 
@@ -7456,7 +7614,142 @@ function renderVisitors() {
     });
 }
 
-// ── Customer map fly-to helper ───────────────────────────────────────────
+// ── Export visitors table to a styled .xlsx file ─────────────────────────
+// Exports exactly what's currently on screen (same filter pill + search box
+// as _getFilteredVisitorEntries used by renderVisitors), not the full raw
+// dataset, so what the admin sees is what they get in the file.
+async function exportVisitorsToExcel() {
+    const btn = document.getElementById('visitors-export-btn');
+    if (!btn) return;
+    const orig = btn.innerHTML;
+
+    if (typeof ExcelJS === 'undefined') {
+        toast('❌ مكتبة التصدير لم تُحمَّل بعد — تأكد من الاتصال بالإنترنت وحاول مجدداً', true);
+        return;
+    }
+
+    const entries = _getFilteredVisitorEntries();
+    if (!entries.length) { toast('لا يوجد بيانات لتصديرها', true); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '⏳ جاري التصدير...';
+
+    try {
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'Delivo';
+        wb.created = new Date();
+
+        const ws = wb.addWorksheet('الزوار', {
+            views: [{ rightToLeft: true, state: 'frozen', ySplit: 3 }],
+        });
+
+        ws.columns = [
+            { width: 24 }, // الاسم الكامل
+            { width: 18 }, // الهاتف
+            { width: 14 }, // الجهاز
+            { width: 24 }, // UUID
+            { width: 20 }, // تاريخ الزيارة
+            { width: 16 }, // الحالة
+            { width: 14 }, // واتساب
+        ];
+
+        // ── Title band ──
+        ws.mergeCells('A1:G1');
+        const titleCell = ws.getCell('A1');
+        titleCell.value = `تقرير الزوار — Delivo  (${entries.length} سجل)`;
+        titleCell.font = { size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF5C00' } };
+        ws.getRow(1).height = 30;
+
+        // ── Export-date subtitle ──
+        ws.mergeCells('A2:G2');
+        const dateCell = ws.getCell('A2');
+        const filterLabel = visitorFilter === 'pending' ? 'لم يسجّلوا بعد' : visitorFilter === 'converted' ? 'أصبحوا عملاء' : 'الكل';
+        dateCell.value = `تاريخ التصدير: ${new Date().toLocaleString('ar-LB')}   —   الفلتر: ${filterLabel}`;
+        dateCell.font = { size: 9, italic: true, color: { argb: 'FF666666' } };
+        dateCell.alignment = { horizontal: 'center' };
+        dateCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F3F3' } };
+        ws.getRow(2).height = 18;
+
+        // ── Header row ──
+        const headerRow = ws.getRow(3);
+        headerRow.values = ['الاسم الكامل', 'الهاتف', 'الجهاز', 'UUID', 'تاريخ الزيارة', 'الحالة', 'واتساب'];
+        headerRow.eachCell(cell => {
+            cell.font      = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+            cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F1F2E' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border    = {
+                top: { style: 'thin', color: { argb: 'FF444455' } }, left: { style: 'thin', color: { argb: 'FF444455' } },
+                bottom: { style: 'thin', color: { argb: 'FF444455' } }, right: { style: 'thin', color: { argb: 'FF444455' } },
+            };
+        });
+        headerRow.height = 22;
+
+        // ── Data rows ──
+        entries.forEach(([uuid, v], i) => {
+            const ts       = _visitorTimestamp(v);
+            const dateStr  = ts ? new Date(ts).toLocaleString('ar-LB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+            const waDigits = (v.phone || '').replace(/\D/g, '').replace(/^0/, '');
+            const waLink   = waDigits ? `https://wa.me/961${waDigits}` : '';
+
+            const row = ws.addRow([
+                v.fullName || '—',
+                formatPhone(v.phone) || '—',
+                _visitorDeviceLabel(v),
+                uuid,
+                dateStr,
+                v.converted ? '✅ عميل مسجّل' : '⏳ زائر فقط',
+                '',
+            ]);
+
+            const zebra = i % 2 === 0 ? 'FFF7F7FA' : 'FFFFFFFF';
+            row.eachCell((cell, col) => {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebra } };
+                cell.border    = {
+                    top: { style: 'thin', color: { argb: 'FFE0E0E0' } }, left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                    bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } }, right: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                };
+                if (col === 1) cell.font = { bold: true };
+                if (col === 4) cell.font = { name: 'Consolas', size: 9, color: { argb: 'FF888888' } };
+            });
+
+            row.getCell(6).font = v.converted
+                ? { bold: true, color: { argb: 'FF16A34A' } }
+                : { bold: true, color: { argb: 'FFD97706' } };
+
+            if (waLink) {
+                const waCell = row.getCell(7);
+                waCell.value = { text: '💬 واتساب', hyperlink: waLink };
+                waCell.font  = { color: { argb: 'FF16A34A' }, underline: true, bold: true };
+            }
+        });
+
+        ws.autoFilter = { from: 'A3', to: 'G3' };
+
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url    = URL.createObjectURL(blob);
+        const a      = document.createElement('a');
+        a.href     = url;
+        a.download = `Delivo-Visitors-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        toast(`✅ تم تصدير ${entries.length} سجل بنجاح`);
+    } catch (e) {
+        console.error(e);
+        toast('❌ فشل التصدير', true);
+    } finally {
+        btn.disabled  = false;
+        btn.innerHTML = orig;
+    }
+}
+
+
 function _flyToCustomer(lat, lng, name) {
     switchPanel('map');
     setTimeout(() => {
@@ -7729,79 +8022,6 @@ function openCustomerLocationModal(uid, name, initLat, initLng) {
    left for manual review via the ✏️/📍 button so we never silently
    plant a wrong pin.
 ══════════════════════════════════════════════════════════ */
-async function autoLocateMissingCustomers() {
-    const candidates = Object.entries(allUsers).filter(([, u]) => {
-        const _lat = parseFloat(u.location?.lat ?? u.lat ?? NaN);
-        const _lng = parseFloat(u.location?.lng ?? u.lng ?? NaN);
-        return !_lat || !_lng || isNaN(_lat) || isNaN(_lng);
-    });
-
-    if (!candidates.length) { toast('✅ كل العملاء لديهم موقع محدد بالفعل'); return; }
-
-    // Build uid -> most recent geolocated order, from newest to oldest
-    const ordersByUser = {};
-    Object.values(allOrders)
-        .filter(o => o.lat && o.lng && o.lat !== '0' && !isNaN(parseFloat(o.lat)) && !isNaN(parseFloat(o.lng)))
-        .sort((a, b) => (b.timestamp || b.createdAt || 0) - (a.timestamp || a.createdAt || 0))
-        .forEach(o => {
-            const key = o.delivryplusid || o.username;
-            if (key && !ordersByUser[key]) ordersByUser[key] = o;
-        });
-
-    // Resolve matches BEFORE asking for confirmation, so the admin sees the
-    // exact named list of who is about to be touched — never a blind count.
-    // Customers who already have a saved location were filtered out above and
-    // are never in this list, so this can never overwrite an existing pin.
-    const toSet = [];
-    let unmatched = 0;
-    candidates.forEach(([uid, u]) => {
-        const match = ordersByUser[uid] || ordersByUser[u.username];
-        if (!match) { unmatched++; return; }
-        toSet.push({
-            uid, u,
-            lat: parseFloat(parseFloat(match.lat).toFixed(6)),
-            lng: parseFloat(parseFloat(match.lng).toFixed(6)),
-        });
-    });
-
-    if (!toSet.length) {
-        toast(`ℹ️ لا يوجد عميل يمكن تحديد موقعه تلقائياً — ${unmatched} عميل بدون أي طلب بإحداثيات، بحاجة لتحديد يدوي`);
-        return;
-    }
-
-    const previewList = toSet.map(({ u, lat, lng }) =>
-        `<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid var(--border);font-size:0.78rem;">
-            <span>${u.displayName || u.username || '—'} <span style="color:var(--gray);">@${u.username || '—'}</span></span>
-            <span style="font-family:var(--mono);color:var(--orange);white-space:nowrap;">${lat}, ${lng}</span>
-        </div>`
-    ).join('');
-
-    const confirmed = await showConfirm({
-        title: '🎯 تحديد تلقائي للمواقع الناقصة',
-        msg: `سيتم تحديد موقع <strong>${toSet.length}</strong> عميل تلقائياً من إحداثيات آخر طلب لهم فقط
-              — لن يتم لمس أي عميل لديه موقع محفوظ مسبقاً.
-              ${unmatched ? `<br>(${unmatched} عميل آخر بدون أي طلب بإحداثيات سيبقون بدون موقع لتحديدهم يدوياً)` : ''}
-              <div style="max-height:220px;overflow-y:auto;margin-top:10px;text-align:right;background:var(--surface2);border-radius:8px;padding:8px 10px;">
-                  ${previewList}
-              </div>`,
-        okLabel: `🎯 تأكيد وتحديد ${toSet.length} عميل`, cancelLabel: 'إلغاء',
-    });
-    if (!confirmed) return;
-
-    let located = 0, skipped = unmatched;
-    for (const { uid, lat, lng } of toSet) {
-        try {
-            await _updateUserLocation(uid, lat, lng, { locationSource: 'auto-order' });
-            allUsers[uid].location       = { lat, lng };
-            allUsers[uid].locationSource = 'auto-order';
-            located++;
-        } catch(_) { skipped++; }
-    }
-
-    toast(`🎯 تم تحديد موقع ${located} عميل تلقائياً${skipped ? ` — ${skipped} بحاجة لتحديد يدوي` : ''}`);
-    renderCustomers();
-}
-
 // STORES PANEL
 // ═══════════════════════════════════════════════════════════════
 const TYPE_LABELS = { Restaurants:'مطعم', BakeryShops:'مخبز', ButcherShops:'ملحمة', Markets:'سوبرماركت', GroceryShops:'بقالة', SweetsShops:'حلويات', FishShops:'أسماك', CoffeeShops:'قهوة', ChickenShops:'دجاج', DairyShops:'ألبان', FlowerShops:'زهور', TobaccoShops:'تبغ', ToysShops:'ألعاب', Taxi:'تاكسي' };
@@ -14003,9 +14223,6 @@ document.getElementById('customers-refresh-btn').addEventListener('click', async
     await loadAllData(); renderCustomers(); toast('✅ تم تحديث العملاء');
 });
 
-// Auto-locate customers missing a saved location, from their own order history
-document.getElementById('customers-autolocate-btn').addEventListener('click', autoLocateMissingCustomers);
-
 // Customer filter pills
 document.querySelectorAll('[data-cust-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -14026,6 +14243,9 @@ document.getElementById('customers-search').addEventListener('input', e => {
 document.getElementById('visitors-refresh-btn').addEventListener('click', async () => {
     await loadAllData(); renderVisitors(); toast('✅ تم تحديث الزوار');
 });
+
+// Visitors export to Excel
+document.getElementById('visitors-export-btn').addEventListener('click', exportVisitorsToExcel);
 
 // Visitors filter pills
 document.querySelectorAll('[data-vis-filter]').forEach(btn => {
@@ -14093,6 +14313,21 @@ document.getElementById('orders-search').addEventListener('input', e => {
     renderOrders();
 });
 
+// Order date filter
+document.getElementById('orders-date-select').addEventListener('change', e => {
+    orderDateFilter = e.target.value;
+    document.getElementById('orders-date-custom').classList.toggle('active', orderDateFilter === 'custom');
+    if (orderDateFilter !== 'custom') renderOrders();
+});
+document.getElementById('orders-date-from').addEventListener('change', e => {
+    orderDateFrom = e.target.value;
+    if (orderDateFilter === 'custom') renderOrders();
+});
+document.getElementById('orders-date-to').addEventListener('change', e => {
+    orderDateTo = e.target.value;
+    if (orderDateFilter === 'custom') renderOrders();
+});
+
 // Map layer toggles
 document.querySelectorAll('.map-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -14127,7 +14362,6 @@ const CP_STATES = {
     '8': { label:'جاهز للتسليم',   cls:'cs-8' },
     '1': { label:'وُصِّل',          cls:'cs-1' },
     '2': { label:'ملغى',           cls:'cs-2' },
-    '5': { label:'ملغى/مدفوع',    cls:'cs-5' },
 };
 
 async function startCompanyPortal() {
@@ -14270,7 +14504,7 @@ function cpRender() {
         let tabOk = true;
         if (cpFilter === 'active') tabOk = ['0','6','7'].includes(s);
         else if (cpFilter === 'ready')  tabOk = s === '8';
-        else if (cpFilter === 'done')   tabOk = ['1','2','5','8'].includes(s);
+        else if (cpFilter === 'done')   tabOk = ['1','2','8'].includes(s);
         if (!tabOk) return false;
         if (cpSearch) {
             const q = cpSearch.toLowerCase();
@@ -14468,7 +14702,7 @@ function cpRender() {
 }
 
 function cpActionsHTML(key, s) {
-    if (['1','2','5'].includes(s)) return '<span style="font-size:0.72rem;color:var(--gray);padding:4px 0;">✔ الطلب مكتمل</span>';
+    if (['1','2'].includes(s)) return '<span style="font-size:0.72rem;color:var(--gray);padding:4px 0;">✔ الطلب مكتمل</span>';
     if (s === '8') return '<span style="font-size:0.72rem;color:var(--green);padding:4px 0;font-weight:800;">🛵 سُلِّم للسائق — بانتظار التوصيل</span>';
     return `
         <button class="coc-btn pick ${s==='6'||s==='7'||s==='8'?'active-s':''}"  data-cp-action="pick"    title="تم استلام الطلب">📋 استلام</button>
@@ -15508,7 +15742,7 @@ function formatPhone(raw) {
 }
 
 function orStateLabel(state) {
-    const map = { '0':'جديد', '1':'وُصِّل', '2':'ملغى', '3':'متأخر', '5':'مرفوض', '6':'استُلم', '7':'قيد التحضير', '8':'جاهز للتسليم' };
+    const map = { '0':'جديد', '1':'وُصِّل', '2':'ملغى', '3':'متأخر', '6':'استُلم', '7':'قيد التحضير', '8':'جاهز للتسليم' };
     return map[state] || state;
 }
 
@@ -15542,7 +15776,7 @@ async function renderOnlineRequests() {
         const archived = o.vault == 1;
         if (orFilter === 'active')    return !archived && ['0','3','6','7','8'].includes(s);
         if (orFilter === 'delivered') return !archived && s === '1';
-        if (orFilter === 'cancelled') return !archived && (s === '2' || s === '5');
+        if (orFilter === 'cancelled') return !archived && s === '2';
         return !archived; // 'all'
     });
 
@@ -16313,7 +16547,11 @@ async function _aoSubmit() {
         const nextId     = (counter?.requestId || 0) + 1;
         const requestKey = `id_${nextId}`;
         const now        = new Date();
-        const dateStr    = now.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).replace(',', '');
+        // Match the exact format cart.js writes at checkout (Y-M-D H:MM:SS,
+        // no zero-padding) — this order type previously used en-GB
+        // DD/MM/YYYY, which the admin date filter couldn't parse and
+        // silently dropped these orders from any non-"all" date range.
+        const dateStr    = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
 
         const requestObj = {
             cart          : `1:${orderDesc}:0:${storeName}:`,

@@ -1750,7 +1750,6 @@ const OH_STATE = {
     "1": { label: "تم التوصيل", badge: "oh-badge--1" },
     "2": { label: "ملغي",       badge: "oh-badge--2" },
     "3": { label: "متأخر",      badge: "oh-badge--3" },
-    "5": { label: "ملغي/مدفوع", badge: "oh-badge--5" },
 };
 
 let _ohFilter      = 'all';
@@ -2721,7 +2720,7 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
             setTimeout(() => { if (document.getElementById('track-modal')?.style.display !== 'none') _closeTrackModal(); }, 2000);
             return;
         }
-        if (state === '2' || state === '5') { _setTrackStatus('❌ الطلب ملغي', 'error'); return; }
+        if (state === '2') { _setTrackStatus('❌ الطلب ملغي', 'error'); return; }
 
         const trackable = order.trackorder === '1' || order.trackorder === 1;
         if (!trackable) { _setTrackStatus('⏳ في انتظار تفعيل التتبع من السائق…', 'warn'); return; }

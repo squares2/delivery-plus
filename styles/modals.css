@@ -887,7 +887,6 @@
 .oh-badge--1 { background: rgba(22,163,74,0.10); color: #16a34a; }
 .oh-badge--2 { background: rgba(220,38,38,0.10); color: #dc2626; }
 .oh-badge--3 { background: rgba(217,119,6,0.12); color: #d97706; }
-.oh-badge--5 { background: rgba(147,51,234,0.10); color: #9333ea; }
 
 /* Expanded detail — no max-height, no inner scroll */
 .oh-card__detail {

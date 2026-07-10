@@ -211,7 +211,6 @@
     .drv-stat--done  .drv-stat__val { color: var(--clr-green); }
     .drv-stat--delay .drv-stat__val { color: var(--clr-yellow); }
     .drv-stat--cancel .drv-stat__val { color: var(--clr-red); }
-    .drv-stat--pc    .drv-stat__val { color: var(--clr-purple); }
 
     /* ── Filter tabs ─────────────────────────────────────────── */
     .drv-filters {
@@ -309,7 +308,6 @@
     .drv-state-badge--1  { background: rgba(34,197,94,0.15);  color: var(--clr-green); }
     .drv-state-badge--2  { background: rgba(239,68,68,0.15);  color: var(--clr-red); }
     .drv-state-badge--3  { background: rgba(245,158,11,0.15); color: var(--clr-yellow); }
-    .drv-state-badge--5  { background: rgba(168,85,247,0.15); color: var(--clr-purple); }
 
     /* ── Order detail (expanded) ─────────────────────────────── */
     .drv-order__detail {
@@ -380,7 +378,6 @@
     .drv-state-btn[data-s="1"].active  { background: rgba(34,197,94,0.2);   border-color: var(--clr-green); color: var(--clr-green); }
     .drv-state-btn[data-s="2"].active  { background: rgba(239,68,68,0.2);   border-color: var(--clr-red);   color: var(--clr-red); }
     .drv-state-btn[data-s="3"].active  { background: rgba(245,158,11,0.2);  border-color: var(--clr-yellow); color: var(--clr-yellow); }
-    .drv-state-btn[data-s="5"].active  { background: rgba(168,85,247,0.2);  border-color: var(--clr-purple); color: var(--clr-purple); }
 
     /* Track toggle button */
     .drv-track-btn {
@@ -792,10 +789,6 @@
     <div class="drv-stat drv-stat--cancel" data-filter="2">
         <span class="drv-stat__val" id="cnt-2">0</span>
         <span class="drv-stat__label">ملغي</span>
-    </div>
-    <div class="drv-stat drv-stat--pc" data-filter="5">
-        <span class="drv-stat__val" id="cnt-5">0</span>
-        <span class="drv-stat__label">ملغي/مدفوع</span>
     </div>
 </div>
 
@@ -1294,7 +1287,6 @@ const STATE_MAP = {
     "1": { label: "تم التوصيل",       short: "وُصِّل",       company: false },
     "2": { label: "ملغي",             short: "ملغي",         company: false },
     "3": { label: "متأخر",            short: "متأخر",        company: false },
-    "5": { label: "ملغي/مدفوع",       short: "ملغي/م",       company: false },
     "6": { label: "استُلم من العميل", short: "استُلم",       company: true  },
     "7": { label: "قيد التحضير",      short: "قيد التحضير",  company: true  },
     "8": { label: "جاهز للتسليم",     short: "جاهز ✓",       company: true  },
@@ -2183,7 +2175,7 @@ function listenPool() {
                 // Unclaimed = no driver assigned AND not in vault AND not final state
                 const noDriver   = !order.driver || order.driver === '0' || order.driver === '';
                 const notVaulted = !order.vault || order.vault === '0' || order.vault === 0;
-                const notFinal   = !['1','2','5'].includes(order.state || '0');
+                const notFinal   = !['1','2'].includes(order.state || '0');
                 if (noDriver && notVaulted && notFinal) {
                     poolCache[child.key] = order;
                 }
@@ -2340,7 +2332,7 @@ function renderOrders() {
     const emptyEl   = document.getElementById('drv-empty');
 
     // Count by state
-    const counts = { all: 0, "0": 0, "1": 0, "2": 0, "3": 0, "5": 0 };
+    const counts = { all: 0, "0": 0, "1": 0, "2": 0, "3": 0 };
     Object.values(ordersCache).forEach(o => {
         counts.all++;
         if (counts[o.state] !== undefined) counts[o.state]++;
@@ -2349,7 +2341,7 @@ function renderOrders() {
 
     // Update stat badges
     document.getElementById('cnt-all').textContent = counts.all;
-    ['0','1','2','3','5'].forEach(s => {
+    ['0','1','2','3'].forEach(s => {
         const el = document.getElementById(`cnt-${s}`);
         if (el) el.textContent = counts[s] || 0;
     });
@@ -2413,7 +2405,7 @@ function buildOrderCard(key, order) {
     const compDone    = isCompanyDone(order);           // state === '8'
     const drvActok    = isDriverActionable(order);      // state 0 or 3
     const isCompState = STATE_MAP[state]?.company;      // company-managed state (6,7,8)
-    const isFinalState  = ['1','2','5'].includes(state); // delivered / cancelled
+    const isFinalState  = ['1','2'].includes(state); // delivered / cancelled
     // Format a price value: < 1000 → '$X', 1000–999999 → 'X ألف ل.ل', >= 1000000 → 'X مليون ل.ل'
     const _fmt = v => { const n = parseFloat(v) || 0; if (n <= 0) return ''; if (n < 1000) return '$' + n.toFixed(2); if (n >= 1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'') + ' مليون ل.ل'; return (n/1000).toFixed(0) + ' ألف ل.ل'; };
     // Lock most actions until store has acknowledged the order.
@@ -2580,13 +2572,13 @@ function buildOrderCard(key, order) {
                  1. Company processing (state 6,7): fully locked — store is working
                  2. New order (state 0):            partial lock — only متأخر (3) allowed
                     until store confirms receipt (state 6/7/8)
-                 3. Ready (state 8) or driver states (1,2,3,5): fully unlocked -->
+                 3. Ready (state 8) or driver states (1,2,3): fully unlocked -->
             ${(isCompState && !compDone && !isExternalOrder) ? `
             <div class="drv-locked-note">
                 🔒 بانتظار إنهاء الشركة تحضير الطلب
             </div>
             <div class="drv-order__actions" style="opacity:.3;pointer-events:none;">
-                ${['0','1','3','2','5'].map(s => `
+                ${['0','1','3','2'].map(s => `
                     <button class="drv-state-btn ${state === s ? 'active' : ''}" disabled data-s="${s}">
                         ${STATE_MAP[s].label}
                     </button>`).join('')}
@@ -2595,7 +2587,7 @@ function buildOrderCard(key, order) {
                 ⏳ بانتظار استلام المتجر للطلب — يمكنك فقط وضع علامة «متأخر»
             </div>
             <div class="drv-order__actions">
-                ${['0','1','3','2','5'].map(s => {
+                ${['0','1','3','2'].map(s => {
                     const isDelayBtn  = s === '3';
                     const isCurrent   = state === s;
                     const isLocked    = !isDelayBtn && !isCurrent;
@@ -2607,7 +2599,7 @@ function buildOrderCard(key, order) {
                 }).join('')}
             </div>` : `
             <div class="drv-order__actions">
-                ${['0','1','3','2','5'].map(s => `
+                ${['0','1','3','2'].map(s => `
                     <button class="drv-state-btn ${state === s ? 'active' : ''}"
                             data-id="${key}" data-uid="${order.delivryplusid || ''}" data-s="${s}">
                         ${STATE_MAP[s].label}
@@ -2617,7 +2609,7 @@ function buildOrderCard(key, order) {
             <!-- Tracking toggle:
                  - Available when order is ready (state 8) OR active driver state (0,3)
                  - Locked during company processing (6,7)
-                 - Disabled on final states (1,2,5) — shown greyed out so driver knows why -->
+                 - Disabled on final states (1,2) — shown greyed out so driver knows why -->
             ${((isCompState && !compDone) || isStoreUnstarted) && !isExternalOrder ? `
             <div class="drv-locked-note" style="margin-top:0;">
                 📍 التتبع متاح فقط بعد استلام المتجر وجاهزية الطلب
@@ -2751,7 +2743,7 @@ function buildOrderCard(key, order) {
 
                 // Auto-disable tracking on final states (delivered/cancelled)
                 // Keep tracking alive for state 8 (ready) and re-allow for state 0 (new/reset)
-                if (['1','2','5'].includes(newState)) {
+                if (['1','2'].includes(newState)) {
                     const curTrack = ordersCache[id]?.trackorder;
                     if (curTrack === '1' || curTrack === 1) {
                         const tUpdates = {};
@@ -2782,7 +2774,7 @@ function buildOrderCard(key, order) {
                             const btn2 = e.currentTarget;
                             const ord2 = ordersCache[btn2.dataset.id] || {};
                             const s2 = ord2.state || '0';
-                            if (['1','2','5'].includes(s2)) { showToast('⏹ الطلب منتهٍ'); return; }
+                            if (['1','2'].includes(s2)) { showToast('⏹ الطلب منتهٍ'); return; }
                             if (['6','7'].includes(s2))     { showToast('🔒 لم يجهّز المتجر بعد'); return; }
                             const newT = (ord2.trackorder === '1' || ord2.trackorder === 1) ? '0' : '1';
                             const upd  = { [`/requests/${btn2.dataset.id}/trackorder`]: newT, [`/requests/${btn2.dataset.id}/driverid`]: newT === '1' ? driverData.id : null };
@@ -2810,7 +2802,7 @@ function buildOrderCard(key, order) {
         const ord      = ordersCache[id] || {};
         // Guard: block tracking only on final states (delivered/cancelled) or mid-company-processing
         const ordState = ord.state || '0';
-        if (['1','2','5'].includes(ordState)) { showToast('⏹ الطلب منتهٍ — التتبع غير متاح'); return; }
+        if (['1','2'].includes(ordState)) { showToast('⏹ الطلب منتهٍ — التتبع غير متاح'); return; }
         if (['6','7'].includes(ordState))     { showToast('🔒 الطلب لم يجهّزه المتجر بعد'); return; }
         const current  = ord.trackorder;
         const newTrack = (current === '1' || current === 1) ? '0' : '1';
