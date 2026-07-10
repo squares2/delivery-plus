@@ -10107,7 +10107,14 @@ function renderSettings() {
             <div class="settings-section-title" id="ofi-toggle-header"
                  style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;">
                 <span>🍽 أصناف اطلب السريعة</span>
-                <span id="ofi-toggle-chevron" style="transition:transform 0.2s;font-size:0.9rem;">▸</span>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <label class="toggle" style="transform:scale(0.8);" title="إظهار/إخفاء أزرار الفئات السريعة للعميل"
+                           onclick="event.stopPropagation();">
+                        <input type="checkbox" id="ofi-enabled-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="ofi-toggle-chevron" style="transition:transform 0.2s;font-size:0.9rem;">▸</span>
+                </div>
             </div>
             <div id="ofi-admin-body" style="display:none;padding:16px;">
                 <div style="font-size:0.72rem;color:var(--gray);margin-bottom:14px;line-height:1.6;">
@@ -10618,6 +10625,7 @@ function renderSettings() {
     // Load otlob fast-item categories
     ofiLoad();
     _ofiBindToggle();
+    _ofiBindEnableToggle();
     // Load keyword chips
     kwLoad();
     // Load mealtime boundaries
@@ -13186,6 +13194,33 @@ async function ofiLoad() {
     list.innerHTML = '';
     _ofiCatIdx = 0;
     categories.forEach(c => ofiAddCategory(c.label, c.items || []));
+
+    const enabledToggle = document.getElementById('ofi-enabled-toggle');
+    if (enabledToggle) {
+        const enabled = await fbGet('settings/otlobFastItemsEnabled').catch(() => null);
+        enabledToggle.checked = enabled !== false; // default ON when never configured
+    }
+}
+
+// Enable/disable — controls whether the quick-category chips show up
+// for the customer under the description box in "اطلب خارجي" (index page).
+// Saves immediately on toggle rather than waiting for ofiSave().
+function _ofiBindEnableToggle() {
+    if (window._ofiEnableToggleBound) return;
+    window._ofiEnableToggleBound = true;
+    document.getElementById('ofi-enabled-toggle')?.addEventListener('change', async (e) => {
+        const checked = e.target.checked;
+        e.target.disabled = true;
+        try {
+            await fbSet('settings/otlobFastItemsEnabled', checked);
+            toast(checked ? '✅ تم تفعيل أزرار الفئات السريعة' : '⏸ تم إخفاء أزرار الفئات السريعة عن العميل');
+        } catch (err) {
+            e.target.checked = !checked;
+            toast('فشل التحديث: ' + err.message, true);
+        } finally {
+            e.target.disabled = false;
+        }
+    });
 }
 
 // Collapsed by default — expands on click, chevron rotates to indicate state.

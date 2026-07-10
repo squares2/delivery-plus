@@ -25,7 +25,8 @@
         '🥤 مشروبات': ['مشروب غازي', 'عصير طازج', 'مويا', 'آيس تي'],
         '☕ حلويات':  ['قهوة', 'نسكافيه', 'كنافة', 'مهلبية'],
     };
-    let _quickItemsLoaded = false;
+    let _quickItemsLoaded  = false;
+    let _quickItemsEnabled = true; // settings/otlobFastItemsEnabled — default ON until told otherwise
 
     // Renders just the category chip row's inner HTML — kept separate
     // from the fetch so it can be called both on first render (with
@@ -45,17 +46,31 @@
         if (_quickItemsLoaded) return;
         _quickItemsLoaded = true;
         try {
-            const res  = await fetch(`${RTDB}/settings/otlobFastItems.json`);
-            const data = await res.json();
+            const [catRes, enabledRes] = await Promise.all([
+                fetch(`${RTDB}/settings/otlobFastItems.json`),
+                fetch(`${RTDB}/settings/otlobFastItemsEnabled.json`)
+            ]);
+            const data        = await catRes.json();
+            const enabledFlag = await enabledRes.json();
+            // Only an explicit `false` turns it off — unset/null defaults to ON.
+            _quickItemsEnabled = enabledFlag !== false;
+
             if (Array.isArray(data) && data.length) {
                 const next = {};
                 data.forEach(c => {
                     if (c && c.label && Array.isArray(c.items) && c.items.length) next[c.label] = c.items;
                 });
-                if (Object.keys(next).length) {
-                    _quickItemCategories = next;
-                    const chipsEl = document.getElementById('ext-cat-chips');
-                    if (chipsEl) chipsEl.innerHTML = _renderCategoryChips();
+                if (Object.keys(next).length) _quickItemCategories = next;
+            }
+
+            const chipsEl = document.getElementById('ext-cat-chips');
+            if (chipsEl) {
+                if (_quickItemsEnabled) {
+                    chipsEl.style.display = 'flex';
+                    chipsEl.innerHTML = _renderCategoryChips();
+                } else {
+                    chipsEl.style.display = 'none';
+                    chipsEl.innerHTML = '';
                 }
             }
         } catch (_) { /* keep defaults on any failure */ }
@@ -203,8 +218,8 @@
             <div class="ext-field">
                 <label class="ext-label">صف طلبك بالتفصيل <span style="color:var(--orange)">*</span></label>
                 <textarea id="ext-order-desc" class="ext-input" rows="4" style="resize:vertical;" placeholder="مثال: برغر دجاج حار بدون بصل، طلبين بطاطا وسط، عصير ليمون كبير…">${_esc(_data.orderDescription)}</textarea>
-                <div id="ext-cat-chips" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;">
-                    ${_renderCategoryChips()}
+                <div id="ext-cat-chips" style="display:${_quickItemsEnabled ? 'flex' : 'none'};flex-wrap:wrap;gap:7px;margin-top:8px;">
+                    ${_quickItemsEnabled ? _renderCategoryChips() : ''}
                 </div>
             </div>
 
