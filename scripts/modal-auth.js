@@ -4,6 +4,30 @@
    Username + Password auth. SMS ready to re-enable later.
    ============================================================ */
 
+// ── "روح لواتساب وشوف كود التحقق" button ──────────────────────
+// Many users don't realize the OTP arrives as a WhatsApp message (not
+// SMS, not in-app) and never think to check. This resolves the actual
+// number Delivo sends from (settings/adminPhone — the same number
+// already used for admin WhatsApp contact/notifications elsewhere) and
+// points the button straight at that chat thread, so tapping it opens
+// WhatsApp exactly where the code is sitting instead of just the app.
+let _cachedWaAdminPhone = null;
+async function _getWaAdminPhone() {
+    if (_cachedWaAdminPhone) return _cachedWaAdminPhone;
+    try {
+        const r = await fetch('https://deliveryonline-300f7-default-rtdb.firebaseio.com/settings/adminPhone.json');
+        const val = await r.json();
+        if (val) _cachedWaAdminPhone = String(val).replace(/\D/g, '');
+    } catch (_) { /* keep the generic wa.me fallback already in the href */ }
+    return _cachedWaAdminPhone;
+}
+async function _wireOtpWaButton(btnId) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const phone = await _getWaAdminPhone();
+    if (phone) btn.href = `https://wa.me/${phone}`;
+}
+
 // ── Leaflet: lazy-loaded on first actual use ────────────────
 // Used by the registration/edit-address map pickers and the live order
 // tracking map. Loading it eagerly on every homepage visit costs every
@@ -392,6 +416,7 @@ function initModalAuth() {
             otpStep.style.display = 'block';
             const hint = document.getElementById('otp-hint');
             if (hint) hint.textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(state.phone)} — أدخله أدناه`;
+            _wireOtpWaButton('otp-open-wa-btn');
         }
         const regBtn = document.getElementById('reg-submit');
         if (regBtn) regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
@@ -541,7 +566,7 @@ function initModalAuth() {
                         const code      = await _sendOtpWhatsapp(phoneDigits);
                         const expiresAt = Date.now() + OTP_TIMEOUT;
                         _saveOtpState({ username, displayName, password, phone: phoneDigits, lat, lng, locationSource: window._regLocationSource || null, code, expiresAt });
-                        if (otpStep) { otpStep.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(phoneDigits)}`; }
+                        if (otpStep) { otpStep.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(phoneDigits)}`; _wireOtpWaButton('otp-open-wa-btn'); }
                         if (cancelBtn) cancelBtn.style.display = 'flex';
                         regBtn.disabled = false;
                         regBtn.textContent = 'تأكيد الكود وإنشاء الحساب';
@@ -796,7 +821,7 @@ function initModalAuth() {
                 const code      = await _sendOtpWhatsapp(phone);
                 const expiresAt = Date.now() + OTP_TIMEOUT;
                 _saveOtpState({ fullName, phone, lat, lng, locationSource: window._regLocationSource || null, code, expiresAt });
-                if (otpStepEl) { otpStepEl.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(phone)}`; }
+                if (otpStepEl) { otpStepEl.style.display = 'block'; document.getElementById('otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(phone)}`; _wireOtpWaButton('otp-open-wa-btn'); }
                 regBtnEl.disabled = false;
                 regBtnEl.textContent = isFresh ? 'تأكيد الكود وإنشاء الحساب' : 'تأكيد الكود وإرسال الطلب';
                 _startOtpCountdown(60); _startExpireCountdown(expiresAt);
@@ -3014,7 +3039,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const code      = await _sendOtpWhatsapp(resolved.phone);
                     const expiresAt = Date.now() + OTP_TIMEOUT;
                     _loginPhoneState = { ...resolved, code, expiresAt };
-                    if (otpStepEl) { otpStepEl.style.display = 'block'; document.getElementById('login-otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(resolved.phone)}`; }
+                    if (otpStepEl) { otpStepEl.style.display = 'block'; document.getElementById('login-otp-hint').textContent = `تم إرسال كود إلى واتساب رقم 961${_toIntlPhone(resolved.phone)}`; _wireOtpWaButton('login-otp-open-wa-btn'); }
                     setLoading(loginPhoneBtn, false, 'تأكيد الكود والدخول');
                     document.getElementById('login-otp')?.focus();
                 } catch (e) {

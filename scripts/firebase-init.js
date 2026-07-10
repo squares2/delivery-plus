@@ -799,7 +799,11 @@ function onFirebaseReady() {
                     body: JSON.stringify({
                         fullName:  sanitize(fullName.trim()),
                         phone:     phoneDigits,
-                        createdAt: new Date().toISOString(),
+                        // Server-side timestamp (RTDB substitutes this with
+                        // its own clock at write time) — a client device's
+                        // clock can't be trusted for chronological sorting
+                        // in the admin panel, so this avoids that entirely.
+                        createdAt: { '.sv': 'timestamp' },
                         converted: false,
                         device,
                         os,

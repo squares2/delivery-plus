@@ -7014,6 +7014,17 @@ function renderCustomers() {
 // account exists. Lets admin see everyone who's ever landed on the site,
 // contact them directly via WhatsApp, and track how many eventually
 // convert into real customers (converted flips true in registerByPhone()).
+// Safely resolves a visitor's createdAt into a comparable epoch number —
+// handles the new server-timestamp epoch (number), older client-stamped
+// ISO strings, and anything missing/malformed (falls back to 0 instead
+// of NaN, which is what made sort() behave unpredictably for those rows).
+function _visitorTimestamp(v) {
+    if (!v || !v.createdAt) return 0;
+    if (typeof v.createdAt === 'number') return v.createdAt;
+    const t = new Date(v.createdAt).getTime();
+    return isNaN(t) ? 0 : t;
+}
+
 function _visitorDeviceLabel(v) {
     // Records saved before device/OS capture was added have neither
     // field at all — showing those as "كمبيوتر" would be a guess
@@ -7053,7 +7064,7 @@ function renderVisitors() {
         );
     }
 
-    entries.sort(([, a], [, b]) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    entries.sort(([, a], [, b]) => _visitorTimestamp(b) - _visitorTimestamp(a));
 
     if (countEl) countEl.textContent = `${entries.length} زائر`;
 
@@ -7066,9 +7077,8 @@ function renderVisitors() {
         const tr = document.createElement('tr');
         const waDigits = (v.phone || '').replace(/\D/g, '').replace(/^0/, '');
         const waLink   = waDigits ? `https://wa.me/961${waDigits}` : '';
-        const dateStr  = v.createdAt
-            ? new Date(v.createdAt).toLocaleDateString('ar-LB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-            : '—';
+        const ts       = _visitorTimestamp(v);
+        const dateStr  = ts ? new Date(ts).toLocaleDateString('ar-LB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
         tr.innerHTML = `
             <td style="font-weight:700;">${v.fullName || '—'}</td>
