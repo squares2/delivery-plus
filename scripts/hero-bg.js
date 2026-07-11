@@ -20,6 +20,7 @@ async function initHeroBg() {
     const stack    = document.getElementById('hero-bg-stack');
     const progress = document.getElementById('hero-bg-progress');
     const captionEl = document.getElementById('hero-bg-caption');
+    const carousel = document.getElementById('hero-carousel');
     if (!stack || !progress) return;
 
     let list;
@@ -34,9 +35,13 @@ async function initHeroBg() {
         list = [];
     }
 
-    // Nothing configured — leave the single static background exactly as it
-    // already is in the markup and do nothing further.
+    // Nothing configured — leave the single static background AND the
+    // "how it works" phone carousel exactly as they already are, untouched.
     if (!list.length) return;
+
+    // Custom backgrounds are active — the rotating backgrounds are the show
+    // now, so the step-by-step phone carousel would just compete with them.
+    if (carousel) carousel.style.display = 'none';
 
     // Build one <img> layer per background (first one active immediately)
     stack.innerHTML = list.map(function (bg, i) {
