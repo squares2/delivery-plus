@@ -427,25 +427,39 @@
         return true;
     }
 
-    // Uses the exact same settings/smartDelivery config and formula as
+    // Uses the exact same settings/smartDelivery config and formula/tiers as
     // regular checkout (_calcSmartFee in cart.js) — just computes distance
     // directly from this order's own store/destination pins instead of
     // looking a store up by name, since external stores aren't part of
     // the registered `pattern` collection that lookup relies on.
     async function _computeSmartFee() {
-        if (!_data.storeLat || !_data.destLat) { _data.smartFee = null; return; }
+        if (!_data.destLat) { _data.smartFee = null; return; }
         try {
             const cfg = typeof _loadSmartCfg === 'function' ? await _loadSmartCfg() : null;
             if (!cfg || !cfg.enabled) { _data.smartFee = null; return; }
 
+            const mode      = cfg.mode || 'formula';
             const baseFee   = parseFloat(cfg.baseFee   ?? 1.5);
             const ratePerKm = parseFloat(cfg.ratePerKm ?? 0.3);
             const minFee    = parseFloat(cfg.minFee    ?? 0.5);
             const maxFee    = parseFloat(cfg.maxFee    ?? 5.0);
 
-            const km = _haversineKm(_data.storeLat, _data.storeLng, _data.destLat, _data.destLng);
-            const distFee = baseFee + km * ratePerKm;
-            const rawFee = Math.min(maxFee, Math.max(minFee, distFee));
+            let rawFee;
+
+            if (mode === 'centerTiers' && typeof _getDeliveryCenter === 'function') {
+                const center = await _getDeliveryCenter();
+                const tierFee = center ? _calcCenterTierFee(
+                    _haversineKm(_data.destLat, _data.destLng, center.lat, center.lng),
+                    cfg.centerTiers
+                ) : null;
+                rawFee = tierFee !== null ? tierFee : baseFee;
+            } else {
+                if (!_data.storeLat) { _data.smartFee = null; return; }
+                const km = _haversineKm(_data.storeLat, _data.storeLng, _data.destLat, _data.destLng);
+                const distFee = baseFee + km * ratePerKm;
+                rawFee = Math.min(maxFee, Math.max(minFee, distFee));
+            }
+
             // Reuses cart.js's global helper so LBP-scale fees round to
             // the nearest 10,000 the same way regular checkout does.
             _data.smartFee = typeof _normalizeDeliveryFee === 'function' ? _normalizeDeliveryFee(rawFee) : rawFee;

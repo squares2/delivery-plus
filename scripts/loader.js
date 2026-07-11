@@ -113,6 +113,7 @@ async function loadAll() {
     if (typeof initStorePanel === 'function') initStorePanel();
     if (typeof window.initMealtime === 'function') window.initMealtime();
     if (typeof initPromoFlip === 'function') initPromoFlip();
+    if (typeof initHeroBg === 'function') initHeroBg();
 
     /* Reveal the page content UNDER the splash (no flash —
        splash is still covering everything at this point)     */

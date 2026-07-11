@@ -132,6 +132,26 @@ function _haversineKm(lat1, lng1, lat2, lng2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+/* ── "Distance-from-center" pricing table ────────────────────
+   Alternative to the baseFee+ratePerKm formula above: instead of
+   computing a formula per store, the admin defines boundary rows
+   — e.g. [0-2km]→$1, [2-3km]→$1.5, [3km+]→$2.5 — measured from a
+   single fixed point: settings/deliveryCenter (the Delivo HQ pin
+   already used for the coverage-radius check). Returns null if
+   centerTiers is empty/missing so the caller can fall back. */
+function _calcCenterTierFee(distanceKm, centerTiers) {
+    if (!centerTiers || !Array.isArray(centerTiers) || !centerTiers.length) return null;
+    const sorted = [...centerTiers].sort((a, b) => parseFloat(a.fromKm||0) - parseFloat(b.fromKm||0));
+    for (const t of sorted) {
+        const from = parseFloat(t.fromKm) || 0;
+        const to   = (t.toKm === null || t.toKm === '' || t.toKm === undefined) ? Infinity : parseFloat(t.toKm);
+        if (distanceKm >= from && distanceKm < to) return parseFloat(t.fee) || 0;
+    }
+    // Beyond every defined boundary — best effort: use the last (farthest) tier's fee
+    // rather than silently falling back, so far-out customers still get *a* price.
+    return parseFloat(sorted[sorted.length - 1].fee) || 0;
+}
+
 /* ══════════════════════════════════════════════════════════════
    DELIVERY COVERAGE RADIUS
    Reads settings/deliveryCenter = { lat, lng, radiusKm } from
@@ -438,22 +458,54 @@ async function _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD) {
     const cfg = await _loadSmartCfg();
     if (!cfg || !cfg.enabled) return DELIVERY_FEE_PER_STORE;
 
+    const mode      = cfg.mode || 'formula'; // 'formula' (default, back-compat) | 'centerTiers'
     const baseFee   = parseFloat(cfg.baseFee   ?? 1.5);
     const ratePerKm = parseFloat(cfg.ratePerKm ?? 0.3);
     const minFee    = parseFloat(cfg.minFee    ?? 0.5);
     const maxFee    = parseFloat(cfg.maxFee    ?? 5.0);
 
-    // Distance component
-    let distFee = baseFee;
-    if (custLat && custLng) {
-        const storeLoc = await _loadStoreLoc(storeName);
-        if (storeLoc) {
-            const km = _haversineKm(custLat, custLng, storeLoc.lat, storeLoc.lng);
-            distFee = baseFee + km * ratePerKm;
+    let distFee;
+    let isExactTierPrice = false;
+
+    if (mode === 'centerTiers') {
+        const center = await _getDeliveryCenter();
+        if (center && custLat && custLng) {
+            const kmFromCenter = _haversineKm(custLat, custLng, center.lat, center.lng);
+            const tierFeeLBP = _calcCenterTierFee(kmFromCenter, cfg.centerTiers);
+            // Center-tier prices are admin-entered in Lebanese Lira (large numbers,
+            // e.g. 50000) — convert to a USD-equivalent right away so the discount
+            // subtraction below (which is $-denominated) works correctly, and the
+            // final _normalizeDeliveryFee() call at the call site converts this back
+            // to a clean LBP number for display, same as every other fee in the app.
+            if (tierFeeLBP !== null) { distFee = _toUSD(tierFeeLBP); isExactTierPrice = true; }
+        }
+        if (distFee === undefined) {
+            // No customer location yet (or no HQ center configured) — show the
+            // cheapest configured tier as a "starting from" estimate. baseFee is
+            // a formula-mode concept and has no real meaning here, so falling
+            // back to it would show a number that doesn't match any tier at all.
+            if (cfg.centerTiers && cfg.centerTiers.length) {
+                const cheapest = [...cfg.centerTiers].sort((a, b) => (parseFloat(a.fee)||0) - (parseFloat(b.fee)||0))[0];
+                distFee = _toUSD(parseFloat(cheapest.fee) || 0);
+                isExactTierPrice = true;
+            } else {
+                distFee = baseFee; // no tiers configured at all yet — nothing better to show
+            }
+        }
+    } else {
+        // Formula mode (original behaviour) — distance from the store itself
+        distFee = baseFee;
+        if (custLat && custLng) {
+            const storeLoc = await _loadStoreLoc(storeName);
+            if (storeLoc) {
+                const km = _haversineKm(custLat, custLng, storeLoc.lat, storeLoc.lng);
+                distFee = baseFee + km * ratePerKm;
+            }
         }
     }
 
-    // Cart-total discount tiers (sorted desc so highest matching tier wins)
+    // Cart-total discount tiers (sorted desc so highest matching tier wins) —
+    // shared behaviour across both modes
     let discount = 0;
     if (cfg.tiers && Array.isArray(cfg.tiers)) {
         const sorted = [...cfg.tiers].sort((a,b) => b.minTotal - a.minTotal);
@@ -465,6 +517,9 @@ async function _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD) {
         }
     }
 
+    // Center-tier prices are exact admin-set prices per boundary — still honour
+    // cart discounts, but don't clamp them into the formula's min/max band.
+    if (isExactTierPrice) return Math.max(0, distFee - discount);
     return Math.min(maxFee, Math.max(minFee, distFee - discount));
 }
 

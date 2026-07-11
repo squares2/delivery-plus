@@ -43,6 +43,7 @@
     <!-- WORLD CUP 2026 PROMO — remove this line + styles/worldcup2026.css to retire the campaign -->
     <link rel="stylesheet" href="styles/worldcup2026.css?v=1">
     <link rel="stylesheet" href="styles/promo-flip.css?v=5">
+    <link rel="stylesheet" href="styles/hero-bg.css?v=1">
 </head>
 <body>
 
@@ -168,8 +169,20 @@
         <!-- HERO -->
         <section class="hero" id="hero-section">
 
-            <!-- Background -->
-            <img class="hero__bg" src="assets/hero-bg2.webp" alt="">
+            <!-- Background (dynamic — admin-managed via لوحة الإدارة → خلفيات الواجهة.
+                 Falls back to this single static image if nothing's configured yet.) -->
+            <div class="hero__bg-stack" id="hero-bg-stack">
+                <img class="hero__bg hero__bg-layer active" src="assets/hero-bg2.webp" alt="">
+            </div>
+
+            <!-- Story-style progress bar (one segment per background, hidden if only 1) -->
+            <div class="hero__bg-progress" id="hero-bg-progress" aria-hidden="true"></div>
+
+            <!-- Caption chip for the active background (store/offer name + tag) -->
+            <a class="hero__bg-caption" id="hero-bg-caption" href="#" style="display:none;">
+                <span class="hero__bg-caption-tag" id="hero-bg-caption-tag"></span>
+                <span class="hero__bg-caption-title" id="hero-bg-caption-title"></span>
+            </a>
 
             <!-- Online counter widget -->
             <div class="hero__online" id="hero-online-count" title="الزوار المتصلون الآن">
@@ -1266,6 +1279,7 @@
     <script src="scripts/store-panel.js?v=16"></script>
     <script src="scripts/mealtime.js?v=6"></script>
     <script src="scripts/promo-flip.js?v=6"></script>
+    <script src="scripts/hero-bg.js?v=1"></script>
     <script src="scripts/pwa.js?v=9"></script>
     <script src="scripts/presence.js?v=1"></script>
     <script src="scripts/back-handler.js?v=2"></script>

@@ -2222,6 +2222,23 @@ input, select, textarea { font-family: var(--font); }
                 <div id="promoflip-grid" class="promoflip-grid"></div>
             </div>
 
+            <!-- ═══════════════════════════════════════════════════════
+                 HERO BACKGROUNDS PANEL — خلفيات الواجهة الرئيسية
+            ═══════════════════════════════════════════════════════ -->
+            <div class="panel" id="panel-herobg">
+                <div class="panel-header">
+                    <div>
+                        <h2>🖼️ خلفيات الواجهة</h2>
+                        <span class="panel-header-sub">الخلفيات المتحركة بأعلى الصفحة الرئيسية — أول شي يشوفه الزوار</span>
+                    </div>
+                    <button class="ph-btn ph-btn--primary" id="herobg-add-btn" onclick="openHeroBgModal(null)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        إضافة خلفية
+                    </button>
+                </div>
+                <div id="herobg-grid" class="promoflip-grid"></div>
+            </div>
+
             <div class="panel" id="panel-employees">
                 <div class="panel-header">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -3062,8 +3079,31 @@ const ITEM_GH_OWNER  = 'squares2';
 const ITEM_GH_REPO   = 'delivery-plus';
 const ITEM_GH_BRANCH = 'main';
 const ITEM_GH_FOLDER = 'items2';
-const ITEM_GH_TOKEN  = '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';
 const PROMO_GH_FOLDER = 'assets/promos'; // promo flip-card images — same repo/credentials as item images above
+const HEROBG_GH_FOLDER = 'assets/hero-bg'; // hero background images — same repo/credentials
+
+/* Shared upload path for item photos, promo cards, and hero backgrounds.
+   The GitHub token used to live here as a plain string — it kept getting
+   auto-revoked by GitHub's secret scanning (correctly so, since anyone who
+   views-source the page could read it). It now lives server-side only, in
+   the adminUploadImage Cloud Function (functions/adminuploadimage.js),
+   which the browser never sees. This just calls that function. */
+async function _adminUploadImage(file, folder, filename) {
+    const blob   = await _cpiConvertToWebp(file);
+    const base64 = await _cpiBlobToBase64(blob);
+
+    const idToken = await window._adminAuth?.currentUser?.getIdToken();
+    if (!idToken) throw new Error('جلسة المدير غير صالحة، سجّل الدخول من جديد');
+
+    const res = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/adminUploadImage', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        body:    JSON.stringify({ folder, filename, base64 }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) throw new Error(data.error || `فشل الرفع (${res.status})`);
+    return data.path;
+}
 
     /* Load admin presence monitor after DOM ready */
     window.addEventListener('load', () => {
@@ -3219,6 +3259,7 @@ const NAV_ITEMS = [
     { id: 'catalog',   label: 'المنتجات',            icon: catalogIcon(), perm: 'stores'   },
     { id: 'sales',     label: 'عروض المتاجر',         icon: salesIcon(),   perm: 'stores'   },
     { id: 'promoflip', label: 'كروت العروض',          icon: promoFlipIcon(), perm: 'stores' },
+    { id: 'herobg',    label: 'خلفيات الواجهة',       icon: heroBgIcon(),    perm: 'stores' },
     { id: 'employees', label: 'الموظفون',           icon: empIcon(),    perm: 'employees' },
     { id: 'rewards',   label: 'نظام النقاط',        icon: rewardsIcon(),perm: 'settings'  },
     { id: 'settings',  label: 'الإعدادات',          icon: settingsIcon(),perm: 'settings' },
@@ -3239,6 +3280,7 @@ const NAV_COUNT_IDS = {
 function backupIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`; }
 function salesIcon()   { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`; }
 function promoFlipIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="9" height="16" rx="2"/><rect x="13" y="4" width="9" height="16" rx="2" stroke-dasharray="3 3"/></svg>`; }
+function heroBgIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M3 13l4-4 5 5 3-3 6 6"/><circle cx="8" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>`; }
 function mapIcon()     { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>`; }
 function ordersIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 17H5a2 2 0 0 0-2 2"/><path d="M9 3H5a2 2 0 0 0-2 2v14"/><rect x="9" y="3" width="12" height="18" rx="2"/></svg>`; }
 function adminOrderIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`; }
@@ -3852,6 +3894,7 @@ function startApp() {
         if (id === 'catalog')    renderCatalog();
         if (id === 'rewards')    renderRewards();
         if (id === 'promoflip') renderPromoFlipAdmin();
+        if (id === 'herobg')    renderHeroBgAdmin();
     });
     startAutoRefresh();
     _startFastDriverPoll();
@@ -3915,7 +3958,7 @@ function switchPanel(id) {
     const btn = document.querySelector(`[data-panel="${id}"]`);
     if (btn) btn.classList.add('active');
 
-    const labels = { map:'الخريطة', orders:'الطلبات', 'online-req':'طلبات أونلاين', 'admin-order':'اطلب', drivers:'السائقون', customers:'العملاء', visitors:'الزوار', stores:'المتاجر', 'ext-stores':'متاجر خارجية', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط', sales:'عروض المتاجر', promoflip:'كروت العروض' };
+    const labels = { map:'الخريطة', orders:'الطلبات', 'online-req':'طلبات أونلاين', 'admin-order':'اطلب', drivers:'السائقون', customers:'العملاء', visitors:'الزوار', stores:'المتاجر', 'ext-stores':'متاجر خارجية', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط', sales:'عروض المتاجر', promoflip:'كروت العروض', herobg:'خلفيات الواجهة' };
     document.getElementById('topbar-panel-name').textContent = labels[id] || '';
 
     if (id === 'map' && adminMap) setTimeout(() => adminMap.invalidateSize(), 100);
@@ -3935,6 +3978,7 @@ function switchPanel(id) {
     if (id === 'catalog')   renderCatalog();
     if (id === 'rewards')   renderRewards();
     if (id === 'promoflip') renderPromoFlipAdmin();
+    if (id === 'herobg')    renderHeroBgAdmin();
 
 
 }
@@ -10567,37 +10611,11 @@ function _pfPreviewImage(input) {
     if (status) status.innerHTML = `<span style="color:var(--orange);">📤 سيتم رفع "${file.name}" عند الحفظ</span>`;
 }
 
-/* Upload (or replace) a promo card's image on GitHub as assets/promos/{id}.webp
-   — reuses _cpiConvertToWebp / _cpiBlobToBase64 already defined for item images. */
+/* Upload (or replace) a promo card's image as assets/promos/{id}.webp,
+   via the adminUploadImage Cloud Function (see _adminUploadImage above). */
 async function _pfUploadImage(file, promoId) {
     const targetName = promoId.toLowerCase() + '.webp';
-    const path        = `${PROMO_GH_FOLDER}/${targetName}`;
-    const apiUrl      = `https://api.github.com/repos/${ITEM_GH_OWNER}/${ITEM_GH_REPO}/contents/${path}`;
-
-    const blob   = await _cpiConvertToWebp(file);
-    const base64 = await _cpiBlobToBase64(blob);
-
-    let sha = null;
-    try {
-        const check = await fetch(apiUrl, {
-            headers: { Authorization: `Bearer ${ITEM_GH_TOKEN}`, Accept: 'application/vnd.github+json' }
-        });
-        if (check.ok) sha = (await check.json()).sha;
-    } catch (_) {}
-
-    const body = { message: `Update promo image: ${targetName}`, content: base64, branch: ITEM_GH_BRANCH };
-    if (sha) body.sha = sha;
-
-    const res = await fetch(apiUrl, {
-        method:  'PUT',
-        headers: { Authorization: `Bearer ${ITEM_GH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `GitHub error ${res.status}`);
-    }
-    return `${path}`;
+    return await _adminUploadImage(file, PROMO_GH_FOLDER, targetName);
 }
 
 async function savePromoFlipCard() {
@@ -10657,6 +10675,292 @@ async function savePromoFlipCard() {
     }
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// HERO BACKGROUNDS PANEL — خلفيات الواجهة الرئيسية
+// Firebase RTDB path: settings/heroBackgrounds/{key}
+//   { order, active, image, title, tag, durationSec,
+//     linkType('none'|'stores'|'custom'), linkValue }
+// Images upload the same way promo/item images do (GitHub Contents
+// API, converted to WebP) — see HEROBG_GH_FOLDER.
+// ═══════════════════════════════════════════════════════════════
+let _heroBgCards = {};
+let _hbPendingImageFile = null;
+
+async function renderHeroBgAdmin() {
+    const grid = document.getElementById('herobg-grid');
+    if (!grid) return;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);font-size:0.85rem;">⏳ جاري التحميل…</div>`;
+
+    let data = null;
+    try { data = await fbGet('settings/heroBackgrounds'); } catch (e) {}
+    _heroBgCards = data && typeof data === 'object' ? data : {};
+
+    const entries = Object.entries(_heroBgCards).sort((a, b) => (a[1].order || 0) - (b[1].order || 0));
+
+    if (!entries.length) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);font-size:0.85rem;">لا يوجد خلفيات بعد — اضغط "إضافة خلفية" لإضافة أول واحدة 🖼️<br><span style="font-size:0.72rem;">وبدون أي خلفية، تبقى الصورة الثابتة الحالية كما هي</span></div>`;
+        return;
+    }
+
+    grid.innerHTML = entries.map(([key, bg], idx) => _hbCardHtml(key, bg, idx, entries.length)).join('');
+
+    grid.querySelectorAll('[data-hb-edit]').forEach(btn => {
+        btn.addEventListener('click', () => openHeroBgModal({ ..._heroBgCards[btn.dataset.hbEdit], _key: btn.dataset.hbEdit }));
+    });
+    grid.querySelectorAll('[data-hb-delete]').forEach(btn => {
+        btn.addEventListener('click', () => deleteHeroBgConfirm(btn.dataset.hbDelete));
+    });
+    grid.querySelectorAll('[data-hb-toggle]').forEach(cb => {
+        cb.addEventListener('change', () => toggleHeroBgActive(cb.dataset.hbToggle, cb.checked));
+    });
+    grid.querySelectorAll('[data-hb-up]').forEach(btn => {
+        btn.addEventListener('click', () => moveHeroBg(btn.dataset.hbUp, -1));
+    });
+    grid.querySelectorAll('[data-hb-down]').forEach(btn => {
+        btn.addEventListener('click', () => moveHeroBg(btn.dataset.hbDown, 1));
+    });
+}
+
+const HB_LINK_LABELS = { none: '🚫 بدون رابط', stores: '🏪 قسم المتاجر', custom: '🔗 رابط مخصص' };
+
+function _hbCardHtml(key, bg, idx, total) {
+    const isActive = bg.active !== false;
+    return `
+    <div class="pf-card${isActive ? '' : ' inactive'}">
+        <div class="pf-card__img-wrap">
+            <img src="${bg.image || ''}" alt="" onerror="this.style.opacity=0.15">
+            <span class="pf-card__order-badge">#${bg.order ?? (idx + 1)} · ${parseFloat(bg.durationSec) || 5}ث</span>
+        </div>
+        <div class="pf-card__body">
+            ${bg.tag ? `<div class="pf-card__store">${bg.tag}</div>` : ''}
+            <div class="pf-card__title">${bg.title || '(بدون عنوان)'}</div>
+            <div class="pf-card__meta">
+                <span class="pf-card__style-tag">${HB_LINK_LABELS[bg.linkType] || HB_LINK_LABELS.none}</span>
+                <label class="pf-card__active-toggle">
+                    <input type="checkbox" data-hb-toggle="${key}" ${isActive ? 'checked' : ''}>
+                    ${isActive ? 'مفعّلة' : 'مخفية'}
+                </label>
+            </div>
+            <div class="pf-card__row" style="margin-top:12px;">
+                <div class="pf-card__reorder">
+                    <button data-hb-up="${key}" ${idx === 0 ? 'disabled' : ''} title="تحريك لأعلى">▲</button>
+                    <button data-hb-down="${key}" ${idx === total - 1 ? 'disabled' : ''} title="تحريك لأسفل">▼</button>
+                </div>
+                <div class="pf-card__actions" style="flex:1;">
+                    <button class="ec-btn" data-hb-edit="${key}">✏️ تعديل</button>
+                    <button class="ec-btn danger" data-hb-delete="${key}">🗑 حذف</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function toggleHeroBgActive(key, active) {
+    try {
+        await fbUpdate(`settings/heroBackgrounds/${key}`, { active });
+        toast(active ? '✅ الخلفية مفعّلة الآن' : '👁️‍🗨️ الخلفية مخفية عن الزوار');
+        if (_heroBgCards[key]) _heroBgCards[key].active = active;
+    } catch (e) { toast('⚠️ تعذّر الحفظ: ' + e.message, true); renderHeroBgAdmin(); }
+}
+
+async function moveHeroBg(key, direction) {
+    const entries = Object.entries(_heroBgCards).sort((a, b) => (a[1].order || 0) - (b[1].order || 0));
+    const i = entries.findIndex(([k]) => k === key);
+    const j = i + direction;
+    if (i === -1 || j < 0 || j >= entries.length) return;
+
+    const [keyA, bgA] = entries[i];
+    const [keyB, bgB] = entries[j];
+    const orderA = bgA.order ?? (i + 1);
+    const orderB = bgB.order ?? (j + 1);
+
+    try {
+        await Promise.all([
+            fbUpdate(`settings/heroBackgrounds/${keyA}`, { order: orderB }),
+            fbUpdate(`settings/heroBackgrounds/${keyB}`, { order: orderA }),
+        ]);
+        await renderHeroBgAdmin();
+    } catch (e) { toast('⚠️ تعذّر تغيير الترتيب: ' + e.message, true); }
+}
+
+async function deleteHeroBgConfirm(key) {
+    const bg = _heroBgCards[key];
+    const ok = await showConfirm({
+        title: 'حذف الخلفية',
+        msg: `هل تريد حذف <b>${bg?.title || 'هذه الخلفية'}</b>؟<br><span style="color:var(--red)">لا يمكن التراجع عن هذا الإجراء.</span>`,
+        type: 'danger', icon: '🗑',
+        okLabel: 'حذف', cancelLabel: 'إلغاء',
+    });
+    if (!ok) return;
+    try {
+        await fbSet(`settings/heroBackgrounds/${key}`, null);
+        toast('✅ تم حذف الخلفية');
+        await renderHeroBgAdmin();
+    } catch (e) { toast('⚠️ تعذّر الحذف: ' + e.message, true); }
+}
+
+function openHeroBgModal(bg) {
+    document.getElementById('hb-modal')?.remove();
+    _hbPendingImageFile = null;
+
+    const isNew = !bg;
+    const linkType = bg?.linkType || 'none';
+
+    const modal = document.createElement('div');
+    modal.id = 'hb-modal';
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;`;
+    modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--surface3);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.88rem;font-weight:800;color:var(--white);">${isNew ? '🖼️ إضافة خلفية جديدة' : '✏️ تعديل الخلفية'}</span>
+            <button onclick="document.getElementById('hb-modal').remove()"
+                    style="margin-right:auto;background:none;border:none;cursor:pointer;color:var(--gray);font-size:1.1rem;">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
+
+            <input type="hidden" id="hb-key" value="${bg?._key || ''}">
+
+            <!-- Image -->
+            <div style="text-align:center;">
+                <div onclick="document.getElementById('hb-img-file').click()"
+                     style="width:100%;height:150px;border-radius:12px;overflow:hidden;background:var(--surface3);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px dashed var(--border);position:relative;"
+                     onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
+                    ${bg?.image
+                        ? `<img src="${bg.image}" style="width:100%;height:100%;object-fit:cover;" id="hb-img-preview">`
+                        : `<span style="font-size:2rem;" id="hb-img-placeholder">🖼️</span>
+                           <img src="" style="width:100%;height:100%;object-fit:cover;display:none;" id="hb-img-preview">`
+                    }
+                    <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#fff;font-size:0.62rem;font-weight:700;padding:3px 0;text-align:center;">📤 رفع / تغيير الصورة</div>
+                </div>
+                <input type="file" id="hb-img-file" accept="image/*" style="display:none;" onchange="_hbPreviewImage(this)">
+                <div style="font-size:0.66rem;color:var(--gray);">يفضّل صورة عريضة (Landscape) بجودة عالية — تُحفظ تلقائياً بصيغة WebP</div>
+            </div>
+
+            <div>
+                <label style="font-size:0.72rem;color:var(--gray-light);display:block;margin-bottom:4px;">📌 عنوان الخلفية (يظهر بالشريط السفلي، اختياري)</label>
+                <input type="text" id="hb-title" value="${bg?.title || ''}" placeholder="مثال: برجر هاوس"
+                       style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.82rem;">
+            </div>
+
+            <div>
+                <label style="font-size:0.72rem;color:var(--gray-light);display:block;margin-bottom:4px;">🏷️ وسم صغير (اختياري)</label>
+                <input type="text" id="hb-tag" value="${bg?.tag || ''}" placeholder="مثال: 🏪 متجر مميز / 🔥 عرض اليوم"
+                       style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.82rem;">
+            </div>
+
+            <div>
+                <label style="font-size:0.72rem;color:var(--gray-light);display:block;margin-bottom:4px;">⏱️ مدة العرض (بالثواني)</label>
+                <input type="number" id="hb-duration" value="${bg?.durationSec || 5}" min="2" max="30" step="1"
+                       style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:var(--mono);font-size:0.82rem;">
+            </div>
+
+            <div>
+                <label style="font-size:0.72rem;color:var(--gray-light);display:block;margin-bottom:4px;">🔗 عند الضغط على الخلفية</label>
+                <select id="hb-linktype" onchange="document.getElementById('hb-linkvalue-row').style.display = this.value === 'custom' ? 'block' : 'none';"
+                        style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.82rem;">
+                    <option value="none"   ${linkType === 'none'   ? 'selected' : ''}>🚫 بدون رابط (زخرفة فقط)</option>
+                    <option value="stores" ${linkType === 'stores' ? 'selected' : ''}>🏪 انتقال لقسم المتاجر</option>
+                    <option value="custom" ${linkType === 'custom' ? 'selected' : ''}>🔗 رابط مخصص (واتساب / صفحة متجر...)</option>
+                </select>
+            </div>
+            <div id="hb-linkvalue-row" style="display:${linkType === 'custom' ? 'block' : 'none'};">
+                <label style="font-size:0.72rem;color:var(--gray-light);display:block;margin-bottom:4px;">الرابط</label>
+                <input type="text" id="hb-linkvalue" value="${bg?.linkValue || ''}" placeholder="https://wa.me/..."
+                       style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.82rem;">
+            </div>
+
+            <div style="display:flex;align-items:center;gap:10px;padding-top:4px;border-top:1px solid var(--surface3);">
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--gray-light);cursor:pointer;">
+                    <input type="checkbox" id="hb-active" ${(!bg || bg.active !== false) ? 'checked' : ''}> مفعّلة (ظاهرة للزوار)
+                </label>
+            </div>
+
+            <p id="hb-modal-error" style="display:none;color:var(--red);font-size:0.76rem;"></p>
+
+            <div style="display:flex;gap:8px;margin-top:4px;">
+                <button class="ph-btn ph-btn--primary" id="hb-save-btn" style="flex:1;" onclick="saveHeroBg()">${isNew ? 'إضافة الخلفية' : '💾 حفظ التغييرات'}</button>
+                <button class="ph-btn" onclick="document.getElementById('hb-modal').remove()">إلغاء</button>
+            </div>
+        </div>
+    </div>`;
+
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function _hbPreviewImage(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+        toast('⚠️ الملف كبير جداً — الحد الأقصى 8MB', true);
+        input.value = '';
+        return;
+    }
+    _hbPendingImageFile = file;
+
+    const preview     = document.getElementById('hb-img-preview');
+    const placeholder = document.getElementById('hb-img-placeholder');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
+        if (placeholder) placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+/* Upload a hero background image as assets/hero-bg/{id}.webp, via the
+   adminUploadImage Cloud Function (see _adminUploadImage above). */
+async function _hbUploadImage(file, id) {
+    const targetName = id.toLowerCase() + '.webp';
+    return await _adminUploadImage(file, HEROBG_GH_FOLDER, targetName);
+}
+
+async function saveHeroBg() {
+    const errorEl = document.getElementById('hb-modal-error');
+    errorEl.style.display = 'none';
+
+    const existingKey = document.getElementById('hb-key').value.trim();
+    const isNew       = !existingKey;
+    const linkType    = document.getElementById('hb-linktype').value;
+
+    if (isNew && !_hbPendingImageFile) { errorEl.textContent = '⚠️ الصورة مطلوبة'; errorEl.style.display = 'block'; return; }
+
+    const btn = document.getElementById('hb-save-btn');
+    btn.disabled = true; btn.textContent = '⏳ جاري الحفظ…';
+
+    try {
+        const key = existingKey || ('herobg_' + Date.now());
+
+        let imagePath = _heroBgCards[existingKey]?.image || '';
+        if (_hbPendingImageFile) {
+            imagePath = await _hbUploadImage(_hbPendingImageFile, key);
+        }
+
+        const existingOrder = _heroBgCards[existingKey]?.order;
+        const maxOrder = Object.values(_heroBgCards).reduce((m, c) => Math.max(m, c.order || 0), 0);
+
+        const payload = {
+            order: existingOrder ?? (maxOrder + 1),
+            active: document.getElementById('hb-active').checked,
+            image: imagePath,
+            title: document.getElementById('hb-title').value.trim(),
+            tag: document.getElementById('hb-tag').value.trim(),
+            durationSec: parseFloat(document.getElementById('hb-duration').value) || 5,
+            linkType,
+            linkValue: linkType === 'custom' ? document.getElementById('hb-linkvalue').value.trim() : '',
+        };
+
+        await fbSet(`settings/heroBackgrounds/${key}`, payload);
+        toast(isNew ? '✅ تمت إضافة الخلفية' : '✅ تم حفظ التغييرات');
+        document.getElementById('hb-modal').remove();
+        await renderHeroBgAdmin();
+    } catch (e) {
+        errorEl.textContent = '⚠️ خطأ: ' + e.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = existingKey ? '💾 حفظ التغييرات' : 'إضافة الخلفية';
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // SETTINGS PANEL
@@ -11139,6 +11443,21 @@ function renderSettings() {
             <!-- Smart delivery config (shown only when enabled) -->
             <div id="smart-delivery-config" style="display:none;border-top:1px solid var(--border);padding:16px;">
 
+                <!-- Mode switch -->
+                <div style="display:flex;gap:4px;margin-bottom:16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:4px;">
+                    <button type="button" id="sd-mode-btn-formula" onclick="sdSwitchMode('formula')"
+                            style="flex:1;padding:9px 8px;border:none;border-radius:9px;font-family:var(--font);font-weight:800;font-size:0.76rem;cursor:pointer;transition:all 0.15s;background:var(--orange);color:#fff;">
+                        🧮 معادلة حسابية
+                    </button>
+                    <button type="button" id="sd-mode-btn-centerTiers" onclick="sdSwitchMode('centerTiers')"
+                            style="flex:1;padding:9px 8px;border:none;border-radius:9px;font-family:var(--font);font-weight:800;font-size:0.76rem;cursor:pointer;transition:all 0.15s;background:transparent;color:var(--gray-light);">
+                        📍 شرائح المسافة من المركز
+                    </button>
+                </div>
+
+                <!-- ═══ FORMULA MODE ═══ -->
+                <div id="sd-mode-formula-fields">
+
                 <!-- Formula preview -->
                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:0.72rem;color:var(--gray-light);">
                     <div style="color:var(--orange);font-weight:800;margin-bottom:4px;">📐 الصيغة الحسابية</div>
@@ -11174,7 +11493,47 @@ function renderSettings() {
                     </div>
                 </div>
 
-                <!-- Discount tiers -->
+                </div>
+                <!-- ═══ END FORMULA MODE ═══ -->
+
+                <!-- ═══ CENTER-TIERS MODE ═══ -->
+                <div id="sd-mode-centertiers-fields" style="display:none;">
+
+                    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:0.72rem;color:var(--gray-light);line-height:1.7;">
+                        <div style="color:var(--orange);font-weight:800;margin-bottom:4px;">📍 كيف تعمل؟</div>
+                        تُقاس المسافة من <b style="color:var(--white);">موقع مركز ديليفو</b> (المحدَّد في "الخريطة المباشرة") إلى موقع الزبون، ثم يُطبَّق سعر الشريحة التي تقع ضمنها هذه المسافة — بدل صيغة حسابية.
+                    </div>
+
+                    <div style="margin-bottom:14px;">
+                        <div style="font-size:0.72rem;color:var(--gray);font-weight:800;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+                            <span>📐 شرائح المسافة والسعر</span>
+                            <button onclick="sdAddCenterTier()" style="background:rgba(255,92,0,0.12);color:var(--orange);border:1px solid rgba(255,92,0,0.3);border-radius:8px;padding:4px 10px;font-family:var(--font);font-size:0.7rem;font-weight:800;cursor:pointer;">+ شريحة مسافة</button>
+                        </div>
+                        <div style="font-size:0.65rem;color:var(--gray);margin-bottom:8px;">مثال: من 0 إلى 2 كم = 50,000 ل.ل، من 2 إلى 3 كم = 75,000 ل.ل، ثم اترك "إلى" فارغة بآخر شريحة لتعني "وما فوق"</div>
+                        <div id="sd-centertiers-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+                    </div>
+
+                    <!-- Live preview (center-tiers mode) -->
+                    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;">
+                        <div style="font-size:0.72rem;color:var(--gray);font-weight:800;margin-bottom:10px;">🧪 اختبار مباشر</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                            <div>
+                                <label style="font-size:0.65rem;color:var(--gray);display:block;margin-bottom:4px;">المسافة من المركز (كم)</label>
+                                <input type="number" id="sd-ct-test-km" value="3" min="0" step="0.5"
+                                       style="width:100%;background:var(--surface3,#1a1a2a);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:var(--white);font-family:var(--mono);font-size:0.8rem;outline:none;box-sizing:border-box;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.65rem;color:var(--gray);display:block;margin-bottom:4px;">الرسوم المطابقة</label>
+                                <div id="sd-ct-test-result" style="background:rgba(255,92,0,0.1);border:1px solid rgba(255,92,0,0.3);border-radius:8px;padding:7px 8px;font-family:var(--mono);font-size:0.88rem;font-weight:800;color:var(--orange);text-align:center;">—</div>
+                            </div>
+                        </div>
+                        <button onclick="sdRunCenterTierPreview()" style="width:100%;padding:8px;background:rgba(255,92,0,0.12);color:var(--orange);border:1px solid rgba(255,92,0,0.3);border-radius:8px;font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.8rem;">▶ احسب</button>
+                    </div>
+
+                </div>
+                <!-- ═══ END CENTER-TIERS MODE ═══ -->
+
+                <!-- Discount tiers (shared across both modes) -->
                 <div style="margin-bottom:14px;">
                     <div style="font-size:0.72rem;color:var(--gray);font-weight:800;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
                         <span>🏷 شرائح خصم الإجمالي</span>
@@ -11184,8 +11543,8 @@ function renderSettings() {
                     <div id="sd-tiers-list" style="display:flex;flex-direction:column;gap:8px;"></div>
                 </div>
 
-                <!-- Live preview -->
-                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;">
+                <!-- Live preview (formula mode) -->
+                <div id="sd-mode-formula-preview" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;">
                     <div style="font-size:0.72rem;color:var(--gray);font-weight:800;margin-bottom:10px;">🧪 اختبار مباشر</div>
                     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
                         <div>
@@ -14085,6 +14444,97 @@ async function toggleSmartDelivery(enabled) {
     } catch(e) { toast('فشل تحديث الإعداد', true); }
 }
 
+// ── Mode switch: formula (per-store distance) vs centerTiers (distance
+// from Delivo HQ matched against admin-defined price boundaries) ────────
+let _sdCurrentMode = 'formula';
+function sdSwitchMode(mode) {
+    _sdCurrentMode = mode;
+    const isFormula = mode === 'formula';
+
+    const btnFormula = document.getElementById('sd-mode-btn-formula');
+    const btnCenter  = document.getElementById('sd-mode-btn-centerTiers');
+    if (btnFormula) { btnFormula.style.background = isFormula ? 'var(--orange)' : 'transparent'; btnFormula.style.color = isFormula ? '#fff' : 'var(--gray-light)'; }
+    if (btnCenter)  { btnCenter.style.background  = isFormula ? 'transparent' : 'var(--orange)';  btnCenter.style.color  = isFormula ? 'var(--gray-light)' : '#fff'; }
+
+    const formulaFields  = document.getElementById('sd-mode-formula-fields');
+    const formulaPreview = document.getElementById('sd-mode-formula-preview');
+    const centerFields   = document.getElementById('sd-mode-centertiers-fields');
+    if (formulaFields)  formulaFields.style.display  = isFormula ? 'block' : 'none';
+    if (formulaPreview) formulaPreview.style.display = isFormula ? 'block' : 'none';
+    if (centerFields)   centerFields.style.display   = isFormula ? 'none' : 'block';
+
+    if (!isFormula) {
+        const list = document.getElementById('sd-centertiers-list');
+        if (list && !list.children.length) {
+            sdAddCenterTier(0, 2, 50000);
+            sdAddCenterTier(2, 3, 75000);
+            sdAddCenterTier(3, '', 100000);
+        }
+        sdRunCenterTierPreview();
+    }
+}
+
+// Add a new distance-boundary row (center-tiers mode)
+let _sdCenterTierIdx = 0;
+function sdAddCenterTier(fromKm = '', toKm = '', fee = '') {
+    const list = document.getElementById('sd-centertiers-list');
+    if (!list) return;
+    const idx = _sdCenterTierIdx++;
+    const row = document.createElement('div');
+    row.id = `sd-ctier-${idx}`;
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;';
+    row.innerHTML = `
+        <div style="flex:1;">
+            <label style="font-size:0.65rem;color:var(--gray);display:block;margin-bottom:3px;">من (كم)</label>
+            <input type="number" class="sd-ctier-from" value="${fromKm}" min="0" step="0.5" placeholder="0"
+                   style="width:100%;background:var(--surface3,#1a1a2a);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--white);font-family:var(--mono);font-size:0.8rem;outline:none;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;">
+            <label style="font-size:0.65rem;color:var(--gray);display:block;margin-bottom:3px;">إلى (كم)</label>
+            <input type="number" class="sd-ctier-to" value="${toKm}" min="0" step="0.5" placeholder="وما فوق"
+                   style="width:100%;background:var(--surface3,#1a1a2a);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--white);font-family:var(--mono);font-size:0.8rem;outline:none;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;">
+            <label style="font-size:0.65rem;color:var(--gray);display:block;margin-bottom:3px;">السعر (ل.ل)</label>
+            <input type="number" class="sd-ctier-fee" value="${fee}" min="0" step="1000" placeholder="e.g. 30000"
+                   style="width:100%;background:var(--surface3,#1a1a2a);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--white);font-family:var(--mono);font-size:0.8rem;outline:none;box-sizing:border-box;">
+        </div>
+        <button onclick="this.closest('[id^=sd-ctier-]').remove()"
+                style="background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:0.8rem;flex-shrink:0;align-self:flex-end;">✕</button>`;
+    list.appendChild(row);
+}
+
+// Read current center-tiers from DOM (sorted by fromKm)
+function sdReadCenterTiers() {
+    return [...document.querySelectorAll('#sd-centertiers-list > div')].map(row => {
+        const toRaw = row.querySelector('.sd-ctier-to')?.value;
+        return {
+            fromKm: parseFloat(row.querySelector('.sd-ctier-from')?.value || 0) || 0,
+            toKm:   (toRaw === '' || toRaw === undefined) ? null : parseFloat(toRaw),
+            fee:    parseFloat(row.querySelector('.sd-ctier-fee')?.value || 0) || 0,
+        };
+    }).sort((a, b) => a.fromKm - b.fromKm);
+}
+
+// Same boundary-lookup as scripts/cart.js's _calcCenterTierFee
+function _sdCalcCenterTierFee(distanceKm, centerTiers) {
+    if (!centerTiers || !centerTiers.length) return null;
+    for (const t of centerTiers) {
+        const to = (t.toKm === null) ? Infinity : t.toKm;
+        if (distanceKm >= t.fromKm && distanceKm < to) return t.fee;
+    }
+    return centerTiers[centerTiers.length - 1].fee;
+}
+
+function sdRunCenterTierPreview() {
+    const testKm   = parseFloat(document.getElementById('sd-ct-test-km')?.value) || 0;
+    const tiers    = sdReadCenterTiers();
+    const resultEl = document.getElementById('sd-ct-test-result');
+    if (!resultEl) return;
+    const fee = _sdCalcCenterTierFee(testKm, tiers);
+    resultEl.textContent = fee === null ? 'لا توجد شرائح بعد' : `${fee.toLocaleString('en-US')} ل.ل`;
+}
+
 // Add a new discount tier row
 let _sdTierIdx = 0;
 function sdAddTier(minTotal = '', discount = '') {
@@ -14152,6 +14602,12 @@ document.addEventListener('input', e => {
         || e.target.classList.contains('sd-tier-disc')) {
         sdRunPreview();
     }
+    if (e.target.id === 'sd-ct-test-km'
+        || e.target.classList.contains('sd-ctier-from')
+        || e.target.classList.contains('sd-ctier-to')
+        || e.target.classList.contains('sd-ctier-fee')) {
+        sdRunCenterTierPreview();
+    }
     if (e.target.classList.contains('rw-pts') || e.target.classList.contains('rw-icon')
         || e.target.classList.contains('rw-reward') || e.target.classList.contains('rw-desc')
         || e.target.classList.contains('rw-value')) {
@@ -14167,12 +14623,16 @@ async function sdSave() {
     const maxFee    = parseFloat(document.getElementById('sd-max-fee')?.value);
     const enabled   = document.getElementById('toggle-smart-delivery')?.checked ?? false;
     const tiers     = sdReadTiers();
+    const centerTiers = sdReadCenterTiers();
 
     if ([baseFee, ratePerKm, minFee, maxFee].some(isNaN)) {
         toast('تحقق من القيم المدخلة', true); return;
     }
+    if (_sdCurrentMode === 'centerTiers' && !centerTiers.length) {
+        toast('⚠️ أضف شريحة مسافة واحدة على الأقل', true); return;
+    }
 
-    const payload = { enabled, baseFee, ratePerKm, minFee, maxFee, tiers };
+    const payload = { enabled, mode: _sdCurrentMode, baseFee, ratePerKm, minFee, maxFee, tiers, centerTiers };
     try {
         await fbSet('settings/smartDelivery', payload);
         toast('💾 تم حفظ إعدادات التوصيل الذكي');
@@ -14205,7 +14665,18 @@ async function sdLoad() {
         _sdTierIdx = 0;
         cfg.tiers.forEach(t => sdAddTier(t.minTotal, t.discount));
     }
+
+    // Render center-tiers
+    const ctierList = document.getElementById('sd-centertiers-list');
+    if (ctierList) {
+        ctierList.innerHTML = '';
+        _sdCenterTierIdx = 0;
+        (cfg.centerTiers || []).forEach(t => sdAddCenterTier(t.fromKm, t.toKm ?? '', t.fee));
+    }
+
+    sdSwitchMode(cfg.mode === 'centerTiers' ? 'centerTiers' : 'formula');
     sdRunPreview();
+    sdRunCenterTierPreview();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -15782,45 +16253,11 @@ function _cpiBlobToBase64(blob) {
     });
 }
 
-/* Upload (or replace) the item's image on GitHub as items2/{id}.webp */
+/* Upload (or replace) the item's image as items2/{id}.webp, via the
+   adminUploadImage Cloud Function (see _adminUploadImage above). */
 async function cpiUploadItemImage(file, itemId) {
     const targetName = itemId.toLowerCase() + '.webp';
-    const path        = `${ITEM_GH_FOLDER}/${targetName}`;
-    const apiUrl      = `https://api.github.com/repos/${ITEM_GH_OWNER}/${ITEM_GH_REPO}/contents/${path}`;
-
-    const blob   = await _cpiConvertToWebp(file);
-    const base64 = await _cpiBlobToBase64(blob);
-
-    // Check if file already exists (need its SHA to overwrite)
-    let sha = null;
-    try {
-        const check = await fetch(apiUrl, {
-            headers: { Authorization: `Bearer ${ITEM_GH_TOKEN}`, Accept: 'application/vnd.github+json' }
-        });
-        if (check.ok) sha = (await check.json()).sha;
-    } catch (_) {}
-
-    const body = {
-        message: `Update item image: ${targetName}`,
-        content: base64,
-        branch:  ITEM_GH_BRANCH,
-    };
-    if (sha) body.sha = sha;
-
-    const res = await fetch(apiUrl, {
-        method:  'PUT',
-        headers: {
-            Authorization:  `Bearer ${ITEM_GH_TOKEN}`,
-            Accept:         'application/vnd.github+json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `GitHub error ${res.status}`);
-    }
+    await _adminUploadImage(file, ITEM_GH_FOLDER, targetName);
 }
 
 /* ── Save item (company portal version) ────────────────────── */
@@ -16996,18 +17433,50 @@ function _aoHaversineKm(lat1, lng1, lat2, lng2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Same boundary-lookup as scripts/cart.js's _calcCenterTierFee — duplicated
+// here since admin.html doesn't load cart.js as a script.
+function _aoCalcCenterTierFee(distanceKm, centerTiers) {
+    if (!centerTiers || !Array.isArray(centerTiers) || !centerTiers.length) return null;
+    const sorted = [...centerTiers].sort((a, b) => parseFloat(a.fromKm||0) - parseFloat(b.fromKm||0));
+    for (const t of sorted) {
+        const from = parseFloat(t.fromKm) || 0;
+        const to   = (t.toKm === null || t.toKm === '' || t.toKm === undefined) ? Infinity : parseFloat(t.toKm);
+        if (distanceKm >= from && distanceKm < to) return parseFloat(t.fee) || 0;
+    }
+    return parseFloat(sorted[sorted.length - 1].fee) || 0;
+}
+
 async function _aoAutoCalcFee() {
-    if (!_aoStoreLat || !_aoDestLat) { toast('حدّد موقع المتجر وموقع التوصيل أولاً', true); return; }
+    if (!_aoDestLat) { toast('حدّد موقع التوصيل أولاً', true); return; }
     try {
         if (_aoSmartCfgCache === undefined) _aoSmartCfgCache = await fbGet('settings/smartDelivery').catch(() => null);
-        const cfg = _aoSmartCfgCache;
+        const cfg  = _aoSmartCfgCache;
+        const mode = cfg?.mode || 'formula';
+        const input = document.getElementById('ao-delivery-fee');
+
+        if (mode === 'centerTiers') {
+            const center = await fbGet('settings/deliveryCenter').catch(() => null);
+            if (!center || typeof center.lat !== 'number') { toast('⚠️ لم يُحدَّد موقع المركز بعد (الخريطة المباشرة)', true); return; }
+            const km  = _aoHaversineKm(_aoDestLat, _aoDestLng, center.lat, center.lng);
+            const tierFee = _aoCalcCenterTierFee(km, cfg.centerTiers);
+            const fee = tierFee !== null ? tierFee : parseFloat(cfg?.baseFee ?? 1.5);
+            // Tier fees are LBP-scale (large numbers); the baseFee fallback (used only
+            // when no tiers/center are configured yet) is USD-scale like the formula
+            // mode — the fee field auto-detects either based on magnitude, same as
+            // everywhere else money is typed in this panel (see _normalizeMoneyValue).
+            if (input) input.value = fee > 1000 ? String(Math.round(fee / 1000) * 1000) : fee.toFixed(2);
+            const feeLabel = fee > 1000 ? `${Math.round(fee).toLocaleString('en-US')} ل.ل` : `$${fee.toFixed(2)}`;
+            toast(`📍 المسافة من المركز ${km.toFixed(1)} كم — رسم الشريحة ${feeLabel}`);
+            return;
+        }
+
+        if (!_aoStoreLat) { toast('حدّد موقع المتجر وموقع التوصيل أولاً', true); return; }
         const baseFee   = parseFloat(cfg?.baseFee   ?? 1.5);
         const ratePerKm = parseFloat(cfg?.ratePerKm ?? 0.3);
         const minFee    = parseFloat(cfg?.minFee    ?? 0.5);
         const maxFee    = parseFloat(cfg?.maxFee    ?? 5.0);
         const km  = _aoHaversineKm(_aoStoreLat, _aoStoreLng, _aoDestLat, _aoDestLng);
         const fee = Math.min(maxFee, Math.max(minFee, baseFee + km * ratePerKm));
-        const input = document.getElementById('ao-delivery-fee');
         if (input) input.value = fee.toFixed(2);
         toast(`🧮 المسافة ${km.toFixed(1)} كم — رسم مقترح $${fee.toFixed(2)}`);
     } catch (e) { toast('تعذّر الحساب التلقائي', true); }
