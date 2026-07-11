@@ -1,52 +1,217 @@
 /* ============================================================
    scripts/promo-flip.js
    Powers the "عروض ما بتتفوّت" flip-card promo section.
+
+   Cards now come from Firebase (promoFlipCards/*), managed from
+   the admin panel (لوحة الإدارة → كروت العروض) — add/edit/remove/
+   reorder/enable-disable, all without a code deploy.
+
    - Click/tap a card → flips it (front image ↔ back details)
    - Works with keyboard (Enter/Space) since cards are tabbable
-   - CTA buttons on the back open WhatsApp to settings/adminPhone
-     with a pre-filled message about that specific offer
-   - Plays a one-time "hint" flip shortly after load so people
-     realize the cards are interactive, then settles down
+   - Auto-advancing carousel + dots on mobile, same pattern as
+     the offers carousel in stores.js
+   - CTA buttons on the back open WhatsApp with the admin-set
+     order message for that specific card
+   - Plays a one-time "hint" flip after the splash hides so
+     people realize the cards are interactive
    ============================================================ */
 
 const RTDB_PROMO_URL = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 
-function initPromoFlip() {
+/* Shown only if the admin hasn't configured any cards yet in
+   promoFlipCards — so the section never looks broken/empty out
+   of the box. Add real ones from لوحة الإدارة → كروت العروض. */
+const PROMO_FLIP_FALLBACK = [
+    {
+        order: 1, active: true,
+        image: 'assets/promos/promo-megasale.jpg',
+        badgeText: '🔥 عرض ناري', badgeStyle: 'hot',
+        storeName: 'SUPER DOKAN', title: 'ميغا سيل بمناسبة المونديال ⚽',
+        backStyle: 'items',
+        itemsRaw: "Persil جل غسيل لافندر 4.8ل = 10.69$\nجنرال منظف أرضيات 3ل = 2.94$\nLet's Clean جل غسيل 1ل = 2.39$\nمناديل Good Care 8+2 = 3.79$",
+        footerNote: '⏳ ساري من 8 لغاية 14 تموز',
+        ctaText: '🛒 اطلب الآن', orderText: 'مرحباً، بدي إطلب من عرض ميغا سيل سوبر دوكان 🛒',
+    },
+    {
+        order: 2, active: true,
+        image: 'assets/promos/promo-baytna.jpg',
+        badgeText: '🍽 طبق اليوم', badgeStyle: 'food',
+        storeName: 'مطعم بيتنا', title: 'سندويش كوردون بلو مع تشيز 🧀',
+        backStyle: 'tags',
+        description: 'دجاج طري ومقرمش، تشيز ذائبة، ومكوّنات طازجة بتحضير يومي.',
+        tagsRaw: '🧀 تشيز ذائبة, 🍗 دجاج طري ومقرمش, 🥬 مكوّنات طازجة',
+        priceText: '450,000 ل.ل',
+        ctaText: '🥪 اطلب الآن', orderText: 'مرحباً، بدي إطلب سندويش كوردون بلو (طبق اليوم) من مطعم بيتنا 🥪',
+    },
+    {
+        order: 3, active: true,
+        image: 'assets/promos/promo-delivo-breakfast.jpg',
+        badgeText: '🥣 ترويقة الصبح', badgeStyle: 'hot',
+        storeName: 'Delivo', title: 'بدك احلى ترويقة؟ 🍳 فول وفتة عالطاولة بلمح البصر',
+        backStyle: 'plain',
+        description: 'أطيب فول وفتة من مطاعمك المفضلة، بتوصلك سخنة وطازجة لحد باب البيت.',
+        tagsRaw: '⚡ توصيل سريع, 🍽 أكل طازج ونظيف, 🛵 من مطاعمك المفضلة',
+        footerNote: '📍 بعلبك ومحيطها',
+        ctaText: '🥣 اطلب الآن', orderText: 'مرحباً، بدي إطلب ترويقة (فول / فتة) عبر ديليفو 🥣',
+    },
+];
+
+function _escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
+        return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+}
+
+/* "name = price" per line -> [{label, value}] */
+function _parseItemsRaw(raw) {
+    return String(raw || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (line) {
+        const parts = line.split('=');
+        const label = (parts[0] || '').trim();
+        const value = (parts[1] || '').trim();
+        return { label: label, value: value };
+    });
+}
+/* comma-separated -> [tag, tag, ...] */
+function _parseTagsRaw(raw) {
+    return String(raw || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+}
+
+function _badgeClass(style) {
+    if (style === 'food') return 'promo-flip-card__badge--food';
+    if (style === 'custom') return '';
+    return 'promo-flip-card__badge--hot';
+}
+
+function _renderBackInner(card) {
+    const storeRow = card.storeName ? (
+        '<div class="promo-flip-card__store">' +
+            '<span class="promo-flip-card__store-name">' + _escapeHtml(card.storeName) + '</span>' +
+            '<span class="promo-flip-card__x">×</span>' +
+            '<span class="promo-flip-card__brand">Delivo</span>' +
+        '</div>'
+    ) : (
+        '<div class="promo-flip-card__store"><span class="promo-flip-card__brand">Delivo</span></div>'
+    );
+
+    const title = card.title ? ('<div class="promo-flip-card__title">' + _escapeHtml(card.title) + '</div>') : '';
+
+    let middle = '';
+    if (card.backStyle === 'items') {
+        const items = _parseItemsRaw(card.itemsRaw);
+        if (items.length) {
+            middle = '<ul class="promo-flip-card__items">' + items.map(function (it) {
+                return '<li><span>' + _escapeHtml(it.label) + '</span><b>' + _escapeHtml(it.value) + '</b></li>';
+            }).join('') + '</ul>';
+        }
+    } else {
+        if (card.description) middle += '<p class="promo-flip-card__desc">' + _escapeHtml(card.description) + '</p>';
+        const tags = _parseTagsRaw(card.tagsRaw);
+        if (tags.length) {
+            middle += '<div class="promo-flip-card__tags">' + tags.map(function (t) {
+                return '<span>' + _escapeHtml(t) + '</span>';
+            }).join('') + '</div>';
+        }
+    }
+
+    const footerLeft = (card.backStyle !== 'items' && card.priceText)
+        ? ('<span class="promo-flip-card__price">' + _escapeHtml(card.priceText) + '</span>')
+        : (card.footerNote ? ('<span class="promo-flip-card__valid">' + _escapeHtml(card.footerNote) + '</span>') : '<span></span>');
+
+    const ctaText = card.ctaText || '🛒 اطلب الآن';
+    const orderText = card.orderText || '';
+
+    return storeRow + title + middle +
+        '<div class="promo-flip-card__footer">' + footerLeft +
+        '<a href="#" class="promo-flip-card__cta" data-promo-cta data-order-text="' + _escapeHtml(orderText) + '">' + _escapeHtml(ctaText) + '</a>' +
+        '</div>';
+}
+
+function _renderCard(card, idx) {
+    const badgeStyleAttr = (card.badgeStyle === 'custom' && card.badgeColor)
+        ? (' style="background:' + _escapeHtml(card.badgeColor) + ';box-shadow:0 4px 14px ' + _escapeHtml(card.badgeColor) + '66;"')
+        : '';
+    const backAltClass = (idx % 2 === 1) ? ' promo-flip-card__face--back-alt' : '';
+    const badgeHtml = card.badgeText
+        ? ('<span class="promo-flip-card__badge ' + _badgeClass(card.badgeStyle) + '"' + badgeStyleAttr + '>' + _escapeHtml(card.badgeText) + '</span>')
+        : '';
+    const label = _escapeHtml(card.title || card.storeName || 'عرض');
+
+    return (
+        '<div class="promo-flip-card" data-promo-card tabindex="0" role="button" aria-pressed="false" ' +
+             'aria-label="' + label + '، إضغط لتشوف التفاصيل">' +
+            '<div class="promo-flip-card__inner">' +
+                '<div class="promo-flip-card__face promo-flip-card__face--front">' +
+                    '<img src="' + _escapeHtml(card.image) + '" alt="' + _escapeHtml(card.storeName || card.title || 'عرض') + '" loading="lazy">' +
+                    '<div class="promo-flip-card__scrim"></div>' +
+                    badgeHtml +
+                    '<span class="promo-flip-card__flip-icon" aria-hidden="true">↻</span>' +
+                    '<span class="promo-flip-card__hint">إضغط لتشوف العرض</span>' +
+                '</div>' +
+                '<div class="promo-flip-card__face promo-flip-card__face--back' + backAltClass + '">' +
+                    '<div class="promo-flip-card__back-content">' + _renderBackInner(card) + '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>'
+    );
+}
+
+async function _fetchPromoCards() {
+    try {
+        const res = await fetch(RTDB_PROMO_URL + '/promoFlipCards.json');
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        if (!data || typeof data !== 'object') return PROMO_FLIP_FALLBACK;
+
+        const list = Object.values(data).filter(function (c) { return c && c.active !== false; });
+        if (!list.length) return PROMO_FLIP_FALLBACK;
+
+        list.sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+        return list;
+    } catch (_) {
+        return PROMO_FLIP_FALLBACK;
+    }
+}
+
+async function initPromoFlip() {
     const section = document.getElementById('promo-flip-section');
-    if (!section) return;
+    const track   = document.getElementById('promo-flip-track');
+    if (!section || !track) return;
+
+    const cardsData = await _fetchPromoCards();
+    if (!cardsData.length) { section.style.display = 'none'; return; }
+
+    track.innerHTML = cardsData.map(_renderCard).join('');
 
     const cards = section.querySelectorAll('[data-promo-card]');
     if (!cards.length) return;
 
-    /* ── Wire the WhatsApp CTA on every card's back face ──── */
-    fetch(`${RTDB_PROMO_URL}/settings/adminPhone.json`)
-        .then(r => r.ok ? r.json() : null)
-        .then(raw => {
+    /* Wire the WhatsApp CTA on every card's back face */
+    fetch(RTDB_PROMO_URL + '/settings/adminPhone.json')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (raw) {
             const digits = raw ? String(raw).replace(/\D/g, '') : '';
-            if (!digits) return; // keep the plain "#" href fallback already in the markup
-            section.querySelectorAll('[data-promo-cta]').forEach(cta => {
+            if (!digits) return;
+            section.querySelectorAll('[data-promo-cta]').forEach(function (cta) {
                 const text = cta.dataset.orderText || '';
-                cta.href = `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+                cta.href = 'https://wa.me/' + digits + '?text=' + encodeURIComponent(text);
                 cta.target = '_blank';
                 cta.rel = 'noopener';
             });
         })
-        .catch(() => { /* CTAs just stay inert "#" links — no crash either way */ });
+        .catch(function () {});
 
-    /* ── Flip toggle ────────────────────────────────────────
-       A click anywhere on the card flips it, EXCEPT the CTA
-       link itself — that one should just navigate normally. */
+    /* Flip toggle — click anywhere on the card flips it, except the CTA link */
     function toggleFlip(card) {
         const flipped = card.classList.toggle('is-flipped');
         card.setAttribute('aria-pressed', flipped ? 'true' : 'false');
     }
 
-    cards.forEach(card => {
-        card.addEventListener('click', (e) => {
-            if (e.target.closest('[data-promo-cta]')) return; // let the CTA navigate
+    cards.forEach(function (card) {
+        card.addEventListener('click', function (e) {
+            if (e.target.closest('[data-promo-cta]')) return;
             toggleFlip(card);
         });
-        card.addEventListener('keydown', (e) => {
+        card.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' || e.key === ' ') {
                 if (e.target.closest('[data-promo-cta]')) return;
                 e.preventDefault();
@@ -55,31 +220,27 @@ function initPromoFlip() {
         });
     });
 
-    /* ── Auto-advancing carousel (mobile only) ───────────────
-       Same pattern as the offers-carousel in stores.js: cycles
-       through the cards on a timer, shows dots, pauses while
-       the person is touching/dragging, resumes shortly after.
-       This is what actually moves the strip from card 1 → 2 → 3
-       on its own — the flip above is a separate, per-card thing. */
+    /* Auto-advancing carousel (mobile only) + dots — same pattern as
+       the offers carousel in stores.js */
     const scroll = document.getElementById('promo-flip-scroll');
     const dotsEl = document.getElementById('promo-flip-dots');
     if (scroll && dotsEl) {
         const total = cards.length;
         let current = 0, autoTimer = null;
-        const isPhone = () => window.innerWidth < 540;
+        const isPhone = function () { return window.innerWidth < 540; };
 
         function buildDots() {
             dotsEl.innerHTML = '';
             if (!isPhone()) return;
-            cards.forEach((_, i) => {
+            cards.forEach(function (_, i) {
                 const dot = document.createElement('span');
                 dot.className = 'promo-flip__dot' + (i === current ? ' active' : '');
-                dot.addEventListener('click', () => goTo(i));
+                dot.addEventListener('click', function () { goTo(i); });
                 dotsEl.appendChild(dot);
             });
         }
         function updateDots() {
-            dotsEl.querySelectorAll('.promo-flip__dot').forEach((d, i) => d.classList.toggle('active', i === current));
+            dotsEl.querySelectorAll('.promo-flip__dot').forEach(function (d, i) { d.classList.toggle('active', i === current); });
         }
         function goTo(index) {
             if (!isPhone()) return;
@@ -95,32 +256,29 @@ function initPromoFlip() {
 
         scroll.addEventListener('touchstart', stopAuto, { passive: true });
         scroll.addEventListener('mousedown', stopAuto);
-        scroll.addEventListener('touchend', () => setTimeout(startAuto, 4500), { passive: true });
-        scroll.addEventListener('mouseup', () => setTimeout(startAuto, 4500));
-        scroll.addEventListener('scrollend', () => {
+        scroll.addEventListener('touchend', function () { setTimeout(startAuto, 4500); }, { passive: true });
+        scroll.addEventListener('mouseup', function () { setTimeout(startAuto, 4500); });
+        scroll.addEventListener('scrollend', function () {
             if (!isPhone()) return;
             const center = scroll.scrollLeft + scroll.clientWidth / 2;
             let closest = 0, minDist = Infinity;
-            cards.forEach((c, i) => {
+            cards.forEach(function (c, i) {
                 const dist = Math.abs(c.offsetLeft + c.offsetWidth / 2 - center);
                 if (dist < minDist) { minDist = dist; closest = i; }
             });
             current = closest;
             updateDots();
         });
-        window.addEventListener('resize', () => { buildDots(); if (isPhone()) startAuto(); else stopAuto(); });
+        window.addEventListener('resize', function () { buildDots(); if (isPhone()) startAuto(); else stopAuto(); });
 
         buildDots();
         startAuto();
     }
 
-    /* ── One-time hint: nudge the first card open briefly so
-       first-time visitors realize these flip, then close it.
-       IMPORTANT: this must be triggered by loader.js AFTER the
-       splash screen actually hides — not on a fixed timer from
-       here, since the splash holds the page covered for 2-2.8s
-       and a fixed timer here would play (and finish) the whole
-       hint completely out of sight behind it. See playPromoFlipHint(). */
+    /* One-time hint flip — triggered by loader.js AFTER the splash hides
+       (see playPromoFlipHint), not on a fixed timer from here, since the
+       splash covers the page for 2-2.8s and a timer here would finish
+       completely out of sight behind it. */
     window._promoFlipCards = cards;
 }
 
@@ -133,7 +291,7 @@ function playPromoFlipHint() {
     const card = cards[0];
     card.classList.add('is-flipped');
     card.setAttribute('aria-pressed', 'true');
-    setTimeout(() => {
+    setTimeout(function () {
         card.classList.remove('is-flipped');
         card.setAttribute('aria-pressed', 'false');
     }, 1100);
