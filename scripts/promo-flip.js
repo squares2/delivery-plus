@@ -18,44 +18,6 @@
 
 const RTDB_PROMO_URL = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 
-/* Shown only if the admin hasn't configured any cards yet in
-   promoFlipCards — so the section never looks broken/empty out
-   of the box. Add real ones from لوحة الإدارة → كروت العروض. */
-const PROMO_FLIP_FALLBACK = [
-    {
-        order: 1, active: true,
-        image: 'assets/promos/promo-megasale.jpg',
-        badgeText: '🔥 عرض ناري', badgeStyle: 'hot',
-        storeName: 'SUPER DOKAN', title: 'ميغا سيل بمناسبة المونديال ⚽',
-        backStyle: 'items',
-        itemsRaw: "Persil جل غسيل لافندر 4.8ل = 10.69$\nجنرال منظف أرضيات 3ل = 2.94$\nLet's Clean جل غسيل 1ل = 2.39$\nمناديل Good Care 8+2 = 3.79$",
-        footerNote: '⏳ ساري من 8 لغاية 14 تموز',
-        ctaText: '🛒 اطلب الآن', orderText: 'مرحباً، بدي إطلب من عرض ميغا سيل سوبر دوكان 🛒',
-    },
-    {
-        order: 2, active: true,
-        image: 'assets/promos/promo-baytna.jpg',
-        badgeText: '🍽 طبق اليوم', badgeStyle: 'food',
-        storeName: 'مطعم بيتنا', title: 'سندويش كوردون بلو مع تشيز 🧀',
-        backStyle: 'tags',
-        description: 'دجاج طري ومقرمش، تشيز ذائبة، ومكوّنات طازجة بتحضير يومي.',
-        tagsRaw: '🧀 تشيز ذائبة, 🍗 دجاج طري ومقرمش, 🥬 مكوّنات طازجة',
-        priceText: '450,000 ل.ل',
-        ctaText: '🥪 اطلب الآن', orderText: 'مرحباً، بدي إطلب سندويش كوردون بلو (طبق اليوم) من مطعم بيتنا 🥪',
-    },
-    {
-        order: 3, active: true,
-        image: 'assets/promos/promo-delivo-breakfast.jpg',
-        badgeText: '🥣 ترويقة الصبح', badgeStyle: 'hot',
-        storeName: 'Delivo', title: 'بدك احلى ترويقة؟ 🍳 فول وفتة عالطاولة بلمح البصر',
-        backStyle: 'plain',
-        description: 'أطيب فول وفتة من مطاعمك المفضلة، بتوصلك سخنة وطازجة لحد باب البيت.',
-        tagsRaw: '⚡ توصيل سريع, 🍽 أكل طازج ونظيف, 🛵 من مطاعمك المفضلة',
-        footerNote: '📍 بعلبك ومحيطها',
-        ctaText: '🥣 اطلب الآن', orderText: 'مرحباً، بدي إطلب ترويقة (فول / فتة) عبر ديليفو 🥣',
-    },
-];
-
 function _escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
         return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
@@ -160,15 +122,13 @@ async function _fetchPromoCards() {
         const res = await fetch(RTDB_PROMO_URL + '/promoFlipCards.json');
         if (!res.ok) throw new Error('fetch failed');
         const data = await res.json();
-        if (!data || typeof data !== 'object') return PROMO_FLIP_FALLBACK;
+        if (!data || typeof data !== 'object') return [];
 
         const list = Object.values(data).filter(function (c) { return c && c.active !== false; });
-        if (!list.length) return PROMO_FLIP_FALLBACK;
-
         list.sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
         return list;
     } catch (_) {
-        return PROMO_FLIP_FALLBACK;
+        return [];
     }
 }
 
