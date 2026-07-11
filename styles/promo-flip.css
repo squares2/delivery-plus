@@ -1,0 +1,311 @@
+/* ============================================================
+   styles/promo-flip.css
+   3D flip-card promo spotlight — real partner-store ads (Super
+   Dokan, Baytna, etc). Tap/click a card to flip it and reveal
+   the offer details + an order CTA.
+   ============================================================ */
+
+.promo-flip__header { display: flex; flex-direction: column; }
+.promo-flip__sub {
+    font-size: var(--fs-small);
+    color: var(--clr-gray-500);
+    margin-top: -4px;
+    padding-right: 9px;
+}
+
+.promo-flip__scroll {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding: clamp(10px, 2vw, 14px) var(--container-pad) clamp(14px, 2.5vw, 20px);
+}
+.promo-flip__scroll::-webkit-scrollbar { display: none; }
+
+.promo-flip__track {
+    display: flex;
+    gap: clamp(14px, 3vw, 22px);
+}
+
+/* ── The card itself ────────────────────────────────────────
+   perspective lives on the outer element so the inner face
+   actually rotates in 3D space instead of just squashing.    */
+.promo-flip-card {
+    flex: 0 0 calc(100vw - (var(--container-pad) * 2));
+    width: calc(100vw - (var(--container-pad) * 2));
+    height: clamp(260px, 78vw, 340px);
+    scroll-snap-align: center;
+    perspective: 1400px;
+    cursor: pointer;
+    outline: none;
+}
+@media (min-width: 540px) {
+    .promo-flip-card {
+        flex: 0 0 clamp(220px, 38vw, 300px);
+        width: clamp(220px, 38vw, 300px);
+        height: clamp(280px, 46vw, 360px);
+        scroll-snap-align: start;
+    }
+}
+@media (min-width: 900px) {
+    .promo-flip-card {
+        flex: 0 0 300px;
+        width: 300px;
+        height: 380px;
+    }
+}
+
+.promo-flip-card__inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.75s cubic-bezier(.22, .9, .3, 1);
+    transform-style: preserve-3d;
+    will-change: transform;
+}
+
+/* Gentle hover "peek" on devices that actually have a hover-capable
+   pointer (skipped on touch so it doesn't fight with tap-to-flip) */
+@media (hover: hover) and (pointer: fine) {
+    .promo-flip-card:not(.is-flipped):hover .promo-flip-card__inner {
+        transform: rotateY(-10deg) scale(1.015);
+    }
+}
+
+.promo-flip-card.is-flipped .promo-flip-card__inner {
+    transform: rotateY(180deg);
+}
+
+.promo-flip-card__face {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+/* ── Front face — full-bleed promo image ──────────────────── */
+.promo-flip-card__face--front { background: var(--clr-black); }
+.promo-flip-card__face--front img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.promo-flip-card__scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 42%);
+    pointer-events: none;
+}
+
+.promo-flip-card__badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--clr-orange);
+    color: var(--clr-white);
+    font-size: var(--fs-tiny);
+    font-weight: 800;
+    padding: 5px 12px;
+    border-radius: var(--radius-pill);
+    box-shadow: 0 4px 14px rgba(255,92,0,0.45);
+    animation: promoBadgePulse 2.2s ease-in-out infinite;
+}
+.promo-flip-card__badge--food { background: #16a34a; box-shadow: 0 4px 14px rgba(22,163,74,0.4); }
+
+@keyframes promoBadgePulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.07); }
+}
+
+.promo-flip-card__flip-icon {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(3px);
+    color: var(--clr-white);
+    border-radius: 50%;
+    font-size: 1rem;
+    animation: promoFlipSpin 3.5s linear infinite;
+}
+@keyframes promoFlipSpin {
+    0%, 60%, 100% { transform: rotate(0deg); }
+    75%           { transform: rotate(180deg); }
+    90%           { transform: rotate(360deg); }
+}
+
+.promo-flip-card__hint {
+    position: absolute;
+    bottom: 12px;
+    right: 14px;
+    left: 14px;
+    color: var(--clr-white);
+    font-size: var(--fs-small);
+    font-weight: 700;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.5);
+}
+
+/* ── Back face — offer details + CTA ───────────────────────── */
+.promo-flip-card__face--back {
+    transform: rotateY(180deg);
+    background: linear-gradient(155deg, #1a1a1a 0%, #2b1204 100%);
+    padding: clamp(16px, 4vw, 22px);
+    display: flex;
+}
+.promo-flip-card__face--back-alt {
+    background: linear-gradient(155deg, #1a1a1a 0%, #0c2415 100%);
+}
+
+.promo-flip-card__back-content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    color: var(--clr-white);
+}
+
+.promo-flip-card__store {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--fs-tiny);
+    color: rgba(255,255,255,0.55);
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+.promo-flip-card__x { opacity: 0.5; }
+.promo-flip-card__brand { color: var(--clr-orange); }
+
+.promo-flip-card__title {
+    font-size: clamp(0.95rem, 4vw, 1.1rem);
+    font-weight: 800;
+    line-height: 1.35;
+    margin-top: 8px;
+}
+
+.promo-flip-card__desc {
+    font-size: var(--fs-small);
+    color: rgba(255,255,255,0.65);
+    line-height: 1.5;
+    margin-top: 8px;
+}
+
+.promo-flip-card__items {
+    list-style: none;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+}
+.promo-flip-card__items li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: var(--fs-tiny);
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(255,255,255,0.12);
+}
+.promo-flip-card__items li span { color: rgba(255,255,255,0.75); }
+.promo-flip-card__items li b   { color: var(--clr-orange); white-space: nowrap; }
+
+.promo-flip-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+.promo-flip-card__tags span {
+    font-size: var(--fs-micro);
+    font-weight: 700;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 4px 9px;
+    border-radius: var(--radius-pill);
+    color: rgba(255,255,255,0.8);
+}
+
+.promo-flip-card__footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 12px;
+}
+
+.promo-flip-card__valid {
+    font-size: var(--fs-micro);
+    color: rgba(255,255,255,0.5);
+    font-weight: 700;
+}
+
+.promo-flip-card__price {
+    font-size: clamp(1.05rem, 4.5vw, 1.3rem);
+    font-weight: 800;
+    color: var(--clr-orange);
+    white-space: nowrap;
+}
+.promo-flip-card__price small { font-size: 0.6em; font-weight: 700; color: rgba(255,255,255,0.6); }
+
+.promo-flip-card__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--clr-orange);
+    color: var(--clr-white);
+    font-weight: 800;
+    font-size: var(--fs-small);
+    padding: 10px 16px;
+    border-radius: var(--radius-pill);
+    text-decoration: none;
+    white-space: nowrap;
+    box-shadow: var(--shadow-orange);
+    transition: transform 0.15s;
+}
+.promo-flip-card__cta:active { transform: scale(0.95); }
+
+.promo-flip__dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: clamp(6px, 1.5vw, 10px);
+}
+@media (min-width: 540px) {
+    .promo-flip__dots { display: none; }
+}
+.promo-flip__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--clr-gray-200);
+    transition: background 0.3s, width 0.3s;
+    cursor: pointer;
+}
+.promo-flip__dot.active {
+    background: var(--clr-orange);
+    width: 18px;
+    border-radius: 3px;
+}
+
+/* Respect reduced-motion preferences — kill the decorative loops,
+   keep the actual flip (that one's functional, not decorative). */
+@media (prefers-reduced-motion: reduce) {
+    .promo-flip-card__badge,
+    .promo-flip-card__flip-icon { animation: none; }
+}

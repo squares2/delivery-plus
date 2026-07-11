@@ -3695,16 +3695,21 @@ async function doLogin() {
     errEl.textContent = '';
 
     try {
-        // Try seed super-admin first (no DB needed)
-        if (username === SEED_SUPERADMIN.username && password === SEED_SUPERADMIN.password) {
-            currentAdmin = { ...SEED_SUPERADMIN };
+        // Try /adminUsers in RTDB (includes a possible super-admin override at __seed)
+        const admins = await fbGet('adminUsers');
+        const seedOverride = admins && admins.__seed;
+        // If the super-admin changed their username/password from the app, that
+        // override takes precedence over the hardcoded fallback below.
+        const effectiveSeed = seedOverride ? { ...SEED_SUPERADMIN, ...seedOverride } : SEED_SUPERADMIN;
+
+        if (username === effectiveSeed.username && password === effectiveSeed.password) {
+            currentAdmin = { ...effectiveSeed, _key: '__seed' };
             startApp();
             return;
         }
-        // Try /adminUsers in RTDB
-        const admins = await fbGet('adminUsers');
         if (admins && typeof admins === 'object') {
             for (const [key, adm] of Object.entries(admins)) {
+                if (key === '__seed') continue; // already checked above as the super-admin
                 if (adm && adm.username === username && adm.password === password) {
                     currentAdmin = { ...adm, _key: key };
                     if (adm.role === 'company') { startCompanyPortal(); return; }
@@ -3715,7 +3720,8 @@ async function doLogin() {
         }
         errEl.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
     } catch(e) {
-        // Network fail — allow seed admin offline
+        // Network fail — allow seed admin offline (hardcoded credentials only,
+        // since we can't reach the DB to check for a saved override)
         if (username === SEED_SUPERADMIN.username && password === SEED_SUPERADMIN.password) {
             currentAdmin = { ...SEED_SUPERADMIN };
             startApp();
@@ -9886,10 +9892,10 @@ function renderEmployees() {
     const grid = document.getElementById('emp-grid');
     grid.innerHTML = '';
 
-    // Always show seed super-admin
+    // Always show seed super-admin (merged with any saved override — see adminUsers/__seed)
     const allEmps = [
-        { _key: '__seed', ...SEED_SUPERADMIN },
-        ...Object.entries(adminUsers).map(([k,v]) => ({ ...v, _key: k })),
+        { _key: '__seed', ...SEED_SUPERADMIN, ...(adminUsers.__seed || {}) },
+        ...Object.entries(adminUsers).filter(([k]) => k !== '__seed').map(([k,v]) => ({ ...v, _key: k })),
     ];
 
     allEmps.forEach((emp, idx) => {
@@ -9921,15 +9927,27 @@ function renderEmployees() {
                     💬 ${emp.role === 'company' ? 'إشعار واتساب — طلبات متجره' : 'إشعار واتساب — كل الطلبات'}
                 </span>
             </div>` : ''}
-            ${!isSelf && emp._key !== '__seed' ? `
+            ${(() => {
+                const isSeed    = emp._key === '__seed';
+                // The super-admin card can always be edited (that's how its password
+                // gets changed) but can never be deleted. Other employees can't edit
+                // or delete their own account, only someone else's.
+                const canEdit   = isSeed || !isSelf;
+                const canDelete = !isSeed && !isSelf;
+                const pushId    = isSeed ? emp.username : emp._key;
+                if (canEdit) {
+                    return `
             <div class="ec-actions-row">
                 <button class="ec-btn" data-edit="${emp._key}">✏️ تعديل</button>
-                <button class="ec-btn danger" data-delete="${emp._key}">🗑 حذف</button>
-                <button class="ec-btn" data-testpush="${emp._key === '__seed' ? emp.username : emp._key}" data-testpush-name="${emp.fullname || emp.username}" title="إرسال إشعار تجريبي">🔔</button>
-            </div>` : `
+                ${canDelete ? `<button class="ec-btn danger" data-delete="${emp._key}">🗑 حذف</button>` : ''}
+                <button class="ec-btn" data-testpush="${pushId}" data-testpush-name="${emp.fullname || emp.username}" title="إرسال إشعار تجريبي">🔔</button>
+            </div>`;
+                }
+                return `
             <div class="ec-actions-row">
-                <button class="ec-btn" data-testpush="${emp._key === '__seed' ? emp.username : emp._key}" data-testpush-name="${emp.fullname || emp.username}" title="إرسال إشعار تجريبي">🔔 اختبار الإشعار</button>
-            </div>`}`;
+                <button class="ec-btn" data-testpush="${pushId}" data-testpush-name="${emp.fullname || emp.username}" title="إرسال إشعار تجريبي">🔔 اختبار الإشعار</button>
+            </div>`;
+            })()}`;
 
         card.querySelectorAll('[data-testpush]').forEach(btn => {
             btn.addEventListener('click', () => sendTestPush(btn.dataset.testpush, btn.dataset.testpushName));
@@ -9959,9 +9977,10 @@ function renderEmployees() {
 
 // ── Employee modal open helper ────────────────────────────────
 function openEmpModal(emp) {
-    const isNew = !emp;
+    const isNew  = !emp;
+    const isSeed = emp?._key === '__seed';
     document.getElementById('emp-edit-key').value  = emp?._key || '';
-    document.getElementById('emp-modal-title').lastChild.textContent = isNew ? ' إضافة موظف جديد' : ' تعديل بيانات الموظف';
+    document.getElementById('emp-modal-title').lastChild.textContent = isSeed ? ' تغيير بيانات دخول المدير العام' : (isNew ? ' إضافة موظف جديد' : ' تعديل بيانات الموظف');
     document.getElementById('emp-save-btn').textContent = isNew ? 'إضافة الموظف' : '💾 حفظ التغييرات';
     document.getElementById('emp-pass-hint').style.display = isNew ? 'none' : 'inline';
     document.getElementById('emp-modal-error').style.display = 'none';
@@ -9984,18 +10003,23 @@ function openEmpModal(emp) {
     }
 
     const role = emp?.role || 'dispatcher';
-    document.getElementById('emp-role').value = role;
+    document.getElementById('emp-role').value    = isSeed ? 'superadmin' : role;
+    document.getElementById('emp-role').disabled = isSeed; // super-admin's role can't be changed away from here
 
     // Permissions
     const perms = emp?.permissions || [];
     document.querySelectorAll('#perm-checks input').forEach(c => {
-        c.checked = role === 'superadmin' || perms.includes(c.value);
+        c.checked  = isSeed || role === 'superadmin' || perms.includes(c.value);
+        c.disabled = isSeed; // super-admin always has every permission
     });
 
     // Store row
     const storeRow = document.getElementById('emp-store-row');
     const permRow  = storeRow?.nextElementSibling;
-    if (role === 'company') {
+    if (isSeed) {
+        storeRow.style.display = 'none';
+        if (permRow) permRow.style.display = 'block';
+    } else if (role === 'company') {
         storeRow.style.display = 'block';
         if (permRow) permRow.style.display = 'none';
         const sel = document.getElementById('emp-linked-store');

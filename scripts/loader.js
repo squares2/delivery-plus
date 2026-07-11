@@ -77,6 +77,7 @@ async function loadAll() {
     /* Fetch all components in parallel */
     await Promise.all([
         loadComponent('categories',   'categories.html'),
+        loadComponent('promo-flip',   'promo-flip.html'),
         loadComponent('offers',       'offers.html'),
         loadComponent('join-partner', 'join-partner.html'),
         loadComponent('footer',       'footer.html'),
@@ -111,6 +112,7 @@ async function loadAll() {
     if (typeof initCategories === 'function') initCategories();
     if (typeof initStorePanel === 'function') initStorePanel();
     if (typeof window.initMealtime === 'function') window.initMealtime();
+    if (typeof initPromoFlip === 'function') initPromoFlip();
 
     /* Reveal the page content UNDER the splash (no flash —
        splash is still covering everything at this point)     */
@@ -191,6 +193,13 @@ async function loadAll() {
     setTimeout(() => {
         /* One rAF to guarantee the page has painted under the splash */
         requestAnimationFrame(() => hideSplash());
+        /* Splash fade-out itself takes ~520ms (see hideSplash) — wait
+           for that to finish, plus a beat to let the eye settle, before
+           playing the promo-flip hint. Otherwise it happens invisibly
+           underneath the still-fading splash. */
+        setTimeout(() => {
+            if (typeof playPromoFlipHint === 'function') playPromoFlipHint();
+        }, 900);
     }, remaining);
 }
 
