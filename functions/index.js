@@ -9,3 +9,4 @@
 exports.adminResetUserPassword = require('./adminresetpassword').adminResetUserPassword;
 exports.customerPhoneLogin     = require('./customerphonelogin').customerPhoneLogin;
 exports.adminUploadImage       = require('./adminuploadimage').adminUploadImage;
+exports.notifyNewOrder         = require('./notifyneworders').notifyNewOrder;
