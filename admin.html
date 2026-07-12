@@ -2525,6 +2525,11 @@ input, select, textarea { font-family: var(--font); }
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     <h2>المنتجات</h2>
                     <span class="panel-header-sub" id="catalog-count-label">اختر متجراً</span>
+                    <input type="text" id="catalog-search" placeholder="🔍 ابحث باسم المنتج…"
+                           oninput="_catSetSearch(this.value)"
+                           style="display:none;margin-inline-start:auto;width:220px;max-width:40vw;
+                                  background:var(--surface3);border:1px solid var(--border);border-radius:8px;
+                                  padding:7px 12px;color:var(--white);font-family:inherit;font-size:0.8rem;outline:none;">
                     <a href="items2/manage.html" target="_blank"
                        style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
                               border-radius:8px;background:var(--surface3);color:var(--gray-light);
@@ -3956,6 +3961,7 @@ function switchPanel(id) {
 let _catCurrentStore  = null;  // { name, type }
 let _catAllItems      = {};    // raw items from RTDB
 let _catActiveFilter  = null;  // current catmain tab
+let _catSearchQuery   = '';    // item-name search filter (catalog-search input)
 
 // ── Entry point ───────────────────────────────────────────────
 async function renderCatalog() {
@@ -3996,11 +4002,14 @@ async function renderCatalog() {
 
 async function catalogOpenStore(storeName, storeType) {
     _catCurrentStore = { name: storeName, type: storeType };
+    _catSearchQuery = '';
     document.getElementById('catalog-stores-view').style.display = 'none';
     const itemsView = document.getElementById('catalog-items-view');
     itemsView.style.display = 'flex';
     document.getElementById('cat-add-item-btn').style.display = '';
     document.getElementById('cat-back-btn').style.display = '';
+    const searchInp = document.getElementById('catalog-search');
+    if (searchInp) { searchInp.style.display = ''; searchInp.value = ''; }
     document.getElementById('catalog-count-label').textContent = storeName;
     document.getElementById('catalog-items-grid').innerHTML = _catSkeletonItems(6);
     document.getElementById('catalog-cats-bar').innerHTML = '';
@@ -4017,10 +4026,13 @@ function catalogBackToStores() {
     _catCurrentStore = null;
     _catAllItems = {};
     _catActiveFilter = null;
+    _catSearchQuery = '';
     document.getElementById('catalog-stores-view').style.display = '';
     document.getElementById('catalog-items-view').style.display = 'none';
     document.getElementById('cat-add-item-btn').style.display = 'none';
     document.getElementById('cat-back-btn').style.display = 'none';
+    const searchInp = document.getElementById('catalog-search');
+    if (searchInp) { searchInp.style.display = 'none'; searchInp.value = ''; }
     document.getElementById('catalog-count-label').textContent = 'اختر متجراً';
 }
 
@@ -4059,8 +4071,19 @@ function _renderCatalogItems() {
         </button>`).join('')}`;
 
     const filtered = _catActiveFilter ? items.filter(i => (i.catmain||'عام') === _catActiveFilter) : items;
+    const searched = _catSearchQuery
+        ? filtered.filter(i => (i.name||'').toLowerCase().includes(_catSearchQuery.toLowerCase()))
+        : filtered;
 
-    grid.innerHTML = filtered.map(item => {
+    if (!searched.length) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 0;color:var(--gray);">
+            <div style="font-size:2.5rem;margin-bottom:8px;">🔍</div>
+            <div style="font-weight:700;">لا توجد نتائج مطابقة للبحث</div>
+        </div>`;
+        return;
+    }
+
+    grid.innerHTML = searched.map(item => {
         const id      = item.ID || item.id || '';
         const price   = parseFloat(item.price) || 0;
         const sale    = parseFloat(item.sale)  || 0;
@@ -4110,6 +4133,11 @@ function _renderCatalogItems() {
 
 function _catSetFilter(main) {
     _catActiveFilter = main;
+    _renderCatalogItems();
+}
+
+function _catSetSearch(query) {
+    _catSearchQuery = (query || '').trim();
     _renderCatalogItems();
 }
 
@@ -17281,7 +17309,53 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
     document.body.appendChild(overlay);
 
     const map = L.map('gmp-canvas', { zoomControl: true }).setView([startLat, startLng], initLat ? 16 : 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
+    // Two base layers — standard (OSM) and satellite/hybrid (Google, with
+    // place labels) — same pair + toggle button used everywhere else on
+    // the site (see cart.js's coverage-warning map, external-order.js,
+    // modal-auth.js's registration map). Kept identical here for a
+    // consistent look, and so the satellite view actually shows street/
+    // place labels instead of bare imagery.
+    const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
+    const gmpStandardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19,
+    });
+    const gmpSatelliteLayer = L.tileLayer(
+        `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${GOOGLE_KEY}`,
+        { attribution: '© Google Maps', maxZoom: 20, subdomains: '0123' }
+    );
+    gmpSatelliteLayer.addTo(map);
+    let gmpCurrentLayer = 'satellite';
+
+    const gmpToggleCtrl = L.control({ position: 'topright' });
+    gmpToggleCtrl.onAdd = function () {
+        const btn = L.DomUtil.create('button', 'map-toggle-btn');
+        btn.innerHTML = '🗺 خريطة';
+        btn.title     = 'تبديل نوع الخريطة';
+        btn.style.cssText = `
+            background:#fff; border:2px solid #FF5C00;
+            border-radius:6px; padding:5px 9px;
+            font-size:12px; font-weight:700;
+            cursor:pointer; color:#FF5C00;
+            box-shadow:0 1px 5px rgba(0,0,0,0.3);
+            white-space:nowrap;
+        `;
+        L.DomEvent.on(btn, 'click', function (e) {
+            L.DomEvent.stopPropagation(e);
+            if (gmpCurrentLayer === 'standard') {
+                map.removeLayer(gmpStandardLayer);
+                gmpSatelliteLayer.addTo(map);
+                gmpCurrentLayer = 'satellite';
+                btn.innerHTML = '🗺 خريطة';
+            } else {
+                map.removeLayer(gmpSatelliteLayer);
+                gmpStandardLayer.addTo(map);
+                gmpCurrentLayer = 'standard';
+                btn.innerHTML = '🛰 صورة جوية';
+            }
+        });
+        return btn;
+    };
+    gmpToggleCtrl.addTo(map);
 
     let marker = initLat ? L.marker([initLat, initLng], { draggable: true }).addTo(map) : null;
     let picked = initLat ? { lat: initLat, lng: initLng } : null;

@@ -780,13 +780,13 @@
                 `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${GOOGLE_KEY}`,
                 { attribution: '© Google Maps', maxZoom: 20, subdomains: '0123' }
             );
-            standardLayer.addTo(_mapInstance);
-            let _extMapLayer = 'standard';
+            satelliteLayer.addTo(_mapInstance);
+            let _extMapLayer = 'satellite';
 
             const toggleCtrl = L.control({ position: 'topright' });
             toggleCtrl.onAdd = function () {
                 const btn = L.DomUtil.create('button', 'map-toggle-btn');
-                btn.innerHTML = '🛰 صورة جوية';
+                btn.innerHTML = '🗺 خريطة';
                 btn.title     = 'تبديل نوع الخريطة';
                 btn.style.cssText = `
                     background:#fff; border:2px solid #FF5C00;

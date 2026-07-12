@@ -244,17 +244,107 @@ function _renderStores(stores, catKey, catMeta) {
     const scrollEl = document.getElementById('cat-dropdown-scroll');
     const countEl  = document.getElementById('cat-dd-count');
     if (!scrollEl) return;
+
+    // Stop any previous auto-scroll loop bound to this element before we
+    // wipe its content — otherwise switching categories quickly could leave
+    // an old loop still nudging scrollLeft in the background.
+    if (typeof scrollEl._marqueeStop === 'function') { scrollEl._marqueeStop(); scrollEl._marqueeStop = null; }
+
     if (!stores || stores.length === 0) {
         scrollEl.innerHTML = `<div class="cat-stores-empty">لا توجد متاجر في هذا القسم حالياً</div>`;
         return;
     }
     countEl.textContent = stores.length + ' متجر';
 
-    scrollEl.innerHTML = stores.map(s => _storeCardHTML(s, catKey, catMeta.fbKey)).join('');
     scrollEl.classList.remove('cat-stores-marquee');
     scrollEl.style.cssText = '';
+    scrollEl.innerHTML = stores.map(s => _storeCardHTML(s, catKey, catMeta.fbKey)).join('');
 
-    scrollEl.querySelectorAll('.store-card[data-store-name]').forEach(card => {
+    // Only switch to auto-scroll once we know the list actually overflows
+    // the visible width at its natural size — short lists keep the plain
+    // scroll/drag behaviour, nothing changes for them. People who prefer
+    // reduced motion always get the plain scrollable list too, so nothing
+    // is ever hidden behind a forced animation.
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => {
+        const overflowing = scrollEl.scrollWidth > scrollEl.clientWidth + 4;
+        _wireStoreCardClicks(scrollEl);
+        if (overflowing && !prefersReducedMotion) {
+            _activateStoresMarquee(scrollEl);
+        } else {
+            _initDragScroll(scrollEl);
+        }
+    });
+}
+
+/* ── Auto-scroll for category lists too long for one screen ──────────
+   Eases from the first card exactly to the last card (never past it —
+   no overshoot, no blank space), holds there a moment, then eases back
+   to the start and repeats. Constant travel speed regardless of list
+   length (more stores just means a longer one-way trip, not faster
+   motion). Pauses on hover/touch so people can actually read a card and
+   tap it without it sliding out from under them. */
+function _activateStoresMarquee(scrollEl) {
+    scrollEl.classList.add('cat-stores-marquee');
+
+    const maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
+    if (maxScroll <= 0) return;
+
+    // Browsers differ on which sign of scrollLeft reveals more content in
+    // an RTL container — detect it empirically instead of assuming.
+    const startPos = scrollEl.scrollLeft;
+    scrollEl.scrollLeft = startPos - 1;
+    const sign = (scrollEl.scrollLeft < startPos) ? -1 : 1;
+    scrollEl.scrollLeft = startPos;
+    const endPos = startPos + sign * maxScroll;
+
+    const PX_PER_SEC = 55;
+    const DWELL_MS    = 1600; // pause at each end so people can read/tap
+    const travelMs    = Math.max(1400, (maxScroll / PX_PER_SEC) * 1000);
+
+    let paused    = false;
+    let cancelled = false;
+    let atEnd     = false;
+
+    const easeInOutQuad = t => t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
+
+    function animateTo(from, to, duration, onDone) {
+        const start = performance.now();
+        function frame(now) {
+            if (cancelled) return;
+            if (paused) { requestAnimationFrame(frame); return; }
+            const t = Math.min(1, (now - start) / duration);
+            scrollEl.scrollLeft = from + (to - from) * easeInOutQuad(t);
+            if (t < 1) requestAnimationFrame(frame);
+            else onDone();
+        }
+        requestAnimationFrame(frame);
+    }
+
+    function loop() {
+        if (cancelled) return;
+        const from = atEnd ? endPos : startPos;
+        const to   = atEnd ? startPos : endPos;
+        animateTo(from, to, travelMs, () => {
+            atEnd = !atEnd;
+            if (!cancelled) setTimeout(loop, DWELL_MS);
+        });
+    }
+
+    const kickoff = setTimeout(loop, DWELL_MS);
+
+    scrollEl._marqueeStop = () => { cancelled = true; clearTimeout(kickoff); };
+
+    scrollEl.addEventListener('mouseenter', () => { paused = true; });
+    scrollEl.addEventListener('mouseleave', () => { paused = false; });
+    scrollEl.addEventListener('touchstart', () => { paused = true; }, { passive: true });
+    scrollEl.addEventListener('touchend',   () => setTimeout(() => { paused = false; }, 1500), { passive: true });
+}
+
+/* ── Wires "open store panel" clicks onto every rendered store card
+   within a given container. ──────────────────────────────────────── */
+function _wireStoreCardClicks(container) {
+    container.querySelectorAll('.store-card[data-store-name]').forEach(card => {
         if (card.classList.contains('store-card--soon'))   return;
         if (card.classList.contains('store-card--closed')) return;
         card.addEventListener('click', () => {
@@ -266,7 +356,6 @@ function _renderStores(stores, catKey, catMeta) {
             }
         });
     });
-    _initDragScroll(scrollEl);
 }
 
 /* ── Display name: use nameAr from Firebase, fallback to companyname ── */
