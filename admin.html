@@ -1923,6 +1923,9 @@ input, select, textarea { font-family: var(--font); }
                 <div class="panel-header">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
                     <h2>الخريطة المباشرة</h2>
+                    <button class="ph-btn" id="map-toggle-btn" onclick="toggleAdminMapLayer()" title="تبديل نوع الخريطة">
+                        🛰 صورة جوية
+                    </button>
                     <span class="panel-header-sub" id="map-last-update">—</span>
                     <button class="ph-btn" id="map-refresh-btn">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -3219,6 +3222,9 @@ let storeSearch    = '';
 let hideDisabledStores = localStorage.getItem('delivo_hide_disabled_stores') === '1';
 let mapLayers    = { stores: true, drivers: true, customers: true, orders: true, center: true, extStores: true };
 let adminMap     = null;
+let _adminMapStandardLayer  = null;
+let _adminMapSatelliteLayer = null;
+let _adminMapCurrentLayer   = 'standard';
 let mapMarkers   = { stores: [], drivers: [], customers: [], orders: [], center: [], extStores: [] };
 let deliveryCenterLoc = null; // { lat, lng } — Delivo HQ, settings/deliveryCenter
 let deliveryRadiusKm  = 7;    // coverage radius (km) around the HQ — settings/deliveryCenter.radiusKm
@@ -5276,50 +5282,36 @@ function initMap() {
     if (adminMap) return;
     adminMap = L.map('admin-map', { zoomControl: true }).setView([34.003, 36.212], 14);
 
-    // Same standard/satellite toggle pattern used everywhere else on the
-    // site (اطلب's map picker, the coverage-warning map, registration map,
-    // external-order map) — kept identical for a consistent look.
+    // Same standard/satellite pair used everywhere else on the site — the
+    // toggle button itself lives in the panel header (#map-toggle-btn),
+    // not as a floating map control, since the map's topright corner is
+    // already taken by .map-filter-bar.
     const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
-    const adminMapStandardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    _adminMapStandardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap', maxZoom: 19,
     });
-    const adminMapSatelliteLayer = L.tileLayer(
+    _adminMapSatelliteLayer = L.tileLayer(
         `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${GOOGLE_KEY}`,
         { attribution: '© Google Maps', maxZoom: 20, subdomains: '0123' }
     );
-    adminMapStandardLayer.addTo(adminMap);
-    let adminMapCurrentLayer = 'standard';
+    _adminMapStandardLayer.addTo(adminMap);
+    _adminMapCurrentLayer = 'standard';
+}
 
-    const adminMapToggleCtrl = L.control({ position: 'bottomleft' });
-    adminMapToggleCtrl.onAdd = function () {
-        const btn = L.DomUtil.create('button', 'map-toggle-btn');
-        btn.innerHTML = '🛰 صورة جوية';
-        btn.title     = 'تبديل نوع الخريطة';
-        btn.style.cssText = `
-            background:#fff; border:2px solid #FF5C00;
-            border-radius:6px; padding:5px 9px;
-            font-size:12px; font-weight:700;
-            cursor:pointer; color:#FF5C00;
-            box-shadow:0 1px 5px rgba(0,0,0,0.3);
-            white-space:nowrap;
-        `;
-        L.DomEvent.on(btn, 'click', function (e) {
-            L.DomEvent.stopPropagation(e);
-            if (adminMapCurrentLayer === 'standard') {
-                adminMap.removeLayer(adminMapStandardLayer);
-                adminMapSatelliteLayer.addTo(adminMap);
-                adminMapCurrentLayer = 'satellite';
-                btn.innerHTML = '🗺 خريطة';
-            } else {
-                adminMap.removeLayer(adminMapSatelliteLayer);
-                adminMapStandardLayer.addTo(adminMap);
-                adminMapCurrentLayer = 'standard';
-                btn.innerHTML = '🛰 صورة جوية';
-            }
-        });
-        return btn;
-    };
-    adminMapToggleCtrl.addTo(adminMap);
+function toggleAdminMapLayer() {
+    if (!adminMap) return;
+    const btn = document.getElementById('map-toggle-btn');
+    if (_adminMapCurrentLayer === 'standard') {
+        adminMap.removeLayer(_adminMapStandardLayer);
+        _adminMapSatelliteLayer.addTo(adminMap);
+        _adminMapCurrentLayer = 'satellite';
+        if (btn) btn.innerHTML = '🗺 خريطة';
+    } else {
+        adminMap.removeLayer(_adminMapSatelliteLayer);
+        _adminMapStandardLayer.addTo(adminMap);
+        _adminMapCurrentLayer = 'standard';
+        if (btn) btn.innerHTML = '🛰 صورة جوية';
+    }
 }
 
 // ── Live driver marker refresh (in-place, no flicker) ──────────
@@ -10741,6 +10733,14 @@ async function savePromoFlipCard() {
 // ═══════════════════════════════════════════════════════════════
 let _heroBgCards = {};
 let _hbPendingImageFile = null;
+// Images live on GitHub Pages (assets/hero-bg/…), which takes a few
+// minutes to build + propagate through its CDN after a push — so the
+// remote URL for a just-uploaded image can stay stale/blank for a while.
+// That's fine for eventual public visitors, but the admin who JUST
+// uploaded it shouldn't have to wait: keep the local data-URL preview
+// here, keyed by background id, and prefer it over the remote URL for
+// the rest of this session.
+let _hbLocalPreviewOverrides = {};
 
 async function renderHeroBgAdmin() {
     const grid = document.getElementById('herobg-grid');
@@ -10781,11 +10781,17 @@ const HB_LINK_LABELS = { none: '🚫 بدون رابط', stores: '🏪 قسم ا
 
 function _hbCardHtml(key, bg, idx, total) {
     const isActive = bg.active !== false;
+    // Prefer this session's local preview of a just-uploaded image (see
+    // _hbLocalPreviewOverrides above) — falls back to the remote GitHub
+    // Pages URL, cache-busted with its own update time so at least the
+    // browser's own cache doesn't also hold onto a stale copy.
+    const imgSrc = _hbLocalPreviewOverrides[key] || (bg.image ? `${bg.image}?v=${bg.updatedAt || 0}` : '');
     return `
     <div class="pf-card${isActive ? '' : ' inactive'}">
         <div class="pf-card__img-wrap">
-            <img src="${bg.image || ''}" alt="" onerror="this.style.opacity=0.15">
+            <img src="${imgSrc}" alt="" onerror="this.style.opacity=0.15">
             <span class="pf-card__order-badge">#${bg.order ?? (idx + 1)} · ${parseFloat(bg.durationSec) || 5}ث</span>
+            ${_hbLocalPreviewOverrides[key] ? `<span class="pf-card__style-tag" style="position:absolute;bottom:6px;right:6px;background:rgba(245,158,11,0.9);color:#000;">⏳ قيد النشر للزوار</span>` : ''}
         </div>
         <div class="pf-card__body">
             ${bg.tag ? `<div class="pf-card__store">${bg.tag}</div>` : ''}
@@ -10850,6 +10856,7 @@ async function deleteHeroBgConfirm(key) {
     if (!ok) return;
     try {
         await fbSet(`settings/heroBackgrounds/${key}`, null);
+        delete _hbLocalPreviewOverrides[key];
         toast('✅ تم حذف الخلفية');
         await renderHeroBgAdmin();
     } catch (e) { toast('⚠️ تعذّر الحذف: ' + e.message, true); }
@@ -10990,6 +10997,12 @@ async function saveHeroBg() {
         let imagePath = _heroBgCards[existingKey]?.image || '';
         if (_hbPendingImageFile) {
             imagePath = await _hbUploadImage(_hbPendingImageFile, key);
+            // Reuse the data-URL already generated for the modal's own
+            // preview (see _hbPreviewImage) so the grid card shows it
+            // instantly too, instead of the remote URL that's still
+            // propagating through GitHub Pages' CDN.
+            const modalPreviewImg = document.getElementById('hb-img-preview');
+            if (modalPreviewImg && modalPreviewImg.src) _hbLocalPreviewOverrides[key] = modalPreviewImg.src;
         }
 
         const existingOrder = _heroBgCards[existingKey]?.order;
@@ -10999,6 +11012,7 @@ async function saveHeroBg() {
             order: existingOrder ?? (maxOrder + 1),
             active: document.getElementById('hb-active').checked,
             image: imagePath,
+            updatedAt: Date.now(),
             title: document.getElementById('hb-title').value.trim(),
             tag: document.getElementById('hb-tag').value.trim(),
             durationSec: parseFloat(document.getElementById('hb-duration').value) || 5,

@@ -1345,6 +1345,15 @@
     user-select: none;
 }
 
+/* ── Auto-scroll — only switched on (by categories.js) when the store
+   list actually overflows the screen at its natural size. Short lists
+   keep the plain scroll/drag row above untouched. Motion itself is
+   driven by JS animating scrollLeft directly, so no extra CSS needed
+   beyond disabling the manual grab cursor while it's auto-playing. ─── */
+.cat-stores-dropdown__scroll.cat-stores-marquee {
+    cursor: default;
+}
+
 /* Skeleton shimmer cards shown while fetching */
 .cat-skeleton-card {
     flex: 0 0 clamp(100px, 25vw, 140px);
