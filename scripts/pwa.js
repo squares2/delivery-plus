@@ -14,9 +14,12 @@
 const _isLocalDev = ['localhost', '127.0.0.1'].includes(location.hostname);
 
 if ('serviceWorker' in navigator && !_isLocalDev) {
+    let _swReg = null;
+
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
             .then(reg => {
+                _swReg = reg;
                 console.log('[PWA] Service worker registered ✓', reg.scope);
 
                 // Check for updates every time the page loads
@@ -40,6 +43,23 @@ if ('serviceWorker' in navigator && !_isLocalDev) {
             refreshing = true;
             window.location.reload();
         });
+    });
+
+    // ── Catch updates when the PWA is reopened without a real reload ──
+    // On mobile, closing and reopening an installed PWA (or switching
+    // back to it after a while) very often does NOT re-run this file at
+    // all — the OS just resumes a frozen/suspended page from memory,
+    // same as a backgrounded browser tab. That's the main reason "some
+    // devices" only pick up a new version after a manual hard refresh:
+    // the "check on load" above never re-fires because there was no
+    // fresh load. Re-checking on `visibilitychange` (tab/app becomes
+    // visible again) and `pageshow` with `persisted` (page restored from
+    // the back/forward cache) covers both of those resume paths too.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && _swReg) _swReg.update();
+    });
+    window.addEventListener('pageshow', (e) => {
+        if (e.persisted && _swReg) _swReg.update();
     });
 }
 
