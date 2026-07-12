@@ -441,13 +441,13 @@ input, select, textarea { font-family: var(--font); }
 .oc-total-edit { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .oc-total-cur { font-family: var(--mono); font-size: var(--fs-md); font-weight: 600; color: var(--green); }
 .oc-total-input {
-    width: 98px; background: var(--surface2); border: 1px solid var(--border);
+    width: 132px; background: var(--surface2); border: 1px solid var(--border);
     border-radius: 6px; color: var(--green); font-family: var(--mono);
     font-size: var(--fs-md); font-weight: 600; padding: 2px 6px; text-align: left;
 }
 .oc-total-input:focus { border-color: var(--orange); outline: none; }
 .oc-fee-input {
-    width: 88px; background: transparent; border: none; border-bottom: 1px dashed rgba(245,158,11,0.5);
+    width: 110px; background: transparent; border: none; border-bottom: 1px dashed rgba(245,158,11,0.5);
     color: var(--yellow); font-family: var(--mono); font-size: var(--fs-sm); font-weight: 700;
     padding: 0 2px; text-align: left;
 }
@@ -983,13 +983,13 @@ input, select, textarea { font-family: var(--font); }
 .or-price { font-family:var(--mono); font-size:var(--fs-sm); color:var(--white); white-space:nowrap; }
 .or-price-cur, .or-fee-cur { font-family: var(--mono); font-size: var(--fs-xs); font-weight: 700; color: var(--gray-light); margin-left: 3px; }
 .or-price-input {
-    width: 100px; background: var(--surface2); border: 1px solid var(--border);
+    width: 132px; background: var(--surface2); border: 1px solid var(--border);
     border-radius: 6px; color: var(--white); font-family: var(--mono);
     font-size: var(--fs-sm); padding: 3px 6px; text-align: left;
 }
 .or-price-input:focus { border-color: var(--orange); outline: none; }
 .or-fee-input {
-    width: 92px; background: var(--surface2); border: 1px solid var(--border);
+    width: 114px; background: var(--surface2); border: 1px solid var(--border);
     border-radius: 6px; color: var(--green); font-family: var(--mono);
     font-size: var(--fs-xs); padding: 3px 6px; text-align: left;
 }
@@ -1996,6 +1996,9 @@ input, select, textarea { font-family: var(--font); }
                         </div>
                     </div>
                     <input type="text" class="search-box" id="orders-search" placeholder="بحث باسم العميل أو المتجر…">
+                    <div class="orders-totals-mini" id="orders-results-mini">
+                        <span>📋 النتائج: <b id="orders-results-count">0</b></span>
+                    </div>
                 </div>
                 <div class="orders-list" id="orders-list">
                     <div class="empty-state" id="orders-empty" style="display:none;">
@@ -2296,7 +2299,6 @@ input, select, textarea { font-family: var(--font); }
                                 <th>سعر الطلب</th>
                                 <th>ربح التوصيل</th>
                                 <th>كلفة السائق</th>
-                                <th>السائق</th>
                                 <th>التاريخ</th>
                                 <th>إجراء</th>
                             </tr>
@@ -5951,6 +5953,8 @@ function renderOrders() {
         });
 
     countEl.textContent = `${entries.length} طلب`;
+    const resultsCountEl = document.getElementById('orders-results-count');
+    if (resultsCountEl) resultsCountEl.textContent = entries.length;
     emptyEl.style.display = entries.length === 0 ? 'flex' : 'none';
 
     // ── Totals for the currently filtered set — order-only sum and
@@ -6146,11 +6150,12 @@ function buildOrderCard(key, order) {
             const val = _normalizeMoneyValue(totalInput.value.trim());
             totalInput.value = val;
             if (totalCur) totalCur.textContent = _currencySymbol(val);
-            // Add the delivery portion back in — order.total is stored
-            // merged (order + delivery), so this field alone would
-            // otherwise clobber the delivery amount baked into it.
+            // order.total is stored merged (order + delivery) in USD — a
+            // value the admin typed/left in ل.ل must be converted to USD
+            // BEFORE merging, or it corrupts the stored total (see _toUSD).
+            const orderOnlyUSD = _toUSD(val);
             const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
-            const newTotal = (parseFloat(val) || 0) + deliveryUSD;
+            const newTotal = orderOnlyUSD + deliveryUSD;
             await updateOrderField(key, 'total', newTotal.toFixed(2));
             toast('✅ تم تحديث سعر الطلب');
         });
@@ -16619,6 +16624,14 @@ function _deliveryFeeToUSD(fee) {
     return n > 1000 ? n / (window._dollarRate || 90000) : n;
 }
 
+// Generic "raw typed/stored amount → USD" conversion, same magnitude rule
+// as _currencySymbol/_normalizeMoneyValue (>1000 = Lebanese Lira). This is
+// exactly what _deliveryFeeToUSD already does — aliased under a
+// currency-neutral name since it's used for order totals too, not just
+// delivery fees (see oc-total-input / or-price-input change handlers,
+// and _splitOrderTotal below).
+const _toUSD = _deliveryFeeToUSD;
+
 // order.total is written at checkout as (order subtotal + delivery fee),
 // merged, in USD (see cart.js requestObj.total). For display we want the
 // order-only price split out from the delivery fee shown alongside it —
@@ -16626,7 +16639,13 @@ function _deliveryFeeToUSD(fee) {
 // that order (the admin's manual deliveryFee override if set, otherwise
 // the estimated profit), so the two numbers always add back up to total.
 function _splitOrderTotal(order, effectiveDeliveryRaw) {
-    const merged     = parseFloat(order?.orderprice || order?.total || 0);
+    // Should always already be USD — but a handful of historical orders
+    // ended up with a Lebanese-Lira-magnitude number in here instead, from
+    // a since-fixed bug where editing the price while it displayed in ل.ل
+    // saved the raw LBP figure straight into this USD field. Guard against
+    // that here too, so old bad records don't blow up every sum that reads
+    // from this function (e.g. the "الطلبات: $..." topbar total).
+    const merged      = _toUSD(order?.orderprice || order?.total || 0);
     const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
     return Math.max(0, merged - deliveryUSD);
 }
@@ -16643,12 +16662,12 @@ function _currencySymbol(val) {
 // Lebanese Lira is never dealt with in fractions of a lira in practice,
 // and prices/fees are conventionally round numbers — so once a typed
 // value crosses into LBP territory (>1000), snap it to a whole number
-// rounded to the nearest 1000. USD values are left exactly as typed.
+// rounded to the nearest 1000. USD values are rounded to the nearest cent.
 function _normalizeMoneyValue(raw) {
     const n = parseFloat(raw);
     if (isNaN(n)) return '';
     if (n > 1000) return String(Math.round(n / 1000) * 1000);
-    return String(n);
+    return (Math.round(n * 100) / 100).toFixed(2);
 }
 
 /* Format Lebanese phone numbers stored as "96170714152+" (or with the
@@ -16841,34 +16860,11 @@ async function renderOnlineRequests() {
             <td><span class="or-price-cur" data-oid="${key}">${_currencySymbol(orderOnlyPrice)}</span><input type="number" class="or-price-input" data-oid="${key}" value="${orderOnlyPrice ? orderOnlyPrice.toFixed(2) : ''}" placeholder="0" step="0.01" title="سعر الطلب بدون رسم التوصيل — اضغط للتعديل"></td>
             <td><span class="or-fee-cur" data-oid="${key}">${_currencySymbol(o.deliveryFee != null && o.deliveryFee !== '' ? o.deliveryFee : profit)}</span><input type="number" class="or-fee-input" data-oid="${key}" value="${o.deliveryFee != null && o.deliveryFee !== '' ? o.deliveryFee : (profit !== null ? profit.toFixed(2) : '')}" placeholder="—" step="0.01" title="رسم التوصيل — يمكن تعديله يدوياً"></td>
             <td><span class="${driverCost !== null ? 'or-drivercost' : 'or-profit-loading'}">${driverCost !== null ? formatMoney(driverCost) : (assigned ? '—' : '—')}</span></td>
-            <td>
-                ${_assignmentMode !== 'driver_only' ? `
-                <div class="or-driver-wrap">
-                    <select class="or-driver-sel" data-orkey="${key}">
-                        <option value="">— سائق —</option>
-                        ${allDrivers.filter(d=>d).map(d => {
-                            const dname = d.owner||d.username;
-                            const sel = o.driver === dname ? 'selected' : '';
-                            return `<option value="${dname}" ${sel}>${dname} ${d.status==='online'?'🟢':'⚫'}</option>`;
-                        }).join('')}
-                    </select>
-                    <button class="or-assign-btn" data-orassign="${key}">✔</button>
-                </div>
-                ` : `<span style="color:var(--gray);font-size:0.72rem;">🛵 ${assigned ? o.driver : 'بانتظار الاستلام'}</span>`}
-            </td>
             <td><span class="or-date">${o.date || '—'}</span></td>
             <td>
                 <button class="or-remove-btn" data-ordelete="${key}" title="حذف الطلب نهائياً من قاعدة البيانات">🗑 حذف الطلب</button>
             </td>
         `;
-
-        // Assign driver
-        tr.querySelector('[data-orassign]').addEventListener('click', async () => {
-            const sel = tr.querySelector('.or-driver-sel');
-            const dname = sel ? sel.value : '';
-            if (!dname) { toast('اختر سائقاً أولاً', true); return; }
-            await orAssignDriver(key, dname);
-        });
 
         // Editable price
         const orPriceInput = tr.querySelector('.or-price-input');
@@ -16883,11 +16879,12 @@ async function renderOnlineRequests() {
                 const val = _normalizeMoneyValue(orPriceInput.value.trim());
                 orPriceInput.value = val;
                 if (orPriceCur) orPriceCur.textContent = _currencySymbol(val);
-                // Add the delivery portion back in — order.total is stored
-                // merged (order + delivery), so this field alone would
-                // otherwise clobber the delivery amount baked into it.
+                // order.total is stored merged (order + delivery) in USD — a
+                // value the admin typed/left in ل.ل must be converted to USD
+                // BEFORE merging, or it corrupts the stored total (see _toUSD).
+                const orderOnlyUSD = _toUSD(val);
                 const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
-                const newTotal = (parseFloat(val) || 0) + deliveryUSD;
+                const newTotal = orderOnlyUSD + deliveryUSD;
                 await updateOrderField(key, 'total', newTotal.toFixed(2));
                 toast('✅ تم تحديث سعر الطلب');
             });
