@@ -3446,15 +3446,15 @@ function _detectAndAlertNewOrders(ordersMap, storeFilter) {
     toast(label);
     _showBrowserNotif('Delivo', label);
 
-    // Ping each affected store's WhatsApp number for its own fresh order(s).
-    // Admin scope only — this is where GREEN-API credentials + the full
-    // allStores map (with each store's whatsapp/whatsappActive) are loaded.
-    // The store/company panel's own polling never triggers this, so a
-    // store owner sitting in their own dashboard doesn't WhatsApp themselves.
-    if (!storeFilter) {
-        fresh.forEach(k => _notifyStoreWhatsapp(k, ordersMap[k]));
-        fresh.forEach(k => _notifyEmployeesWhatsapp(k, ordersMap[k]));
-    }
+    // NOTE: WhatsApp notifications for new orders (store + opted-in
+    // employees) used to be sent from here. That meant every open
+    // admin.html tab/device independently sent its own message — 3 open
+    // tabs = 3 duplicate WhatsApp texts. That logic now lives server-side
+    // in functions/notifyneworders.js (notifyNewOrder, triggered once per
+    // order on /requests/{orderId} create), so it fires exactly once no
+    // matter how many admin sessions are open. This function only handles
+    // the local toast/sound/browser-notification feedback above, which is
+    // fine to happen per-tab.
 }
 
 // Sends a "new order arrived" WhatsApp message to a store's configured
@@ -3484,49 +3484,9 @@ async function _notifyCustomerTrackingWhatsapp(orderKey, order) {
     }
 }
 
-async function _notifyStoreWhatsapp(orderKey, order) {
-    try {
-        const store = order && order.store && allStores[order.store];
-        if (!store || !store.whatsappActive || !store.whatsapp) return;
-        const orderNum = String(orderKey || '').replace(/^id_/, '');
-        const message =
-            `🔔 طلب جديد رقم #${orderNum} وصل إلى متجرك على Delivo!\n` +
-            `الرجاء فتح لوحة التحكم للاطلاع على تفاصيل الطلب وتجهيزه:\n` +
-            `https://delivolb.com/admin`;
-        await _sendWhatsappMessage(store.whatsapp, message);
-    } catch (e) {
-        console.warn('[Delivo] Store WhatsApp notify failed:', e.message);
-    }
-}
-
-// Pings employees who opted in to WhatsApp notifications on new orders
-// (set per-employee in the الموظفون panel). Two behaviours depending on role:
-//   - admin-type employee (any role other than 'company'): notified for
-//     every new order, platform-wide.
-//   - store-linked ('company') employee: notified only when the new order
-//     belongs to their own linked store.
-// Silently does nothing for employees with the toggle off or no saved number.
-async function _notifyEmployeesWhatsapp(orderKey, order) {
-    try {
-        if (!order) return;
-        const orderNum = String(orderKey || '').replace(/^id_/, '');
-        const employees = Object.values(adminUsers || {});
-        for (const emp of employees) {
-            if (!emp || !emp.notifyNewOrders || !emp.notifyPhone) continue;
-            if (emp.role === 'company') {
-                if (!emp.linkedStore || emp.linkedStore !== order.store) continue;
-            }
-            const message =
-                `🔔 طلب جديد رقم #${orderNum}` +
-                (order.store ? ` من متجر ${order.store}` : '') + ` وصل على Delivo!\n` +
-                `الرجاء فتح لوحة التحكم للاطلاع على تفاصيل الطلب:\n` +
-                `https://delivolb.com/admin`;
-            await _sendWhatsappMessage(emp.notifyPhone, message);
-        }
-    } catch (e) {
-        console.warn('[Delivo] Employee WhatsApp notify failed:', e.message);
-    }
-}
+// _notifyStoreWhatsapp / _notifyEmployeesWhatsapp used to live here.
+// That logic (WhatsApp-on-new-order for the store + opted-in employees)
+// now runs server-side — see functions/notifyneworders.js (notifyNewOrder).
 
 function showConfirm({ title, msg, type = 'danger', icon = '\uD83D\uDDD1', okLabel, cancelLabel }) {
     return new Promise(resolve => {
