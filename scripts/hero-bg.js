@@ -16,12 +16,56 @@ function _heroEscapeHtml(str) {
     });
 }
 
+/* ── Mobile letterbox color, matched to whichever photo is showing ──
+   On mobile the hero switches to object-fit:contain (see hero-bg.css)
+   so the whole photo is visible without cropping — whatever space is
+   left over is filled by the --hero-mobile-bg variable instead of a
+   fixed color, so the letterbox blends with THIS image's own tone
+   instead of clashing with it. Samples a tiny (24×24) downscaled draw
+   of the image and averages its pixels — plenty for a matching tone,
+   much cheaper than reading the full-resolution photo. */
+function _heroSampleColor(imgEl) {
+    return new Promise(function (resolve) {
+        try {
+            const SZ = 24;
+            const c = document.createElement('canvas');
+            c.width = SZ; c.height = SZ;
+            const ctx = c.getContext('2d');
+            ctx.drawImage(imgEl, 0, 0, SZ, SZ);
+            const data = ctx.getImageData(0, 0, SZ, SZ).data;
+            let r = 0, g = 0, b = 0, n = 0;
+            for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i+1]; b += data[i+2]; n++; }
+            resolve(n ? 'rgb(' + Math.round(r/n) + ',' + Math.round(g/n) + ',' + Math.round(b/n) + ')' : null);
+        } catch (e) {
+            resolve(null); // cross-origin/tainted canvas — CSS just keeps its fallback color
+        }
+    });
+}
+
+function _heroApplyBgColor(imgEl) {
+    if (!imgEl) return;
+    const heroEl = imgEl.closest('.hero') || document.querySelector('.hero');
+    if (!heroEl) return;
+    const run = function () {
+        _heroSampleColor(imgEl).then(function (color) {
+            if (color) heroEl.style.setProperty('--hero-mobile-bg', color);
+        });
+    };
+    if (imgEl.complete && imgEl.naturalWidth) run();
+    else imgEl.addEventListener('load', run, { once: true });
+}
+
 async function initHeroBg() {
     const stack    = document.getElementById('hero-bg-stack');
     const progress = document.getElementById('hero-bg-progress');
     const captionEl = document.getElementById('hero-bg-caption');
     const carousel = document.getElementById('hero-carousel');
     if (!stack || !progress) return;
+
+    // Color the letterbox for whatever's already on screen (the static
+    // markup image) right away — don't wait on the fetch below, which
+    // may find nothing configured and never touch the DOM at all.
+    _heroApplyBgColor(stack.querySelector('.hero__bg-layer.active'));
 
     let list;
     try {
@@ -93,6 +137,7 @@ async function initHeroBg() {
         const durMs = Math.max(2, parseFloat(bg.durationSec) || 5) * 1000;
 
         layers.forEach(function (l, i) { l.classList.toggle('active', i === current); });
+        _heroApplyBgColor(layers[current]);
 
         if (segs.length) {
             segs.forEach(function (s, i) {
