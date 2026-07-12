@@ -1270,10 +1270,26 @@ let wakeLock      = null;
 // WebView browsers don't. The "geo:" URI scheme sidesteps that redirect
 // entirely — it's resolved directly by Android itself, so it works
 // everywhere including PWAs/WebViews (same reason tel: links already work).
+// Some historical orders ended up with lat/lng saved backwards — real
+// longitude in the "lat" field, real latitude in "lng" (same issue fixed
+// in admin.html's _fixSwappedLatLng). Lebanon's geography makes this easy
+// to catch: latitude here is always ~32–35.5, longitude always ~34–37.5,
+// with barely any overlap between the two bands — so correct it here too,
+// otherwise a driver could get sent to the wrong location entirely.
+function _fixSwappedLatLng(lat, lng) {
+    const inRange = (v, lo, hi) => v >= lo && v <= hi;
+    const LAT_RANGE = [32.0, 35.5], LNG_RANGE = [34.0, 37.5];
+    const looksOk = inRange(lat, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lng, LNG_RANGE[0], LNG_RANGE[1]);
+    if (looksOk) return [lat, lng];
+    const swappedLooksOk = inRange(lng, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lat, LNG_RANGE[0], LNG_RANGE[1]);
+    return swappedLooksOk ? [lng, lat] : [lat, lng];
+}
+
 function _mapsHref(lat, lng, label) {
     const isAndroid = /android/i.test(navigator.userAgent);
     const hasCoords = lat && lng && lat !== '' && lng !== '';
     if (hasCoords) {
+        [lat, lng] = _fixSwappedLatLng(parseFloat(lat), parseFloat(lng));
         return isAndroid
             ? `geo:${lat},${lng}?q=${lat},${lng}${label ? '(' + encodeURIComponent(label) + ')' : ''}`
             : `https://www.google.com/maps?q=${lat},${lng}`;

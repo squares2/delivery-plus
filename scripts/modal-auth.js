@@ -2014,6 +2014,22 @@ function _buildOrderCard(key, order) {
 // • OSRM route polyline + ETA
 // • No auto-pan after first fit
 
+// Some historical orders ended up with lat/lng saved backwards — real
+// longitude in the "lat" field, real latitude in "lng" (same fix applied
+// in admin.html and driver.html). Lebanon's geography makes this easy to
+// catch: latitude here is always ~32–35.5, longitude always ~34–37.5,
+// with barely any overlap — so correct it here too, otherwise the
+// customer's own tracking map would show the destination pin in the
+// wrong place.
+function _fixSwappedLatLng(lat, lng) {
+    const inRange = (v, lo, hi) => v >= lo && v <= hi;
+    const LAT_RANGE = [32.0, 35.5], LNG_RANGE = [34.0, 37.5];
+    const looksOk = inRange(lat, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lng, LNG_RANGE[0], LNG_RANGE[1]);
+    if (looksOk) return [lat, lng];
+    const swappedLooksOk = inRange(lng, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lat, LNG_RANGE[0], LNG_RANGE[1]);
+    return swappedLooksOk ? [lng, lat] : [lat, lng];
+}
+
 let _trackMap         = null;
 let _trackDriverMark  = null;
 let _trackDriverRotEl = null;   // cached rotation <div> — avoids querySelector every animation frame
@@ -2731,9 +2747,10 @@ async function _applyTrackUpdate(order, loc, driverPhone) {
         const dLng = parseFloat(loc.lng);
         if (isNaN(dLat) || isNaN(dLng)) { _setTrackStatus('⚠️ بيانات موقع غير صالحة', 'warn'); return; }
 
-        const destLat = parseFloat(order.lat);
-        const destLng = parseFloat(order.lng);
+        let destLat = parseFloat(order.lat);
+        let destLng = parseFloat(order.lng);
         const hasDestination = !isNaN(destLat) && !isNaN(destLng) && destLat !== 0 && destLng !== 0;
+        if (hasDestination) [destLat, destLng] = _fixSwappedLatLng(destLat, destLng);
 
         if (_trackMap) {
             // ── Compute bearing from previous position ────────

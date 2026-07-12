@@ -5275,9 +5275,51 @@ function vehicleEmojiFor(vehicleType) {
 function initMap() {
     if (adminMap) return;
     adminMap = L.map('admin-map', { zoomControl: true }).setView([34.003, 36.212], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+    // Same standard/satellite toggle pattern used everywhere else on the
+    // site (اطلب's map picker, the coverage-warning map, registration map,
+    // external-order map) — kept identical for a consistent look.
+    const GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
+    const adminMapStandardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap', maxZoom: 19,
-    }).addTo(adminMap);
+    });
+    const adminMapSatelliteLayer = L.tileLayer(
+        `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${GOOGLE_KEY}`,
+        { attribution: '© Google Maps', maxZoom: 20, subdomains: '0123' }
+    );
+    adminMapStandardLayer.addTo(adminMap);
+    let adminMapCurrentLayer = 'standard';
+
+    const adminMapToggleCtrl = L.control({ position: 'bottomleft' });
+    adminMapToggleCtrl.onAdd = function () {
+        const btn = L.DomUtil.create('button', 'map-toggle-btn');
+        btn.innerHTML = '🛰 صورة جوية';
+        btn.title     = 'تبديل نوع الخريطة';
+        btn.style.cssText = `
+            background:#fff; border:2px solid #FF5C00;
+            border-radius:6px; padding:5px 9px;
+            font-size:12px; font-weight:700;
+            cursor:pointer; color:#FF5C00;
+            box-shadow:0 1px 5px rgba(0,0,0,0.3);
+            white-space:nowrap;
+        `;
+        L.DomEvent.on(btn, 'click', function (e) {
+            L.DomEvent.stopPropagation(e);
+            if (adminMapCurrentLayer === 'standard') {
+                adminMap.removeLayer(adminMapStandardLayer);
+                adminMapSatelliteLayer.addTo(adminMap);
+                adminMapCurrentLayer = 'satellite';
+                btn.innerHTML = '🗺 خريطة';
+            } else {
+                adminMap.removeLayer(adminMapSatelliteLayer);
+                adminMapStandardLayer.addTo(adminMap);
+                adminMapCurrentLayer = 'standard';
+                btn.innerHTML = '🛰 صورة جوية';
+            }
+        });
+        return btn;
+    };
+    adminMapToggleCtrl.addTo(adminMap);
 }
 
 // ── Live driver marker refresh (in-place, no flicker) ──────────
@@ -5589,8 +5631,9 @@ function renderMap() {
         Object.entries(allOrders).forEach(([key, o]) => {
             if (!o.lat || !o.lng) return;
             if (o.vault == 1) return;
-            const lat = parseFloat(o.lat), lng = parseFloat(o.lng);
+            let lat = parseFloat(o.lat), lng = parseFloat(o.lng);
             if (isNaN(lat) || isNaN(lng)) return;
+            [lat, lng] = _fixSwappedLatLng(lat, lng);
             activeOrders.push({ key, o, lat, lng });
         });
 
@@ -6055,6 +6098,12 @@ function buildOrderCard(key, order) {
 
     const items = parseCart(order.cart);
     const driverAssigned = order.driver && order.driver !== '0';
+    // Some historical orders have lat/lng saved backwards — see
+    // _fixSwappedLatLng. Correct it once here for display/locate use;
+    // doesn't touch the stored record until the admin actually edits
+    // the location (which writes the corrected pair back).
+    const hasOcLoc = order.lat && order.lat !== '0';
+    const [ocLat, ocLng] = hasOcLoc ? _fixSwappedLatLng(parseFloat(order.lat), parseFloat(order.lng)) : [null, null];
     const deliveryProfit = getOrderDeliveryProfit(order, companyVars);
     // Effective delivery value shown in the fee chip below — the admin's
     // manual override if set, otherwise the estimated profit.
@@ -6103,7 +6152,9 @@ function buildOrderCard(key, order) {
                 <span class="oc-meta-chip">👤 ${order.username || '—'}</span>
                 <span class="oc-meta-chip">🏙 ${order.city || '—'}</span>
                 ${order.street ? `<span class="oc-meta-chip">🛣 ${order.street}</span>` : ''}
-                ${order.lat && order.lat !== '0' ? `<span class="oc-meta-chip">📍 ${parseFloat(order.lat).toFixed(5)}, ${parseFloat(order.lng).toFixed(5)}</span>` : ''}
+                <span class="oc-meta-chip oc-loc-edit" data-loc-edit="${key}" style="cursor:pointer;" title="اضغط لتعديل موقع التوصيل على الخريطة">
+                    📍 ${hasOcLoc ? `${ocLat.toFixed(5)}, ${ocLng.toFixed(5)}` : 'تحديد الموقع'} ✏️
+                </span>
                 <span class="oc-meta-chip ${driverAssigned ? 'has' : ''}" style="${driverAssigned ? 'border-color:rgba(34,197,94,0.3);color:var(--green);background:var(--green-glow);' : ''}">
                     🛵 ${driverAssigned ? order.driver : 'غير معين'}
                 </span>
@@ -6141,7 +6192,7 @@ function buildOrderCard(key, order) {
                 <button class="oc-action-btn btn-ready ${state==='8'?'btn-ready--active':''}"
                         data-state="${key}" data-val="8"
                         title="الطلب جاهز للتسليم للسائق">✅ جاهز</button>
-                ${order.lat && order.lat !== '0' ? `<button class="oc-action-btn" data-locate="${order.lat},${order.lng}">🗺 الخريطة</button>` : ''}
+                ${hasOcLoc ? `<button class="oc-action-btn" data-locate="${ocLat},${ocLng}">🗺 الخريطة</button>` : ''}
                 ${ (['1','2'].includes(state))
                     ? `<button class="oc-action-btn btn-track" disabled title="الطلب منتهٍ — التتبع غير متاح" style="opacity:.4;cursor:not-allowed;">📡 التتبع</button>`
                     : (['6','7'].includes(state))
@@ -6206,6 +6257,16 @@ function buildOrderCard(key, order) {
             if (feeCur) feeCur.textContent = _currencySymbol(val);
             await updateOrderField(key, 'deliveryFee', val);
             toast('✅ تم تحديث رسم التوصيل');
+        });
+    }
+
+    // Editable delivery location — opens the same map picker used in
+    // "اطلب", pre-filled with the order's current pin if it has one.
+    const locEditBtn = card.querySelector('[data-loc-edit]');
+    if (locEditBtn) {
+        locEditBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            _ocEditOrderLocation(key, order);
         });
     }
 
@@ -6547,9 +6608,10 @@ async function changeState(orderId, newState) {
                     actionsDiv.appendChild(b);
                 });
                 if (order.lat && order.lat !== '0') {
+                    const [fLat, fLng] = _fixSwappedLatLng(parseFloat(order.lat), parseFloat(order.lng));
                     const b = document.createElement('button');
                     b.className       = 'oc-action-btn';
-                    b.dataset.locate  = `${order.lat},${order.lng}`;
+                    b.dataset.locate  = `${fLat},${fLng}`;
                     b.textContent     = '🗺 الخريطة';
                     b.addEventListener('click', () => {
                         const [lat, lng] = b.dataset.locate.split(',').map(Number);
@@ -16976,6 +17038,28 @@ async function updateOrderField(orderId, field, value) {
     if (allOrders[orderId]) allOrders[orderId][field] = value;
 }
 
+// Opens the same shared map picker used in "اطلب" (order/store location),
+// pre-filled with the order's existing pin if it has one, and lets the
+// admin drag/click a new spot — replacing the old read-only coordinate
+// text with something actually editable.
+function _ocEditOrderLocation(key, order) {
+    const hasLoc = order.lat && order.lat !== '0';
+    let [lat, lng] = hasLoc ? _fixSwappedLatLng(parseFloat(order.lat), parseFloat(order.lng)) : [null, null];
+    _openGenericMapPicker({
+        title: `📍 تعديل موقع التوصيل — طلب #${key.replace('id_', '')}`,
+        initLat: lat,
+        initLng: lng,
+        onSave: async (newLat, newLng) => {
+            await Promise.all([
+                updateOrderField(key, 'lat', String(newLat)),
+                updateOrderField(key, 'lng', String(newLng)),
+            ]);
+            toast('✅ تم تحديث موقع التوصيل');
+            renderOrders();
+        },
+    });
+}
+
 async function orAssignDriver(orderId, driverName) {
     try {
         const uid = allOrders[orderId]?.delivryplusid;
@@ -17285,6 +17369,25 @@ function aoClearSelectedCustomer() {
 // ── Shared map picker modal — used by "اطلب" (store & destination
 // pins) and by "متاجر خارجية" (external store location). Pass a
 // title, optional initial lat/lng, and an onSave(lat,lng) callback. ──
+// Some historical orders (at least order #42, likely others created the
+// same way) ended up with lat/lng saved backwards — the real longitude
+// sitting in the "lat" field and the real latitude in "lng". Lebanon's
+// geography makes this easy to detect: latitude here is always ~32–35.5,
+// longitude always ~34–37.5, and those two bands barely overlap — so a
+// pair that fails the normal check but passes when swapped is almost
+// certainly backwards, not a legitimately different location. Used
+// wherever a stored order.lat/order.lng gets turned into a real map
+// position, so old bad records self-heal instead of pointing at the
+// wrong spot forever.
+function _fixSwappedLatLng(lat, lng) {
+    const inRange = (v, lo, hi) => v >= lo && v <= hi;
+    const LAT_RANGE = [32.0, 35.5], LNG_RANGE = [34.0, 37.5];
+    const looksOk = inRange(lat, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lng, LNG_RANGE[0], LNG_RANGE[1]);
+    if (looksOk) return [lat, lng];
+    const swappedLooksOk = inRange(lng, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lat, LNG_RANGE[0], LNG_RANGE[1]);
+    return swappedLooksOk ? [lng, lat] : [lat, lng];
+}
+
 function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
     if (typeof L === 'undefined') { toast('تعذّر تحميل الخريطة', true); return; }
     const startLat = initLat || 34.003, startLng = initLng || 36.212; // Baalbeck-ish default
