@@ -3098,8 +3098,8 @@ const HEROBG_GH_FOLDER = 'assets/hero-bg'; // hero background images — same re
    views-source the page could read it). It now lives server-side only, in
    the adminUploadImage Cloud Function (functions/adminuploadimage.js),
    which the browser never sees. This just calls that function. */
-async function _adminUploadImage(file, folder, filename) {
-    const blob   = await _cpiConvertToWebp(file);
+async function _adminUploadImage(file, folder, filename, quality = 0.92) {
+    const blob   = await _cpiConvertToWebp(file, quality);
     const base64 = await _cpiBlobToBase64(blob);
 
     const idToken = await window._adminAuth?.currentUser?.getIdToken();
@@ -10897,6 +10897,7 @@ function openHeroBgModal(bg) {
                 </div>
                 <input type="file" id="hb-img-file" accept="image/*" style="display:none;" onchange="_hbPreviewImage(this)">
                 <div style="font-size:0.66rem;color:var(--gray);">يفضّل صورة عريضة (Landscape) بجودة عالية — تُحفظ تلقائياً بصيغة WebP</div>
+                <div id="hb-res-warning" style="display:none;font-size:0.68rem;color:var(--yellow);font-weight:700;margin-top:4px;"></div>
             </div>
 
             <div>
@@ -10963,19 +10964,45 @@ function _hbPreviewImage(input) {
 
     const preview     = document.getElementById('hb-img-preview');
     const placeholder = document.getElementById('hb-img-placeholder');
+    const warningEl    = document.getElementById('hb-res-warning');
     const reader = new FileReader();
     reader.onload = (e) => {
         if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
         if (placeholder) placeholder.style.display = 'none';
+
+        // This banner is shown full-bleed, edge-to-edge, at up to ~780px
+        // tall and the full viewport width (well over 1920px on a wide
+        // desktop monitor). A source photo smaller than that gets
+        // upscaled by the browser to fill the space — which is what
+        // actually causes the blurry look, not anything in the upload
+        // pipeline itself (nothing here downscales or over-compresses
+        // the image). No CSS can restore detail a source photo doesn't
+        // have, so flag it here instead, before it goes live.
+        if (warningEl) {
+            const probe = new Image();
+            probe.onload = () => {
+                const w = probe.naturalWidth, h = probe.naturalHeight;
+                if (w < 1920 || h < 900) {
+                    warningEl.textContent = `⚠️ دقة الصورة ${w}×${h} — قد تظهر غير واضحة على الشاشات الكبيرة. يُفضّل صورة بدقة 1920×1080 أو أعلى (landscape).`;
+                    warningEl.style.display = 'block';
+                } else {
+                    warningEl.style.display = 'none';
+                }
+            };
+            probe.src = e.target.result;
+        }
     };
     reader.readAsDataURL(file);
 }
 
 /* Upload a hero background image as assets/hero-bg/{id}.webp, via the
-   adminUploadImage Cloud Function (see _adminUploadImage above). */
+   adminUploadImage Cloud Function (see _adminUploadImage above).
+   Higher quality (0.97 vs the default 0.92) than item/promo photos —
+   this is shown full-bleed across the whole hero banner, so compression
+   softness is far more visible here than on a small item thumbnail. */
 async function _hbUploadImage(file, id) {
     const targetName = id.toLowerCase() + '.webp';
-    return await _adminUploadImage(file, HEROBG_GH_FOLDER, targetName);
+    return await _adminUploadImage(file, HEROBG_GH_FOLDER, targetName, 0.97);
 }
 
 async function saveHeroBg() {
@@ -16296,7 +16323,7 @@ function cpiPreviewImage(input) {
 }
 
 /* Convert any image file to WebP via canvas (skips if already webp) */
-async function _cpiConvertToWebp(file) {
+async function _cpiConvertToWebp(file, quality = 0.92) {
     if (file.type === 'image/webp') return file;
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -16306,7 +16333,7 @@ async function _cpiConvertToWebp(file) {
             c.width = img.naturalWidth; c.height = img.naturalHeight;
             c.getContext('2d').drawImage(img, 0, 0);
             URL.revokeObjectURL(url);
-            c.toBlob(b => b ? resolve(b) : reject(new Error('تعذّر تحويل الصورة')), 'image/webp', 0.92);
+            c.toBlob(b => b ? resolve(b) : reject(new Error('تعذّر تحويل الصورة')), 'image/webp', quality);
         };
         img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('تعذّر تحميل الصورة')); };
         img.src = url;
