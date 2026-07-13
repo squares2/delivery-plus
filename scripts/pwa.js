@@ -97,8 +97,19 @@ function isSnoozed() {
     return Date.now() - parseInt(t) < 24 * 60 * 60 * 1000; // 1 day
 }
 
+// Update banner takes priority over the install prompt — if it's up when
+// showBanner() is called, the install prompt just waits its turn instead
+// of stacking underneath it (see _hideUpdateBanner below, which re-runs
+// showBanner() once the update banner clears).
+let _installPendingShow = false;
+function _isUpdateBannerVisible() {
+    const b = document.getElementById('update-banner');
+    return !!(b && b.classList.contains('install-banner--visible'));
+}
+
 function showBanner() {
     if (isSnoozed()) return;
+    if (_isUpdateBannerVisible()) { _installPendingShow = true; return; }
     const banner = document.getElementById('install-banner');
     if (!banner) return;
     banner.style.display = 'flex';
@@ -363,8 +374,22 @@ if (isIosSafari() && !isAlreadyInstalled() &&
 (function () {
     let _updateBannerShown = false;
 
+    // Snooze: once dismissed or acted on, don't show again for 1 day —
+    // same pattern as the install banner's SNOOZE_KEY above, just its
+    // own key since these are independent prompts.
+    const UPDATE_SNOOZE_KEY = 'delivo_update_snooze';
+    function isUpdateSnoozed() {
+        const t = localStorage.getItem(UPDATE_SNOOZE_KEY);
+        if (!t) return false;
+        return Date.now() - parseInt(t) < 24 * 60 * 60 * 1000; // 1 day
+    }
+    function snoozeUpdate() {
+        localStorage.setItem(UPDATE_SNOOZE_KEY, Date.now().toString());
+    }
+
     async function _checkForNewVersion() {
         if (_updateBannerShown) return; // already showing, no need to re-fetch
+        if (isUpdateSnoozed()) return;
         try {
             const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
             if (!res.ok) return;
@@ -377,24 +402,44 @@ if (isIosSafari() && !isAlreadyInstalled() &&
 
     function _showUpdateBanner() {
         _updateBannerShown = true;
+        // Update takes priority over the install prompt — if that one's
+        // already up when this becomes ready, step in front of it. It'll
+        // resume automatically once this banner clears (see below).
+        const installEl = document.getElementById('install-banner');
+        if (installEl && installEl.classList.contains('install-banner--visible')) {
+            _installPendingShow = true;
+            hideBanner(false);
+        }
         const banner = document.getElementById('update-banner');
         if (!banner) return;
         banner.style.display = 'flex';
         setTimeout(() => { banner.classList.add('install-banner--visible'); _syncBottomBarOffset(); }, 50);
     }
 
-    function _hideUpdateBanner() {
+    function _hideUpdateBanner(snooze = false) {
         _updateBannerShown = false;
+        if (snooze) snoozeUpdate();
         const banner = document.getElementById('update-banner');
         if (!banner) return;
         banner.classList.remove('install-banner--visible');
         _syncBottomBarOffset();
         setTimeout(() => { banner.style.display = 'none'; }, 320);
+
+        // The update banner was the one holding the floor — if the install
+        // prompt was waiting behind it, let it show now.
+        if (_installPendingShow) {
+            _installPendingShow = false;
+            setTimeout(() => showBanner(), 400);
+        }
     }
 
     async function _forceUpdate() {
         const btn = document.getElementById('update-btn');
         if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري التحديث…'; }
+        // Snooze regardless of outcome below — if the reload somehow still
+        // sees a version mismatch (slow CDN propagation, offline, etc.),
+        // the banner shouldn't just immediately reappear and nag again.
+        snoozeUpdate();
         try {
             // Belt-and-suspenders: clear every cache this origin owns
             // directly, rather than waiting on the service worker's own
@@ -413,7 +458,7 @@ if (isIosSafari() && !isAlreadyInstalled() &&
 
     document.addEventListener('click', (e) => {
         if (e.target.closest('#update-btn')) _forceUpdate();
-        if (e.target.closest('#update-dismiss')) _hideUpdateBanner();
+        if (e.target.closest('#update-dismiss')) _hideUpdateBanner(true);
     });
 
     // Check on initial load, then keep re-checking on the same resume
