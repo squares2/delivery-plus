@@ -6145,7 +6145,10 @@ function buildOrderCard(key, order) {
                 <span class="oc-meta-chip">🏙 ${order.city || '—'}</span>
                 ${order.street ? `<span class="oc-meta-chip">🛣 ${order.street}</span>` : ''}
                 <span class="oc-meta-chip oc-loc-edit" data-loc-edit="${key}" style="cursor:pointer;" title="اضغط لتعديل موقع التوصيل على الخريطة">
-                    📍 ${hasOcLoc ? `${ocLat.toFixed(5)}, ${ocLng.toFixed(5)}` : 'تحديد الموقع'} ✏️
+                    📍 تحديد الموقع ✏️
+                </span>
+                <span class="oc-meta-chip oc-store-edit" data-store-edit="${key}" style="cursor:pointer;" title="اضغط لتحديد أو تعديل متجر الطلب">
+                    🏪 تحديد المتجر ✏️
                 </span>
                 <span class="oc-meta-chip ${driverAssigned ? 'has' : ''}" style="${driverAssigned ? 'border-color:rgba(34,197,94,0.3);color:var(--green);background:var(--green-glow);' : ''}">
                     🛵 ${driverAssigned ? order.driver : 'غير معين'}
@@ -6259,6 +6262,16 @@ function buildOrderCard(key, order) {
         locEditBtn.addEventListener('click', e => {
             e.stopPropagation();
             _ocEditOrderLocation(key, order);
+        });
+    }
+
+    // Editable order store — lets admin set/correct which store an order
+    // belongs to (e.g. for "اطلب خارجي" orders, or fixing a mistake).
+    const storeEditBtn = card.querySelector('[data-store-edit]');
+    if (storeEditBtn) {
+        storeEditBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            _ocEditOrderStore(key, order);
         });
     }
 
@@ -17098,6 +17111,184 @@ function _ocEditOrderLocation(key, order) {
             toast('✅ تم تحديث موقع التوصيل');
             renderOrders();
         },
+    });
+}
+
+// Lets admin set/correct an order's store — same map-picker pattern as
+// _ocEditOrderLocation, but the pins here are every internal ("متاجر")
+// and external ("متاجر خارجية") store that has a saved lat/lng, plus a
+// combined dropdown listing ALL stores of both kinds (even ones without
+// a location yet) and a manual-text fallback for anything not on Delivo.
+// Picking an external store also carries its address/phone/coords onto
+// the order (storeAddress/storeLat/storeLng/storePhone) so the driver
+// app can still link to it, same as the "اطلب خارجي" flow does.
+function _ocEditOrderStore(key, order) {
+    const stale = document.getElementById('store-pick-overlay');
+    if (stale) stale.remove();
+    if (typeof L === 'undefined') { toast('تعذّر تحميل الخريطة', true); return; }
+
+    const current = order.store || '';
+    const intNames = Object.keys(allStores).sort((a, b) => a.localeCompare(b, 'ar'));
+    const extEntries = Object.entries(allExtStores || {}).sort((a, b) => (a[1].name||'').localeCompare(b[1].name||'', 'ar'));
+
+    // { type: 'internal'|'external'|null, name, lat, lng, address, phone }
+    let picked = { type: null, name: current, lat: null, lng: null, address: '', phone: '' };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'store-pick-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+        <div style="background:var(--surface2);border-radius:16px;width:100%;max-width:680px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;font-family:var(--font);direction:rtl;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                <div style="font-weight:800;color:var(--white);">🏪 تحديد المتجر — طلب #${key.replace('id_', '')}</div>
+                <button id="sp-close" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;">✕</button>
+            </div>
+            <div style="padding:10px 20px;display:flex;gap:14px;font-size:0.7rem;color:var(--gray);border-bottom:1px solid var(--border);flex-shrink:0;">
+                <span>🏪 <span style="color:var(--orange);font-weight:700;">برتقالي</span> = متجر داخلي</span>
+                <span>🌍 <span style="color:#0ea5e9;font-weight:700;">أزرق</span> = متجر خارجي مفعّل</span>
+                <span>🌍 <span style="color:#9a9ab0;font-weight:700;">رمادي</span> = متجر خارجي غير مفعّل</span>
+            </div>
+            <div style="flex:1;min-height:280px;position:relative;">
+                <div id="sp-map" style="width:100%;height:100%;min-height:280px;"></div>
+            </div>
+            <div style="padding:14px 20px;flex-shrink:0;">
+                <div id="sp-current" style="font-size:0.75rem;color:var(--gray);margin-bottom:10px;">
+                    المتجر المحدد حالياً: <span style="color:var(--orange);font-weight:700;">${current || '— بدون متجر —'}</span>
+                </div>
+                <label style="font-size:0.75rem;color:var(--gray);font-weight:700;display:block;margin-bottom:6px;">اختر متجراً من القائمة (داخلي أو خارجي)</label>
+                <select id="sp-select" style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--white);font-family:inherit;font-size:0.85rem;outline:none;box-sizing:border-box;margin-bottom:12px;">
+                    <option value="">— بدون متجر / إدخال يدوي —</option>
+                    <optgroup label="متاجر داخلية">
+                        ${intNames.map(n => `<option value="int::${n}" ${n === current ? 'selected' : ''}>🏪 ${n}</option>`).join('')}
+                    </optgroup>
+                    <optgroup label="متاجر خارجية">
+                        ${extEntries.map(([k, s]) => `<option value="ext::${k}" ${s.name === current ? 'selected' : ''}>🌍 ${s.name || '—'}${s.active ? '' : ' (غير مفعّل)'}</option>`).join('')}
+                    </optgroup>
+                </select>
+                <label style="font-size:0.75rem;color:var(--gray);font-weight:700;display:block;margin-bottom:6px;">أو أدخل اسم المتجر يدوياً</label>
+                <input id="sp-manual" type="text" placeholder="اسم المتجر"
+                    value="${current && !intNames.includes(current) && !extEntries.some(([,s]) => s.name === current) ? current : ''}"
+                    style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--white);font-family:inherit;font-size:0.85rem;outline:none;box-sizing:border-box;">
+            </div>
+            <div style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);flex-shrink:0;">
+                <button id="sp-cancel" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--white);font-family:inherit;cursor:pointer;">إلغاء</button>
+                <button id="sp-save" style="flex:2;background:var(--orange);border:none;border-radius:10px;padding:10px;color:#fff;font-family:inherit;font-weight:800;cursor:pointer;">💾 حفظ المتجر</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    // ── Map + markers for every store (internal/external) that has a location ──
+    const map = L.map('sp-map', { zoomControl: true }).setView([34.003, 36.212], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19,
+    }).addTo(map);
+
+    const bounds = [];
+    const spMarkers = {}; // key -> {marker, type, name, ...}
+    const spLabelStyle = `
+        font-family:'Almarai',sans-serif;font-size:10px;font-weight:800;
+        white-space:nowrap;pointer-events:none;
+        background:rgba(10,10,15,0.85);color:#f0f0f8;
+        padding:2px 6px;border-radius:4px;
+        box-shadow:0 1px 4px rgba(0,0,0,0.5);
+        position:absolute;left:50%;transform:translateX(-50%);
+        bottom:calc(100% + 4px);
+    `;
+
+    Object.values(allStores).forEach(s => {
+        if (!s.lat || !s.lng) return;
+        const isCurrent = s.companyname === current;
+        const icon = mkDiv(
+            `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
+                <div style="${spLabelStyle}">🏪 ${s.companyname}</div>
+                <div style="width:26px;height:26px;border-radius:8px;background:#FF5C00;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(255,92,0,0.5);border:2px solid ${isCurrent ? '#fff' : 'rgba(255,255,255,0.3)'};">🏪</div>
+            </div>`,
+            [26, 42], [13, 26]
+        );
+        const m = L.marker([s.lat, s.lng], { icon })
+            .bindPopup(`<b style="font-family:Almarai">🏪 ${s.companyname}</b>`)
+            .addTo(map);
+        m.on('click', () => selectStore('internal', s.companyname, null, s.lat, s.lng, '', ''));
+        bounds.push([s.lat, s.lng]);
+        spMarkers[`int::${s.companyname}`] = m;
+    });
+
+    Object.entries(allExtStores || {}).forEach(([k, s]) => {
+        if (!s || !s.lat || !s.lng) return;
+        const isCurrent = s.name === current;
+        const color = s.active ? '#0ea5e9' : '#9a9ab0';
+        const t = (typeof esTypeInfo === 'function') ? esTypeInfo(s.type) : { emoji: '🌍' };
+        const icon = mkDiv(
+            `<div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
+                <div style="${spLabelStyle}">${t.emoji} ${s.name || '—'}</div>
+                <div style="width:26px;height:26px;border-radius:8px;background:${color};display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(14,165,233,0.4);border:2px solid ${isCurrent ? '#fff' : 'rgba(255,255,255,0.3)'};">${t.emoji}</div>
+            </div>`,
+            [26, 42], [13, 26]
+        );
+        const lat = parseFloat(s.lat), lng = parseFloat(s.lng);
+        const m = L.marker([lat, lng], { icon })
+            .bindPopup(`<b style="font-family:Almarai">${t.emoji} ${s.name || '—'}</b><br><small style="color:#888">${s.address || ''}</small>`)
+            .addTo(map);
+        m.on('click', () => selectStore('external', s.name || '', k, lat, lng, s.address || '', s.phone || ''));
+        bounds.push([lat, lng]);
+        spMarkers[`ext::${k}`] = m;
+    });
+
+    if (bounds.length) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+    setTimeout(() => map.invalidateSize(), 80);
+
+    const selectEl  = overlay.querySelector('#sp-select');
+    const manualEl  = overlay.querySelector('#sp-manual');
+    const currentEl = overlay.querySelector('#sp-current');
+
+    function selectStore(type, name, extKey, lat, lng, address, phone) {
+        picked = { type, name, lat, lng, address, phone };
+        manualEl.value = '';
+        selectEl.value = type === 'internal' ? `int::${name}` : `ext::${extKey}`;
+        currentEl.innerHTML = `المتجر المحدد الآن: <span style="color:var(--orange);font-weight:700;">${type === 'internal' ? '🏪' : '🌍'} ${name}</span>`;
+        const m = spMarkers[type === 'internal' ? `int::${name}` : `ext::${extKey}`];
+        if (m) map.setView(m.getLatLng(), Math.max(map.getZoom(), 15));
+    }
+
+    selectEl.addEventListener('change', () => {
+        const val = selectEl.value;
+        if (!val) { picked = { type: null, name: '', lat: null, lng: null, address: '', phone: '' }; return; }
+        manualEl.value = '';
+        if (val.startsWith('int::')) {
+            const name = val.slice(5);
+            const s = allStores[name] || {};
+            selectStore('internal', name, null, s.lat || null, s.lng || null, '', '');
+        } else if (val.startsWith('ext::')) {
+            const k = val.slice(5);
+            const s = allExtStores[k] || {};
+            selectStore('external', s.name || '', k, s.lat ? parseFloat(s.lat) : null, s.lng ? parseFloat(s.lng) : null, s.address || '', s.phone || '');
+        }
+    });
+
+    manualEl.addEventListener('input', () => {
+        if (manualEl.value.trim()) {
+            selectEl.value = '';
+            picked = { type: 'manual', name: manualEl.value.trim(), lat: null, lng: null, address: '', phone: '' };
+        }
+    });
+
+    const close = () => { map.remove(); overlay.remove(); };
+    overlay.querySelector('#sp-close').addEventListener('click', close);
+    overlay.querySelector('#sp-cancel').addEventListener('click', close);
+    overlay.querySelector('#sp-save').addEventListener('click', async () => {
+        const newStore = (manualEl.value.trim()) || picked.name || '';
+        if (!newStore) { toast('اختر متجراً أو أدخل اسمه', true); return; }
+        const updates = { store: newStore };
+        if (picked.type === 'external') {
+            updates.storeAddress = picked.address || '';
+            updates.storeLat     = picked.lat != null ? String(picked.lat) : '';
+            updates.storeLng     = picked.lng != null ? String(picked.lng) : '';
+            updates.storePhone   = picked.phone || '';
+        }
+        await Promise.all(Object.entries(updates).map(([f, v]) => updateOrderField(key, f, v)));
+        toast('✅ تم تحديث المتجر');
+        close();
+        renderOrders();
     });
 }
 

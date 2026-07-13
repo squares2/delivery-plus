@@ -321,7 +321,91 @@ if (isIosSafari() && !isAlreadyInstalled() &&
     // Wait for splash to clear before sliding in
     setTimeout(_showIosTopBanner, 1800);
 }
-// ── 6. Notification permission ────────────────────────────────
+// ── 6. Force-update banner — independent of the service worker ──
+// Everything above (SW update detection, visibility/pageshow re-checks)
+// depends on the browser's own service worker lifecycle, which — even
+// with those fixes — some devices (especially installed PWAs resumed
+// from a frozen background state) can still take a while to run. This
+// is a second, independent layer: fetch version.json with a
+// cache-busting query param (so no HTTP/CDN cache can intercept it),
+// compare it to window.APP_VERSION baked into THIS page at deploy time,
+// and show a banner the moment they differ — regardless of what the
+// service worker has or hasn't done yet.
+//
+// IMPORTANT for future deploys: bump all three of these together —
+//   1. BUILD_TS in sw.js
+//   2. window.APP_VERSION in index.html's <head>
+//   3. the "version" field in version.json
+(function () {
+    let _updateBannerShown = false;
+
+    async function _checkForNewVersion() {
+        if (_updateBannerShown) return; // already showing, no need to re-fetch
+        try {
+            const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data && data.version && window.APP_VERSION && data.version !== window.APP_VERSION) {
+                _showUpdateBanner();
+            }
+        } catch (_) { /* offline or blocked — just try again next cycle */ }
+    }
+
+    function _showUpdateBanner() {
+        _updateBannerShown = true;
+        const banner = document.getElementById('update-banner');
+        if (!banner) return;
+        banner.style.display = 'flex';
+        setTimeout(() => banner.classList.add('install-banner--visible'), 50);
+    }
+
+    function _hideUpdateBanner() {
+        _updateBannerShown = false;
+        const banner = document.getElementById('update-banner');
+        if (!banner) return;
+        banner.classList.remove('install-banner--visible');
+        setTimeout(() => { banner.style.display = 'none'; }, 320);
+    }
+
+    async function _forceUpdate() {
+        const btn = document.getElementById('update-btn');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري التحديث…'; }
+        try {
+            // Belt-and-suspenders: clear every cache this origin owns
+            // directly, rather than waiting on the service worker's own
+            // activate step to get around to it.
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(k => caches.delete(k)));
+            }
+            if ('serviceWorker' in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map(r => r.update().catch(() => {})));
+            }
+        } catch (_) { /* fall through to reload regardless */ }
+        window.location.reload();
+    }
+
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#update-btn')) _forceUpdate();
+        if (e.target.closest('#update-dismiss')) _hideUpdateBanner();
+    });
+
+    // Check on initial load, then keep re-checking on the same resume
+    // events used for the SW update check above, plus a periodic timer
+    // for tabs/PWAs that just stay open/foregrounded a long time.
+    window.addEventListener('load', () => setTimeout(_checkForNewVersion, 1500));
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') _checkForNewVersion();
+    });
+    window.addEventListener('pageshow', (e) => {
+        if (e.persisted) _checkForNewVersion();
+    });
+    setInterval(() => {
+        if (document.visibilityState === 'visible') _checkForNewVersion();
+    }, 5 * 60 * 1000); // every 5 minutes while the app is open and in view
+})();
+// ── 7. Notification permission ────────────────────────────────
 // Request gently after the page settles (only if not already decided)
 // We defer to avoid blocking page load and only show after user has
 // had a chance to interact with the page.

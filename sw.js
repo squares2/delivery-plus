@@ -9,7 +9,7 @@
    Replace BUILD_TIMESTAMP with your deploy script, or just
    change this number whenever you upload new files.
    Even changing it by 1 is enough to bust all caches.        */
-const BUILD_TS    = '20260712180000';   // replaced by deploy.bat at deploy time
+const BUILD_TS    = '20260712180614';   // replaced by deploy.bat at deploy time
 const CACHE_NAME  = `delivo-${BUILD_TS}`;
 
 /* ── Assets to pre-cache on install ──────────────────────────
@@ -102,6 +102,11 @@ self.addEventListener('fetch', event => {
     if (!event.request.url.startsWith('http')) return;
 
     const url = new URL(event.request.url);
+
+    /* version.json is the force-update check's whole reason for
+       existing (see scripts/pwa.js § 6) — it must always hit the
+       network fresh, never served from or written into any SW cache. */
+    if (url.pathname.endsWith('/version.json')) return;
 
     /* Always bypass SW for these — let browser handle directly */
     const bypass = [

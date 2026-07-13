@@ -528,6 +528,11 @@ body.loaded { visibility: visible; }
 }
 .install-banner__dismiss:hover { background: var(--clr-gray-100); }
 
+/* Update-available banner reuses .install-banner's layout entirely —
+   just needs to sit above it if both are ever shown at once (an update
+   being available is more urgent than an install prompt). */
+.update-banner { z-index: 999; }
+
 /* ── iOS "Add to Home Screen" — bottom sheet ─────────────── */
 .ios-hint {
     position: fixed;

@@ -118,22 +118,5 @@
     .hero__bg-caption { transition: opacity 0.2s; transform: none; }
 }
 
-/* ── Mobile: show the WHOLE image, never crop ──────────────────
-   On desktop the hero is a wide full-bleed banner, so cropping to
-   fill (object-fit: cover) looks intentional and professional. On a
-   narrow phone screen, though, cover often crops out exactly the
-   part of the photo that matters — especially for portrait-oriented
-   source photos in a wide, short mobile hero box. Switching to
-   `contain` here scales the image to the largest size that fits
-   inside the box on whichever axis is tighter (width for a landscape
-   photo, height for a portrait one) without ever cutting it off; any
-   leftover strip is filled by .hero's own dark background (#1a0800),
-   so it still reads as an intentional letterbox, not empty space. ── */
-@media (max-width: 899px) {
-    .hero__bg,
-    .hero__bg-layer {
-        object-fit: contain;
-        object-position: center;
-        background: var(--hero-mobile-bg, #1a0800);
-    }
-}
+/* Full-bleed cover fill is set directly on .hero__bg-layer above and
+   applies at every breakpoint — no letterbox bars, no extra padding. */
