@@ -218,36 +218,29 @@
 .hero__bg-progress__seg.done i { width: 100%; transition: none; }
 .hero__bg-progress__seg.active i { transition-property: width; transition-timing-function: linear; }
 
-/* ── Caption chip — names what's currently shown (store/offer),
-   slides + fades in shortly after each background switches. ── */
-.hero__bg-caption {
+/* ── Card caption — the tag/title configured in لوحة الإدارة, baked
+   right onto the card itself (same visual language as the admin's own
+   live preview) instead of a separate hero-level element, so what you
+   set is unmistakably what's shown, on the exact photo it belongs to. ── */
+.hero__bg-card-caption {
     position: absolute;
-    inset-inline-start: clamp(12px, 3vw, 20px);
-    bottom: clamp(14px, 3.5vw, 22px);
-    z-index: 3;
+    z-index: 4;
+    inset-inline-start: 12px;
+    bottom: 12px;
+    max-width: calc(100% - 24px);
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    max-width: min(78%, 360px);
     background: rgba(0,0,0,0.45);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255,255,255,0.16);
     border-radius: 999px;
     padding: 7px 14px 7px 8px;
-    text-decoration: none;
     color: #fff;
-    opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.45s ease, transform 0.45s ease;
     pointer-events: none;
 }
-.hero__bg-caption.show {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-}
-.hero__bg-caption-tag {
+.hero__bg-card-caption__tag {
     flex-shrink: 0;
     font-size: 0.66rem;
     font-weight: 800;
@@ -256,7 +249,7 @@
     border-radius: 999px;
     white-space: nowrap;
 }
-.hero__bg-caption-title {
+.hero__bg-card-caption__title {
     font-size: 0.8rem;
     font-weight: 700;
     white-space: nowrap;
@@ -264,12 +257,25 @@
     text-overflow: ellipsis;
 }
 
+/* Cards that link somewhere (قسم المتاجر / رابط مخصص) get a pointer
+   cursor and a small lift on hover — a plain decorative card (بدون
+   رابط) stays inert, no hover affordance to click on nothing. */
+.hero__bg-card--link {
+    cursor: pointer;
+}
+.hero__bg-card--link:hover {
+    transform: translateY(-2px);
+}
+.hero__bg-layer.active .hero__bg-card--link:hover {
+    transform: translateY(-2px) scale(1);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .hero__bg-stack { transition: none; }
     .hero__bg-layer.active .hero__bg-backdrop { animation: none; }
     .hero__bg-card { transition: none; animation: none; }
     .hero__bg-card::before { animation: none; display: none; }
-    .hero__bg-caption { transition: opacity 0.2s; transform: none; }
+    .hero__bg-card--link:hover { transform: none; }
 }
 
 /* The backdrop is always full-bleed cover (texture, safe to crop);

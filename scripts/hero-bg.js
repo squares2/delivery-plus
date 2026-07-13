@@ -60,7 +60,6 @@ async function initHeroBg() {
     const viewport  = document.getElementById('hero-bg-viewport');
     const stack     = document.getElementById('hero-bg-stack');
     const progress  = document.getElementById('hero-bg-progress');
-    const captionEl = document.getElementById('hero-bg-caption');
     const carousel  = document.getElementById('hero-carousel');
     if (!viewport || !stack || !progress) return;
 
@@ -91,13 +90,36 @@ async function initHeroBg() {
 
     // Build one backdrop+card slide per background (first one active immediately).
     // Backdrop = same photo, blurred/cropped, fills the layer.
-    // Card = same photo again, shown in full (object-fit: contain), never cropped.
+    // Card = same photo again, shown in full (object-fit: contain), never cropped —
+    // plus its own tag/title caption and click-through link baked right in, so
+    // "what you configure in لوحة الإدارة is what shows" with no separate,
+    // easy-to-miss floating element to keep in sync.
     stack.innerHTML = list.map(function (bg, i) {
         const src  = _heroEscapeHtml(bg.image);
         const lazy = i === 0 ? '' : 'loading="lazy"';
+
+        const isLink = bg.linkType === 'stores' || (bg.linkType === 'custom' && bg.linkValue);
+        const cardTag = isLink ? 'a' : 'div';
+        let hrefAttrs = '';
+        if (bg.linkType === 'stores') {
+            hrefAttrs = ' href="#stores-section"';
+        } else if (bg.linkType === 'custom' && bg.linkValue) {
+            hrefAttrs = ' href="' + _heroEscapeHtml(bg.linkValue) + '" target="_blank" rel="noopener"';
+        }
+
+        const captionHtml = (bg.tag || bg.title)
+            ? '<div class="hero__bg-card-caption">' +
+                  (bg.tag ? '<span class="hero__bg-card-caption__tag">' + _heroEscapeHtml(bg.tag) + '</span>' : '') +
+                  (bg.title ? '<span class="hero__bg-card-caption__title">' + _heroEscapeHtml(bg.title) + '</span>' : '') +
+              '</div>'
+            : '';
+
         return '<div class="hero__bg-layer' + (i === 0 ? ' active' : '') + '">' +
                '<img class="hero__bg-backdrop" src="' + src + '" alt="" aria-hidden="true" ' + lazy + '>' +
-               '<div class="hero__bg-card"><img class="hero__bg" src="' + src + '" alt="" ' + lazy + '></div>' +
+               '<' + cardTag + ' class="hero__bg-card' + (isLink ? ' hero__bg-card--link' : '') + '"' + hrefAttrs + '>' +
+                   '<img class="hero__bg" src="' + src + '" alt="" ' + lazy + '>' +
+                   captionHtml +
+               '</' + cardTag + '>' +
                '</div>';
     }).join('');
     const layers = stack.querySelectorAll('.hero__bg-layer');
@@ -111,32 +133,6 @@ async function initHeroBg() {
     let current = -1;
     let timer = null;
     let paused = false;
-
-    function showCaption(bg) {
-        if (!captionEl) return;
-        const tagEl   = document.getElementById('hero-bg-caption-tag');
-        const titleEl = document.getElementById('hero-bg-caption-title');
-        if (!bg.tag && !bg.title) { captionEl.classList.remove('show'); return; }
-        if (tagEl)   tagEl.textContent   = bg.tag   || '';
-        if (tagEl)   tagEl.style.display = bg.tag   ? '' : 'none';
-        if (titleEl) titleEl.textContent = bg.title || '';
-
-        // Click-through target
-        if (bg.linkType === 'stores') {
-            captionEl.href = '#stores-section';
-        } else if (bg.linkType === 'custom' && bg.linkValue) {
-            captionEl.href = bg.linkValue;
-            captionEl.target = '_blank';
-            captionEl.rel = 'noopener';
-        } else {
-            captionEl.removeAttribute('href');
-            captionEl.href = '#';
-        }
-        captionEl.classList.remove('show');
-        // Restart the slide-in animation on every switch
-        void captionEl.offsetWidth;
-        setTimeout(function () { captionEl.classList.add('show'); }, 260);
-    }
 
     function goTo(index) {
         if (timer) clearTimeout(timer);
@@ -165,8 +161,6 @@ async function initHeroBg() {
             bar.style.transition = `width ${durMs}ms linear`;
             bar.style.width = '100%';
         }
-
-        showCaption(bg);
 
         // Preload the next slide's images so its slide-in doesn't pop/flash
         const nextIdx = (current + 1) % list.length;
