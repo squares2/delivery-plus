@@ -1557,6 +1557,116 @@ input, select, textarea { font-family: var(--font); }
 .pf-card__reorder button:disabled { opacity: 0.25; cursor: default; }
 .pf-card__row { display: flex; align-items: center; gap: 8px; }
 
+/* ─── HERO BACKGROUND CARDS — poster-style, mirrors the live site ──
+   Signature idea: the caption preview on each card is styled exactly
+   like .hero__bg-caption on the live site (same blur chip, same tag
+   pill), so what the admin sees here IS what visitors will see —
+   not a generic settings-list abstraction of it. ─────────────────── */
+.hb-grid { padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; overflow-y: auto; }
+
+.hb-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden; transition: border-color 0.2s, opacity 0.2s, transform 0.2s;
+}
+.hb-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
+.hb-card.inactive { opacity: 0.5; }
+
+.hb-card__poster {
+    position: relative; width: 100%; aspect-ratio: 16 / 10; background: var(--surface3); overflow: hidden;
+}
+.hb-card__img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform 0.5s ease;
+}
+.hb-card:hover .hb-card__img { transform: scale(1.045); }
+.hb-card__scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.05) 45%, rgba(0,0,0,0.75) 100%);
+    pointer-events: none;
+}
+
+.hb-card__top-row {
+    position: absolute; top: 8px; inset-inline-start: 8px; z-index: 2;
+    display: flex; align-items: center; gap: 6px;
+}
+.hb-card__order, .hb-card__duration {
+    font-size: 0.64rem; font-weight: 800; color: #fff; background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border-radius: 50px; padding: 3px 9px;
+}
+.hb-card__pending {
+    font-size: 0.62rem; font-weight: 800; color: #000; background: rgba(245,158,11,0.92);
+    border-radius: 50px; padding: 3px 9px;
+}
+
+/* Toggle switch, floating top-inline-end of the poster */
+.hb-card__switch { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 2; cursor: pointer; }
+.hb-card__switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.hb-card__switch-track {
+    display: block; width: 34px; height: 20px; border-radius: 20px;
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    position: relative; transition: background 0.2s;
+}
+.hb-card__switch-thumb {
+    position: absolute; top: 2px; inset-inline-start: 2px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--gray-light); transition: inset-inline-start 0.2s, background 0.2s;
+}
+.hb-card__switch input:checked + .hb-card__switch-track { background: rgba(34,197,94,0.35); border-color: rgba(34,197,94,0.5); }
+.hb-card__switch input:checked + .hb-card__switch-track .hb-card__switch-thumb {
+    inset-inline-start: 16px; background: var(--green);
+}
+
+/* Live caption-chip preview — deliberately matches .hero__bg-caption
+   on the public site (styles/hero-bg.css) so this card doubles as an
+   accurate WYSIWYG preview, not just a settings summary. */
+.hb-card__caption-preview {
+    position: absolute; z-index: 2; inset-inline-start: 10px; bottom: 10px; max-width: calc(100% - 20px);
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; padding: 6px 12px 6px 7px;
+}
+.hb-card__caption-preview--empty {
+    color: var(--gray-light); font-size: 0.68rem; font-weight: 600; font-style: italic;
+    background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.15);
+}
+.hb-card__caption-tag {
+    flex-shrink: 0; font-size: 0.6rem; font-weight: 800; color: #fff;
+    background: var(--orange); padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+}
+.hb-card__caption-title {
+    font-size: 0.74rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.hb-card__body { padding: 12px 14px; }
+.hb-card__meta { display: flex; align-items: center; gap: 6px; }
+.hb-card__link-tag {
+    font-size: 0.6rem; font-weight: 700; color: var(--gray-light); background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px;
+}
+.hb-card__status {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 0.64rem; font-weight: 700;
+    margin-inline-start: auto; color: var(--gray-light);
+}
+.hb-card__status i { width: 6px; height: 6px; border-radius: 50%; background: var(--gray); flex-shrink: 0; }
+.hb-card__status.is-on  { color: var(--green); }
+.hb-card__status.is-on i  { background: var(--green); box-shadow: 0 0 0 3px var(--green-glow); }
+.hb-card__status.is-off i { background: var(--gray); }
+
+.hb-card__row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.hb-card__reorder { display: flex; flex-direction: column; gap: 2px; }
+.hb-card__reorder button { background: none; border: none; color: var(--gray-light); cursor: pointer; padding: 2px 6px; font-size: 0.7rem; }
+.hb-card__reorder button:hover { color: var(--orange); }
+.hb-card__reorder button:disabled { opacity: 0.25; cursor: default; }
+.hb-card__actions { display: flex; gap: 6px; flex: 1; }
+.hb-card__actions .ec-btn { flex: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    .hb-card, .hb-card__img { transition: none; }
+    .hb-card:hover { transform: none; }
+    .hb-card:hover .hb-card__img { transform: none; }
+}
+
 /* ─── SETTINGS PANEL ────────────────────────────────────────── */
 .settings-scroll {
     flex: 1;
@@ -2242,7 +2352,7 @@ input, select, textarea { font-family: var(--font); }
                         إضافة خلفية
                     </button>
                 </div>
-                <div id="herobg-grid" class="promoflip-grid"></div>
+                <div id="herobg-grid" class="hb-grid"></div>
             </div>
 
             <div class="panel" id="panel-employees">
@@ -10799,29 +10909,45 @@ function _hbCardHtml(key, bg, idx, total) {
     // Pages URL, cache-busted with its own update time so at least the
     // browser's own cache doesn't also hold onto a stale copy.
     const imgSrc = _hbLocalPreviewOverrides[key] || (bg.image ? `${bg.image}?v=${bg.updatedAt || 0}` : '');
+    const durSec = parseFloat(bg.durationSec) || 5;
     return `
-    <div class="pf-card${isActive ? '' : ' inactive'}">
-        <div class="pf-card__img-wrap">
-            <img src="${imgSrc}" alt="" onerror="this.style.opacity=0.15">
-            <span class="pf-card__order-badge">#${bg.order ?? (idx + 1)} · ${parseFloat(bg.durationSec) || 5}ث</span>
-            ${_hbLocalPreviewOverrides[key] ? `<span class="pf-card__style-tag" style="position:absolute;bottom:6px;right:6px;background:rgba(245,158,11,0.9);color:#000;">⏳ قيد النشر للزوار</span>` : ''}
-        </div>
-        <div class="pf-card__body">
-            ${bg.tag ? `<div class="pf-card__store">${bg.tag}</div>` : ''}
-            <div class="pf-card__title">${bg.title || '(بدون عنوان)'}</div>
-            <div class="pf-card__meta">
-                <span class="pf-card__style-tag">${HB_LINK_LABELS[bg.linkType] || HB_LINK_LABELS.none}</span>
-                <label class="pf-card__active-toggle">
-                    <input type="checkbox" data-hb-toggle="${key}" ${isActive ? 'checked' : ''}>
-                    ${isActive ? 'مفعّلة' : 'مخفية'}
-                </label>
+    <div class="hb-card${isActive ? '' : ' inactive'}">
+        <div class="hb-card__poster">
+            <img class="hb-card__img" src="${imgSrc}" alt="" onerror="this.style.opacity=0.15">
+            <div class="hb-card__scrim"></div>
+
+            <div class="hb-card__top-row">
+                <span class="hb-card__order" title="ترتيب العرض">#${bg.order ?? (idx + 1)}</span>
+                <span class="hb-card__duration" title="مدة العرض">⏱ ${durSec}ث</span>
+                ${_hbLocalPreviewOverrides[key] ? `<span class="hb-card__pending">⏳ قيد النشر</span>` : ''}
             </div>
-            <div class="pf-card__row" style="margin-top:12px;">
-                <div class="pf-card__reorder">
+
+            <label class="hb-card__switch" title="${isActive ? 'إخفاء' : 'تفعيل'}">
+                <input type="checkbox" data-hb-toggle="${key}" ${isActive ? 'checked' : ''}>
+                <span class="hb-card__switch-track"><span class="hb-card__switch-thumb"></span></span>
+            </label>
+
+            <!-- Live preview of the caption chip exactly as visitors see it on the site -->
+            ${(bg.tag || bg.title) ? `
+            <div class="hb-card__caption-preview">
+                ${bg.tag ? `<span class="hb-card__caption-tag">${bg.tag}</span>` : ''}
+                <span class="hb-card__caption-title">${bg.title || '(بدون عنوان)'}</span>
+            </div>` : `<div class="hb-card__caption-preview hb-card__caption-preview--empty">(بدون عنوان أو وسم)</div>`}
+        </div>
+
+        <div class="hb-card__body">
+            <div class="hb-card__meta">
+                <span class="hb-card__link-tag">${HB_LINK_LABELS[bg.linkType] || HB_LINK_LABELS.none}</span>
+                <span class="hb-card__status ${isActive ? 'is-on' : 'is-off'}">
+                    <i></i>${isActive ? 'مفعّلة' : 'مخفية'}
+                </span>
+            </div>
+            <div class="hb-card__row">
+                <div class="hb-card__reorder">
                     <button data-hb-up="${key}" ${idx === 0 ? 'disabled' : ''} title="تحريك لأعلى">▲</button>
                     <button data-hb-down="${key}" ${idx === total - 1 ? 'disabled' : ''} title="تحريك لأسفل">▼</button>
                 </div>
-                <div class="pf-card__actions" style="flex:1;">
+                <div class="hb-card__actions">
                     <button class="ec-btn" data-hb-edit="${key}">✏️ تعديل</button>
                     <button class="ec-btn danger" data-hb-delete="${key}">🗑 حذف</button>
                 </div>

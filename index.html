@@ -176,9 +176,21 @@
         <section class="hero" id="hero-section">
 
             <!-- Background (dynamic — admin-managed via لوحة الإدارة → خلفيات الواجهة.
-                 Falls back to this single static image if nothing's configured yet.) -->
-            <div class="hero__bg-stack" id="hero-bg-stack">
-                <img class="hero__bg hero__bg-layer active" src="assets/hero-bg2.webp" alt="">
+                 Falls back to this single static image if nothing's configured yet.
+                 Structure: viewport (clips) > stack (the sliding track) > layer (one
+                 per background, translateX'd into view like the 4-step phone carousel).
+                 Each layer = a blurred/darkened backdrop (fills the hero, safe to crop)
+                 behind a crisp card holding the SAME photo fully uncropped
+                 (object-fit: contain), so nothing is ever cut off. -->
+            <div class="hero__bg-viewport" id="hero-bg-viewport">
+                <div class="hero__bg-stack" id="hero-bg-stack">
+                    <div class="hero__bg-layer active">
+                        <img class="hero__bg-backdrop" src="assets/hero-bg2.webp" alt="" aria-hidden="true">
+                        <div class="hero__bg-card hero__bg-card--fallback">
+                            <img class="hero__bg" src="assets/hero-bg2.webp" alt="">
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Story-style progress bar (one segment per background, hidden if only 1) -->

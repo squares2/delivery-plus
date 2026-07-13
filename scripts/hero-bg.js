@@ -3,9 +3,14 @@
    Dynamic hero background rotation — configured from
    لوحة الإدارة → خلفيات الواجهة (settings/heroBackgrounds/*).
 
+   Layers sit in a horizontal track (#hero-bg-stack) that SLIDES via
+   translateX — same mechanic as the mobile "4-step" phone carousel —
+   with a segmented story-style progress bar and swipe support.
+
    Zero-config safe: if nothing's configured, the single static
-   <img class="hero__bg-layer active"> already in the markup just
-   stays put and nothing here does anything.
+   <div class="hero__bg-layer active"><img class="hero__bg">...</div>
+   already in the markup just stays put (translateX(0)) and nothing
+   here does anything.
    ============================================================ */
 
 const RTDB_HEROBG_URL = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
@@ -17,13 +22,9 @@ function _heroEscapeHtml(str) {
 }
 
 /* ── Mobile letterbox color, matched to whichever photo is showing ──
-   On mobile the hero switches to object-fit:contain (see hero-bg.css)
-   so the whole photo is visible without cropping — whatever space is
-   left over is filled by the --hero-mobile-bg variable instead of a
-   fixed color, so the letterbox blends with THIS image's own tone
-   instead of clashing with it. Samples a tiny (24×24) downscaled draw
-   of the image and averages its pixels — plenty for a matching tone,
-   much cheaper than reading the full-resolution photo. */
+   Kept for any spot where --hero-mobile-bg is still referenced (e.g.
+   custom overrides); samples a tiny (24×24) downscaled draw of the
+   image and averages its pixels — cheap, and plenty for a matching tone. */
 function _heroSampleColor(imgEl) {
     return new Promise(function (resolve) {
         try {
@@ -56,16 +57,17 @@ function _heroApplyBgColor(imgEl) {
 }
 
 async function initHeroBg() {
-    const stack    = document.getElementById('hero-bg-stack');
-    const progress = document.getElementById('hero-bg-progress');
+    const viewport  = document.getElementById('hero-bg-viewport');
+    const stack     = document.getElementById('hero-bg-stack');
+    const progress  = document.getElementById('hero-bg-progress');
     const captionEl = document.getElementById('hero-bg-caption');
-    const carousel = document.getElementById('hero-carousel');
-    if (!stack || !progress) return;
+    const carousel  = document.getElementById('hero-carousel');
+    if (!viewport || !stack || !progress) return;
 
-    // Color the letterbox for whatever's already on screen (the static
+    // Color the letterbox var for whatever's already on screen (the static
     // markup image) right away — don't wait on the fetch below, which
     // may find nothing configured and never touch the DOM at all.
-    _heroApplyBgColor(stack.querySelector('.hero__bg-layer.active'));
+    _heroApplyBgColor(stack.querySelector('.hero__bg-layer.active .hero__bg'));
 
     let list;
     try {
@@ -87,10 +89,16 @@ async function initHeroBg() {
     // now, so the step-by-step phone carousel would just compete with them.
     if (carousel) carousel.style.display = 'none';
 
-    // Build one <img> layer per background (first one active immediately)
+    // Build one backdrop+card slide per background (first one active immediately).
+    // Backdrop = same photo, blurred/cropped, fills the layer.
+    // Card = same photo again, shown in full (object-fit: contain), never cropped.
     stack.innerHTML = list.map(function (bg, i) {
-        return '<img class="hero__bg-layer' + (i === 0 ? ' active' : '') + '" ' +
-               'src="' + _heroEscapeHtml(bg.image) + '" alt="" ' + (i === 0 ? '' : 'loading="lazy"') + '>';
+        const src  = _heroEscapeHtml(bg.image);
+        const lazy = i === 0 ? '' : 'loading="lazy"';
+        return '<div class="hero__bg-layer' + (i === 0 ? ' active' : '') + '">' +
+               '<img class="hero__bg-backdrop" src="' + src + '" alt="" aria-hidden="true" ' + lazy + '>' +
+               '<div class="hero__bg-card"><img class="hero__bg" src="' + src + '" alt="" ' + lazy + '></div>' +
+               '</div>';
     }).join('');
     const layers = stack.querySelectorAll('.hero__bg-layer');
 
@@ -136,8 +144,12 @@ async function initHeroBg() {
         const bg = list[current];
         const durMs = Math.max(2, parseFloat(bg.durationSec) || 5) * 1000;
 
+        // Slide the track — same mechanic as the 4-step phone carousel
+        // (LTR-forced track, translateX by whole viewport widths).
+        stack.style.transform = 'translateX(-' + (current * 100) + '%)';
+
         layers.forEach(function (l, i) { l.classList.toggle('active', i === current); });
-        _heroApplyBgColor(layers[current]);
+        _heroApplyBgColor(layers[current].querySelector('.hero__bg'));
 
         if (segs.length) {
             segs.forEach(function (s, i) {
@@ -156,9 +168,14 @@ async function initHeroBg() {
 
         showCaption(bg);
 
-        // Preload the next image so its crossfade-in doesn't pop/flash
+        // Preload the next slide's images so its slide-in doesn't pop/flash
         const nextIdx = (current + 1) % list.length;
-        if (layers[nextIdx] && layers[nextIdx].loading === 'lazy') layers[nextIdx].removeAttribute('loading');
+        const nextLayer = layers[nextIdx];
+        if (nextLayer) {
+            nextLayer.querySelectorAll('img[loading="lazy"]').forEach(function (img) {
+                img.removeAttribute('loading');
+            });
+        }
 
         if (!paused) timer = setTimeout(function () { goTo(current + 1); }, durMs);
     }
@@ -166,6 +183,16 @@ async function initHeroBg() {
     segs.forEach(function (s) {
         s.addEventListener('click', function () { goTo(parseInt(s.dataset.idx, 10)); });
     });
+
+    // Swipe support — same threshold/behavior as the 4-step phone carousel.
+    if (list.length > 1) {
+        let tx = 0;
+        viewport.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
+        viewport.addEventListener('touchend', function (e) {
+            const d = tx - e.changedTouches[0].clientX;
+            if (Math.abs(d) > 40) goTo(d > 0 ? current + 1 : current - 1);
+        });
+    }
 
     // Pause the cycle while the tab isn't visible (saves cycles, and avoids
     // several backgrounds silently flipping by while nobody's looking)

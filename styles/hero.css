@@ -12,15 +12,9 @@
 }
 
 /* ── Background ────────────────────────────────────────────── */
-.hero__bg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center top;
-    z-index: 0;
-}
+/* .hero__bg itself is now styled in hero-bg.css (as a child of
+   .hero__bg-layer, inside the sliding .hero__bg-stack track) —
+   see styles/hero-bg.css. */
 
 .hero::after {
     content: '';
