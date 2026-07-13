@@ -16,6 +16,13 @@
    .hero__bg-layer, inside the sliding .hero__bg-stack track) —
    see styles/hero-bg.css. */
 
+/* Note: this used to darken the single full-bleed hero image for text
+   legibility. .hero__bg-viewport (styles/hero-bg.css) now sits above
+   it at z-index:2, so this scrim is fully covered and has no visible
+   effect — the backdrop darkens itself instead (its own blur/brightness
+   filter), and the card is meant to stay at true brightness. Left in
+   place rather than deleted in case it's ever needed for a state that
+   doesn't fully cover the hero. */
 .hero::after {
     content: '';
     position: absolute;

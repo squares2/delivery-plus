@@ -14,7 +14,12 @@
     position: absolute;
     inset: 0;
     overflow: hidden;
-    z-index: 0;
+    /* Above .hero::after's darkening scrim (z-index:1, styles/hero.css) —
+       that scrim was tuned for the old single full-bleed image; now that
+       the backdrop darkens itself (its own blur/brightness filter) and
+       the card is meant to show the photo at true brightness, sitting
+       underneath that scrim just washed both out for no reason. */
+    z-index: 2;
     /* Force LTR so translateX math stays consistent regardless of the
        page's RTL direction — same convention used by .hero__slides-wrap. */
     direction: ltr;
@@ -96,6 +101,7 @@
     width: auto;
     height: auto;
     object-fit: contain;
+    filter: saturate(1.08) contrast(1.04) brightness(1.03);
 }
 
 /* ── Fallback modifier — used only on the single static default image
