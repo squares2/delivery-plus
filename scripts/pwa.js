@@ -3,6 +3,29 @@
    PWA: service worker registration + install banner
    ============================================================ */
 
+// ── 0. Keep .bottom-bar above whichever banner is showing ──────
+// Both #install-banner and #update-banner are position:fixed; bottom:0
+// (see styles/base.css) — same edge as .bottom-bar (styles/navbar.css),
+// just a higher z-index, so without this they'd simply paint over the
+// tab bar instead of pushing it up. Called whenever either banner's
+// visibility changes; reverts the bar back to bottom:0 the moment
+// neither banner is visible anymore.
+function _syncBottomBarOffset() {
+    const bar = document.querySelector('.bottom-bar');
+    if (!bar) return;
+    const visible = ['install-banner', 'update-banner']
+        .map(id => document.getElementById(id))
+        .filter(b => b && b.classList.contains('install-banner--visible'));
+    if (!visible.length) {
+        bar.style.bottom = '';
+        return;
+    }
+    // If both were ever visible at once, the taller one wins — in
+    // practice only one shows at a time (update takes priority).
+    const height = Math.max.apply(null, visible.map(b => b.offsetHeight));
+    bar.style.bottom = height + 'px';
+}
+
 // ── 1. Register Service Worker ────────────────────────────────
 // Skipped entirely on localhost/127.0.0.1 — the whole point of this
 // service worker is production caching behavior (instant repeat visits,
@@ -79,7 +102,7 @@ function showBanner() {
     const banner = document.getElementById('install-banner');
     if (!banner) return;
     banner.style.display = 'flex';
-    setTimeout(() => banner.classList.add('install-banner--visible'), 50);
+    setTimeout(() => { banner.classList.add('install-banner--visible'); _syncBottomBarOffset(); }, 50);
 }
 
 function hideBanner(snooze = false) {
@@ -87,6 +110,7 @@ function hideBanner(snooze = false) {
     if (!banner) return;
     if (snooze) localStorage.setItem(SNOOZE_KEY, Date.now().toString());
     banner.classList.remove('install-banner--visible');
+    _syncBottomBarOffset();
     setTimeout(() => { banner.style.display = 'none'; }, 320);
 }
 
@@ -356,7 +380,7 @@ if (isIosSafari() && !isAlreadyInstalled() &&
         const banner = document.getElementById('update-banner');
         if (!banner) return;
         banner.style.display = 'flex';
-        setTimeout(() => banner.classList.add('install-banner--visible'), 50);
+        setTimeout(() => { banner.classList.add('install-banner--visible'); _syncBottomBarOffset(); }, 50);
     }
 
     function _hideUpdateBanner() {
@@ -364,6 +388,7 @@ if (isIosSafari() && !isAlreadyInstalled() &&
         const banner = document.getElementById('update-banner');
         if (!banner) return;
         banner.classList.remove('install-banner--visible');
+        _syncBottomBarOffset();
         setTimeout(() => { banner.style.display = 'none'; }, 320);
     }
 
