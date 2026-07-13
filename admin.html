@@ -1567,9 +1567,12 @@ input, select, textarea { font-family: var(--font); }
 .hb-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
     overflow: hidden; transition: border-color 0.2s, opacity 0.2s, transform 0.2s;
+    cursor: grab;
 }
 .hb-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
 .hb-card.inactive { opacity: 0.5; }
+.hb-card.dragging { opacity: 0.35; cursor: grabbing; }
+.hb-card.drag-over { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-glow); transform: scale(1.02); }
 
 .hb-card__poster {
     position: relative; width: 100%; aspect-ratio: 16 / 10; background: var(--surface3); overflow: hidden;
@@ -1588,6 +1591,11 @@ input, select, textarea { font-family: var(--font); }
 .hb-card__top-row {
     position: absolute; top: 8px; inset-inline-start: 8px; z-index: 2;
     display: flex; align-items: center; gap: 6px;
+}
+.hb-card__grip {
+    font-size: 0.78rem; font-weight: 900; color: rgba(255,255,255,0.85); background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border-radius: 50px; padding: 2px 7px; line-height: 1; cursor: grab;
 }
 .hb-card__order, .hb-card__duration {
     font-size: 0.64rem; font-weight: 800; color: #fff; background: rgba(0,0,0,0.55);
@@ -10898,6 +10906,7 @@ async function renderHeroBgAdmin() {
     grid.querySelectorAll('[data-hb-down]').forEach(btn => {
         btn.addEventListener('click', () => moveHeroBg(btn.dataset.hbDown, 1));
     });
+    _hbAttachDragReorder(grid);
 }
 
 const HB_LINK_LABELS = { none: '🚫 بدون رابط', stores: '🏪 قسم المتاجر', custom: '🔗 رابط مخصص' };
@@ -10911,12 +10920,13 @@ function _hbCardHtml(key, bg, idx, total) {
     const imgSrc = _hbLocalPreviewOverrides[key] || (bg.image ? `${bg.image}?v=${bg.updatedAt || 0}` : '');
     const durSec = parseFloat(bg.durationSec) || 5;
     return `
-    <div class="hb-card${isActive ? '' : ' inactive'}">
+    <div class="hb-card${isActive ? '' : ' inactive'}" draggable="true" data-hb-key="${key}">
         <div class="hb-card__poster">
             <img class="hb-card__img" src="${imgSrc}" alt="" onerror="this.style.opacity=0.15">
             <div class="hb-card__scrim"></div>
 
             <div class="hb-card__top-row">
+                <span class="hb-card__grip" title="اسحب لإعادة الترتيب">⠿</span>
                 <span class="hb-card__order" title="ترتيب العرض">#${bg.order ?? (idx + 1)}</span>
                 <span class="hb-card__duration" title="مدة العرض">⏱ ${durSec}ث</span>
                 ${_hbLocalPreviewOverrides[key] ? `<span class="hb-card__pending">⏳ قيد النشر</span>` : ''}
@@ -10981,6 +10991,58 @@ async function moveHeroBg(key, direction) {
             fbUpdate(`settings/heroBackgrounds/${keyB}`, { order: orderA }),
         ]);
         await renderHeroBgAdmin();
+    } catch (e) { toast('⚠️ تعذّر تغيير الترتيب: ' + e.message, true); }
+}
+
+// ── Drag-and-drop reorder — grab any card (the ⠿ handle or the card
+// itself) and drop it where you want it. Recomputes order 1..N for
+// every card, not just the two swapped, so a card dragged from #7 to
+// #1 correctly shifts everything in between rather than just swapping
+// with its immediate neighbor (unlike the ▲▼ buttons, kept alongside
+// this for accessibility/keyboard use).
+let _hbDragKey = null;
+
+function _hbAttachDragReorder(grid) {
+    grid.querySelectorAll('.hb-card').forEach(card => {
+        card.addEventListener('dragstart', () => {
+            _hbDragKey = card.dataset.hbKey;
+            // Deferred so the browser's drag-ghost still captures the
+            // full-opacity card before it visually dims.
+            setTimeout(() => card.classList.add('dragging'), 0);
+        });
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            grid.querySelectorAll('.hb-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+            _hbDragKey = null;
+        });
+        card.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (card.dataset.hbKey !== _hbDragKey) card.classList.add('drag-over');
+        });
+        card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+        card.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            const targetKey = card.dataset.hbKey;
+            if (!_hbDragKey || _hbDragKey === targetKey) return;
+            await _hbReorderByDrag(_hbDragKey, targetKey);
+        });
+    });
+}
+
+async function _hbReorderByDrag(draggedKey, targetKey) {
+    const keys = Object.entries(_heroBgCards)
+        .sort((a, b) => (a[1].order || 0) - (b[1].order || 0))
+        .map(([k]) => k);
+    const from = keys.indexOf(draggedKey);
+    const to = keys.indexOf(targetKey);
+    if (from === -1 || to === -1) return;
+    keys.splice(to, 0, keys.splice(from, 1)[0]);
+
+    try {
+        await Promise.all(keys.map((k, i) => fbUpdate(`settings/heroBackgrounds/${k}`, { order: i + 1 })));
+        await renderHeroBgAdmin();
+        toast('↕️ تم تحديث الترتيب');
     } catch (e) { toast('⚠️ تعذّر تغيير الترتيب: ' + e.message, true); }
 }
 

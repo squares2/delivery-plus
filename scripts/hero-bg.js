@@ -88,15 +88,20 @@ async function initHeroBg() {
     // now, so the step-by-step phone carousel would just compete with them.
     if (carousel) carousel.style.display = 'none';
 
-    // Build one backdrop+card slide per background (first one active immediately).
-    // Backdrop = same photo, blurred/cropped, fills the layer.
-    // Card = same photo again, shown in full (object-fit: contain), never cropped —
-    // plus its own tag/title caption and click-through link baked right in, so
-    // "what you configure in لوحة الإدارة is what shows" with no separate,
-    // easy-to-miss floating element to keep in sync.
-    stack.innerHTML = list.map(function (bg, i) {
+    // Build one backdrop+card slide per background — but in REVERSE physical
+    // order. The track always moves by translateX(-pos * 100%), and a flex
+    // row lays child N further to the right as pos increases; put logical
+    // slide 0 last in the DOM (rightmost) and the last logical slide first
+    // (leftmost) so that advancing logical order (0→1→2…) moves the track
+    // from a *smaller* pos to a *larger* one in the other direction —
+    // net effect: new content slides in from the left, old content exits
+    // to the right (previously it was the reverse). Admin's order field,
+    // the progress segments, and everything else all still map by LOGICAL
+    // index (`current`) — only the physical DOM position differs, via
+    // _physPos() below.
+    stack.innerHTML = list.slice().reverse().map(function (bg, i) {
         const src  = _heroEscapeHtml(bg.image);
-        const lazy = i === 0 ? '' : 'loading="lazy"';
+        const lazy = i === list.length - 1 ? '' : 'loading="lazy"'; // logical slide 0 is last in this reversed array
 
         const isLink = bg.linkType === 'stores' || (bg.linkType === 'custom' && bg.linkValue);
         const cardTag = isLink ? 'a' : 'div';
@@ -114,7 +119,7 @@ async function initHeroBg() {
               '</div>'
             : '';
 
-        return '<div class="hero__bg-layer' + (i === 0 ? ' active' : '') + '">' +
+        return '<div class="hero__bg-layer' + (i === list.length - 1 ? ' active' : '') + '">' +
                '<img class="hero__bg-backdrop" src="' + src + '" alt="" aria-hidden="true" ' + lazy + '>' +
                '<' + cardTag + ' class="hero__bg-card' + (isLink ? ' hero__bg-card--link' : '') + '"' + hrefAttrs + '>' +
                    '<img class="hero__bg" src="' + src + '" alt="" ' + lazy + '>' +
@@ -123,6 +128,10 @@ async function initHeroBg() {
                '</div>';
     }).join('');
     const layers = stack.querySelectorAll('.hero__bg-layer');
+
+    // Logical index (matches list[], admin order, progress segments) →
+    // physical DOM position (matches layers[], the reversed build above).
+    function _physPos(logicalIdx) { return list.length - 1 - logicalIdx; }
 
     // Build one progress segment per background (hidden entirely if only 1)
     progress.innerHTML = list.length > 1 ? list.map(function (_, i) {
@@ -139,13 +148,15 @@ async function initHeroBg() {
         current = (index + list.length) % list.length;
         const bg = list[current];
         const durMs = Math.max(2, parseFloat(bg.durationSec) || 5) * 1000;
+        const pos = _physPos(current);
 
         // Slide the track — same mechanic as the 4-step phone carousel
-        // (LTR-forced track, translateX by whole viewport widths).
-        stack.style.transform = 'translateX(-' + (current * 100) + '%)';
+        // (LTR-forced track, translateX by whole viewport widths), just
+        // walking physical position in the opposite direction of before.
+        stack.style.transform = 'translateX(-' + (pos * 100) + '%)';
 
-        layers.forEach(function (l, i) { l.classList.toggle('active', i === current); });
-        _heroApplyBgColor(layers[current].querySelector('.hero__bg'));
+        layers.forEach(function (l, i) { l.classList.toggle('active', i === pos); });
+        _heroApplyBgColor(layers[pos].querySelector('.hero__bg'));
 
         if (segs.length) {
             segs.forEach(function (s, i) {
@@ -164,7 +175,7 @@ async function initHeroBg() {
 
         // Preload the next slide's images so its slide-in doesn't pop/flash
         const nextIdx = (current + 1) % list.length;
-        const nextLayer = layers[nextIdx];
+        const nextLayer = layers[_physPos(nextIdx)];
         if (nextLayer) {
             nextLayer.querySelectorAll('img[loading="lazy"]').forEach(function (img) {
                 img.removeAttribute('loading');
@@ -178,13 +189,15 @@ async function initHeroBg() {
         s.addEventListener('click', function () { goTo(parseInt(s.dataset.idx, 10)); });
     });
 
-    // Swipe support — same threshold/behavior as the 4-step phone carousel.
+    // Swipe support — same threshold as the 4-step phone carousel, direction
+    // flipped to match the new motion (content now follows a rightward
+    // drag to advance, since "next" now enters from the left).
     if (list.length > 1) {
         let tx = 0;
         viewport.addEventListener('touchstart', function (e) { tx = e.touches[0].clientX; }, { passive: true });
         viewport.addEventListener('touchend', function (e) {
             const d = tx - e.changedTouches[0].clientX;
-            if (Math.abs(d) > 40) goTo(d > 0 ? current + 1 : current - 1);
+            if (Math.abs(d) > 40) goTo(d > 0 ? current - 1 : current + 1);
         });
     }
 
