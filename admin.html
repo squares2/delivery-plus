@@ -3105,7 +3105,7 @@ input, select, textarea { font-family: var(--font); }
 // admin.html previously never registered a service worker, so push
 // notifications (and any offline support) had nothing to attach to.
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
         .then(reg => reg.update().catch(() => {}))
         .catch(err => console.warn('[Admin] SW registration failed:', err));
 

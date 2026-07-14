@@ -55,6 +55,16 @@
         return `uuid·${(s.uuid || s.sid || '?').slice(0, 13)}`;
     }
 
+    // Phone number for a *registered* account, looked up the same way
+    // displayName() looks up the full name — from window.allUsers (already
+    // loaded for the Customers panel), keyed by uid. Returns null when the
+    // uid isn't known or has no phone on file (unregistered leads carry
+    // their own separate `lead.phone` field, handled where they're matched).
+    function registeredPhone(uid) {
+        if (!uid || !window.allUsers || !window.allUsers[uid]) return null;
+        return window.allUsers[uid].phone || null;
+    }
+
     // Smaller "@username" shown beside the full name — only when we
     // actually resolved a full name above (otherwise displayName() itself
     // already IS the username, and repeating it would be redundant).
@@ -82,7 +92,7 @@
         const users = window.allUsers || {};
         return Object.entries(users)
             .filter(([, u]) => u && u.deviceUUID === uuid)
-            .map(([uid, u]) => ({ uid, username: u.username, name: u.displayName || u.fullname || u.username || '—' }));
+            .map(([uid, u]) => ({ uid, username: u.username, name: u.displayName || u.fullname || u.username || '—', phone: u.phone || null }));
     }
 
     /* ── Match a session's device UUID against unregistered leads ───
@@ -215,6 +225,16 @@
             const lead    = (isUser || matches.length) ? null : matchVisitorLead(uuid);
             const waDigits = lead ? (lead.phone || '').replace(/\D/g, '').replace(/^0/, '') : '';
 
+            // Phone for the "pm-meta" line — logged-in account first, then
+            // a single unambiguous device match, else none (multiple matches
+            // or a fully anonymous guest show no phone here).
+            let rowPhone = null;
+            if (isUser && s.uid) rowPhone = registeredPhone(s.uid);
+            else if (matches.length === 1) rowPhone = matches[0].phone;
+            const rowPhoneHtml = rowPhone && window.formatPhone
+                ? `<span class="pm-phone" dir="ltr">📞 ${window.formatPhone(rowPhone)}</span>`
+                : (rowPhone ? `<span class="pm-phone" dir="ltr">📞 ${rowPhone}</span>` : '');
+
             return `
             <div class="pm-row ${isUser ? 'pm-row--user' : ''}" data-connected="${s.connectedAt || Date.now()}">
                 <div class="pm-rank">${i + 1}</div>
@@ -230,11 +250,12 @@
                     ${lead ? `
                     <div class="pm-known-account">
                         📇 زائر غير مسجّل — بيانات مُلتقطة مسبقاً: <b>${lead.fullName}</b>
-                        ${lead.phone ? `<span dir="ltr" style="font-family:var(--mono,monospace);">${lead.phone}</span>` : ''}
+                        ${lead.phone ? `<span dir="ltr" style="font-family:var(--mono,monospace);">${window.formatPhone ? window.formatPhone(lead.phone) : lead.phone}</span>` : ''}
                         ${waDigits ? `<a class="pm-known-account-btn" href="https://wa.me/961${waDigits}" target="_blank" rel="noopener" style="text-decoration:none;">💬 واتساب</a>` : ''}
                     </div>` : ''}
                     <div class="pm-meta">
                         <span class="pm-timer" data-ts="${s.connectedAt || Date.now()}">⏱ ${ago}</span>
+                        ${rowPhoneHtml}
                         ${s.username && s.uid ? `<span class="pm-uid-badge">uid·${s.uid.slice(0,12)}</span>` : ''}
                     </div>
                 </div>
@@ -433,6 +454,7 @@
         .pm-known-account-btn:hover { background:rgba(245,158,11,.2); }
         .pt-uuid { font-family:monospace;font-size:.58rem;color:var(--gray,#6b7280);margin-top:1px;letter-spacing:.02em; }
         .pm-timer { font-variant-numeric:tabular-nums; }
+        .pm-phone { font-family:var(--mono,monospace); color:#22c55e; font-weight:700; }
         `;
         document.head.appendChild(style);
     }
