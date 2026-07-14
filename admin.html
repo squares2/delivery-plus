@@ -1562,12 +1562,13 @@ input, select, textarea { font-family: var(--font); }
    like .hero__bg-caption on the live site (same blur chip, same tag
    pill), so what the admin sees here IS what visitors will see —
    not a generic settings-list abstraction of it. ─────────────────── */
-.hb-grid { padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; overflow-y: auto; }
+.hb-grid { padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); grid-auto-rows: max-content; align-items: start; gap: 16px; overflow-y: auto; }
 
 .hb-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
     overflow: hidden; transition: border-color 0.2s, opacity 0.2s, transform 0.2s;
     cursor: grab;
+    height: auto; align-self: start;
 }
 .hb-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
 .hb-card.inactive { opacity: 0.5; }
