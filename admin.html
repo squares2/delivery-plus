@@ -10910,7 +10910,7 @@ async function renderHeroBgAdmin() {
     _hbAttachDragReorder(grid);
 }
 
-const HB_LINK_LABELS = { none: '🚫 بدون رابط', stores: '🏪 قسم المتاجر', custom: '🔗 رابط مخصص' };
+const HB_LINK_LABELS = { none: '🚫 بدون رابط', stores: '🏪 قسم المتاجر', whatsapp: '📱 واتساب الإدارة', custom: '🔗 رابط مخصص' };
 
 function _hbCardHtml(key, bg, idx, total) {
     const isActive = bg.active !== false;
@@ -11122,17 +11122,27 @@ function openHeroBgModal(bg) {
 
             <div>
                 <label style="font-size:0.72rem;color:var(--gray-light);display:block;margin-bottom:4px;">🔗 عند الضغط على الخلفية</label>
-                <select id="hb-linktype" onchange="document.getElementById('hb-linkvalue-row').style.display = this.value === 'custom' ? 'block' : 'none';"
+                <select id="hb-linktype" onchange="
+                    document.getElementById('hb-linkvalue-row').style.display = this.value === 'custom' ? 'block' : 'none';
+                    document.getElementById('hb-wa-msg-row').style.display   = this.value === 'whatsapp' ? 'block' : 'none';
+                "
                         style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.82rem;">
-                    <option value="none"   ${linkType === 'none'   ? 'selected' : ''}>🚫 بدون رابط (زخرفة فقط)</option>
-                    <option value="stores" ${linkType === 'stores' ? 'selected' : ''}>🏪 انتقال لقسم المتاجر</option>
-                    <option value="custom" ${linkType === 'custom' ? 'selected' : ''}>🔗 رابط مخصص (واتساب / صفحة متجر...)</option>
+                    <option value="none"     ${linkType === 'none'     ? 'selected' : ''}>🚫 بدون رابط (زخرفة فقط)</option>
+                    <option value="stores"   ${linkType === 'stores'   ? 'selected' : ''}>🏪 انتقال لقسم المتاجر</option>
+                    <option value="whatsapp" ${linkType === 'whatsapp' ? 'selected' : ''}>📱 واتساب الإدارة (برسالة جاهزة)</option>
+                    <option value="custom"   ${linkType === 'custom'   ? 'selected' : ''}>🔗 رابط مخصص</option>
                 </select>
             </div>
             <div id="hb-linkvalue-row" style="display:${linkType === 'custom' ? 'block' : 'none'};">
                 <label style="font-size:0.72rem;color:var(--gray-light);display:block;margin-bottom:4px;">الرابط</label>
                 <input type="text" id="hb-linkvalue" value="${bg?.linkValue || ''}" placeholder="https://wa.me/..."
                        style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.82rem;">
+            </div>
+            <div id="hb-wa-msg-row" style="display:${linkType === 'whatsapp' ? 'block' : 'none'};">
+                <label style="font-size:0.72rem;color:var(--gray-light);display:block;margin-bottom:4px;">💬 رسالة الواتساب (تُرسَل جاهزة لرقم الإدارة)</label>
+                <textarea id="hb-wa-msg" rows="3" placeholder="مثال: مرحباً، بدي أطلب من هاي الخلفية 🙌"
+                       style="width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border-bright);border-radius:var(--radius-md);color:var(--white);font-family:inherit;font-size:0.82rem;resize:vertical;">${bg?.whatsappMsg || ''}</textarea>
+                <div style="font-size:0.64rem;color:var(--gray);margin-top:4px;">سيُفتح واتساب على رقم الإدارة المحفوظ بالإعدادات (⚙️ الإعدادات ← رقم هاتف الإدارة) مع هذه الرسالة معبّأة تلقائياً.</div>
             </div>
 
             <div style="display:flex;align-items:center;gap:10px;padding-top:4px;border-top:1px solid var(--surface3);">
@@ -11217,6 +11227,23 @@ async function saveHeroBg() {
 
     if (isNew && !_hbPendingImageFile) { errorEl.textContent = '⚠️ الصورة مطلوبة'; errorEl.style.display = 'block'; return; }
 
+    // WhatsApp-with-message needs the admin phone number saved under
+    // ⚙️ الإعدادات first — build the wa.me link the same way the rest of
+    // the app does (see rewards-queue / testUltraMsg): normalize to a
+    // 961-prefixed number, then attach the message as ?text=.
+    let waMsg = '';
+    if (linkType === 'whatsapp') {
+        waMsg = (document.getElementById('hb-wa-msg')?.value || '').trim();
+        if (!waMsg) { errorEl.textContent = '⚠️ اكتب رسالة الواتساب أولاً'; errorEl.style.display = 'block'; return; }
+        const adminPhoneRaw = (await fbGet('settings/adminPhone').catch(() => '')) || '';
+        const ph = adminPhoneRaw.replace(/[^0-9]/g, '');
+        if (!ph) {
+            errorEl.textContent = '⚠️ لم يتم حفظ رقم هاتف الإدارة بعد — أضفه من ⚙️ الإعدادات أولاً';
+            errorEl.style.display = 'block';
+            return;
+        }
+    }
+
     const btn = document.getElementById('hb-save-btn');
     btn.disabled = true; btn.textContent = '⏳ جاري الحفظ…';
 
@@ -11237,6 +11264,16 @@ async function saveHeroBg() {
         const existingOrder = _heroBgCards[existingKey]?.order;
         const maxOrder = Object.values(_heroBgCards).reduce((m, c) => Math.max(m, c.order || 0), 0);
 
+        let linkValue = '';
+        if (linkType === 'custom') {
+            linkValue = document.getElementById('hb-linkvalue').value.trim();
+        } else if (linkType === 'whatsapp') {
+            const adminPhoneRaw = (await fbGet('settings/adminPhone').catch(() => '')) || '';
+            const ph   = adminPhoneRaw.replace(/[^0-9]/g, '');
+            const waPh = ph.indexOf('961') === 0 ? ph : '961' + ph.replace(/^0/, '');
+            linkValue  = `https://wa.me/${waPh}?text=${encodeURIComponent(waMsg)}`;
+        }
+
         const payload = {
             order: existingOrder ?? (maxOrder + 1),
             active: document.getElementById('hb-active').checked,
@@ -11246,7 +11283,8 @@ async function saveHeroBg() {
             tag: document.getElementById('hb-tag').value.trim(),
             durationSec: parseFloat(document.getElementById('hb-duration').value) || 5,
             linkType,
-            linkValue: linkType === 'custom' ? document.getElementById('hb-linkvalue').value.trim() : '',
+            linkValue,
+            whatsappMsg: linkType === 'whatsapp' ? waMsg : '',
         };
 
         await fbSet(`settings/heroBackgrounds/${key}`, payload);

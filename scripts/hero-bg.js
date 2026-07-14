@@ -103,12 +103,12 @@ async function initHeroBg() {
         const src  = _heroEscapeHtml(bg.image);
         const lazy = i === list.length - 1 ? '' : 'loading="lazy"'; // logical slide 0 is last in this reversed array
 
-        const isLink = bg.linkType === 'stores' || (bg.linkType === 'custom' && bg.linkValue);
+        const isLink = bg.linkType === 'stores' || ((bg.linkType === 'custom' || bg.linkType === 'whatsapp') && bg.linkValue);
         const cardTag = isLink ? 'a' : 'div';
         let hrefAttrs = '';
         if (bg.linkType === 'stores') {
             hrefAttrs = ' href="#stores-section"';
-        } else if (bg.linkType === 'custom' && bg.linkValue) {
+        } else if ((bg.linkType === 'custom' || bg.linkType === 'whatsapp') && bg.linkValue) {
             hrefAttrs = ' href="' + _heroEscapeHtml(bg.linkValue) + '" target="_blank" rel="noopener"';
         }
 
