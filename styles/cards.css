@@ -1258,111 +1258,180 @@
     box-shadow: none;
 }
 /* ══════════════════════════════════════════════════════════
-   CATEGORY DROPDOWN — dynamic store grid per category
+   CATEGORY STORES MODAL — full-screen bottom-sheet, grid layout
+   Every store in the category is visible at once (scrollable grid),
+   no auto-scroll/marquee — built so narrow mobile screens can browse
+   the whole list comfortably with one thumb.
    ══════════════════════════════════════════════════════════ */
 
-/*
- * The dropdown is hardcoded in index.html.
- * height:0 always → it never occupies space in the document flow.
- * overflow:visible when open → content spills downward visually
- * over the sections below without pushing them.
- */
 .cat-stores-dropdown {
-    position: relative;
-    height: 0;
-    overflow: hidden;
-    z-index: 300;
+    position: fixed;
+    inset: 0;
+    z-index: 500;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.25s ease;
-    background: var(--clr-white);
+    transition: opacity 0.28s ease;
 }
 .cat-stores-dropdown.open {
-    overflow: visible;
     opacity: 1;
     pointer-events: all;
 }
-/* The actual visible panel spills out via absolute child */
-.cat-stores-dropdown__inner {
+
+/* Dimmed backdrop behind the sheet */
+.cat-stores-dropdown__backdrop {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: var(--clr-white);
-    border-bottom: 2px solid var(--clr-orange);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.13);
-    z-index: 300;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.cat-stores-dropdown.open .cat-stores-dropdown__inner {
-    max-height: 320px;
+    inset: 0;
+    background: rgba(10, 10, 18, 0.55);
+    -webkit-backdrop-filter: blur(1px);
+    backdrop-filter: blur(1px);
 }
 
-/* Header row: title + count pill */
+/* The sheet itself — slides up from the bottom of the screen */
+.cat-stores-dropdown__inner {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--clr-white);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -12px 32px rgba(0,0,0,0.22);
+    z-index: 2;
+    max-height: 82vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.38s cubic-bezier(0.32, 1.05, 0.6, 1);
+    will-change: transform;
+}
+.cat-stores-dropdown.open .cat-stores-dropdown__inner {
+    transform: translateY(0);
+}
+
+/* Little grab handle so the sheet reads as swipeable, mobile-app style */
+.cat-stores-dropdown__handle {
+    width: 40px;
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--clr-gray-200);
+    margin: 10px auto 2px;
+    flex-shrink: 0;
+}
+
+/* Header row: title + count pill + close button */
 .cat-stores-dropdown__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: clamp(10px, 2.5vw, 14px) var(--container-pad) 0;
+    gap: 10px;
+    padding: clamp(6px, 1.5vw, 10px) var(--container-pad) clamp(10px, 2.5vw, 14px);
+    border-bottom: 1px solid var(--clr-gray-100);
+    flex-shrink: 0;
 }
 .cat-stores-dropdown__title {
-    font-size: clamp(0.88rem, 2.6vw, 1.05rem);
+    font-size: clamp(0.92rem, 2.8vw, 1.1rem);
     font-weight: 800;
     color: var(--clr-black);
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
+    min-width: 0;
 }
 .cat-stores-dropdown__title-emoji {
-    font-size: 1.1em;
+    font-size: 1.15em;
+    flex-shrink: 0;
 }
 .cat-stores-dropdown__count {
-    font-size: clamp(0.68rem, 1.7vw, 0.78rem);
-    font-weight: 600;
+    font-size: clamp(0.66rem, 1.7vw, 0.76rem);
+    font-weight: 700;
     color: var(--clr-gray-400);
     background: var(--clr-gray-100);
     border-radius: var(--radius-pill);
-    padding: 2px 9px;
+    padding: 2px 10px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
-
-/* Horizontally scrollable card row */
-.cat-stores-dropdown__scroll {
+.cat-stores-dropdown__close {
     display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: clamp(8px, 2vw, 14px);
-    padding: clamp(8px, 2vw, 12px) var(--container-pad) clamp(10px, 2.5vw, 16px);
-    cursor: grab;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--clr-gray-100);
+    color: var(--clr-gray-500);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s, transform 0.15s;
 }
-.cat-stores-dropdown__scroll::-webkit-scrollbar { display: none; }
+.cat-stores-dropdown__close:hover  { background: var(--clr-gray-200); color: var(--clr-black); }
+.cat-stores-dropdown__close:active { transform: scale(0.9); }
+
+/* Scrollable body: responsive grid of store cards, all visible at once */
+.cat-stores-dropdown__scroll {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    /* Without this, a flex column parent with overflow:auto treats this
+       item's minimum height as 0 (per spec), which lets the grid get
+       silently squashed to fit the sheet's max-height instead of
+       overflowing — cards would compress until their text disappeared.
+       minmax(min-content, auto) pins every row to its natural content
+       height no matter how tall the list gets, so long categories
+       genuinely overflow and scroll instead of collapsing. */
+    grid-auto-rows: minmax(min-content, auto);
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: clamp(10px, 2.6vw, 16px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: clamp(12px, 3vw, 16px) calc(var(--container-pad) - 2px) calc(env(safe-area-inset-bottom, 0px) + 20px) var(--container-pad);
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    cursor: grab;
+    /* Firefox: slim always-visible scrollbar in the brand color */
+    scrollbar-width: thin;
+    scrollbar-color: var(--clr-orange-light, #ffd8bd) transparent;
+}
 .cat-stores-dropdown__scroll.dragging {
     cursor: grabbing;
     user-select: none;
 }
-
-/* ── Auto-scroll — only switched on (by categories.js) when the store
-   list actually overflows the screen at its natural size. Short lists
-   keep the plain scroll/drag row above untouched. Motion itself is
-   driven by JS animating scrollLeft directly, so no extra CSS needed
-   beyond disabling the manual grab cursor while it's auto-playing. ─── */
-.cat-stores-dropdown__scroll.cat-stores-marquee {
-    cursor: default;
+/* Chrome/Safari/Edge: slim always-visible scrollbar, thumb only paints on
+   the track (no arrows/box) so it reads as a clean rail, not a UI relic.
+   Kept visible at every width — on narrow screens especially, it's the
+   clearest signal to people that the grid has more stores below. */
+.cat-stores-dropdown__scroll::-webkit-scrollbar {
+    width: 5px;
 }
+.cat-stores-dropdown__scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.cat-stores-dropdown__scroll::-webkit-scrollbar-thumb {
+    background: var(--clr-orange-light, #ffd8bd);
+    border-radius: var(--radius-pill);
+}
+.cat-stores-dropdown__scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--clr-orange, #FF5C00);
+}
+@media (min-width: 420px) {
+    .cat-stores-dropdown__scroll { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 640px) {
+    .cat-stores-dropdown__scroll { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 900px) {
+    .cat-stores-dropdown__scroll { grid-template-columns: repeat(5, 1fr); }
+}
+.cat-stores-dropdown__scroll .store-card { width: 100%; }
 
 /* Skeleton shimmer cards shown while fetching */
 .cat-skeleton-card {
-    flex: 0 0 clamp(100px, 25vw, 140px);
     border-radius: var(--radius-lg);
     overflow: hidden;
     border: 1px solid var(--clr-gray-100);
 }
 .cat-skeleton-card__thumb {
-    height: clamp(70px, 17vw, 100px);
+    height: clamp(78px, 20vw, 110px);
     background: var(--clr-gray-100);
     animation: skeletonPulse 1.4s ease-in-out infinite;
 }
@@ -1383,13 +1452,12 @@
 
 /* Empty / error message inside dropdown */
 .cat-stores-empty {
-    flex: 1;
+    grid-column: 1 / -1;
     text-align: center;
-    padding: 24px 16px;
+    padding: 40px 16px;
     color: var(--clr-gray-400);
     font-size: var(--fs-small);
     font-weight: 600;
-    white-space: nowrap;
 }
 
 /* Active state on pressed category circle */

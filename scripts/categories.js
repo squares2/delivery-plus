@@ -145,7 +145,15 @@ function initCategories() {
             _toggleCategory(item.dataset.category);
         });
     });
-    _initDragScroll(document.getElementById('cat-dropdown-scroll'));
+
+    // Close the modal via the ✕ button, tapping the dimmed backdrop, or Escape
+    const closeBtn  = document.getElementById('cat-dd-close');
+    const backdrop  = document.getElementById('cat-dd-backdrop');
+    if (closeBtn) closeBtn.addEventListener('click', _closeDropdown);
+    if (backdrop) backdrop.addEventListener('click', _closeDropdown);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && _openCategory) _closeDropdown();
+    });
 }
 
 function _toggleCategory(cat) {
@@ -170,8 +178,9 @@ function _toggleCategory(cat) {
     document.getElementById('cat-dd-count').textContent  = '';
 
     const scrollEl = document.getElementById('cat-dropdown-scroll');
-    scrollEl.innerHTML = _skeletonHTML(5);
+    scrollEl.innerHTML = _skeletonHTML(6);
     dropdown.classList.add('open');
+    document.body.classList.add('modal-open');
     _openCategory = cat;
 
     _fetchStores(catMeta.fbKey)
@@ -182,6 +191,7 @@ function _toggleCategory(cat) {
 function _closeDropdown() {
     const dropdown = document.getElementById('cat-stores-dropdown');
     if (dropdown) dropdown.classList.remove('open');
+    document.body.classList.remove('modal-open');
     document.querySelectorAll('.category-item').forEach(el => el.classList.remove('active'));
     _openCategory = null;
 }
@@ -245,100 +255,20 @@ function _renderStores(stores, catKey, catMeta) {
     const countEl  = document.getElementById('cat-dd-count');
     if (!scrollEl) return;
 
-    // Stop any previous auto-scroll loop bound to this element before we
-    // wipe its content — otherwise switching categories quickly could leave
-    // an old loop still nudging scrollLeft in the background.
-    if (typeof scrollEl._marqueeStop === 'function') { scrollEl._marqueeStop(); scrollEl._marqueeStop = null; }
-
     if (!stores || stores.length === 0) {
+        countEl.textContent = '';
         scrollEl.innerHTML = `<div class="cat-stores-empty">لا توجد متاجر في هذا القسم حالياً</div>`;
         return;
     }
     countEl.textContent = stores.length + ' متجر';
-
-    scrollEl.classList.remove('cat-stores-marquee');
-    scrollEl.style.cssText = '';
     scrollEl.innerHTML = stores.map(s => _storeCardHTML(s, catKey, catMeta.fbKey)).join('');
 
-    // Only switch to auto-scroll once we know the list actually overflows
-    // the visible width at its natural size — short lists keep the plain
-    // scroll/drag behaviour, nothing changes for them. People who prefer
-    // reduced motion always get the plain scrollable list too, so nothing
-    // is ever hidden behind a forced animation.
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Every store sits in the grid at once — plain vertical scroll,
+    // plus drag-to-scroll for mouse users; wire up tap-to-open too.
     requestAnimationFrame(() => {
-        const overflowing = scrollEl.scrollWidth > scrollEl.clientWidth + 4;
         _wireStoreCardClicks(scrollEl);
-        if (overflowing && !prefersReducedMotion) {
-            _activateStoresMarquee(scrollEl);
-        } else {
-            _initDragScroll(scrollEl);
-        }
+        _initVerticalDragScroll(scrollEl);
     });
-}
-
-/* ── Auto-scroll for category lists too long for one screen ──────────
-   Eases from the first card exactly to the last card (never past it —
-   no overshoot, no blank space), holds there a moment, then eases back
-   to the start and repeats. Constant travel speed regardless of list
-   length (more stores just means a longer one-way trip, not faster
-   motion). Pauses on hover/touch so people can actually read a card and
-   tap it without it sliding out from under them. */
-function _activateStoresMarquee(scrollEl) {
-    scrollEl.classList.add('cat-stores-marquee');
-
-    const maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
-    if (maxScroll <= 0) return;
-
-    // Browsers differ on which sign of scrollLeft reveals more content in
-    // an RTL container — detect it empirically instead of assuming.
-    const startPos = scrollEl.scrollLeft;
-    scrollEl.scrollLeft = startPos - 1;
-    const sign = (scrollEl.scrollLeft < startPos) ? -1 : 1;
-    scrollEl.scrollLeft = startPos;
-    const endPos = startPos + sign * maxScroll;
-
-    const PX_PER_SEC = 55;
-    const DWELL_MS    = 1600; // pause at each end so people can read/tap
-    const travelMs    = Math.max(1400, (maxScroll / PX_PER_SEC) * 1000);
-
-    let paused    = false;
-    let cancelled = false;
-    let atEnd     = false;
-
-    const easeInOutQuad = t => t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
-
-    function animateTo(from, to, duration, onDone) {
-        const start = performance.now();
-        function frame(now) {
-            if (cancelled) return;
-            if (paused) { requestAnimationFrame(frame); return; }
-            const t = Math.min(1, (now - start) / duration);
-            scrollEl.scrollLeft = from + (to - from) * easeInOutQuad(t);
-            if (t < 1) requestAnimationFrame(frame);
-            else onDone();
-        }
-        requestAnimationFrame(frame);
-    }
-
-    function loop() {
-        if (cancelled) return;
-        const from = atEnd ? endPos : startPos;
-        const to   = atEnd ? startPos : endPos;
-        animateTo(from, to, travelMs, () => {
-            atEnd = !atEnd;
-            if (!cancelled) setTimeout(loop, DWELL_MS);
-        });
-    }
-
-    const kickoff = setTimeout(loop, DWELL_MS);
-
-    scrollEl._marqueeStop = () => { cancelled = true; clearTimeout(kickoff); };
-
-    scrollEl.addEventListener('mouseenter', () => { paused = true; });
-    scrollEl.addEventListener('mouseleave', () => { paused = false; });
-    scrollEl.addEventListener('touchstart', () => { paused = true; }, { passive: true });
-    scrollEl.addEventListener('touchend',   () => setTimeout(() => { paused = false; }, 1500), { passive: true });
 }
 
 /* ── Wires "open store panel" clicks onto every rendered store card
@@ -352,7 +282,13 @@ function _wireStoreCardClicks(container) {
                 const displayName = (card.dataset.nameAr && card.dataset.nameAr.trim())
                     ? card.dataset.nameAr.trim()
                     : card.dataset.storeName;
-                openStorePanel(card.dataset.storeId, displayName, card.dataset.fbType, card.dataset.storeRtdbkey || card.dataset.storeName);
+                const storeId    = card.dataset.storeId;
+                const fbType     = card.dataset.fbType;
+                const rtdbKey    = card.dataset.storeRtdbkey || card.dataset.storeName;
+                // Close the sheet first — otherwise it stays open underneath
+                // (and previously, on top of) the store details panel.
+                _closeDropdown();
+                openStorePanel(storeId, displayName, fbType, rtdbKey);
             }
         });
     });
@@ -455,18 +391,29 @@ function _skeletonHTML(n) {
         </div>`).join('');
 }
 
-function _initDragScroll(row) {
-    if (!row) return;
-    let isDown = false, startX, scrollLeft, hasDragged = false;
-    row.addEventListener('mousedown', e => { isDown=true; hasDragged=false; row.classList.add('dragging'); startX=e.pageX-row.offsetLeft; scrollLeft=row.scrollLeft; });
-    row.addEventListener('mouseleave', () => { isDown=false; row.classList.remove('dragging'); });
-    row.addEventListener('mouseup',    () => { isDown=false; row.classList.remove('dragging'); });
-    row.addEventListener('mousemove', e => {
-        if (!isDown) return;
-        const x = e.pageX - row.offsetLeft;
-        if (Math.abs(x-startX) > 5) { hasDragged=true; e.preventDefault(); row.scrollLeft = scrollLeft-(x-startX)*1.5; }
+/* ── Vertical mouse-drag-to-scroll for the store grid ──────────────
+   Touch already scrolls natively; this adds click-and-drag support for
+   desktop/mouse users so the grid feels grabbable there too. Small
+   drags are ignored so a normal click on a store card still works. */
+function _initVerticalDragScroll(el) {
+    if (!el || el._dragScrollBound) return;
+    el._dragScrollBound = true;
+    let isDown = false, startY, scrollTop, hasDragged = false;
+    el.addEventListener('mousedown', e => {
+        isDown = true; hasDragged = false;
+        el.classList.add('dragging');
+        startY = e.pageY; scrollTop = el.scrollTop;
     });
-    row.addEventListener('click', e => { if (hasDragged) { e.preventDefault(); e.stopPropagation(); hasDragged=false; } }, true);
+    el.addEventListener('mouseleave', () => { isDown = false; el.classList.remove('dragging'); });
+    el.addEventListener('mouseup',    () => { isDown = false; el.classList.remove('dragging'); });
+    el.addEventListener('mousemove', e => {
+        if (!isDown) return;
+        const y = e.pageY;
+        if (Math.abs(y - startY) > 5) { hasDragged = true; e.preventDefault(); el.scrollTop = scrollTop - (y - startY); }
+    });
+    el.addEventListener('click', e => {
+        if (hasDragged) { e.preventDefault(); e.stopPropagation(); hasDragged = false; }
+    }, true);
 }
 
 function _catEmoji(cat) {
