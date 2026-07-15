@@ -15,6 +15,30 @@
 
 const RTDB_HEROBG_URL = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 
+// Same settings/adminPhone value cart.js / navbar.js already read — fetched
+// once here so the WhatsApp CTA works out of the box on every promo slide,
+// instead of depending on each slide's admin-configured linkType/linkValue
+// (which requires extra setup steps and is easy to leave unconfigured).
+const _HEROBG_FALLBACK_PHONE = '96170714152';
+let _heroBgAdminPhoneDigits = null;
+async function _heroBgLoadAdminPhone() {
+    try {
+        const cached = localStorage.getItem('delivo_admin_phone');
+        if (cached) _heroBgAdminPhoneDigits = String(cached).replace(/[^0-9]/g, '');
+    } catch (_) {}
+    try {
+        const res = await fetch(RTDB_HEROBG_URL + '/settings/adminPhone.json');
+        if (res.ok) {
+            const fresh = await res.json();
+            if (fresh) {
+                _heroBgAdminPhoneDigits = String(fresh).replace(/[^0-9]/g, '');
+                try { localStorage.setItem('delivo_admin_phone', String(fresh)); } catch (_) {}
+            }
+        }
+    } catch (_) { /* keep whatever we already had (cache or fallback) */ }
+    if (!_heroBgAdminPhoneDigits) _heroBgAdminPhoneDigits = _HEROBG_FALLBACK_PHONE;
+}
+
 function _heroEscapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
         return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
@@ -68,6 +92,10 @@ async function initHeroBg() {
     // may find nothing configured and never touch the DOM at all.
     _heroApplyBgColor(stack.querySelector('.hero__bg-layer.active .hero__bg'));
 
+    // Kick off in parallel — the WhatsApp CTA needs this, but there's no
+    // reason to make the backgrounds list wait on it (or vice versa).
+    const adminPhonePromise = _heroBgLoadAdminPhone();
+
     let list;
     try {
         const res = await fetch(RTDB_HEROBG_URL + '/settings/heroBackgrounds.json');
@@ -83,6 +111,10 @@ async function initHeroBg() {
     // Nothing configured — leave the single static background AND the
     // "how it works" phone carousel exactly as they already are, untouched.
     if (!list.length) return;
+
+    // Needed below for the default WhatsApp CTA — resolves instantly if
+    // the cached phone number was already found in localStorage.
+    await adminPhonePromise;
 
     // Custom backgrounds are active — the rotating backgrounds are the show
     // now, so the step-by-step phone carousel would just compete with them.
@@ -103,13 +135,28 @@ async function initHeroBg() {
         const src  = _heroEscapeHtml(bg.image);
         const lazy = i === list.length - 1 ? '' : 'loading="lazy"'; // logical slide 0 is last in this reversed array
 
-        const isLink = bg.linkType === 'stores' || ((bg.linkType === 'custom' || bg.linkType === 'whatsapp') && bg.linkValue);
-        const cardTag = isLink ? 'a' : 'div';
+        // Any slide without an explicit stores/custom link defaults to a
+        // WhatsApp order button — guaranteed to work with zero admin setup,
+        // instead of depending on each slide having its own linkType/
+        // linkValue configured (easy to forget, and the previous behavior
+        // when unconfigured — no button at all — isn't useful to anyone).
+        const hasExplicitLink = bg.linkType === 'stores' || ((bg.linkType === 'custom' || bg.linkType === 'whatsapp') && bg.linkValue);
+        const isWhatsApp = bg.linkType === 'whatsapp' ? !!bg.linkValue : !hasExplicitLink;
+        const isLink = hasExplicitLink || isWhatsApp;
+
         let hrefAttrs = '';
         if (bg.linkType === 'stores') {
             hrefAttrs = ' href="#stores-section"';
-        } else if ((bg.linkType === 'custom' || bg.linkType === 'whatsapp') && bg.linkValue) {
+        } else if (bg.linkType === 'custom' && bg.linkValue) {
             hrefAttrs = ' href="' + _heroEscapeHtml(bg.linkValue) + '" target="_blank" rel="noopener"';
+        } else if (isWhatsApp) {
+            const waMsg = bg.title
+                ? 'مرحباً 👋، حابب اطلب "' + bg.title + '"'
+                : 'مرحباً 👋، بدي اطلب من هالعرض';
+            const waHref = (bg.linkType === 'whatsapp' && bg.linkValue)
+                ? bg.linkValue
+                : 'https://wa.me/' + _heroBgAdminPhoneDigits + '?text=' + encodeURIComponent(waMsg);
+            hrefAttrs = ' href="' + _heroEscapeHtml(waHref) + '" target="_blank" rel="noopener"';
         }
 
         const captionHtml = (bg.tag || bg.title)
@@ -119,12 +166,31 @@ async function initHeroBg() {
               '</div>'
             : '';
 
+        // Explicit CTA button — the actual click target when this card
+        // links somewhere, instead of the whole photo being tappable (a
+        // real button reads as an intentional action, not an accident).
+        // WhatsApp CTAs (whether explicitly configured or the default
+        // fallback above) get their own branded treatment (green,
+        // WhatsApp glyph, subtle pulse ring) instead of the generic arrow,
+        // since that's a distinct action people recognize at a glance.
+        const ctaIcon = isWhatsApp
+            ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.77-.87-2.04-.97-.27-.1-.48-.15-.68.15-.2.3-.78.97-.96 1.17-.18.2-.35.22-.65.07-.3-.15-1.28-.47-2.43-1.5-.9-.8-1.5-1.79-1.68-2.09-.18-.3-.02-.46.13-.61.14-.14.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.64-.93-2.24-.24-.58-.49-.5-.68-.51-.18-.01-.38-.01-.58-.01-.2 0-.53.07-.8.38-.28.3-1.05 1.02-1.05 2.49s1.08 2.88 1.23 3.08c.15.2 2.13 3.25 5.16 4.56.72.31 1.28.5 1.72.64.72.23 1.38.2 1.9.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.08-.13-.27-.2-.57-.35z"/><path d="M12.02 2C6.5 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.08-1.33A9.96 9.96 0 0 0 12.02 22C17.53 22 22 17.52 22 12S17.53 2 12.02 2zm0 18.06c-1.7 0-3.28-.5-4.6-1.36l-.33-.2-3.02.79.8-2.94-.21-.3A8.06 8.06 0 0 1 3.96 12c0-4.44 3.62-8.06 8.06-8.06 4.44 0 8.06 3.62 8.06 8.06 0 4.44-3.62 8.06-8.06 8.06z"/></svg>'
+            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+        const ctaHtml = isLink
+            ? '<a class="hero__bg-card-cta' + (isWhatsApp ? ' hero__bg-card-cta--whatsapp' : '') + '"' + hrefAttrs + '>' +
+                  (isWhatsApp ? '<span class="hero__bg-card-cta__pulse"></span>' : '') +
+                  '<span>اطلب</span>' +
+                  ctaIcon +
+              '</a>'
+            : '';
+
         return '<div class="hero__bg-layer' + (i === list.length - 1 ? ' active' : '') + '">' +
                '<img class="hero__bg-backdrop" src="' + src + '" alt="" aria-hidden="true" ' + lazy + '>' +
-               '<' + cardTag + ' class="hero__bg-card' + (isLink ? ' hero__bg-card--link' : '') + '"' + hrefAttrs + '>' +
+               '<div class="hero__bg-card">' +
                    '<img class="hero__bg" src="' + src + '" alt="" ' + lazy + '>' +
                    captionHtml +
-               '</' + cardTag + '>' +
+                   ctaHtml +
+               '</div>' +
                '</div>';
     }).join('');
     const layers = stack.querySelectorAll('.hero__bg-layer');
