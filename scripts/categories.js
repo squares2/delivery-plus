@@ -384,7 +384,7 @@ function _storeCardHTML(store, catKey, fbType) {
          style="${stateStyle}flex-shrink:0;">
         <div class="store-card__thumb" style="position:relative;">
             <img src="${imgUrl}" alt="${name}"
-                 style="width:100%;height:100%;object-fit:cover;display:block;"
+                 style="width:100%;height:100%;object-fit:contain;display:block;background:var(--clr-gray-100);"
                  onerror="if(this.src.includes('.webp')){this.src=this.src.replace('.webp','.png');return;}this.style.display='none';this.nextElementSibling.style.display='flex'">
             <div style="display:none;width:100%;height:100%;align-items:center;
                         justify-content:center;font-size:2rem;background:var(--clr-gray-100);">

@@ -1532,13 +1532,14 @@
 /* Store thumb image (local assets) */
 .store-card__thumb {
     background-color: var(--clr-gray-100);
-    background-size: cover;
+    background-size: contain;
+    background-repeat: no-repeat;
     background-position: center;
 }
 .store-card__thumb img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
     image-rendering: auto;
     transform: translateZ(0);

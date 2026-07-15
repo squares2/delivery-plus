@@ -170,7 +170,7 @@ ul, ol { list-style: none; }
 .store-thumb {
     background-color: var(--clr-gray-100);
     background-repeat: no-repeat;
-    background-size: cover;
+    background-size: contain;
     background-position: center;
 }
 
