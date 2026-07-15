@@ -819,6 +819,11 @@ function onFirebaseReady() {
                         os,
                     }),
                 });
+                // presence.js checks for a deviceLeads record once at page
+                // load (before this modal may have even been submitted) —
+                // flip its flag now so it starts keeping lastVisit fresh
+                // from this point on instead of waiting for a reload.
+                window._delivoPresence?.markDeviceLead?.();
                 return { success: true };
             } catch (e) {
                 return { error: true, message: 'تعذر حفظ البيانات. تحقق من اتصالك.' };

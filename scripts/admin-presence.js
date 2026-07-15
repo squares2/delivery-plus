@@ -459,6 +459,46 @@
         document.head.appendChild(style);
     }
 
+    // Re-renders the Visitors/Customers panels (admin.html) whenever
+    // presence changes, but only if one of them is actually the panel
+    // open — keeps the "متصل الآن" markers and online-first ordering live
+    // without waiting for admin.html's own slower (12s) full-data refresh
+    // cycle. Customers re-render is cheap here since it only needs fresh
+    // window._delivoOnlineSessions (already just updated above), not a
+    // re-fetch of allUsers itself.
+    function _refreshVisitorsIfOpen() {
+        if (document.getElementById('panel-visitors')?.classList.contains('active')
+            && typeof window.renderVisitors === 'function') {
+            window.renderVisitors();
+        }
+        if (document.getElementById('panel-customers')?.classList.contains('active')
+            && typeof window.renderCustomers === 'function') {
+            window.renderCustomers();
+        }
+    }
+
+    // Admin-side "last seen" cache — survives a session disappearing from
+    // /presence when the customer disconnects (unlike the live session
+    // itself, which admin.html's _isCustomerOnline can no longer see once
+    // it's gone). This is what lets admin.html keep a customer who just
+    // left ranked by how recently they were here, instead of falling all
+    // the way back to their account's original signup date — without
+    // waiting for every customer's browser to have already loaded the
+    // newer presence.js that persists customerActivity/{uid}/lastActive
+    // in RTDB. Keyed by whichever identifiers the session actually had;
+    // cleared only on a full page reload of this admin tab.
+    window._delivoLastSeenCache = window._delivoLastSeenCache || {};
+    function _updateLastSeenCache(sessions) {
+        const cache = window._delivoLastSeenCache;
+        Object.values(sessions).forEach(s => {
+            if (!s || !s.lastSeen) return;
+            [s.uid, s.username, s.uuid].forEach(key => {
+                if (!key) return;
+                if (!cache[key] || s.lastSeen > cache[key]) cache[key] = s.lastSeen;
+            });
+        });
+    }
+
     /* ── Firebase SDK listener ──────────────────────────────── */
     function initWithSDK(db) {
         const presenceRef = db.ref('presence');
@@ -471,6 +511,8 @@
             if (modalOpen) renderModal(sessions);
             prevSessions = { ...sessions };
             window._delivoOnlineSessions = prevSessions; // exposed for the live map / customers list
+            _updateLastSeenCache(prevSessions);
+            _refreshVisitorsIfOpen();
         });
     }
 
@@ -486,6 +528,8 @@
             if (modalOpen) renderModal(sessions);
             prevSessions = { ...sessions };
             window._delivoOnlineSessions = prevSessions; // exposed for the live map / customers list
+            _updateLastSeenCache(prevSessions);
+            _refreshVisitorsIfOpen();
         } catch (_) {}
     }
 

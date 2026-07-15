@@ -1039,6 +1039,29 @@ input, select, textarea { font-family: var(--font); }
 .or-sum-chip.orange span { color:var(--orange); }
 .or-sum-chip.green  span { color:var(--green); }
 .or-sum-chip.yellow span { color:var(--yellow); }
+.or-sum-chip.live {
+    border-color: rgba(34,197,94,.4);
+    background: rgba(34,197,94,.08);
+}
+.or-sum-chip.live span { color: var(--green); }
+/* ── Visitor "online now" indicator (see renderVisitors / _isVisitorOnline) ── */
+.vis-online-dot {
+    display:inline-block; width:9px; height:9px; border-radius:50%;
+    background:var(--green); flex-shrink:0;
+    box-shadow:0 0 0 0 rgba(34,197,94,.6);
+    animation: visOnlinePulse 1.8s ease-in-out infinite;
+}
+@keyframes visOnlinePulse {
+    0%   { box-shadow:0 0 0 0   rgba(34,197,94,.55); }
+    70%  { box-shadow:0 0 0 6px rgba(34,197,94,0); }
+    100% { box-shadow:0 0 0 0   rgba(34,197,94,0); }
+}
+.or-state-badge.vis-online-badge {
+    background:rgba(34,197,94,.15); color:var(--green);
+    border:1px solid rgba(34,197,94,.35);
+}
+tr.vis-row-online { background: rgba(34,197,94,.04); }
+tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
 @media (max-width:640px) {
     .or-table-wrap { padding:var(--pad-sm); }
     .or-toolbar { padding:var(--pad-sm); }
@@ -2167,6 +2190,9 @@ input, select, textarea { font-family: var(--font); }
                         تحديث
                     </button>
                 </div>
+                <div class="or-summary-bar" id="customers-summary-bar">
+                    <div class="or-sum-chip live">🟢 متصل الآن <span id="cust-sum-online">0</span></div>
+                </div>
                 <div class="orders-toolbar" style="flex-shrink:0;">
                     <button class="filter-pill active" data-cust-filter="all">الكل</button>
                     <button class="filter-pill" data-cust-filter="active">🟢 نشط</button>
@@ -2205,6 +2231,7 @@ input, select, textarea { font-family: var(--font); }
                 </div>
                 <!-- Summary bar -->
                 <div class="or-summary-bar" id="visitors-summary-bar">
+                    <div class="or-sum-chip live">🟢 متصل الآن <span id="vis-sum-online">0</span></div>
                     <div class="or-sum-chip orange">إجمالي الزوار <span id="vis-sum-total">0</span></div>
                     <div class="or-sum-chip yellow">لم يسجّلوا بعد <span id="vis-sum-pending">0</span></div>
                     <div class="or-sum-chip green">أصبحوا عملاء <span id="vis-sum-converted">0</span></div>
@@ -2217,7 +2244,7 @@ input, select, textarea { font-family: var(--font); }
                 <div class="users-table-wrap">
                     <table class="users-table">
                         <thead><tr>
-                            <th>الاسم الكامل</th><th>الهاتف</th><th>الجهاز</th><th>UUID</th><th>تاريخ الزيارة</th><th>الحالة</th><th>إجراءات</th>
+                            <th>الاسم الكامل</th><th>الهاتف</th><th>الجهاز</th><th>UUID</th><th>آخر ظهور</th><th>الحالة</th><th>إجراءات</th>
                         </tr></thead>
                         <tbody id="visitors-tbody"></tbody>
                     </table>
@@ -3237,7 +3264,7 @@ async function _adminUploadImage(file, folder, filename, quality = 0.92) {
     /* Load admin presence monitor after DOM ready */
     window.addEventListener('load', () => {
         const s = document.createElement('script');
-        s.src = 'scripts/admin-presence.js?v=2';
+        s.src = 'scripts/admin-presence.js?v=5';
         document.body.appendChild(s);
     });
 const FIRESTORE   = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
@@ -4571,7 +4598,7 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw] = await Promise.all([
+        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw, customerActivity] = await Promise.all([
             fbGet('requests'),
             fbGet('drivers'),
             fsGetCollection('users'),
@@ -4583,6 +4610,7 @@ async function loadAllData() {
             fbGet('settings/orderAssignmentMode').catch(() => null),
             fbGet('deviceLeads').catch(() => null),
             fbGet('externalStores').catch(() => null),
+            fbGet('customerActivity').catch(() => null),
         ]);
 
         allExtStores = extStoresRaw || {};
@@ -4617,6 +4645,15 @@ async function loadAllData() {
 
 
         allUsers   = users   || {};
+        // Merge in each account's persisted lastActive (see presence.js's
+        // _touchCustomerActivity) — a small parallel RTDB node rather than
+        // a Firestore field, so the customers list can show/sort by real
+        // last-seen time without touching Firestore security rules.
+        if (customerActivity) {
+            Object.entries(customerActivity).forEach(([uid, rec]) => {
+                if (allUsers[uid] && rec && rec.lastActive) allUsers[uid].lastActive = rec.lastActive;
+            });
+        }
         window.allUsers = allUsers; // exposed for admin-presence.js (matches guest sessions to registered accounts)
         adminUsers = admins  || {};
 
@@ -5040,6 +5077,11 @@ function _setNavBadge(id, count) {
 function startAutoRefresh() {
 
     // ── Real-time driver listener — uses REST polling (db SDK not available) ──
+
+    // Visitors panel gets its own faster, lightweight refresh loop (see
+    // _refreshVisitorsLive) — independent of the 12s full-data cycle below,
+    // and independent of admin-presence.js's presence-triggered re-render.
+    _startVisitorsLiveRefresh();
 
     // ── Polling interval — full data refresh every 12s ────────
     refreshTimer = setInterval(async () => {
@@ -5527,14 +5569,53 @@ function _refreshDriverMarkers() {
 }
 
 // Is this customer currently connected? Checks the live presence sessions
-// exposed by admin-presence.js (RTDB /presence, one entry per open tab —
-// only entries carrying a username represent a logged-in customer).
-function _isCustomerOnline(uid, username) {
+// exposed by admin-presence.js (RTDB /presence, one entry per open tab).
+// Matches on uid or username when the session is logged in — but a
+// session ALWAYS carries the device's UUID regardless of login state, so
+// this also matches on deviceUUID (the account's registered device) to
+// catch a customer who's on the site but whose auth state hasn't linked
+// to this particular tab's session yet (or who's simply browsing signed
+// out on their own registered device).
+function _isCustomerOnline(uid, username, deviceUUID) {
     const sessions = window._delivoOnlineSessions;
     if (!sessions) return false;
     return Object.values(sessions).some(s =>
-        (uid && s.uid === uid) || (username && s.username === username)
+        (uid && s.uid === uid) || (username && s.username === username) || (deviceUUID && s.uuid === deviceUUID)
     );
+}
+
+// Most recent known activity for a registered customer — persisted via
+// presence.js's _touchCustomerActivity (customerActivity/{uid}/lastActive
+// in RTDB, merged into allUsers by loadAllData). Falls back to the
+// account's createdAt/timestamp for accounts that have never been
+// online since this field was added.
+function _customerLastActiveTs(u) {
+    if (u && u.lastActive) {
+        const t = typeof u.lastActive === 'number' ? u.lastActive : new Date(u.lastActive).getTime();
+        if (!isNaN(t)) return t;
+    }
+    return (u && (u.createdAt || u.timestamp)) || 0;
+}
+
+// Best-known "last active" moment for sorting — the live session's
+// lastSeen while currently online; otherwise the admin-side cache
+// admin-presence.js keeps of the last time each identifier was ever seen
+// online during this admin session (survives the customer disconnecting,
+// unlike the live session itself); otherwise the persisted lastActive
+// (see _customerLastActiveTs). This is what keeps a customer who just
+// disconnected ranked by how recently they were here instead of dropping
+// straight back to their original signup date.
+function _customerLastActive(uid, u, username, deviceUUID) {
+    const sessions = window._delivoOnlineSessions || {};
+    const session = Object.values(sessions).find(s => s &&
+        ((uid && s.uid === uid) || (username && s.username === username) || (deviceUUID && s.uuid === deviceUUID)));
+    if (session && session.lastSeen) return session.lastSeen;
+
+    const cache = window._delivoLastSeenCache || {};
+    const cached = [uid, username, deviceUUID].map(k => k && cache[k]).find(v => v);
+    if (cached) return Math.max(cached, _customerLastActiveTs(u));
+
+    return _customerLastActiveTs(u);
 }
 
 function renderMap() {
@@ -5670,7 +5751,7 @@ function renderMap() {
             if (uuid) renderedUUIDs.add(uuid);
 
             const label  = u.displayName || u.fullname || u.username || '—';
-            const online = _isCustomerOnline(uid, u.username);
+            const online = _isCustomerOnline(uid, u.username, u.deviceUUID);
 
             if (isMulti) {
                 // ── Multi-account marker ──────────────────────────
@@ -6147,7 +6228,7 @@ function renderOrders() {
         const deliveryProfit = getOrderDeliveryProfit(o, companyVars);
         const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : deliveryProfit;
         const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
-        totalOrdersUSD   += _splitOrderTotal(o, effectiveDeliveryRaw);
+        totalOrdersUSD   += _getOrderOnlyPrice(o, effectiveDeliveryRaw);
         totalDeliveryUSD += deliveryUSD;
     });
     const totOrdersEl   = document.getElementById('orders-total-orders');
@@ -6219,9 +6300,10 @@ function buildOrderCard(key, order) {
     // Effective delivery value shown in the fee chip below — the admin's
     // manual override if set, otherwise the estimated profit.
     const effectiveDeliveryRaw = (order.deliveryFee != null && order.deliveryFee !== '') ? order.deliveryFee : deliveryProfit;
-    // order.total is stored merged (order + delivery, USD) — split the
-    // delivery portion back out so the header price shows the order alone.
-    const orderOnlyPrice = _splitOrderTotal(order, effectiveDeliveryRaw);
+    // Order-only price shown in the header — reads the independent
+    // order.orderprice field when present, only falling back to
+    // splitting the old merged order.total for orders never edited yet.
+    const orderOnlyPrice = _getOrderOnlyPrice(order, effectiveDeliveryRaw);
 
     card.innerHTML = `
         <div class="oc-header">
@@ -6343,13 +6425,18 @@ function buildOrderCard(key, order) {
             const val = _normalizeMoneyValue(totalInput.value.trim());
             totalInput.value = val;
             if (totalCur) totalCur.textContent = _currencySymbol(val);
-            // order.total is stored merged (order + delivery) in USD — a
-            // value the admin typed/left in ل.ل must be converted to USD
-            // BEFORE merging, or it corrupts the stored total (see _toUSD).
+            // Order price and delivery fee are independent fields — this
+            // only ever writes order.orderprice (a value the admin typed
+            // in ل.ل is converted to USD first via _toUSD). order.total is
+            // refreshed alongside it purely for other reports that still
+            // read the merged figure; the delivery fee itself is never
+            // touched here, so it can't shift as a side-effect.
             const orderOnlyUSD = _toUSD(val);
             const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
-            const newTotal = orderOnlyUSD + deliveryUSD;
-            await updateOrderField(key, 'total', newTotal.toFixed(2));
+            await updateOrderFields(key, {
+                orderprice: orderOnlyUSD.toFixed(2),
+                total: (orderOnlyUSD + deliveryUSD).toFixed(2)
+            });
             toast('✅ تم تحديث سعر الطلب');
         });
     }
@@ -6369,7 +6456,17 @@ function buildOrderCard(key, order) {
             const val = _normalizeMoneyValue(feeInput.value.trim());
             feeInput.value = val;
             if (feeCur) feeCur.textContent = _currencySymbol(val);
-            await updateOrderField(key, 'deliveryFee', val);
+            // Lock in the order price exactly as currently displayed (as
+            // an explicit order.orderprice field) so editing the delivery
+            // fee never shifts it — order.total is refreshed alongside
+            // for other reports, but the order-price input itself is
+            // untouched.
+            const newDeliveryUSD = _deliveryFeeToUSD(val);
+            await updateOrderFields(key, {
+                deliveryFee: val,
+                orderprice: orderOnlyPrice.toFixed(2),
+                total: (orderOnlyPrice + newDeliveryUSD).toFixed(2)
+            });
             toast('✅ تم تحديث رسم التوصيل');
         });
     }
@@ -7426,13 +7523,14 @@ function renderCustomers() {
     });
 
     let users = Object.entries(allUsers);
+    const _allUserEntries = users; // unfiltered snapshot for the "متصل الآن" summary below
 
     if (customerFilter !== 'all') {
         if (customerFilter === 'blocked') {
             users = users.filter(([uid, u]) => bl[uid] || (u.deviceUUID && bl[u.deviceUUID]));
         } else if (customerFilter === 'active' || customerFilter === 'offline') {
             users = users.filter(([uid, u]) => {
-                const isOnline = _isCustomerOnline(uid, u.username);
+                const isOnline = _isCustomerOnline(uid, u.username, u.deviceUUID);
                 return customerFilter === 'active' ? isOnline : !isOnline;
             });
         } else {
@@ -7453,8 +7551,12 @@ function renderCustomers() {
     const seenUUIDs = new Set();
     const rows = [];
 
-    users.sort(([,a],[,b]) => (b.createdAt||b.timestamp||0) - (a.createdAt||a.timestamp||0))
-         .forEach(([uid, u]) => {
+    users.sort(([uidA, a], [uidB, b]) => {
+        const onlineA = _isCustomerOnline(uidA, a.username, a.deviceUUID) ? 1 : 0;
+        const onlineB = _isCustomerOnline(uidB, b.username, b.deviceUUID) ? 1 : 0;
+        if (onlineA !== onlineB) return onlineB - onlineA; // online customers float to the top
+        return _customerLastActive(uidB, b, b.username, b.deviceUUID) - _customerLastActive(uidA, a, a.username, a.deviceUUID);
+    }).forEach(([uid, u]) => {
             const uuid  = u.deviceUUID;
             const peers = uuid ? (allDeviceGroups[uuid] || [u]) : [u];
             const key   = uuid || uid;
@@ -7463,7 +7565,10 @@ function renderCustomers() {
             rows.push({ isGroup: peers.length > 1, uuid, users: peers, primary: u, uid });
          });
 
-    countEl.textContent = `${rows.length} \u062c\u0647\u0627\u0632 \u00b7 ${users.length} \u062d\u0633\u0627\u0628`;
+    countEl.textContent = `${rows.length} جهاز · ${users.length} حساب`;
+    const onlineCustCount = _allUserEntries.filter(([uid, u]) => _isCustomerOnline(uid, u.username, u.deviceUUID)).length;
+    const custSumOnlineEl = document.getElementById('cust-sum-online');
+    if (custSumOnlineEl) custSumOnlineEl.textContent = onlineCustCount;
 
     if (!rows.length) {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--gray);">\u0644\u0627 \u064a\u0648\u062c\u062f \u0639\u0645\u0644\u0627\u0621</td></tr>`;
@@ -7476,13 +7581,15 @@ function renderCustomers() {
         const anyBlocked  = uuidBlocked || uidBlocked || peers.some(p => bl[p._id]);
 
         if (isGroup) {
+            const anyPeerOnline = peers.some(p => _isCustomerOnline(p._id, p.username, p.deviceUUID || uuid));
             const groupRow = document.createElement('tr');
-            groupRow.className = 'ut-row--group-header' + (uuidBlocked ? ' blocked' : '');
+            groupRow.className = 'ut-row--group-header' + (uuidBlocked ? ' blocked' : '') + (anyPeerOnline ? ' vis-row-online' : '');
             groupRow.style.cursor = 'pointer';
             groupRow.innerHTML = `
                 <td colspan="9">
                     <div style="display:flex;align-items:center;gap:10px;padding:5px 2px;">
                         <div class="ut-group-count ${uuidBlocked?'blocked':''}">${peers.length}</div>
+                        ${anyPeerOnline ? `<span class="vis-online-dot" title="أحد الحسابات على هذا الجهاز متصل الآن"></span>` : ''}
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                                 <span class="ut-group-tag ${uuidBlocked?'blocked':''}">
@@ -7510,13 +7617,12 @@ function renderCustomers() {
             const subRows = peers.map(p => {
                 const pBlocked  = bl[p._id] || uuidBlocked;
                 const initial   = (p.displayName||p.fullname||p.username||'?')[0].toUpperCase();
-                const isActive  = _isCustomerOnline(p._id, p.username);
-                const ts        = p.createdAt
-                    ? new Date(p.createdAt).toLocaleDateString('ar')
-                    : (p.timestamp ? new Date(p.timestamp).toLocaleDateString('ar') : '—');
+                const isActive  = _isCustomerOnline(p._id, p.username, p.deviceUUID || uuid);
+                const _tsVal    = _customerLastActive(p._id, p, p.username, p.deviceUUID || uuid);
+                const ts        = _tsVal ? new Date(_tsVal).toLocaleDateString('ar-LB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
                 const ordCount  = userOrders[p._id] || userOrders[p.username] || 0;
                 const tr2       = document.createElement('tr');
-                tr2.className   = 'ut-row--sub' + (pBlocked ? ' ut-row--blocked' : '');
+                tr2.className   = 'ut-row--sub' + (pBlocked ? ' ut-row--blocked' : (isActive ? ' vis-row-online' : ''));
                 tr2.style.display = 'none';
                 tr2.dataset.sub = uuid;
                 tr2.innerHTML = `
@@ -7525,7 +7631,10 @@ function renderCustomers() {
                             <span class="ut-sub-dot ${pBlocked?'blocked':''}"></span>
                             <span class="ut-avatar-sm" style="background:rgba(251,191,36,0.1);color:#f59e0b;border-color:rgba(251,191,36,0.3);">${initial}</span>
                             <div>
-                                <div class="ut-name">${p.displayName||p.fullname||'\u2014'}</div>
+                                <div class="ut-name" style="display:flex;align-items:center;gap:6px;">
+                                    ${isActive ? `<span class="vis-online-dot" title="متصل الآن"></span>` : ''}
+                                    ${p.displayName||p.fullname||'\u2014'}
+                                </div>
                                 ${bl[p._id] ? `<div style="font-size:0.62rem;color:var(--red);">\u26d4 ${bl[p._id].reason||'\u0645\u062d\u0638\u0648\u0631'}</div>` : ''}
                             </div>
                         </div>
@@ -7649,20 +7758,22 @@ function renderCustomers() {
             // Solo row
             const isBlocked = bl[uid] || (uuid && bl[uuid]);
             const initial   = (u.displayName||u.fullname||u.username||'?')[0].toUpperCase();
-            const isActive  = _isCustomerOnline(uid, u.username);
-            const ts        = u.createdAt
-                ? new Date(u.createdAt).toLocaleDateString('ar')
-                : (u.timestamp ? new Date(u.timestamp).toLocaleDateString('ar') : '\u2014');
+            const isActive  = _isCustomerOnline(uid, u.username, u.deviceUUID);
+            const _tsVal    = _customerLastActive(uid, u, u.username, u.deviceUUID);
+            const ts        = _tsVal ? new Date(_tsVal).toLocaleDateString('ar-LB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '\u2014';
             const ordCount  = userOrders[uid] || userOrders[u.username] || 0;
             const blEntry   = bl[uid] || (uuid && bl[uuid]);
             const tr        = document.createElement('tr');
-            tr.className    = isBlocked ? 'ut-row--blocked' : '';
+            tr.className    = isBlocked ? 'ut-row--blocked' : (isActive ? 'vis-row-online' : '');
             tr.innerHTML = `
                 <td>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span class="ut-avatar-sm" style="${isBlocked?'background:rgba(239,68,68,0.15);color:var(--red);border-color:rgba(239,68,68,0.3);':''}">${initial}</span>
                         <div>
-                            <div class="ut-name">${u.displayName||u.fullname||'\u2014'}</div>
+                            <div class="ut-name" style="display:flex;align-items:center;gap:6px;">
+                                ${isActive ? `<span class="vis-online-dot" title="متصل الآن"></span>` : ''}
+                                ${u.displayName||u.fullname||'\u2014'}
+                            </div>
                             ${blEntry ? `<div style="font-size:0.62rem;color:var(--red);margin-top:1px;">\u26d4 ${blEntry.reason||'\u0645\u062d\u0638\u0648\u0631'}</div>` : ''}
                             <div style="font-size:0.6rem;color:var(--gray);margin-top:1px;font-family:var(--mono);display:flex;align-items:center;gap:3px;">
                                 🔑 ${uuid ? `<span title="${uuid}">${uuid.slice(0,16)}…</span><button class="cust-uuid-copy" data-uuid="${uuid}" title="نسخ UUID" style="background:none;border:none;color:var(--gray);cursor:pointer;padding:0 2px;font-size:0.62rem;">&#9112;</button>` : '<span>—</span>'}
@@ -7776,6 +7887,42 @@ function _visitorTimestamp(v) {
     return isNaN(t) ? 0 : t;
 }
 
+// Most recent known visit — presence.js keeps deviceLeads/{uuid}/lastVisit
+// fresh on every heartbeat while the visitor is on the site, so this is
+// the true "last seen" moment and survives long after they disconnect
+// (unlike the live presence session, which gets swept away ~45s after
+// they leave). Falls back to createdAt (first-ever visit) for older
+// records saved before this field existed.
+function _visitorLastVisitTs(v) {
+    if (v && v.lastVisit) {
+        const t = typeof v.lastVisit === 'number' ? v.lastVisit : new Date(v.lastVisit).getTime();
+        if (!isNaN(t)) return t;
+    }
+    return _visitorTimestamp(v);
+}
+
+// Cross-references a visitor's device UUID against the live presence
+// sessions admin-presence.js keeps updated in window._delivoOnlineSessions
+// (refreshed every ~8s via its own realtime listener/poll) to tell
+// whether that visitor is on the site right now.
+function _isVisitorOnline(uuid) {
+    if (!uuid) return false;
+    const sessions = window._delivoOnlineSessions || {};
+    return Object.values(sessions).some(s => s && s.uuid === uuid);
+}
+
+// Best-known "last active" moment for sorting — the live session's
+// lastSeen while the visitor is currently online (kept fresh by the 8s
+// heartbeat), otherwise their persisted lastVisit (see _visitorLastVisitTs)
+// so a visitor who just left still ranks by how recently they were here,
+// not by when they first ever showed up.
+function _visitorLastActive(uuid, v) {
+    const sessions = window._delivoOnlineSessions || {};
+    const session = Object.values(sessions).find(s => s && s.uuid === uuid);
+    if (session && session.lastSeen) return session.lastSeen;
+    return _visitorLastVisitTs(v);
+}
+
 function _visitorDeviceLabel(v) {
     // Records saved before device/OS capture was added have neither
     // field at all — showing those as "كمبيوتر" would be a guess
@@ -7804,8 +7951,36 @@ function _getFilteredVisitorEntries() {
         );
     }
 
-    entries.sort(([, a], [, b]) => _visitorTimestamp(b) - _visitorTimestamp(a));
+    // Online visitors always float to the top; within each group (online
+    // / offline) the most recently active is shown first.
+    entries.sort(([uuidA, a], [uuidB, b]) => {
+        const onlineA = _isVisitorOnline(uuidA) ? 1 : 0;
+        const onlineB = _isVisitorOnline(uuidB) ? 1 : 0;
+        if (onlineA !== onlineB) return onlineB - onlineA;
+        return _visitorLastActive(uuidB, b) - _visitorLastActive(uuidA, a);
+    });
     return entries;
+}
+
+// Lightweight, dedicated auto-refresh for the Visitors panel — re-fetches
+// only deviceLeads (small, single path) rather than the full loadAllData()
+// sweep (orders/drivers/users/etc, which only reruns every 12s), so a
+// visitor's updated lastVisit / converted status / a brand-new lead shows
+// up here quickly and independently of the heavier main refresh cycle.
+// No-ops entirely (no network call at all) unless the panel is actually open.
+let _visitorsLiveTimer = null;
+async function _refreshVisitorsLive() {
+    if (!document.getElementById('panel-visitors')?.classList.contains('active')) return;
+    try {
+        const deviceLeads = await fbGet('deviceLeads').catch(() => null);
+        allVisitors = deviceLeads || {};
+        window.allVisitors = allVisitors;
+    } catch (_) { /* keep showing the last known data on a failed fetch */ }
+    renderVisitors();
+}
+function _startVisitorsLiveRefresh() {
+    if (_visitorsLiveTimer) return;
+    _visitorsLiveTimer = setInterval(_refreshVisitorsLive, 5000);
 }
 
 function renderVisitors() {
@@ -7820,10 +7995,12 @@ function renderVisitors() {
     const total     = allEntries.length;
     const converted = allEntries.filter(([, v]) => v.converted).length;
     const pending   = total - converted;
+    const online    = allEntries.filter(([uuid]) => _isVisitorOnline(uuid)).length;
     const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setTxt('vis-sum-total',     total);
     setTxt('vis-sum-pending',   pending);
     setTxt('vis-sum-converted', converted);
+    setTxt('vis-sum-online',    online);
 
     const entries = _getFilteredVisitorEntries();
 
@@ -7838,11 +8015,18 @@ function renderVisitors() {
         const tr = document.createElement('tr');
         const waDigits = (v.phone || '').replace(/\D/g, '').replace(/^0/, '');
         const waLink   = waDigits ? `https://wa.me/961${waDigits}` : '';
-        const ts       = _visitorTimestamp(v);
+        const ts       = _visitorLastVisitTs(v);
         const dateStr  = ts ? new Date(ts).toLocaleDateString('ar-LB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+        const isOnline = _isVisitorOnline(uuid);
+        if (isOnline) tr.classList.add('vis-row-online');
 
         tr.innerHTML = `
-            <td style="font-weight:700;">${v.fullName || '—'}</td>
+            <td style="font-weight:700;">
+                <span style="display:inline-flex;align-items:center;gap:7px;">
+                    ${isOnline ? `<span class="vis-online-dot" title="متصل الآن"></span>` : ''}
+                    ${v.fullName || '—'}
+                </span>
+            </td>
             <td dir="ltr" style="text-align:left;">${formatPhone(v.phone)}</td>
             <td>${_visitorDeviceLabel(v)}</td>
             <td>
@@ -7852,9 +8036,12 @@ function renderVisitors() {
             </td>
             <td style="font-size:0.78rem;color:var(--gray-light);white-space:nowrap;">${dateStr}</td>
             <td>
-                ${v.converted
-                    ? `<span class="or-state-badge" style="background:var(--green-glow);color:var(--green);">✅ عميل مسجّل</span>`
-                    : `<span class="or-state-badge" style="background:rgba(245,158,11,0.15);color:var(--yellow);">⏳ زائر فقط</span>`}
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                    ${isOnline ? `<span class="or-state-badge vis-online-badge">🟢 متصل الآن</span>` : ''}
+                    ${v.converted
+                        ? `<span class="or-state-badge" style="background:var(--green-glow);color:var(--green);">✅ عميل مسجّل</span>`
+                        : `<span class="or-state-badge" style="background:rgba(245,158,11,0.15);color:var(--yellow);">⏳ زائر فقط</span>`}
+                </div>
             </td>
             <td style="display:flex;gap:6px;">
                 ${waLink ? `<a href="${waLink}" target="_blank" style="background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:5px 10px;font-size:0.72rem;font-weight:800;text-decoration:none;white-space:nowrap;">💬 واتساب</a>` : ''}
@@ -7953,7 +8140,7 @@ async function exportVisitorsToExcel() {
 
         // ── Header row ──
         const headerRow = ws.getRow(3);
-        headerRow.values = ['الاسم الكامل', 'الهاتف', 'الجهاز', 'UUID', 'تاريخ الزيارة', 'الحالة', 'واتساب'];
+        headerRow.values = ['الاسم الكامل', 'الهاتف', 'الجهاز', 'UUID', 'آخر ظهور', 'الحالة', 'واتساب'];
         headerRow.eachCell(cell => {
             cell.font      = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
             cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F1F2E' } };
@@ -7967,7 +8154,7 @@ async function exportVisitorsToExcel() {
 
         // ── Data rows ──
         entries.forEach(([uuid, v], i) => {
-            const ts       = _visitorTimestamp(v);
+            const ts       = _visitorLastVisitTs(v);
             const dateStr  = ts ? new Date(ts).toLocaleString('ar-LB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
             const waDigits = (v.phone || '').replace(/\D/g, '').replace(/^0/, '');
             const waLink   = waDigits ? `https://wa.me/961${waDigits}` : '';
@@ -17021,6 +17208,22 @@ function _splitOrderTotal(order, effectiveDeliveryRaw) {
     return Math.max(0, merged - deliveryUSD);
 }
 
+// Order-only price (goods total, excluding delivery) — a genuine,
+// independently-stored figure. Orders placed before this field existed
+// (or never edited in admin since) don't have it yet, so for those we
+// still fall back to splitting it out of the merged order.total via
+// _splitOrderTotal, same as before. But as soon as the admin edits EITHER
+// the order price or the delivery fee on an order (see the oc-total-input
+// / oc-fee-input and or-price-input / or-fee-input change handlers),
+// order.orderprice gets written explicitly — so from that point on the
+// two figures are read independently and never recalculate each other.
+function _getOrderOnlyPrice(order, effectiveDeliveryRaw) {
+    if (order && order.orderprice !== undefined && order.orderprice !== null && order.orderprice !== '') {
+        return _toUSD(order.orderprice);
+    }
+    return _splitOrderTotal(order, effectiveDeliveryRaw);
+}
+
 // Currency symbol for an editable price/fee field — LBP amounts are
 // always well over 1000, USD amounts (almost) never are, so the
 // magnitude alone tells us which currency the admin is typing.
@@ -17181,9 +17384,10 @@ async function renderOnlineRequests() {
         // Effective delivery value shown in the "ربح التوصيل" column — the
         // admin's manual override if set, otherwise the estimated profit.
         const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : profit;
-        // order.total is stored merged (order + delivery, USD) — split the
-        // delivery portion back out so "سعر الطلب" shows the order alone.
-        const orderOnlyPrice = _splitOrderTotal(o, effectiveDeliveryRaw);
+        // Order-only price shown in "سعر الطلب" — reads the independent
+        // order.orderprice field when present, only falling back to
+        // splitting the old merged order.total for orders never edited yet.
+        const orderOnlyPrice = _getOrderOnlyPrice(o, effectiveDeliveryRaw);
         const driverCost = calcDriverCost(o.driver, cv);
         const assigned   = o.driver && o.driver !== '0';
 
@@ -17250,13 +17454,18 @@ async function renderOnlineRequests() {
                 const val = _normalizeMoneyValue(orPriceInput.value.trim());
                 orPriceInput.value = val;
                 if (orPriceCur) orPriceCur.textContent = _currencySymbol(val);
-                // order.total is stored merged (order + delivery) in USD — a
-                // value the admin typed/left in ل.ل must be converted to USD
-                // BEFORE merging, or it corrupts the stored total (see _toUSD).
+                // Order price and delivery fee are independent fields — this
+                // only ever writes order.orderprice (a value the admin typed
+                // in ل.ل is converted to USD first via _toUSD). order.total
+                // is refreshed alongside it purely for other reports that
+                // still read the merged figure; the delivery fee itself is
+                // never touched here.
                 const orderOnlyUSD = _toUSD(val);
                 const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
-                const newTotal = orderOnlyUSD + deliveryUSD;
-                await updateOrderField(key, 'total', newTotal.toFixed(2));
+                await updateOrderFields(key, {
+                    orderprice: orderOnlyUSD.toFixed(2),
+                    total: (orderOnlyUSD + deliveryUSD).toFixed(2)
+                });
                 toast('✅ تم تحديث سعر الطلب');
             });
         }
@@ -17274,7 +17483,17 @@ async function renderOnlineRequests() {
                 const val = _normalizeMoneyValue(orFeeInput.value.trim());
                 orFeeInput.value = val;
                 if (orFeeCur) orFeeCur.textContent = _currencySymbol(val);
-                await updateOrderField(key, 'deliveryFee', val);
+                // Lock in the order price exactly as currently displayed
+                // (as an explicit order.orderprice field) so editing the
+                // delivery fee never shifts it — order.total is refreshed
+                // alongside for other reports, but the order-price input
+                // itself is untouched.
+                const newDeliveryUSD = _deliveryFeeToUSD(val);
+                await updateOrderFields(key, {
+                    deliveryFee: val,
+                    orderprice: orderOnlyPrice.toFixed(2),
+                    total: (orderOnlyPrice + newDeliveryUSD).toFixed(2)
+                });
                 toast('✅ تم تحديث رسم التوصيل');
             });
         }
@@ -17317,6 +17536,23 @@ async function updateOrderField(orderId, field, value) {
     if (uid) upd[`/historyRequests/${uid}/${orderId}/${field}`] = value;
     await fbUpdate('', upd);
     if (allOrders[orderId]) allOrders[orderId][field] = value;
+}
+
+// Same as updateOrderField but writes several fields in one round-trip —
+// used when editing the order price or delivery fee, so the order price
+// (order.orderprice) and delivery fee (order.deliveryFee) can each be
+// saved as independent fields (plus a refreshed order.total kept in sync
+// for other code that still reads the merged figure) without the two
+// visible inputs ever recalculating each other. See _getOrderOnlyPrice.
+async function updateOrderFields(orderId, fields) {
+    const uid = allOrders[orderId]?.delivryplusid;
+    const upd = {};
+    Object.entries(fields).forEach(([field, value]) => {
+        upd[`/requests/${orderId}/${field}`] = value;
+        if (uid) upd[`/historyRequests/${uid}/${orderId}/${field}`] = value;
+    });
+    await fbUpdate('', upd);
+    if (allOrders[orderId]) Object.assign(allOrders[orderId], fields);
 }
 
 // Opens the same shared map picker used in "اطلب" (order/store location),

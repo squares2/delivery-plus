@@ -123,6 +123,51 @@
         } catch (_) { return null; }
     }
 
+    // Whether this device already has a captured visitor-lead record
+    // (deviceLeads/{uuid} — full name + phone from the first-launch modal).
+    // Checked once per page load; if true, we keep that record's
+    // `lastVisit` field fresh on connect/heartbeat/reconnect so the admin
+    // Visitors panel shows an actual up-to-date last-seen time (instead of
+    // only ever showing the very first visit) and can keep a returning
+    // visitor ranked by recency even after they disconnect.
+    let _hasDeviceLead = false;
+
+    async function _checkDeviceLead(uuid) {
+        try {
+            const lead = await rtdbGet(`deviceLeads/${uuid}`);
+            _hasDeviceLead = !!lead;
+        } catch (_) { _hasDeviceLead = false; }
+    }
+
+    function _touchDeviceLeadVisit(uuid) {
+        if (!_hasDeviceLead) return;
+        // Server-side timestamp, same convention as createdAt in
+        // firebase-init.js's saveDeviceLead — a client clock can't be
+        // trusted for chronological sorting in the admin panel.
+        fetch(`${RTDB_BASE}/deviceLeads/${uuid}/lastVisit.json`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ '.sv': 'timestamp' }),
+        }).catch(() => {});
+    }
+
+    // Same idea as _touchDeviceLeadVisit, but for logged-in customer
+    // accounts. Accounts live in Firestore (fsGetCollection('users') on
+    // the admin side), but presence/lastVisit tracking has always lived
+    // in the Realtime Database — so rather than writing into Firestore
+    // (a different security-rule surface entirely), this keeps a small
+    // parallel RTDB node the admin panel merges in by uid. Only fires
+    // when this session is actually authenticated as a customer.
+    function _touchCustomerActivity() {
+        const uid = window._delivoAuthUser?.uid;
+        if (!uid) return;
+        fetch(`${RTDB_BASE}/customerActivity/${uid}/lastActive.json`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ '.sv': 'timestamp' }),
+        }).catch(() => {});
+    }
+
     function buildPayload(uuid, connectedAt) {
         const auth = window._delivoAuthUser || null;
         const ua   = navigator.userAgent;
@@ -170,6 +215,8 @@
                         await ref.set(buildPayload(uuid, connectedAt)).catch(() => {});
                     }
                 }
+                _touchDeviceLeadVisit(uuid);
+                _touchCustomerActivity();
             }, 1500);
         });
 
@@ -185,12 +232,16 @@
                 ref.onDisconnect().remove().catch(() => {});
                 ref.set(buildPayload(uuid, connectedAt)).catch(() => {});
             });
+            _touchDeviceLeadVisit(uuid);
+            _touchCustomerActivity();
         }, HEARTBEAT);
 
         // Visibility restore: quiet update, not re-register
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible') return;
             ref.update({ lastSeen: Date.now(), uid: window._delivoAuthUser?.uid || null, username: window._delivoAuthUser?.username || null }).catch(() => {});
+            _touchDeviceLeadVisit(uuid);
+            _touchCustomerActivity();
         });
 
         db.ref('presence').on('value', snap => {
@@ -203,7 +254,9 @@
             linkUser(uid, username) {
                 window._delivoAuthUser = { uid, username };
                 ref.update({ uid, username: username || null, lastSeen: Date.now() }).catch(() => {});
-            }
+                _touchCustomerActivity();
+            },
+            markDeviceLead() { _hasDeviceLead = true; _touchDeviceLeadVisit(uuid); _touchCustomerActivity(); }
         };
     }
 
@@ -212,10 +265,14 @@
         const path = `presence/${uuid}`;
         const restConnectedAt = Date.now();
         await rtdbPut(path, buildPayload(uuid, restConnectedAt));
+        _touchDeviceLeadVisit(uuid);
+        _touchCustomerActivity();
 
         const hb = setInterval(() => {
             if (document.visibilityState === 'hidden') return;
             rtdbPut(path, { ...buildPayload(uuid, restConnectedAt), lastSeen: Date.now() });
+            _touchDeviceLeadVisit(uuid);
+            _touchCustomerActivity();
         }, HEARTBEAT);
 
         let cleaned = false;
@@ -229,6 +286,8 @@
             if (document.visibilityState !== 'visible') return;
             cleaned = false;
             rtdbPut(path, { ...buildPayload(uuid, restConnectedAt), lastSeen: Date.now() });
+            _touchDeviceLeadVisit(uuid);
+            _touchCustomerActivity();
         });
 
         async function pollCount() {
@@ -244,7 +303,9 @@
             linkUser(uid, username) {
                 window._delivoAuthUser = { uid, username };
                 rtdbPut(path, buildPayload(uuid, restConnectedAt));
-            }
+                _touchCustomerActivity();
+            },
+            markDeviceLead() { _hasDeviceLead = true; _touchDeviceLeadVisit(uuid); _touchCustomerActivity(); }
         };
     }
 
@@ -273,6 +334,7 @@
         setTimeout(async () => {
             loadBoostRange();
             const uuid = await getDeviceUUID();
+            _checkDeviceLead(uuid); // fire-and-forget; heartbeat re-touches lastVisit regardless of exact timing
             function trySDK() {
                 if (window.firebase?.database) { initWithSDK(uuid, window.firebase.database()); return true; }
                 return false;
