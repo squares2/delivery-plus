@@ -10,6 +10,30 @@
 (function () {
     const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 
+    /* ── Daily auto open/close hours (same logic as stores.js) ───
+       External store record may carry autoHours: { enabled, open:"HH:MM",
+       close:"HH:MM" } set in Admin → متاجر خارجية. Handles overnight
+       windows correctly. */
+    function _autoHoursClosedInfo(autoHours) {
+        if (!autoHours || !autoHours.enabled || !autoHours.open || !autoHours.close) return null;
+        const [oh, om] = autoHours.open.split(':').map(Number);
+        const [ch, cm] = autoHours.close.split(':').map(Number);
+        if ([oh, om, ch, cm].some(n => isNaN(n))) return null;
+
+        const now      = new Date();
+        const curMin   = now.getHours() * 60 + now.getMinutes();
+        const openMin  = oh * 60 + om;
+        const closeMin = ch * 60 + cm;
+        if (openMin === closeMin) return null; // identical times = open 24h
+
+        const within = openMin < closeMin
+            ? (curMin >= openMin && curMin < closeMin)
+            : (curMin >= openMin || curMin < closeMin); // overnight window wraps past midnight
+
+        if (within) return null;
+        return { reason: 'خارج أوقات الدوام' };
+    }
+
     /* ── Quick-item picker data ────────────────────────────────
        Category chip → sub-items shown in the popup once tapped.
        Editable by the admin at settings/otlobFastItems (Admin →
@@ -47,7 +71,7 @@
             const data = await res.json();
             if (data && typeof data === 'object') {
                 _extStoreOptions = Object.entries(data)
-                    .filter(([, s]) => s && s.active && s.name)
+                    .filter(([, s]) => s && s.active && s.name && !_autoHoursClosedInfo(s.autoHours))
                     .map(([key, s]) => ({
                         key, name: s.name, type: s.type || '',
                         phone: s.phone || '', address: s.address || '',

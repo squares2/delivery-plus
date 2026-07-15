@@ -137,6 +137,39 @@ async function fetchStoreCounts() {
     }
 }
 
+/* ── Daily auto open/close hours ─────────────────────────────
+   Store record may carry autoHours: { enabled, open:"HH:MM", close:"HH:MM" }
+   (set in Admin → المتاجر). When enabled, the store is treated as
+   closed outside that daily window — independent of (and layered
+   under) any manual storeStatus closure, which always takes
+   priority since it represents a deliberate admin action. Handles
+   overnight windows (e.g. open 18:00, close 02:00) correctly. */
+function _autoHoursClosedInfo(autoHours) {
+    if (!autoHours || !autoHours.enabled || !autoHours.open || !autoHours.close) return null;
+    const [oh, om] = autoHours.open.split(':').map(Number);
+    const [ch, cm] = autoHours.close.split(':').map(Number);
+    if ([oh, om, ch, cm].some(n => isNaN(n))) return null;
+
+    const now      = new Date();
+    const curMin   = now.getHours() * 60 + now.getMinutes();
+    const openMin  = oh * 60 + om;
+    const closeMin = ch * 60 + cm;
+    if (openMin === closeMin) return null; // identical times = open 24h
+
+    const within = openMin < closeMin
+        ? (curMin >= openMin && curMin < closeMin)
+        : (curMin >= openMin || curMin < closeMin); // overnight window wraps past midnight
+
+    if (within) return null;
+
+    // Next opening moment (today if still ahead, otherwise tomorrow)
+    const opensAt = new Date(now);
+    opensAt.setHours(oh, om, 0, 0);
+    if (opensAt <= now) opensAt.setDate(opensAt.getDate() + 1);
+
+    return { reason: 'خارج أوقات الدوام', opensAtIso: opensAt.toISOString() };
+}
+
 /* ── Build store data object ─────────────────────────────── */
 function buildStoreData(s, counts, storeStatus) {
     const name   = s.companyname;
@@ -150,8 +183,13 @@ function buildStoreData(s, counts, storeStatus) {
     const img         = `assets/${slug}.webp`;
     const imgFallback = `assets/${slug}.png`;
     const requests    = counts[_countKey(name)] || counts[_countKey(slug)] || 0;
-    const st          = storeStatus[name] || null;
-    const closed      = st && (st.closed === true || st.closed === '1' || st.closed === 1);
+    const st            = storeStatus[name] || null;
+    const manualClosed  = st && (st.closed === true || st.closed === '1' || st.closed === 1);
+    // Manual admin closure always wins; auto-hours only evaluated otherwise.
+    const autoInfo       = !manualClosed ? _autoHoursClosedInfo(s.autoHours) : null;
+    const closed         = manualClosed || !!autoInfo;
+    const closedReason   = manualClosed ? (st.reason || '') : (autoInfo ? autoInfo.reason : '');
+    const opensAtVal     = manualClosed ? (st.opensAt || '') : (autoInfo ? autoInfo.opensAtIso : '');
 
     return {
         id            : idSlug || slug,
@@ -164,8 +202,8 @@ function buildStoreData(s, counts, storeStatus) {
         requests,
         disabled      : s.disabled,
         _closed       : closed,
-        _closedReason : closed ? (st.reason  || '') : '',
-        _opensAt      : closed ? (st.opensAt || '') : '',
+        _closedReason : closed ? closedReason : '',
+        _opensAt      : closed ? opensAtVal   : '',
     };
 }
 

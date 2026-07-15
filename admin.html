@@ -8944,6 +8944,30 @@ function renderStores() {
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
+                <!-- Daily auto open/close hours — when enabled, the store
+                     is automatically shown as closed to customers outside
+                     this daily window (independent of, and overridden by,
+                     the manual إغلاق المتجر button above). Handles an
+                     overnight window (e.g. 18:00 → 02:00) correctly. -->
+                <div class="sc-hours-row" style="display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap;">
+                    <span style="font-size:0.6rem;color:var(--gray);flex-shrink:0;" title="فتح وإغلاق المتجر تلقائياً كل يوم حسب الوقت المحدد">⏰ دوام تلقائي</span>
+                    <label class="toggle" style="transform:scale(0.72);" title="${s.autoHours?.enabled ? 'الدوام التلقائي مفعّل' : 'الدوام التلقائي متوقف'}">
+                        <input type="checkbox" class="sc-hours-toggle" ${s.autoHours?.enabled ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <input type="time" class="sc-hours-open" value="${s.autoHours?.open || '09:00'}"
+                           style="background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:3px 5px;color:var(--white);font-family:var(--mono);font-size:0.7rem;outline:none;">
+                    <span style="font-size:0.62rem;color:var(--gray);">إلى</span>
+                    <input type="time" class="sc-hours-close" value="${s.autoHours?.close || '23:00'}"
+                           style="background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:3px 5px;color:var(--white);font-family:var(--mono);font-size:0.7rem;outline:none;">
+                    <button class="sc-hours-save" title="حفظ ساعات الدوام"
+                            style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:var(--green);padding:4px 8px;cursor:pointer;font-size:0.72rem;margin-right:auto;">✓</button>
+                    ${s.autoHours?.enabled ? (
+                        _autoHoursClosedInfo(s.autoHours)
+                            ? `<span style="font-size:0.6rem;font-weight:800;color:#ef4444;background:rgba(239,68,68,0.12);border-radius:50px;padding:2px 7px;">🔴 خارج الدوام الآن</span>`
+                            : `<span style="font-size:0.6rem;font-weight:800;color:#22c55e;background:rgba(34,197,94,0.12);border-radius:50px;padding:2px 7px;">🟢 ضمن الدوام الآن</span>`
+                    ) : ''}
+                </div>
                 <div class="sc-meta">
                     <span class="sc-items">${ordCount} طلب إجمالي</span>
                     <span class="sc-rank">${s.rank ? '⭐ '+s.rank : ''}</span>
@@ -9116,6 +9140,36 @@ function renderStores() {
                 await _refreshStoresData(); // confirm against Firebase immediately, not just locally
             } catch (err) {
                 toast('❌ فشل حفظ واتساب: ' + err.message, true);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // Daily auto open/close hours — saved across every type this
+        // store is listed under, same reasoning as the WhatsApp field above.
+        card.querySelector('.sc-hours-save').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn      = card.querySelector('.sc-hours-save');
+            const toggle   = card.querySelector('.sc-hours-toggle');
+            const openInp  = card.querySelector('.sc-hours-open');
+            const closeInp = card.querySelector('.sc-hours-close');
+            const enabled  = toggle.checked;
+            const openVal  = openInp.value || '09:00';
+            const closeVal = closeInp.value || '23:00';
+
+            const types = (s.allTypes && s.allTypes.length) ? s.allTypes : [s.type];
+            btn.disabled = true;
+            try {
+                const autoHours = { enabled, open: openVal, close: closeVal };
+                for (const t of types) {
+                    await _storeSetField(name, t, 'autoHours', autoHours);
+                }
+                s.autoHours = autoHours;
+                toast(enabled
+                    ? `⏰ دوام ${name} التلقائي: ${openVal} — ${closeVal}`
+                    : `⏰ تم إيقاف الدوام التلقائي لـ ${name}`);
+            } catch (err) {
+                toast('❌ فشل حفظ ساعات الدوام: ' + err.message, true);
             } finally {
                 btn.disabled = false;
             }
@@ -18831,6 +18885,32 @@ const EXT_STORE_TYPES = [
 ];
 function esTypeInfo(key) { return EXT_STORE_TYPES.find(t => t.key === key) || EXT_STORE_TYPES[EXT_STORE_TYPES.length - 1]; }
 
+/* ── Daily auto open/close hours (same logic used on the customer
+   side — scripts/stores.js, categories.js, store-panel.js). Store
+   record may carry autoHours: { enabled, open:"HH:MM", close:"HH:MM" }.
+   Used here just to show admins a live "within hours now?" hint next
+   to the schedule fields — the actual enforcement happens client-side
+   for customers. Handles overnight windows correctly. */
+function _autoHoursClosedInfo(autoHours) {
+    if (!autoHours || !autoHours.enabled || !autoHours.open || !autoHours.close) return null;
+    const [oh, om] = autoHours.open.split(':').map(Number);
+    const [ch, cm] = autoHours.close.split(':').map(Number);
+    if ([oh, om, ch, cm].some(n => isNaN(n))) return null;
+
+    const now      = new Date();
+    const curMin   = now.getHours() * 60 + now.getMinutes();
+    const openMin  = oh * 60 + om;
+    const closeMin = ch * 60 + cm;
+    if (openMin === closeMin) return null; // identical times = open 24h
+
+    const within = openMin < closeMin
+        ? (curMin >= openMin && curMin < closeMin)
+        : (curMin >= openMin || curMin < closeMin); // overnight window wraps past midnight
+
+    if (within) return null;
+    return { reason: 'خارج أوقات الدوام' };
+}
+
 let allExtStores   = {};    // cached from Firebase externalStores/
 let _esFilter      = 'all'; // all | active | inactive
 let _esTypeFilter  = '';
@@ -18952,6 +19032,11 @@ function _esRenderList() {
             <div style="font-size:0.76rem;color:var(--gray);">📍 ${s.address || '—'}</div>
             ${s.phone ? `<div style="font-size:0.76rem;color:var(--gray);" dir="ltr">📞 ${formatPhone(s.phone)}</div>` : ''}
             ${(s.lat && s.lng) ? `<div style="font-size:0.68rem;color:var(--orange);font-family:var(--mono);">📌 ${parseFloat(s.lat).toFixed(5)}, ${parseFloat(s.lng).toFixed(5)}</div>` : `<div style="font-size:0.68rem;color:var(--red);">⚠ لا يوجد موقع محدد</div>`}
+            ${s.autoHours?.enabled ? `<div style="font-size:0.68rem;color:var(--gray);">⏰ ${s.autoHours.open}–${s.autoHours.close} ${
+                _autoHoursClosedInfo(s.autoHours)
+                    ? '<span style="color:#ef4444;font-weight:800;">🔴 خارج الدوام الآن</span>'
+                    : '<span style="color:#22c55e;font-weight:800;">🟢 ضمن الدوام الآن</span>'
+            }</div>` : ''}
             <div style="display:flex;gap:8px;margin-top:4px;">
                 <button class="oc-action-btn es-edit-btn" data-key="${key}" style="flex:1;">✏️ تعديل</button>
                 <button class="oc-action-btn es-del-btn" data-key="${key}" style="flex:1;color:var(--red);border-color:rgba(239,68,68,0.35);">🗑 حذف</button>
@@ -19083,6 +19168,22 @@ function _esOpenEditor(key) {
                     </label>
                     <div class="setting-label" style="margin:0;">مفعّل — يظهر كخيار سريع في "اطلب"</div>
                 </div>
+                <div style="border-top:1px solid var(--border);padding-top:12px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <label class="toggle">
+                            <input type="checkbox" id="es-ed-hours-enabled" ${s?.autoHours?.enabled ? 'checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="setting-label" style="margin:0;">⏰ دوام تلقائي يومي (فتح/إغلاق حسب الوقت)</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="time" id="es-ed-hours-open" value="${s?.autoHours?.open || '09:00'}"
+                               style="flex:1;background:var(--surface3,#1a1a2a);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;">
+                        <span class="setting-label" style="margin:0;">إلى</span>
+                        <input type="time" id="es-ed-hours-close" value="${s?.autoHours?.close || '23:00'}"
+                               style="flex:1;background:var(--surface3,#1a1a2a);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;">
+                    </div>
+                </div>
                 <div id="es-ed-err" style="display:none;color:var(--red);font-size:0.8rem;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:8px 12px;"></div>
             </div>
             <div style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);">
@@ -19117,6 +19218,9 @@ function _esOpenEditor(key) {
         const addr   = overlay.querySelector('#es-ed-addr').value.trim();
         const notes  = overlay.querySelector('#es-ed-notes').value.trim();
         const active = overlay.querySelector('#es-ed-active').checked;
+        const hoursEnabled = overlay.querySelector('#es-ed-hours-enabled').checked;
+        const hoursOpen    = overlay.querySelector('#es-ed-hours-open').value || '09:00';
+        const hoursClose   = overlay.querySelector('#es-ed-hours-close').value || '23:00';
         const errEl  = overlay.querySelector('#es-ed-err');
 
         if (!name) { errEl.textContent = '⚠️ أدخل اسم المتجر'; errEl.style.display = 'block'; return; }
@@ -19130,6 +19234,7 @@ function _esOpenEditor(key) {
             lat: pickedLat ? String(pickedLat) : '',
             lng: pickedLng ? String(pickedLng) : '',
             active,
+            autoHours: { enabled: hoursEnabled, open: hoursOpen, close: hoursClose },
             createdAt: s?.createdAt || Date.now(),
             updatedAt: Date.now(),
         };

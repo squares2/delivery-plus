@@ -372,6 +372,34 @@ function _formatOpensAt(raw) {
     return s; // return as-is if unparseable
 }
 
+/* ── Daily auto open/close hours (same logic as stores.js) ───
+   Store record may carry autoHours: { enabled, open:"HH:MM", close:"HH:MM" }
+   set in Admin → المتاجر. Handles overnight windows correctly. */
+function _autoHoursClosedInfo(autoHours) {
+    if (!autoHours || !autoHours.enabled || !autoHours.open || !autoHours.close) return null;
+    const [oh, om] = autoHours.open.split(':').map(Number);
+    const [ch, cm] = autoHours.close.split(':').map(Number);
+    if ([oh, om, ch, cm].some(n => isNaN(n))) return null;
+
+    const now      = new Date();
+    const curMin   = now.getHours() * 60 + now.getMinutes();
+    const openMin  = oh * 60 + om;
+    const closeMin = ch * 60 + cm;
+    if (openMin === closeMin) return null; // identical times = open 24h
+
+    const within = openMin < closeMin
+        ? (curMin >= openMin && curMin < closeMin)
+        : (curMin >= openMin || curMin < closeMin); // overnight window wraps past midnight
+
+    if (within) return null;
+
+    const opensAt = new Date(now);
+    opensAt.setHours(oh, om, 0, 0);
+    if (opensAt <= now) opensAt.setDate(opensAt.getDate() + 1);
+
+    return { reason: 'خارج أوقات الدوام', opensAtIso: opensAt.toISOString() };
+}
+
 /* ── Load & render ────────────────────────────────────────── */
 async function _loadStorePanel(storeName, storeType) {
     const myGen = ++_spLoadGen;
@@ -425,11 +453,16 @@ async function _loadStorePanel(storeName, storeType) {
         }
 
         // ── Handle closed state ───────────────────────────────
-        const isClosed = storeStatusData && (storeStatusData.closed === true || storeStatusData.closed === '1' || storeStatusData.closed === 1);
+        // Manual admin closure (storeStatus) always wins; daily auto-hours
+        // (storeMeta.autoHours, set in Admin → المتاجر) only evaluated
+        // when there's no manual closure in effect.
+        const manualClosed = storeStatusData && (storeStatusData.closed === true || storeStatusData.closed === '1' || storeStatusData.closed === 1);
+        const autoInfo     = (!manualClosed && storeMeta) ? _autoHoursClosedInfo(storeMeta.autoHours) : null;
+        const isClosed     = manualClosed || !!autoInfo;
         if (isClosed) {
-            const reason   = storeStatusData.reason  || 'المتجر مغلق مؤقتاً';
-            const opensAt  = _formatOpensAt(storeStatusData.opensAt);
-            const opensRaw = storeStatusData.opensAt || '';
+            const reason   = manualClosed ? (storeStatusData.reason  || 'المتجر مغلق مؤقتاً') : autoInfo.reason;
+            const opensRaw = manualClosed ? (storeStatusData.opensAt || '') : autoInfo.opensAtIso;
+            const opensAt  = _formatOpensAt(opensRaw);
 
             // Hero meta badge
             if (metaEl) {
