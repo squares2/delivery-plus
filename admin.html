@@ -491,6 +491,24 @@ input, select, textarea { font-family: var(--font); }
     display: flex; align-items: center; gap: 2px; flex-shrink: 0;
     font-size: var(--fs-sm); color: var(--yellow);
 }
+/* Inline-editable name/phone — every order, internal or external
+   (otlob). Same "blend in, dashed underline reveals it's editable"
+   treatment as .oc-fee-input, so it reads as a normal part of the
+   header rather than a separate bolted-on control. */
+.oc-name-input {
+    background: transparent; border: none; border-bottom: 1px dashed rgba(255,255,255,0.25);
+    color: var(--white); font-family: inherit; font-weight: 700; font-size: 0.85rem;
+    padding: 0 2px; width: 140px; max-width: 100%;
+}
+.oc-name-input::placeholder { color: var(--gray); font-weight: 500; }
+.oc-name-input:focus { outline: none; border-bottom-style: solid; border-bottom-color: var(--orange); }
+.oc-phone-input {
+    background: transparent; border: none; border-bottom: 1px dashed rgba(255,255,255,0.25);
+    color: var(--gray-light); font-family: var(--mono); font-size: 0.76rem;
+    padding: 0 2px; width: 120px; max-width: 100%;
+}
+.oc-phone-input::placeholder { color: var(--gray); font-family: inherit; }
+.oc-phone-input:focus { outline: none; border-bottom-style: solid; border-bottom-color: var(--orange); }
 .oc-state { flex-shrink: 0; padding: 3px var(--pad-sm); border-radius: 50px; font-size: var(--fs-xs); font-weight: 800; }
 .state-badge-0 { background: rgba(255,92,0,0.15);  color: var(--orange); }
 .state-badge-1 { background: var(--green-glow);     color: var(--green);  }
@@ -6585,10 +6603,10 @@ function buildOrderCard(key, order) {
             <span class="oc-id">#${idNum}</span>
             <span class="oc-store">${order.store || '—'}</span>
             <span class="oc-customer">
-                <div class="oc-customer-name">${order.fullname || order.username || '—'}</div>
+                <input type="text" class="oc-name-input" data-oid="${key}" value="${(order.fullname || '').replace(/"/g, '&quot;')}" placeholder="${order.username || 'اسم صاحب الطلب'}">
                 <div class="oc-customer-sub">
                     ${order.username ? `<span class="oc-customer-un">@${order.username}</span>` : ''}
-                    ${order.phone    ? `<span class="oc-customer-ph">${formatPhone(order.phone)}</span>` : ''}
+                    <input type="tel" class="oc-phone-input" data-oid="${key}" value="${(order.phone || '').replace(/"/g, '&quot;')}" placeholder="رقم الهاتف" dir="ltr">
                 </div>
             </span>
             <span class="oc-total-edit" title="سعر الطلب بدون رسم التوصيل — اضغط للتعديل">
@@ -6743,6 +6761,29 @@ function buildOrderCard(key, order) {
                 total: (orderOnlyPrice + newDeliveryUSD).toFixed(2)
             });
             toast('✅ تم تحديث رسم التوصيل');
+        });
+    }
+
+    // Inline-editable name/phone — every order, internal or external.
+    // Registered customers' orders start pre-filled from their account,
+    // but admins can still correct a typo or update a changed number
+    // directly here, no separate popup needed.
+    const nameInput = card.querySelector('.oc-name-input');
+    if (nameInput) {
+        nameInput.addEventListener('click', e => e.stopPropagation());
+        nameInput.addEventListener('change', async () => {
+            const val = nameInput.value.trim();
+            await updateOrderFields(key, { fullname: val });
+            toast('✅ تم تحديث الاسم');
+        });
+    }
+    const phoneInput = card.querySelector('.oc-phone-input');
+    if (phoneInput) {
+        phoneInput.addEventListener('click', e => e.stopPropagation());
+        phoneInput.addEventListener('change', async () => {
+            const val = phoneInput.value.trim();
+            await updateOrderFields(key, { phone: val });
+            toast('✅ تم تحديث رقم الهاتف');
         });
     }
 

@@ -270,6 +270,76 @@
     transform: translateY(-2px) scale(1);
 }
 
+/* ── "اطلب" CTA button — the actual click target for a linked card,
+   instead of the whole photo being tappable. Centered along the same
+   bottom edge as the caption (start) and the logo badge (end), so all
+   three sit on one clean row without colliding. ── */
+.hero__bg-card-cta {
+    position: absolute;
+    z-index: 4;
+    bottom: 58px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--clr-orange);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 800;
+    padding: 8px 16px;
+    border-radius: 999px;
+    text-decoration: none;
+    white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(255, 92, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.12);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.hero__bg-card-cta:hover {
+    background: var(--clr-orange-dim, #cc4800);
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 8px 22px rgba(255, 92, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.16);
+}
+.hero__bg-card-cta:active {
+    transform: translateX(-50%) scale(0.96);
+}
+.hero__bg-card-cta svg {
+    flex-shrink: 0;
+}
+@media (min-width: 900px) {
+    .hero__bg-card-cta { font-size: 0.88rem; padding: 9px 20px; bottom: 76px; }
+}
+
+/* ── WhatsApp-branded variant — distinct green identity + a soft
+   pulsing ring so it reads instantly as "chat now", not just another
+   orange order button. ─────────────────────────────────────────── */
+.hero__bg-card-cta--whatsapp {
+    position: absolute; /* re-affirm — sits alongside the shared rule above */
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    box-shadow: 0 6px 18px rgba(18, 140, 126, 0.5), 0 0 0 1px rgba(255,255,255,0.14);
+}
+.hero__bg-card-cta--whatsapp:hover {
+    background: linear-gradient(135deg, #22c35e, #0f7a6c);
+    box-shadow: 0 8px 22px rgba(18, 140, 126, 0.6), 0 0 0 1px rgba(255,255,255,0.18);
+}
+.hero__bg-card-cta__pulse {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: #25D366;
+    opacity: 0.55;
+    animation: heroCtaPulse 2.2s ease-out infinite;
+    pointer-events: none;
+    z-index: -1;
+}
+@keyframes heroCtaPulse {
+    0%   { transform: scale(1);    opacity: 0.5; }
+    70%  { transform: scale(1.35); opacity: 0; }
+    100% { transform: scale(1.35); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hero__bg-card-cta__pulse { animation: none; display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .hero__bg-stack { transition: none; }
     .hero__bg-layer.active .hero__bg-backdrop { animation: none; }
