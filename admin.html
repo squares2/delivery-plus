@@ -353,6 +353,41 @@ input, select, textarea { font-family: var(--font); }
 .map-filter-btn.active { border-color: var(--orange); color: var(--orange); background: rgba(255,92,0,0.12); }
 .map-filter-btn:hover { border-color: var(--white); color: var(--white); }
 
+/* ── Distance measurement floating panel — opposite corner from the
+   filter pills, only shown while measure mode is active ──────────── */
+.map-measure-panel {
+    position: absolute; top: 14px; left: 14px; z-index: 500;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(17,17,24,0.92); backdrop-filter: blur(8px);
+    border: 1.5px solid var(--border-bright); border-radius: 50px;
+    padding: 8px 10px 8px 14px; max-width: 360px;
+}
+.map-measure-panel__hint {
+    font-size: 0.72rem; font-weight: 700; color: var(--gray-light);
+    white-space: nowrap;
+}
+.map-measure-panel__result {
+    font-size: 0.76rem; font-weight: 800; color: var(--white);
+    white-space: nowrap;
+}
+.map-measure-panel__clear {
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(255,255,255,0.08); border: none; color: var(--gray-light);
+    cursor: pointer; font-size: 0.7rem; transition: background 0.15s, color 0.15s;
+}
+.map-measure-panel__clear:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
+
+/* ── Price-tier ring labels — dark theme to match the rest of the panel ── */
+.price-tier-tooltip {
+    background: rgba(17,17,24,0.92) !important;
+    border: 1.5px solid var(--border-bright) !important;
+    color: var(--white) !important;
+    font-family: 'Almarai', sans-serif; font-size: 10px; font-weight: 800;
+    border-radius: 6px; padding: 3px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.price-tier-tooltip::before { display: none; }
+
 /* ─── ORDERS PANEL ──────────────────────────────────────────── */
 .orders-toolbar {
     padding: var(--pad-sm) var(--pad-lg); border-bottom: 1px solid var(--border);
@@ -2068,6 +2103,16 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                     <button class="ph-btn" id="map-toggle-btn" onclick="toggleAdminMapLayer()" title="تبديل نوع الخريطة">
                         🛰 صورة جوية
                     </button>
+                    <button class="ph-btn" id="map-measure-btn" onclick="toggleMeasureMode()" title="قياس المسافة بين نقطتين على الخريطة">
+                        📏 قياس مسافة
+                    </button>
+                    <div class="ph-btn" style="cursor:default;gap:8px;" title="إظهار/إخفاء شرائح أسعار التوصيل حسب المسافة من المركز">
+                        <span>💰 شرائح الأسعار</span>
+                        <label class="toggle" style="transform:scale(0.7);margin:0 -6px 0 -10px;">
+                            <input type="checkbox" id="toggle-map-price-tiers" onchange="toggleMapPriceTiers(this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
                     <span class="panel-header-sub" id="map-last-update">—</span>
                     <button class="ph-btn" id="map-refresh-btn">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -2084,6 +2129,11 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                         <button class="map-filter-btn active" data-layer="extStores">🌍 متاجر خارجية</button>
                     </div>
                     <div id="admin-map"></div>
+                    <div class="map-measure-panel" id="map-measure-panel" style="display:none;">
+                        <div class="map-measure-panel__hint" id="map-measure-hint"></div>
+                        <div class="map-measure-panel__result" id="map-measure-result" style="display:none;"></div>
+                        <button class="map-measure-panel__clear" id="map-measure-clear" title="إلغاء القياس">✕</button>
+                    </div>
                     <div class="map-legend">
                         <div class="map-legend-title">دليل الخريطة</div>
                         <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div>مركز Delivo</div>
@@ -3366,12 +3416,12 @@ let allBlacklist   = {};
 let storeFilter    = 'all';
 let storeSearch    = '';
 let hideDisabledStores = localStorage.getItem('delivo_hide_disabled_stores') === '1';
-let mapLayers    = { stores: true, drivers: true, customers: true, orders: true, center: true, extStores: true };
+let mapLayers    = { stores: true, drivers: true, customers: true, orders: true, center: true, extStores: true, priceTiers: false };
 let adminMap     = null;
 let _adminMapStandardLayer  = null;
 let _adminMapSatelliteLayer = null;
 let _adminMapCurrentLayer   = 'standard';
-let mapMarkers   = { stores: [], drivers: [], customers: [], orders: [], center: [], extStores: [] };
+let mapMarkers   = { stores: [], drivers: [], customers: [], orders: [], center: [], extStores: [], priceTiers: [] };
 let deliveryCenterLoc = null; // { lat, lng } — Delivo HQ, settings/deliveryCenter
 let deliveryRadiusKm  = 7;    // coverage radius (km) around the HQ — settings/deliveryCenter.radiusKm
 let refreshTimer         = null;
@@ -6106,6 +6156,231 @@ function renderMap() {
                 .addTo(adminMap);
             window._driverLines.push(dot);
         });
+    });
+
+    // ── Delivery price-tier coverage rings (opt-in via the 💰 toggle) ──
+    _renderPriceTierRings();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DISTANCE MEASUREMENT TOOL — click two points on the map to see the
+// road route between them (via OSRM) and its distance. Falls back to
+// a straight-line geodesic distance if the routing service can't be
+// reached (offline admin, blocked network, etc.) so it's still usable.
+// ═══════════════════════════════════════════════════════════════
+let _measureActive       = false;
+let _measurePoints       = [];   // [{lat,lng}, {lat,lng}]
+let _measureMarkers      = [];   // Leaflet markers for the two points
+let _measureLine         = null; // Leaflet polyline (route or straight fallback)
+let _measureClickHandler = null;
+
+function toggleMeasureMode() {
+    _measureActive ? _exitMeasureMode() : _enterMeasureMode();
+}
+
+function _enterMeasureMode() {
+    if (!adminMap) return;
+    _measureActive = true;
+    _clearMeasure();
+    const btn = document.getElementById('map-measure-btn');
+    if (btn) btn.classList.add('ph-btn--primary');
+    const panel = document.getElementById('map-measure-panel');
+    if (panel) panel.style.display = 'flex';
+    _setMeasureHint('📍 اضغط على الخريطة لتحديد نقطة الانطلاق');
+    adminMap.getContainer().style.cursor = 'crosshair';
+    _measureClickHandler = (e) => _onMeasureMapClick(e.latlng);
+    adminMap.on('click', _measureClickHandler);
+}
+
+function _exitMeasureMode() {
+    _measureActive = false;
+    const btn = document.getElementById('map-measure-btn');
+    if (btn) btn.classList.remove('ph-btn--primary');
+    if (adminMap) {
+        adminMap.getContainer().style.cursor = '';
+        if (_measureClickHandler) adminMap.off('click', _measureClickHandler);
+    }
+    _measureClickHandler = null;
+    const panel = document.getElementById('map-measure-panel');
+    if (panel) panel.style.display = 'none';
+    _clearMeasure();
+}
+
+function _clearMeasure() {
+    _measureMarkers.forEach(m => adminMap.removeLayer(m));
+    _measureMarkers = [];
+    if (_measureLine) { adminMap.removeLayer(_measureLine); _measureLine = null; }
+    _measurePoints = [];
+    const resultEl = document.getElementById('map-measure-result');
+    if (resultEl) { resultEl.style.display = 'none'; resultEl.innerHTML = ''; }
+}
+
+function _setMeasureHint(text) {
+    const hint = document.getElementById('map-measure-hint');
+    if (!hint) return;
+    if (!text) { hint.style.display = 'none'; return; }
+    hint.style.display = 'block';
+    hint.textContent = text;
+}
+
+function _onMeasureMapClick(latlng) {
+    // A completed measurement is already showing — a third click starts over.
+    if (_measurePoints.length >= 2) {
+        _clearMeasure();
+        _setMeasureHint('📍 اضغط على الخريطة لتحديد نقطة الانطلاق');
+    }
+
+    const isFirst = _measurePoints.length === 0;
+    _measurePoints.push({ lat: latlng.lat, lng: latlng.lng });
+
+    const marker = L.marker(latlng, {
+        draggable: true,
+        icon: mkDiv(
+            `<div style="width:26px;height:26px;border-radius:50%;background:${isFirst ? '#22c55e' : '#ef4444'};
+                        display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:12px;
+                        box-shadow:0 3px 10px rgba(0,0,0,0.4);border:2px solid #fff;">${isFirst ? 'A' : 'B'}</div>`,
+            null, [13, 13]
+        ),
+    }).addTo(adminMap);
+
+    marker.on('dragend', () => {
+        const idx = _measureMarkers.indexOf(marker);
+        if (idx === -1) return;
+        const ll = marker.getLatLng();
+        _measurePoints[idx] = { lat: ll.lat, lng: ll.lng };
+        if (_measurePoints.length === 2) _computeMeasureRoute();
+    });
+
+    _measureMarkers.push(marker);
+
+    if (isFirst) {
+        _setMeasureHint('🎯 والآن اضغط لتحديد الوجهة');
+    } else {
+        _setMeasureHint('');
+        _computeMeasureRoute();
+    }
+}
+
+// Great-circle distance in km — used only as the fallback when the live
+// routing service can't be reached.
+function _haversineKm(a, b) {
+    const R    = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLng = (b.lng - a.lng) * Math.PI / 180;
+    const s    = Math.sin(dLat / 2) ** 2
+               + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+
+async function _computeMeasureRoute() {
+    if (_measurePoints.length !== 2) return;
+    const [a, b] = _measurePoints;
+    if (_measureLine) { adminMap.removeLayer(_measureLine); _measureLine = null; }
+
+    const resultEl = document.getElementById('map-measure-result');
+    if (resultEl) { resultEl.style.display = 'block'; resultEl.innerHTML = '⏳ جارِ حساب المسار…'; }
+
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('routing failed');
+        const data  = await res.json();
+        const route = data && data.routes && data.routes[0];
+        if (!route) throw new Error('no route');
+
+        const latlngs = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        _measureLine = L.polyline(latlngs, { color: '#3b82f6', weight: 4, opacity: 0.85 }).addTo(adminMap);
+        adminMap.fitBounds(_measureLine.getBounds(), { padding: [70, 70] });
+
+        const km  = (route.distance / 1000).toFixed(2);
+        const min = Math.round(route.duration / 60);
+        if (resultEl) resultEl.innerHTML = `🛣️ مسافة الطريق: <b>${km} كم</b> · ⏱ ${min} د تقريباً`;
+    } catch (_) {
+        // Routing service unreachable — straight geodesic line instead,
+        // clearly labeled so it's never mistaken for an actual route.
+        _measureLine = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
+            color: '#9ca3af', weight: 3, dashArray: '6,8', opacity: 0.9,
+        }).addTo(adminMap);
+        adminMap.fitBounds(_measureLine.getBounds(), { padding: [70, 70] });
+
+        const km = _haversineKm(a, b).toFixed(2);
+        if (resultEl) {
+            resultEl.innerHTML = `📏 مسافة خط مستقيم: <b>${km} كم</b> <span style="color:var(--gray);">(تعذّر جلب مسار الطريق)</span>`;
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DELIVERY PRICE-TIER COVERAGE RINGS — visualizes settings/smartDelivery
+// .centerTiers (distance-from-center pricing bands) directly on the map,
+// toggled via the 💰 شرائح الأسعار switch in the panel header.
+// ═══════════════════════════════════════════════════════════════
+let _priceTiersData = null; // cached settings/smartDelivery.centerTiers
+const _PRICE_TIER_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#06b6d4'];
+
+async function _loadPriceTiersData(force) {
+    if (_priceTiersData && !force) return _priceTiersData;
+    try {
+        const cfg = await fbGet('settings/smartDelivery');
+        _priceTiersData = (cfg && Array.isArray(cfg.centerTiers)) ? cfg.centerTiers : [];
+    } catch (_) {
+        _priceTiersData = [];
+    }
+    return _priceTiersData;
+}
+
+function _fmtLbp(n) {
+    const num = parseFloat(n);
+    if (isNaN(num)) return '—';
+    return Math.round(num).toLocaleString('en-US') + ' ل.ل';
+}
+
+async function toggleMapPriceTiers(checked) {
+    mapLayers.priceTiers = checked;
+    if (checked) await _loadPriceTiersData();
+    renderMap();
+}
+
+function _renderPriceTierRings() {
+    if (!adminMap) return;
+    mapMarkers.priceTiers.forEach(m => adminMap.removeLayer(m));
+    mapMarkers.priceTiers = [];
+
+    if (!mapLayers.priceTiers || !deliveryCenterLoc || !_priceTiersData || !_priceTiersData.length) return;
+
+    const sorted = [..._priceTiersData].sort((a, b) => parseFloat(a.fromKm || 0) - parseFloat(b.fromKm || 0));
+
+    // Draw the largest ring first so the smaller ones sit visually on top
+    // (otherwise a big fill would cover the smaller rings entirely).
+    [...sorted].reverse().forEach((t) => {
+        const idx    = sorted.indexOf(t);
+        const fromKm = parseFloat(t.fromKm || 0);
+        const hasTo  = t.toKm !== undefined && t.toKm !== null && t.toKm !== '';
+        // Last "and above" tier has no outer bound — draw it 2km past its
+        // own start just so it's visible on the map as a dashed ring.
+        const toKm   = hasTo ? parseFloat(t.toKm) : fromKm + 2;
+        const color  = _PRICE_TIER_COLORS[idx % _PRICE_TIER_COLORS.length];
+
+        const circle = L.circle([deliveryCenterLoc.lat, deliveryCenterLoc.lng], {
+            radius: toKm * 1000,
+            color, weight: 2, dashArray: '5,6',
+            fillColor: color, fillOpacity: 0.05,
+        }).addTo(adminMap);
+        mapMarkers.priceTiers.push(circle);
+
+        // Label anchored at the top edge of THIS ring (not dead-center,
+        // where every ring's label would stack on top of each other).
+        const labelLat = deliveryCenterLoc.lat + (toKm / 111.32);
+        const rangeLabel = hasTo ? `${fromKm}–${toKm} كم` : `${fromKm}+ كم`;
+        const labelIcon = L.divIcon({
+            className: '', html: '', iconSize: [0, 0],
+        });
+        const labelMarker = L.marker([labelLat, deliveryCenterLoc.lng], { icon: labelIcon, interactive: false })
+            .bindTooltip(`${rangeLabel} · ${_fmtLbp(t.fee)}`, {
+                permanent: true, direction: 'top', className: 'price-tier-tooltip', offset: [0, 0],
+            })
+            .addTo(adminMap);
+        mapMarkers.priceTiers.push(labelMarker);
     });
 }
 
@@ -15861,6 +16136,12 @@ document.querySelectorAll('.map-filter-btn').forEach(btn => {
         mapLayers[btn.dataset.layer] = btn.classList.contains('active');
         renderMap();
     });
+});
+
+// Distance-measurement "clear" button
+document.getElementById('map-measure-clear')?.addEventListener('click', () => {
+    _clearMeasure();
+    _setMeasureHint('📍 اضغط على الخريطة لتحديد نقطة الانطلاق');
 });
 
 // Sidebar collapse
