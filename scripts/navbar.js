@@ -123,6 +123,36 @@ function initNavbar() {
                 <div class="bb-track-sheet__list" id="bb-track-sheet-list"></div>
             </div>
         </div>
+
+        <div class="bb-order-choice" id="bb-order-choice">
+            <div class="bb-order-choice__backdrop" id="bb-order-choice-backdrop"></div>
+            <div class="bb-order-choice__panel">
+                <div class="bb-order-choice__handle"></div>
+                <div class="bb-order-choice__title">كيف بدك تطلب؟</div>
+                <div class="bb-order-choice__options">
+                    <button class="bb-order-choice__opt" id="bb-order-choice-otlob">
+                        <span class="bb-order-choice__opt-icon bb-order-choice__opt-icon--orange">
+                            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                                <circle cx="12" cy="9" r="2.5"/>
+                            </svg>
+                        </span>
+                        <span class="bb-order-choice__opt-label">اطلب مباشر</span>
+                        <span class="bb-order-choice__opt-desc">من أي متجر عبر التطبيق</span>
+                    </button>
+                    <button class="bb-order-choice__opt" id="bb-order-choice-whatsapp">
+                        <span class="bb-order-choice__opt-icon bb-order-choice__opt-icon--whatsapp">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.47 14.38c-.3-.15-1.77-.87-2.04-.97-.27-.1-.48-.15-.68.15-.2.3-.78.97-.96 1.17-.18.2-.35.22-.65.07-.3-.15-1.28-.47-2.43-1.5-.9-.8-1.5-1.79-1.68-2.09-.18-.3-.02-.46.13-.61.14-.14.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.64-.93-2.24-.24-.58-.49-.5-.68-.51-.18-.01-.38-.01-.58-.01-.2 0-.53.07-.8.38-.28.3-1.05 1.02-1.05 2.49s1.08 2.88 1.23 3.08c.15.2 2.13 3.25 5.16 4.56.72.31 1.28.5 1.72.64.72.23 1.38.2 1.9.12.58-.09 1.77-.72 2.02-1.42.25-.7.25-1.3.17-1.42-.08-.13-.27-.2-.57-.35z"/>
+                                <path d="M12.02 2C6.5 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.08-1.33A9.96 9.96 0 0 0 12.02 22C17.53 22 22 17.52 22 12S17.53 2 12.02 2zm0 18.06c-1.7 0-3.28-.5-4.6-1.36l-.33-.2-3.02.79.8-2.94-.21-.3A8.06 8.06 0 0 1 3.96 12c0-4.44 3.62-8.06 8.06-8.06 4.44 0 8.06 3.62 8.06 8.06 0 4.44-3.62 8.06-8.06 8.06z"/>
+                            </svg>
+                        </span>
+                        <span class="bb-order-choice__opt-label">واتساب</span>
+                        <span class="bb-order-choice__opt-desc">اطلب عبر محادثة واتساب</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     `;
     document.body.appendChild(bar);
 
@@ -130,8 +160,15 @@ function initNavbar() {
     document.getElementById('bb-cart-btn').addEventListener('click', () => {
         if (typeof openCartSidebar === 'function') openCartSidebar();
     });
-    document.getElementById('bb-order-btn').addEventListener('click', () => {
+    document.getElementById('bb-order-btn').addEventListener('click', _openOrderChoice);
+    document.getElementById('bb-order-choice-backdrop').addEventListener('click', _closeOrderChoice);
+    document.getElementById('bb-order-choice-otlob').addEventListener('click', () => {
+        _closeOrderChoice();
         if (typeof window._extOpenModal === 'function') window._extOpenModal();
+    });
+    document.getElementById('bb-order-choice-whatsapp').addEventListener('click', () => {
+        _closeOrderChoice();
+        _openWhatsAppOrder();
     });
     document.getElementById('bb-search-btn').addEventListener('click', () => {
         openSearchOverlay();
@@ -150,6 +187,7 @@ function initNavbar() {
     };
 
     updateCartBadge();
+    _prefetchAdminPhoneForWhatsApp();
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -614,6 +652,56 @@ window._openTrackSheet = function _openTrackSheet() {
 window._closeTrackSheet = function _closeTrackSheet() {
     document.getElementById('bb-track-sheet').classList.remove('open');
     document.body.classList.remove('modal-open');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ORDER CHOICE SHEET — bottom bar "اطلب" now asks whether the
+   person wants the in-app otlob flow or to just message the admin
+   on WhatsApp, instead of jumping straight into the otlob modal.
+══════════════════════════════════════════════════════════════ */
+function _openOrderChoice() {
+    const sheet = document.getElementById('bb-order-choice');
+    if (!sheet) return;
+    sheet.classList.add('open');
+    document.body.classList.add('modal-open');
+}
+
+function _closeOrderChoice() {
+    const sheet = document.getElementById('bb-order-choice');
+    if (!sheet) return;
+    sheet.classList.remove('open');
+    document.body.classList.remove('modal-open');
+}
+
+/* Same settings/adminPhone value cart.js / firebase-init.js already read
+   elsewhere — prefetched once at init (below) and cached in localStorage,
+   so the click handler can open the WhatsApp tab synchronously. Doing the
+   fetch inside the click handler instead would insert an await between
+   the tap and window.open(), and most browsers no longer treat that as
+   a user-initiated action — the tab would get silently popup-blocked. */
+const _NAVBAR_RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+const _NAVBAR_FALLBACK_PHONE = '96170714152';
+let _navbarAdminPhoneDigits = null;
+
+function _prefetchAdminPhoneForWhatsApp() {
+    try {
+        const cached = localStorage.getItem('delivo_admin_phone');
+        if (cached) _navbarAdminPhoneDigits = String(cached).replace(/[^0-9]/g, '');
+    } catch (_) {}
+    fetch(`${_NAVBAR_RTDB}/settings/adminPhone.json`)
+        .then(r => r.ok ? r.json() : null)
+        .then(fresh => {
+            if (!fresh) return;
+            _navbarAdminPhoneDigits = String(fresh).replace(/[^0-9]/g, '');
+            try { localStorage.setItem('delivo_admin_phone', String(fresh)); } catch (_) {}
+        })
+        .catch(() => { /* keep whatever we already had (cache or fallback) */ });
+}
+
+function _openWhatsAppOrder() {
+    const digits = _navbarAdminPhoneDigits || _NAVBAR_FALLBACK_PHONE;
+    const msg    = 'مرحباً 👋، بدي اطلب طلبية اذا بتريد';
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
 }
 
 /* ══════════════════════════════════════════════════════════════

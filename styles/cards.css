@@ -1384,7 +1384,7 @@
     gap: clamp(10px, 2.6vw, 16px);
     overflow-y: auto;
     overflow-x: hidden;
-    padding: clamp(12px, 3vw, 16px) calc(var(--container-pad) - 2px) calc(env(safe-area-inset-bottom, 0px) + 20px) var(--container-pad);
+    padding: clamp(12px, 3vw, 16px) calc(var(--container-pad) - 2px) calc(env(safe-area-inset-bottom, 0px) + 46px) var(--container-pad);
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     cursor: grab;
@@ -1395,6 +1395,44 @@
 .cat-stores-dropdown__scroll.dragging {
     cursor: grabbing;
     user-select: none;
+}
+
+/* ── "More stores below" hint — a soft white fade with a bouncing
+   chevron, pinned over the bottom edge of the sheet. Purely a visual
+   cue layered on top of the scroll area (pointer-events:none so it
+   never blocks taps); categories.js toggles it via the .visible class
+   based on whether the list actually overflows and how far the person
+   has scrolled, so it disappears the moment they reach the last card. */
+.cat-stores-dropdown__more-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 54px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 6px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, var(--clr-white) 82%);
+    color: var(--clr-orange);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    z-index: 3;
+}
+.cat-stores-dropdown__more-hint.visible {
+    opacity: 1;
+}
+.cat-stores-dropdown__more-hint svg {
+    animation: catMoreHintBounce 1.4s ease-in-out infinite;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.12));
+}
+@keyframes catMoreHintBounce {
+    0%, 100% { transform: translateY(0);   opacity: 0.55; }
+    50%      { transform: translateY(5px); opacity: 1;    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cat-stores-dropdown__more-hint svg { animation: none; }
 }
 /* Chrome/Safari/Edge: slim always-visible scrollbar, thumb only paints on
    the track (no arrows/box) so it reads as a clean rail, not a UI relic.

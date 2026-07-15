@@ -185,7 +185,12 @@ function _toggleCategory(cat) {
 
     _fetchStores(catMeta.fbKey)
         .then(stores => { if (_openCategory === cat) _renderStores(stores, cat, catMeta); })
-        .catch(()    => { if (_openCategory === cat) scrollEl.innerHTML = `<div class="cat-stores-empty">⚠️ تعذّر التحميل</div>`; });
+        .catch(()    => {
+            if (_openCategory !== cat) return;
+            scrollEl.innerHTML = `<div class="cat-stores-empty">⚠️ تعذّر التحميل</div>`;
+            const hint = document.getElementById('cat-dd-more-hint');
+            if (hint) hint.classList.remove('visible');
+        });
 }
 
 function _closeDropdown() {
@@ -258,6 +263,8 @@ function _renderStores(stores, catKey, catMeta) {
     if (!stores || stores.length === 0) {
         countEl.textContent = '';
         scrollEl.innerHTML = `<div class="cat-stores-empty">لا توجد متاجر في هذا القسم حالياً</div>`;
+        const hint = document.getElementById('cat-dd-more-hint');
+        if (hint) hint.classList.remove('visible');
         return;
     }
     countEl.textContent = stores.length + ' متجر';
@@ -268,7 +275,31 @@ function _renderStores(stores, catKey, catMeta) {
     requestAnimationFrame(() => {
         _wireStoreCardClicks(scrollEl);
         _initVerticalDragScroll(scrollEl);
+        _wireMoreHint(scrollEl);
     });
+}
+
+/* ── "More stores below" hint wiring ───────────────────────────────
+   Shows a bouncing chevron + fade only when the grid actually has
+   content hidden below the fold, and hides it once the person has
+   scrolled far enough to see the last row — so it never lingers as
+   a false promise of more stores once they've seen them all. */
+function _wireMoreHint(scrollEl) {
+    const hint = document.getElementById('cat-dd-more-hint');
+    if (!hint) return;
+
+    function update() {
+        const overflowing = scrollEl.scrollHeight > scrollEl.clientHeight + 4;
+        const nearBottom  = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 16;
+        hint.classList.toggle('visible', overflowing && !nearBottom);
+    }
+
+    update();
+    if (!scrollEl._moreHintBound) {
+        scrollEl._moreHintBound = true;
+        scrollEl.addEventListener('scroll', update, { passive: true });
+        window.addEventListener('resize', update);
+    }
 }
 
 /* ── Wires "open store panel" clicks onto every rendered store card
