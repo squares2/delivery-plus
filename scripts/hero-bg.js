@@ -135,13 +135,15 @@ async function initHeroBg() {
         const src  = _heroEscapeHtml(bg.image);
         const lazy = i === list.length - 1 ? '' : 'loading="lazy"'; // logical slide 0 is last in this reversed array
 
-        // Any slide without an explicit stores/custom link defaults to a
-        // WhatsApp order button — guaranteed to work with zero admin setup,
-        // instead of depending on each slide having its own linkType/
-        // linkValue configured (easy to forget, and the previous behavior
-        // when unconfigured — no button at all — isn't useful to anyone).
+        // Any slide without ANY linkType saved at all (legacy data, from
+        // before the "no link" option existed) defaults to a WhatsApp
+        // order button — guaranteed to work with zero admin setup.
+        // But once a slide has an explicit linkType — including 'none'
+        // ("بدون رابط / زخرفة فقط") — that choice is respected as-is and
+        // never falls back to the WhatsApp button.
+        const isConfigured = !!bg.linkType;
         const hasExplicitLink = bg.linkType === 'stores' || ((bg.linkType === 'custom' || bg.linkType === 'whatsapp') && bg.linkValue);
-        const isWhatsApp = bg.linkType === 'whatsapp' ? !!bg.linkValue : !hasExplicitLink;
+        const isWhatsApp = bg.linkType === 'whatsapp' ? !!bg.linkValue : (!isConfigured && !hasExplicitLink);
         const isLink = hasExplicitLink || isWhatsApp;
 
         let hrefAttrs = '';
