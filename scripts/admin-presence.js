@@ -38,15 +38,20 @@
         return _audioCtx;
     }
 
-    function _tone(ctx, freq, startTime, duration, peakGain) {
+    // A single continuous pitch-glide (portamento) on a triangle wave —
+    // deliberately NOT two discrete sine "ding-dong" notes, since that's
+    // exactly the shape/timbre of the new-order chime (880→1180Hz sine).
+    // This one lives an octave lower (300–520Hz), uses a warmer triangle
+    // wave, and glides smoothly between two pitches instead of stepping,
+    // so the ear tells them apart instantly even back-to-back.
+    function _glideTone(ctx, freqFrom, freqTo, startTime, duration, peakGain) {
         const osc  = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
-        // Smooth attack/release envelope so the tone fades in and out
-        // instead of clicking/popping at the start or end.
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freqFrom, startTime);
+        osc.frequency.exponentialRampToValueAtTime(freqTo, startTime + duration * 0.75);
         gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.018);
+        gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
         osc.connect(gain).connect(ctx.destination);
         osc.start(startTime);
@@ -60,11 +65,9 @@
         if (ctx.state === 'suspended') ctx.resume().catch(() => {});
         const now = ctx.currentTime;
         if (kind === 'join') {
-            _tone(ctx, 587.33, now,        0.22, 0.14); // D5 — soft rising "ding"
-            _tone(ctx, 880.00, now + 0.11, 0.28, 0.16); // A5
+            _glideTone(ctx, 340, 520, now, 0.22, 0.13); // soft upward "blip"
         } else {
-            _tone(ctx, 660.00, now,        0.20, 0.09); // E5 — quieter falling tone
-            _tone(ctx, 440.00, now + 0.10, 0.26, 0.08); // A4
+            _glideTone(ctx, 420, 280, now, 0.24, 0.08); // quieter downward "blip"
         }
     }
 

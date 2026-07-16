@@ -81,6 +81,75 @@ async function _loadAdminPhoneLink() {
 })();
 
 /* ══════════════════════════════════════════════════════════════
+   NIGHT DELIVERY SURGE
+   Reads settings/nightDelivery = { enabled, startHour, endHour, flatFee, perKm }.
+   Adds a smooth surcharge on top of whatever the normal fee comes out to
+   (flat OR smart-computed) during night hours — but instead of snapping a
+   fixed extra fee on/off at the clock boundary, it ramps up gradually after
+   startHour, peaks exactly at the window's midpoint, and eases back down
+   by endHour, using a half-sine "bell curve". A rider working the 2am dip
+   earns the full night premium; someone ordering right at 10:01pm barely
+   notices a fee change at all — same shape a real surge-pricing curve has.
+══════════════════════════════════════════════════════════════ */
+let _nightCfg       = null;
+let _nightCfgLoaded = false;
+
+async function _loadNightCfg() {
+    if (_nightCfgLoaded) return _nightCfg;
+    try {
+        const r = await fetch(`${RTDB_CART_URL}/settings/nightDelivery.json`);
+        _nightCfg = r.ok ? await r.json() : null;
+    } catch (_) { _nightCfg = null; }
+    _nightCfgLoaded = true;
+    return _nightCfg;
+}
+
+// Current hour-of-day in Beirut time as a decimal (e.g. 23.5 = 11:30pm) —
+// matters because the night window is a real-world clock concept, not
+// whatever timezone a visiting customer's device happens to be set to.
+function _beirutHourFrac() {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Beirut', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date());
+    const h = parseFloat(parts.find(p => p.type === 'hour').value);
+    const m = parseFloat(parts.find(p => p.type === 'minute').value);
+    return h + m / 60;
+}
+
+// 0 → 1 → 0 half-sine bell curve across [startHour, endHour], correctly
+// handling windows that cross midnight (e.g. 22 → 6).
+function _nightIntensity(startHour, endHour) {
+    let duration = endHour - startHour;
+    if (duration <= 0) duration += 24;
+    let elapsed = _beirutHourFrac() - startHour;
+    if (elapsed < 0) elapsed += 24;
+    if (elapsed > duration) return 0; // outside the window entirely
+    return Math.sin(Math.PI * (elapsed / duration));
+}
+
+async function _calcNightSurcharge(distanceKm) {
+    const cfg = await _loadNightCfg();
+    if (!cfg || !cfg.enabled) return 0;
+    const startHour = parseFloat(cfg.startHour ?? 22);
+    const endHour   = parseFloat(cfg.endHour   ?? 6);
+    const flatFee   = parseFloat(cfg.flatFee   ?? 1.0);
+    const perKm     = parseFloat(cfg.perKm     ?? 0);
+    const intensity = _nightIntensity(startHour, endHour);
+    if (intensity <= 0) return 0;
+    return intensity * (flatFee + perKm * (distanceKm || 0));
+}
+
+// Small transparency touch shown next to the delivery-fee line in the cart —
+// only appears when the night surcharge is actually contributing right now.
+async function _nightBadgeHtml() {
+    const cfg = await _loadNightCfg();
+    if (!cfg || !cfg.enabled) return '';
+    const intensity = _nightIntensity(parseFloat(cfg.startHour ?? 22), parseFloat(cfg.endHour ?? 6));
+    if (intensity <= 0) return '';
+    return ` <span title="رسوم توصيل ليلي مُفعّلة الآن 🌙" style="font-size:0.85em;">🌙</span>`;
+}
+
+/* ══════════════════════════════════════════════════════════════
    SMART DELIVERY ENGINE
    Reads settings/smartDelivery from Firebase once per session.
    Formula: fee = max(minFee, baseFee + distKm × ratePerKm) − tierDiscount
@@ -453,10 +522,12 @@ function _initCoverageWarningModal() {
     }
 }
 
-// Compute delivery fee for one store given customer coords and cart subtotal ($)
+// Compute delivery fee for one store given customer coords and cart subtotal ($).
+// Returns { fee, distanceKm } — distanceKm is null when unknown (only used
+// by the night-delivery surcharge's optional per-km component).
 async function _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD) {
     const cfg = await _loadSmartCfg();
-    if (!cfg || !cfg.enabled) return DELIVERY_FEE_PER_STORE;
+    if (!cfg || !cfg.enabled) return { fee: DELIVERY_FEE_PER_STORE, distanceKm: null };
 
     const mode      = cfg.mode || 'formula'; // 'formula' (default, back-compat) | 'centerTiers'
     const baseFee   = parseFloat(cfg.baseFee   ?? 1.5);
@@ -465,12 +536,14 @@ async function _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD) {
     const maxFee    = parseFloat(cfg.maxFee    ?? 5.0);
 
     let distFee;
-    let isExactTierPrice = false;
+    let isExactTierPrice   = false;
+    let distanceKmForNight = null;
 
     if (mode === 'centerTiers') {
         const center = await _getDeliveryCenter();
         if (center && custLat && custLng) {
             const kmFromCenter = _haversineKm(custLat, custLng, center.lat, center.lng);
+            distanceKmForNight = kmFromCenter;
             const tierFeeLBP = _calcCenterTierFee(kmFromCenter, cfg.centerTiers);
             // Center-tier prices are admin-entered in Lebanese Lira (large numbers,
             // e.g. 50000) — convert to a USD-equivalent right away so the discount
@@ -500,6 +573,7 @@ async function _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD) {
             if (storeLoc) {
                 const km = _haversineKm(custLat, custLng, storeLoc.lat, storeLoc.lng);
                 distFee = baseFee + km * ratePerKm;
+                distanceKmForNight = km;
             }
         }
     }
@@ -519,8 +593,10 @@ async function _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD) {
 
     // Center-tier prices are exact admin-set prices per boundary — still honour
     // cart discounts, but don't clamp them into the formula's min/max band.
-    if (isExactTierPrice) return Math.max(0, distFee - discount);
-    return Math.min(maxFee, Math.max(minFee, distFee - discount));
+    const fee = isExactTierPrice
+        ? Math.max(0, distFee - discount)
+        : Math.min(maxFee, Math.max(minFee, distFee - discount));
+    return { fee, distanceKm: distanceKmForNight };
 }
 
 // Cached per-store fees for current render cycle (invalidated on cart change)
@@ -532,7 +608,9 @@ let _feeCacheLng    = null;
 async function _getStoreFee(storeName, custLat, custLng, cartSubtotalUSD) {
     const cacheKey = `${storeName}|${custLat}|${custLng}|${cartSubtotalUSD}`;
     if (_feeCache[cacheKey] !== undefined) return _feeCache[cacheKey];
-    const fee = await _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD);
+    const { fee: baseFee, distanceKm } = await _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD);
+    const nightSurcharge = await _calcNightSurcharge(distanceKm);
+    const fee = Math.max(0, baseFee + nightSurcharge);
     _feeCache[cacheKey] = fee;
     return fee;
 }
@@ -1158,6 +1236,7 @@ function initCart() {
                 deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">${_formatDeliveryFee(totalDelivery)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
             } else {
                 deliveryEl.textContent = _formatDeliveryFee(deliveryFee);
+                _nightBadgeHtml().then(badge => { if (badge) deliveryEl.insertAdjacentHTML('beforeend', badge); });
             }
         }
         if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);

@@ -5690,6 +5690,27 @@ function _customerLastActiveTs(u) {
     return (u && (u.createdAt || u.timestamp)) || 0;
 }
 
+// The 3 most recently registered accounts across the whole platform — used
+// to badge "✨ عضو جديد" on both الزوار and العملاء so the admin can spot
+// brand-new sign-ups at a glance in either section. Same 3 uids everywhere,
+// computed fresh from allUsers on each render (cheap — just a sort of the
+// in-memory user list, no extra network call).
+function _getTop3RegisteredUids() {
+    return Object.entries(allUsers || {})
+        .map(([uid, u]) => [uid, (u.createdAt || u.timestamp || 0)])
+        .filter(([, ts]) => ts > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([uid]) => uid);
+}
+
+function _newRegBadgeHtml() {
+    return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:0.6rem;font-weight:800;
+        background:linear-gradient(135deg, rgba(255,92,0,0.18), rgba(255,184,0,0.18));color:var(--orange);
+        border:1px solid rgba(255,92,0,0.35);border-radius:50px;padding:1px 7px;white-space:nowrap;"
+        title="من آخر 3 حسابات انضمت إلى Delivo">✨ عضو جديد</span>`;
+}
+
 // Best-known "last active" moment for sorting — the live session's
 // lastSeen while currently online; otherwise the admin-side cache
 // admin-presence.js keeps of the last time each identifier was ever seen
@@ -7863,6 +7884,8 @@ function renderCustomers() {
         else if (o.username) userOrders[o.username] = (userOrders[o.username] || 0) + 1;
     });
 
+    const _top3NewUids = _getTop3RegisteredUids();
+
     let users = Object.entries(allUsers);
     const _allUserEntries = users; // unfiltered snapshot for the "متصل الآن" summary below
 
@@ -7975,6 +7998,7 @@ function renderCustomers() {
                                 <div class="ut-name" style="display:flex;align-items:center;gap:6px;">
                                     ${isActive ? `<span class="vis-online-dot" title="متصل الآن"></span>` : ''}
                                     ${p.displayName||p.fullname||'\u2014'}
+                                    ${_top3NewUids.includes(p._id) ? _newRegBadgeHtml() : ''}
                                 </div>
                                 ${bl[p._id] ? `<div style="font-size:0.62rem;color:var(--red);">\u26d4 ${bl[p._id].reason||'\u0645\u062d\u0638\u0648\u0631'}</div>` : ''}
                             </div>
@@ -8114,6 +8138,7 @@ function renderCustomers() {
                             <div class="ut-name" style="display:flex;align-items:center;gap:6px;">
                                 ${isActive ? `<span class="vis-online-dot" title="متصل الآن"></span>` : ''}
                                 ${u.displayName||u.fullname||'\u2014'}
+                                ${_top3NewUids.includes(uid) ? _newRegBadgeHtml() : ''}
                             </div>
                             ${blEntry ? `<div style="font-size:0.62rem;color:var(--red);margin-top:1px;">\u26d4 ${blEntry.reason||'\u0645\u062d\u0638\u0648\u0631'}</div>` : ''}
                             <div style="font-size:0.6rem;color:var(--gray);margin-top:1px;font-family:var(--mono);display:flex;align-items:center;gap:3px;">
@@ -8344,6 +8369,7 @@ function renderVisitors() {
     setTxt('vis-sum-online',    online);
 
     const entries = _getFilteredVisitorEntries();
+    const _top3NewUids = _getTop3RegisteredUids();
 
     if (countEl) countEl.textContent = `${entries.length} زائر`;
 
@@ -8366,6 +8392,7 @@ function renderVisitors() {
                 <span style="display:inline-flex;align-items:center;gap:7px;">
                     ${isOnline ? `<span class="vis-online-dot" title="متصل الآن"></span>` : ''}
                     ${v.fullName || '—'}
+                    ${(v.converted && v.uid && _top3NewUids.includes(v.uid)) ? _newRegBadgeHtml() : ''}
                 </span>
             </td>
             <td dir="ltr" style="text-align:left;">${formatPhone(v.phone)}</td>
@@ -12487,6 +12514,94 @@ function renderSettings() {
                     💾 حفظ إعدادات التوصيل الذكي
                 </button>
             </div>
+
+            <!-- Night delivery surcharge -->
+            <div class="setting-row" style="border-top:1px solid var(--border);">
+                <div>
+                    <div class="setting-label" style="display:flex;align-items:center;gap:8px;">
+                        🌙 التوصيل الليلي
+                        <span id="night-mode-badge" style="display:none;font-size:0.62rem;font-weight:800;background:rgba(129,140,248,0.15);color:#818cf8;border-radius:50px;padding:2px 8px;">مفعّل</span>
+                    </div>
+                    <div class="setting-sub">إضافة تتصاعد تدريجياً بمنحنى ناعم خلال ساعات الليل، فوق أي رسوم توصيل عادية أو ذكية</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-night-delivery" onchange="toggleNightDelivery(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div id="night-delivery-config" style="display:none;border-top:1px solid var(--border);padding:16px;">
+
+                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:0.72rem;color:var(--gray-light);line-height:1.7;">
+                    <div style="color:#818cf8;font-weight:800;margin-bottom:4px;">🌙 كيف تعمل؟</div>
+                    بدل رسم ثابت يظهر فجأة عند ساعة معيّنة، ترتفع الإضافة تدريجياً بعد بداية الفترة الليلية، تبلغ ذروتها في منتصف الفترة، ثم تنخفض تدريجياً حتى نهايتها — تماماً كموجة، وتُضاف فوق الرسوم العادية (ثابتة كانت أو ذكية).
+                    <br><code>الإضافة = شدة_الليل (0↔1) × (رسم_ثابت + كم × رسم_لكل_كم)</code>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                    <div>
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;display:block;margin-bottom:5px;">بداية الفترة الليلية</label>
+                        <input type="number" id="nd-start-hour" value="22" min="0" max="23" step="1"
+                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--white);font-family:var(--mono);outline:none;box-sizing:border-box;"
+                               onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='var(--border)'">
+                        <div style="font-size:0.65rem;color:var(--gray);margin-top:3px;">بتوقيت بيروت (0–23)</div>
+                    </div>
+                    <div>
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;display:block;margin-bottom:5px;">نهاية الفترة الليلية</label>
+                        <input type="number" id="nd-end-hour" value="6" min="0" max="23" step="1"
+                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--white);font-family:var(--mono);outline:none;box-sizing:border-box;"
+                               onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='var(--border)'">
+                        <div style="font-size:0.65rem;color:var(--gray);margin-top:3px;">يمكن أن تمتد بعد منتصف الليل</div>
+                    </div>
+                    <div>
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;display:block;margin-bottom:5px;">الإضافة الثابتة عند الذروة ($)</label>
+                        <input type="number" id="nd-flat-fee" value="1.0" min="0" step="0.25"
+                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--white);font-family:var(--mono);outline:none;box-sizing:border-box;"
+                               onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='var(--border)'">
+                    </div>
+                    <div>
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;display:block;margin-bottom:5px;">إضافة لكل كم عند الذروة ($)</label>
+                        <input type="number" id="nd-per-km" value="0" min="0" step="0.05"
+                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--white);font-family:var(--mono);outline:none;box-sizing:border-box;"
+                               onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='var(--border)'">
+                        <div style="font-size:0.65rem;color:var(--gray);margin-top:3px;">اختياري — اتركه 0 لتجاهل المسافة</div>
+                    </div>
+                </div>
+
+                <!-- 24h intensity curve preview -->
+                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+                    <div style="font-size:0.72rem;color:var(--gray);font-weight:800;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+                        <span>📈 منحنى الشدة خلال 24 ساعة</span>
+                        <span id="nd-now-label" style="color:#818cf8;font-family:var(--mono);"></span>
+                    </div>
+                    <div id="nd-curve-wrap"></div>
+                </div>
+
+                <!-- Live test calculator -->
+                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;">
+                    <div style="font-size:0.72rem;color:var(--gray);font-weight:800;margin-bottom:10px;">🧪 اختبار مباشر</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+                        <div>
+                            <label style="font-size:0.65rem;color:var(--gray);display:block;margin-bottom:4px;">الساعة (0-23)</label>
+                            <input type="number" id="nd-test-hour" value="23" min="0" max="23" step="1"
+                                   style="width:100%;background:var(--surface3,#1a1a2a);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:var(--white);font-family:var(--mono);font-size:0.8rem;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.65rem;color:var(--gray);display:block;margin-bottom:4px;">المسافة (كم)</label>
+                            <input type="number" id="nd-test-km" value="3" min="0" step="0.5"
+                                   style="width:100%;background:var(--surface3,#1a1a2a);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:var(--white);font-family:var(--mono);font-size:0.8rem;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.65rem;color:var(--gray);display:block;margin-bottom:4px;">الإضافة الليلية</label>
+                            <div id="nd-test-result" style="background:rgba(129,140,248,0.12);border:1px solid rgba(129,140,248,0.35);border-radius:8px;padding:7px 8px;font-family:var(--mono);font-size:0.88rem;font-weight:800;color:#818cf8;text-align:center;">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="ndSave()" style="width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.88rem;">
+                    💾 حفظ إعدادات التوصيل الليلي
+                </button>
+            </div>
         </div>
         <div class="settings-section" id="otlob-fast-items-section">
             <div class="settings-section-title" id="ofi-toggle-header"
@@ -13008,6 +13123,8 @@ function renderSettings() {
     }).catch(() => {});
     // Load smart delivery config
     sdLoad();
+    // Load night delivery surcharge config
+    ndLoad();
     // Load otlob fast-item categories
     ofiLoad();
     _ofiBindToggle();
@@ -15526,6 +15643,9 @@ document.addEventListener('input', e => {
         || e.target.classList.contains('sd-ctier-fee')) {
         sdRunCenterTierPreview();
     }
+    if (['nd-start-hour','nd-end-hour','nd-flat-fee','nd-per-km','nd-test-hour','nd-test-km'].includes(e.target.id)) {
+        ndRunPreview();
+    }
     if (e.target.classList.contains('rw-pts') || e.target.classList.contains('rw-icon')
         || e.target.classList.contains('rw-reward') || e.target.classList.contains('rw-desc')
         || e.target.classList.contains('rw-value')) {
@@ -15595,6 +15715,151 @@ async function sdLoad() {
     sdSwitchMode(cfg.mode === 'centerTiers' ? 'centerTiers' : 'formula');
     sdRunPreview();
     sdRunCenterTierPreview();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NIGHT DELIVERY — admin settings functions
+   Same bell-curve formula as scripts/cart.js's _nightIntensity(): a
+   half-sine ramp 0→1→0 across the configured window, peaking exactly
+   at the midpoint, so the fee eases in and out instead of snapping
+   on/off at a fixed clock time.
+═══════════════════════════════════════════════════════════════ */
+
+function _ndIntensityAt(hourFrac, startHour, endHour) {
+    let duration = endHour - startHour;
+    if (duration <= 0) duration += 24;
+    let elapsed = hourFrac - startHour;
+    if (elapsed < 0) elapsed += 24;
+    if (elapsed > duration) return 0;
+    return Math.sin(Math.PI * (elapsed / duration));
+}
+
+function _ndBeirutHourFrac() {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Beirut', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+    const h = parseFloat(parts.find(p => p.type === 'hour').value);
+    const m = parseFloat(parts.find(p => p.type === 'minute').value);
+    return h + m / 60;
+}
+
+// Draws the 24h intensity curve as inline SVG — rises after the night
+// window opens, peaks at its midpoint, eases back down by the close —
+// with a live dot marking "right now" in Beirut time.
+function ndRenderCurve() {
+    const wrap = document.getElementById('nd-curve-wrap');
+    if (!wrap) return;
+    const startHour = parseFloat(document.getElementById('nd-start-hour')?.value) || 0;
+    const endHour   = parseFloat(document.getElementById('nd-end-hour')?.value)   || 0;
+
+    const W = 600, H = 140, pad = 8;
+    const pts = [];
+    for (let h = 0; h <= 24; h += 0.5) {
+        const intensity = _ndIntensityAt(h, startHour, endHour);
+        const x = pad + (h / 24) * (W - pad * 2);
+        const y = H - pad - intensity * (H - pad * 2);
+        pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    const linePath = 'M' + pts.join(' L');
+    const areaPath = linePath + ` L${(W - pad).toFixed(1)},${(H - pad).toFixed(1)} L${pad.toFixed(1)},${(H - pad).toFixed(1)} Z`;
+
+    const nowFrac = _ndBeirutHourFrac();
+    const nowX = pad + (nowFrac / 24) * (W - pad * 2);
+    const nowY = H - pad - _ndIntensityAt(nowFrac, startHour, endHour) * (H - pad * 2);
+
+    const nowLabel = document.getElementById('nd-now-label');
+    if (nowLabel) {
+        const hh = String(Math.floor(nowFrac)).padStart(2, '0');
+        const mm = String(Math.round((nowFrac % 1) * 60)).padStart(2, '0');
+        nowLabel.textContent = `الآن: ${hh}:${mm}`;
+    }
+
+    wrap.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:120px;overflow:visible;">
+        <defs>
+            <linearGradient id="nd-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#818cf8" stop-opacity=".4"/>
+                <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
+            </linearGradient>
+        </defs>
+        ${[0, 6, 12, 18, 24].map(h => {
+            const x = pad + (h / 24) * (W - pad * 2);
+            return `<line x1="${x}" y1="${pad}" x2="${x}" y2="${H - pad}" stroke="rgba(255,255,255,.06)"/>
+                    <text x="${x}" y="${H - 1}" font-size="9" fill="var(--gray)" text-anchor="middle">${h}</text>`;
+        }).join('')}
+        <path d="${areaPath}" fill="url(#nd-grad)"/>
+        <path d="${linePath}" fill="none" stroke="#818cf8" stroke-width="2.2" stroke-linejoin="round"/>
+        <circle cx="${nowX.toFixed(1)}" cy="${nowY.toFixed(1)}" r="4.5" fill="#818cf8"/>
+        <circle cx="${nowX.toFixed(1)}" cy="${nowY.toFixed(1)}" r="8" fill="#818cf8" opacity=".25"/>
+    </svg>`;
+}
+
+function ndRunPreview() {
+    const startHour = parseFloat(document.getElementById('nd-start-hour')?.value) || 0;
+    const endHour   = parseFloat(document.getElementById('nd-end-hour')?.value)   || 0;
+    const flatFee   = parseFloat(document.getElementById('nd-flat-fee')?.value)   || 0;
+    const perKm     = parseFloat(document.getElementById('nd-per-km')?.value)     || 0;
+    const testHour  = parseFloat(document.getElementById('nd-test-hour')?.value)  || 0;
+    const testKm    = parseFloat(document.getElementById('nd-test-km')?.value)    || 0;
+    const resultEl  = document.getElementById('nd-test-result');
+
+    const intensity  = _ndIntensityAt(testHour, startHour, endHour);
+    const surcharge  = intensity * (flatFee + perKm * testKm);
+    if (resultEl) {
+        resultEl.textContent = intensity > 0 ? `+ $${surcharge.toFixed(2)}` : 'لا توجد إضافة (نهار)';
+        resultEl.title = `شدة الليل: ${(intensity * 100).toFixed(0)}%`;
+    }
+    ndRenderCurve();
+}
+
+async function toggleNightDelivery(enabled) {
+    const config    = await fbGet('settings/nightDelivery').catch(() => null) || {};
+    const badge     = document.getElementById('night-mode-badge');
+    const configDiv = document.getElementById('night-delivery-config');
+    config.enabled  = enabled;
+    try {
+        await fbSet('settings/nightDelivery', config);
+        if (badge)     badge.style.display     = enabled ? 'inline-block' : 'none';
+        if (configDiv) configDiv.style.display = enabled ? 'block' : 'none';
+        if (enabled) { ndRenderCurve(); ndRunPreview(); }
+        toast(enabled ? '🌙 التوصيل الليلي مفعّل' : '↩ تم إيقاف التوصيل الليلي');
+    } catch (e) { toast('فشل تحديث الإعداد', true); }
+}
+
+async function ndSave() {
+    const startHour = parseFloat(document.getElementById('nd-start-hour')?.value);
+    const endHour   = parseFloat(document.getElementById('nd-end-hour')?.value);
+    const flatFee   = parseFloat(document.getElementById('nd-flat-fee')?.value);
+    const perKm     = parseFloat(document.getElementById('nd-per-km')?.value);
+    const enabled   = document.getElementById('toggle-night-delivery')?.checked ?? false;
+
+    if ([startHour, endHour, flatFee, perKm].some(isNaN)) { toast('تحقق من القيم المدخلة', true); return; }
+    if (startHour < 0 || startHour > 23 || endHour < 0 || endHour > 23) { toast('الساعات يجب أن تكون بين 0 و 23', true); return; }
+
+    const payload = { enabled, startHour, endHour, flatFee, perKm };
+    try {
+        await fbSet('settings/nightDelivery', payload);
+        toast('💾 تم حفظ إعدادات التوصيل الليلي');
+    } catch (e) { toast('فشل الحفظ', true); }
+}
+
+async function ndLoad() {
+    const cfg = await fbGet('settings/nightDelivery').catch(() => null);
+    const toggle    = document.getElementById('toggle-night-delivery');
+    const configDiv = document.getElementById('night-delivery-config');
+    const badge     = document.getElementById('night-mode-badge');
+
+    if (cfg) {
+        if (toggle)    toggle.checked          = !!cfg.enabled;
+        if (configDiv) configDiv.style.display = cfg.enabled ? 'block' : 'none';
+        if (badge)     badge.style.display     = cfg.enabled ? 'inline-block' : 'none';
+
+        const set = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+        set('nd-start-hour', cfg.startHour);
+        set('nd-end-hour',   cfg.endHour);
+        set('nd-flat-fee',   cfg.flatFee);
+        set('nd-per-km',     cfg.perKm);
+    }
+    ndRenderCurve();
+    ndRunPreview();
 }
 
 /* ═══════════════════════════════════════════════════════════════

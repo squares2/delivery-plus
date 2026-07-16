@@ -469,19 +469,28 @@
             const maxFee    = parseFloat(cfg.maxFee    ?? 5.0);
 
             let rawFee;
+            let distanceKmForNight = null;
 
             if (mode === 'centerTiers' && typeof _getDeliveryCenter === 'function') {
                 const center = await _getDeliveryCenter();
-                const tierFee = center ? _calcCenterTierFee(
-                    _haversineKm(_data.destLat, _data.destLng, center.lat, center.lng),
-                    cfg.centerTiers
-                ) : null;
+                const kmFromCenter = center ? _haversineKm(_data.destLat, _data.destLng, center.lat, center.lng) : null;
+                distanceKmForNight = kmFromCenter;
+                const tierFee = (center && kmFromCenter !== null) ? _calcCenterTierFee(kmFromCenter, cfg.centerTiers) : null;
                 rawFee = tierFee !== null ? tierFee : baseFee;
             } else {
                 if (!_data.storeLat) { _data.smartFee = null; return; }
                 const km = _haversineKm(_data.storeLat, _data.storeLng, _data.destLat, _data.destLng);
+                distanceKmForNight = km;
                 const distFee = baseFee + km * ratePerKm;
                 rawFee = Math.min(maxFee, Math.max(minFee, distFee));
+            }
+
+            // Same smooth night-delivery bell-curve surcharge used by regular
+            // checkout (scripts/cart.js's _calcNightSurcharge) — added on top so
+            // a phone/manual order placed at night carries the same night fee a
+            // normal customer order would.
+            if (typeof _calcNightSurcharge === 'function') {
+                rawFee += await _calcNightSurcharge(distanceKmForNight);
             }
 
             // Reuses cart.js's global helper so LBP-scale fees round to
