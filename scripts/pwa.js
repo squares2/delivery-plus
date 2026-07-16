@@ -50,20 +50,24 @@ if ('serviceWorker' in navigator && !_isLocalDev) {
             })
             .catch(err => console.warn('[PWA] SW registration failed:', err));
 
-        // Listen for SW_UPDATED message → reload page silently to get fresh files
+        // 'controllerchange' is the ONE actual reload trigger — it fires
+        // exactly once when clients.claim() in sw.js's activate handler
+        // hands control to the new worker. The SW also separately posts an
+        // SW_UPDATED message around the same moment (see below); that used
+        // to ALSO trigger its own reload, which raced with this one and
+        // caused the page to visibly reload twice on every deploy. Now the
+        // message is purely informational — logging only, no reload here.
         navigator.serviceWorker.addEventListener('message', event => {
             if (event.data && event.data.type === 'SW_UPDATED') {
-                console.log('[PWA] New version detected — reloading for fresh files');
-                // Small delay so the SW fully activates before reload
-                setTimeout(() => window.location.reload(), 500);
+                console.log('[PWA] New version activated (reload is handled by controllerchange)');
             }
         });
 
-        // Also handle controller change (new SW took control)
         let refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (refreshing) return;
             refreshing = true;
+            console.log('[PWA] New version detected — reloading for fresh files');
             window.location.reload();
         });
     });

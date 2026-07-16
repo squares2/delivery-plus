@@ -1036,14 +1036,16 @@ if ('serviceWorker' in navigator) {
 
     // A driver who leaves the app open (no manual refresh) was stuck on
     // whatever JS was loaded at the time — including stale permission
-    // logic like the self-claim/admin-only assignment mode. The service
-    // worker already tells every open tab when a new deploy has taken
-    // over; we just weren't listening for it. Now we are.
+    // logic like the self-claim/admin-only assignment mode. 'controllerchange'
+    // is the ONE actual reload trigger — it fires exactly once when
+    // clients.claim() in sw.js's activate handler hands control to the new
+    // worker. The SW also separately posts an SW_UPDATED message around the
+    // same moment; that used to ALSO reload, which raced with this one and
+    // caused the app to visibly reload twice on every deploy. Now the
+    // message just shows the toast — reload is handled below, once.
     navigator.serviceWorker.addEventListener('message', event => {
         if (event.data && event.data.type === 'SW_UPDATED') {
-            console.log('[Driver] New version detected — reloading for fresh files');
             if (typeof showToast === 'function') showToast('🔄 تحديث جديد — جاري إعادة تحميل التطبيق');
-            setTimeout(() => window.location.reload(), 800);
         }
     });
 
@@ -1051,7 +1053,8 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (_drvRefreshing) return;
         _drvRefreshing = true;
-        window.location.reload();
+        console.log('[Driver] New version detected — reloading for fresh files');
+        setTimeout(() => window.location.reload(), 800);
     });
 }
 </script>
