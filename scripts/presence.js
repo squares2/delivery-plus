@@ -123,6 +123,79 @@
         } catch (_) { return null; }
     }
 
+    async function rtdbPush(path, data) {
+        try {
+            const r = await fetch(`${RTDB_BASE}/${path}.json`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(data),
+            });
+            const j = await r.json();
+            return (j && j.name) || null;
+        } catch (_) { return null; }
+    }
+
+    /* ── Attendance logging (persistent visit history for admin stats) ──
+       Separate from `presence/` above (deleted the instant a device
+       disconnects) — this keeps a permanent record so the admin
+       Attendance panel can chart daily/monthly visitor momentum,
+       new-vs-returning devices, registered-vs-guest mix, and average
+       time-on-site. Never deleted. One attendance "visit" per page
+       load (not per reconnect), keyed by Beirut calendar date so the
+       admin dashboard's day boundaries match the business's actual day. */
+    function _beirutDateKey(ts) {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Beirut', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date(ts || Date.now()));
+    }
+
+    let _attnPath    = null;  // attendance/sessions/{date}/{key} for THIS page load
+    let _attnStarted = false;
+
+    async function _attnBegin(uuid, device, os, startedAt) {
+        if (_attnStarted) return; // one visit per page load, ever
+        _attnStarted = true;
+        try {
+            const existing = await rtdbGet(`attendance/devices/${uuid}`);
+            const isNew     = !existing;
+            const auth      = window._delivoAuthUser || null;
+            const dateKey   = _beirutDateKey(startedAt);
+
+            const key = await rtdbPush(`attendance/sessions/${dateKey}`, {
+                uuid, device, os,
+                isNew,
+                isRegistered: !!(auth && auth.uid),
+                startedAt,
+                lastSeen: startedAt,
+            });
+            if (key) _attnPath = `attendance/sessions/${dateKey}/${key}`;
+
+            if (isNew) {
+                rtdbPut(`attendance/devices/${uuid}`, { firstSeen: startedAt, lastSeen: startedAt, visits: 1 });
+            } else {
+                rtdbPut(`attendance/devices/${uuid}`, {
+                    firstSeen: existing.firstSeen || startedAt,
+                    lastSeen:  startedAt,
+                    visits:    (existing.visits || 0) + 1,
+                });
+            }
+        } catch (_) { /* best-effort — never blocks presence itself */ }
+    }
+
+    function _attnTouch() {
+        if (!_attnPath) return;
+        fetch(`${RTDB_BASE}/${_attnPath}/lastSeen.json`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Date.now()),
+        }).catch(() => {});
+    }
+
+    function _attnMarkRegistered() {
+        if (!_attnPath) return;
+        fetch(`${RTDB_BASE}/${_attnPath}/isRegistered.json`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(true),
+        }).catch(() => {});
+    }
+
     // Whether this device already has a captured visitor-lead record
     // (deviceLeads/{uuid} — full name + phone from the first-launch modal).
     // Checked once per page load; if true, we keep that record's
@@ -203,7 +276,9 @@
                     registered = true;
                     const existing = await ref.once('value').catch(() => null);
                     connectedAt = (existing?.exists() && existing.val().connectedAt) || Date.now();
-                    await ref.set(buildPayload(uuid, connectedAt)).catch(() => {});
+                    const payload = buildPayload(uuid, connectedAt);
+                    await ref.set(payload).catch(() => {});
+                    _attnBegin(uuid, payload.device, payload.os, connectedAt);
                 } else {
                     // Reconnect: update only — never set() which triggers leave+join on admin
                     const existing = await ref.once('value').catch(() => null);
@@ -234,6 +309,7 @@
             });
             _touchDeviceLeadVisit(uuid);
             _touchCustomerActivity();
+            _attnTouch();
         }, HEARTBEAT);
 
         // Visibility restore: quiet update, not re-register
@@ -242,6 +318,7 @@
             ref.update({ lastSeen: Date.now(), uid: window._delivoAuthUser?.uid || null, username: window._delivoAuthUser?.username || null }).catch(() => {});
             _touchDeviceLeadVisit(uuid);
             _touchCustomerActivity();
+            _attnTouch();
         });
 
         db.ref('presence').on('value', snap => {
@@ -255,6 +332,7 @@
                 window._delivoAuthUser = { uid, username };
                 ref.update({ uid, username: username || null, lastSeen: Date.now() }).catch(() => {});
                 _touchCustomerActivity();
+                _attnMarkRegistered();
             },
             markDeviceLead() { _hasDeviceLead = true; _touchDeviceLeadVisit(uuid); _touchCustomerActivity(); }
         };
@@ -264,15 +342,18 @@
     async function initWithREST(uuid) {
         const path = `presence/${uuid}`;
         const restConnectedAt = Date.now();
-        await rtdbPut(path, buildPayload(uuid, restConnectedAt));
+        const restPayload = buildPayload(uuid, restConnectedAt);
+        await rtdbPut(path, restPayload);
         _touchDeviceLeadVisit(uuid);
         _touchCustomerActivity();
+        _attnBegin(uuid, restPayload.device, restPayload.os, restConnectedAt);
 
         const hb = setInterval(() => {
             if (document.visibilityState === 'hidden') return;
             rtdbPut(path, { ...buildPayload(uuid, restConnectedAt), lastSeen: Date.now() });
             _touchDeviceLeadVisit(uuid);
             _touchCustomerActivity();
+            _attnTouch();
         }, HEARTBEAT);
 
         let cleaned = false;
@@ -288,6 +369,7 @@
             rtdbPut(path, { ...buildPayload(uuid, restConnectedAt), lastSeen: Date.now() });
             _touchDeviceLeadVisit(uuid);
             _touchCustomerActivity();
+            _attnTouch();
         });
 
         async function pollCount() {
@@ -304,6 +386,7 @@
                 window._delivoAuthUser = { uid, username };
                 rtdbPut(path, buildPayload(uuid, restConnectedAt));
                 _touchCustomerActivity();
+                _attnMarkRegistered();
             },
             markDeviceLead() { _hasDeviceLead = true; _touchDeviceLeadVisit(uuid); _touchCustomerActivity(); }
         };
