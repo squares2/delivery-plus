@@ -22,6 +22,66 @@
     let prevSessions = {};
     let modalOpen    = false;
 
+    /* ── Presence sound ─────────────────────────────────────────
+       Soft synthesized chime (Web Audio, no audio file needed) —
+       a quick two-note rising ping on join, a quieter descending
+       one on leave. Muted state persists across sessions via
+       localStorage and is toggled from a speaker icon in the
+       "الزوار المتصلون" modal header. */
+    let _soundMuted = localStorage.getItem('delivo_presence_sound_muted') === '1';
+    let _audioCtx   = null;
+
+    function _ensureAudioCtx() {
+        if (_audioCtx) return _audioCtx;
+        try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch (_) { _audioCtx = null; }
+        return _audioCtx;
+    }
+
+    function _tone(ctx, freq, startTime, duration, peakGain) {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        // Smooth attack/release envelope so the tone fades in and out
+        // instead of clicking/popping at the start or end.
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.018);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.02);
+    }
+
+    function _playChime(kind) {
+        if (_soundMuted) return;
+        const ctx = _ensureAudioCtx();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        const now = ctx.currentTime;
+        if (kind === 'join') {
+            _tone(ctx, 587.33, now,        0.22, 0.14); // D5 — soft rising "ding"
+            _tone(ctx, 880.00, now + 0.11, 0.28, 0.16); // A5
+        } else {
+            _tone(ctx, 660.00, now,        0.20, 0.09); // E5 — quieter falling tone
+            _tone(ctx, 440.00, now + 0.10, 0.26, 0.08); // A4
+        }
+    }
+
+    window.togglePresenceSound = function () {
+        _soundMuted = !_soundMuted;
+        localStorage.setItem('delivo_presence_sound_muted', _soundMuted ? '1' : '0');
+        _updateSoundToggleUI();
+        if (!_soundMuted) _playChime('join'); // quick preview so the admin hears it took effect
+    };
+
+    function _updateSoundToggleUI() {
+        const btn = document.getElementById('pm-sound-toggle');
+        if (!btn) return;
+        btn.textContent = _soundMuted ? '🔇' : '🔊';
+        btn.title = _soundMuted ? 'الصوت مكتوم — اضغط للتفعيل' : 'الصوت مفعّل — اضغط للكتم';
+    }
+
     // Admin-only feature. Two different account types share this loaded
     // script but must never see it: 'store' (shares the main #app dashboard
     // with real admins, just fewer permissions) and 'company' (its own
@@ -131,6 +191,8 @@
 
         const box = document.getElementById('presence-toasts');
         if (!box) return;
+
+        _playChime(type);
 
         const isJoin = type === 'join';
         const name    = displayName(session);
@@ -322,6 +384,7 @@
                     <span class="pm-header-dot"></span>
                     <span class="pm-header-title">الزوار المتصلون الآن</span>
                     <span id="pm-count" class="pm-header-count">0</span>
+                    <button class="pm-sound-toggle" id="pm-sound-toggle" onclick="togglePresenceSound()" title="تشغيل/كتم صوت التنبيه">🔊</button>
                     <button class="pm-close" onclick="togglePresencePanel()">✕</button>
                 </div>
                 <div id="pm-list" class="pm-list">
@@ -408,6 +471,13 @@
             transition:background .2s;
         }
         .pm-close:hover { background:rgba(255,255,255,.08); }
+        .pm-sound-toggle {
+            background:none;border:none;font-size:1.05rem;padding:6px 10px;
+            border-radius:8px;cursor:pointer;transition:background .2s,transform .15s;
+            line-height:1;
+        }
+        .pm-sound-toggle:hover  { background:rgba(255,255,255,.08); }
+        .pm-sound-toggle:active { transform:scale(0.9); }
         .pm-list { flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px; }
         .pm-empty {
             text-align:center;color:var(--gray,#6b7280);
@@ -537,6 +607,7 @@
     function init() {
         injectCSS();
         injectHTML();
+        _updateSoundToggleUI();
         startTimerTick();
 
         function trySDK() {
