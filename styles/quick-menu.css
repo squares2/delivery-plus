@@ -1,0 +1,507 @@
+/* ============================================================
+   styles/quick-menu.css
+   Fast graphical price-list side drawer — slides in from the
+   right over the (already open) store panel. RTL-native,
+   matches Delivo design system (light surface, orange accent).
+   ============================================================ */
+
+/* ── Trigger button (sits in the store-panel hero) ───────── */
+.sp-hero__quickmenu {
+    position: absolute;
+    top: clamp(10px, 3vw, 16px);
+    left: clamp(12px, 3vw, 18px);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 12px;
+    border-radius: var(--radius-pill);
+    background: var(--clr-orange);
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    font-family: inherit;
+    font-size: clamp(0.68rem, 1.7vw, 0.76rem);
+    font-weight: 800;
+    box-shadow: var(--shadow-orange);
+    transition: background 0.18s, transform 0.15s;
+    z-index: 3;
+}
+.sp-hero__quickmenu:hover  { background: var(--clr-orange-dim); }
+.sp-hero__quickmenu:active { transform: scale(0.95); }
+.sp-hero__quickmenu svg { flex-shrink: 0; }
+
+/* ── Overlay ──────────────────────────────────────────────── */
+.qm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 650;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.26s ease;
+}
+.qm-overlay.active { opacity: 1; pointer-events: all; }
+
+/* ── Drawer panel ─────────────────────────────────────────── */
+.qm-panel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: min(88vw, 400px);
+    z-index: 651;
+    background: var(--clr-white);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.32s cubic-bezier(0.32, 1.1, 0.6, 1);
+    box-shadow: -6px 0 24px rgba(0,0,0,0.18);
+    overflow: hidden;
+}
+.qm-panel.active { transform: translateX(0); }
+
+/* ── Header ───────────────────────────────────────────────── */
+.qm-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: clamp(12px, 3vw, 16px);
+    border-bottom: 1px solid var(--clr-gray-100);
+}
+.qm-header__store {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.qm-header__logo {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--clr-gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    font-size: 1.2rem;
+}
+.qm-header__logo img { width: 100%; height: 100%; object-fit: cover; }
+.qm-header__title {
+    font-size: clamp(0.7rem, 1.8vw, 0.78rem);
+    font-weight: 700;
+    color: var(--clr-orange);
+}
+.qm-header__store-name {
+    font-size: clamp(0.9rem, 2.4vw, 1rem);
+    font-weight: 800;
+    color: var(--clr-black);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.qm-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--clr-gray-100);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--clr-gray-500);
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.qm-close:hover { background: var(--clr-gray-200); }
+
+/* ── Scroll track (one page per category) ────────────────── */
+.qm-track-wrap {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    touch-action: pan-y;
+}
+.qm-track {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    transition: transform 0.3s cubic-bezier(0.32, 1.1, 0.6, 1);
+}
+.qm-page {
+    flex-shrink: 0;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.qm-empty {
+    text-align: center;
+    color: var(--clr-gray-400);
+    font-size: 0.85rem;
+    padding: 40px 0;
+}
+.qm-subcat {
+    font-size: clamp(0.68rem, 1.8vw, 0.76rem);
+    font-weight: 800;
+    color: var(--clr-orange);
+    padding: 4px 2px;
+    margin-top: 4px;
+    position: sticky;
+    top: -12px;
+    background: var(--clr-white);
+    z-index: 1;
+}
+.qm-subcat:first-child { margin-top: 0; }
+
+/* ── Item row ─────────────────────────────────────────────── */
+.qm-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--clr-white);
+    border: 1px solid var(--clr-gray-100);
+    border-radius: var(--radius-md);
+    padding: 8px;
+    box-shadow: var(--shadow-xs);
+}
+.qm-row__img {
+    width: 46px;
+    height: 46px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--clr-gray-100);
+}
+.qm-row__img img { width: 100%; height: 100%; object-fit: contain; }
+.qm-row__img-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+.qm-row__info { flex: 1; min-width: 0; }
+.qm-row__name {
+    font-size: clamp(0.8rem, 2.1vw, 0.88rem);
+    font-weight: 700;
+    color: var(--clr-black);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.qm-row__sub {
+    font-size: clamp(0.62rem, 1.5vw, 0.68rem);
+    color: var(--clr-gray-400);
+    font-weight: 500;
+    margin-top: 1px;
+}
+.qm-row__price-wrap {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+}
+.qm-row__price {
+    font-size: clamp(0.78rem, 2vw, 0.86rem);
+    font-weight: 800;
+    color: var(--clr-orange);
+    white-space: nowrap;
+}
+.qm-row__price-old {
+    font-size: 0.64rem;
+    color: var(--clr-gray-400);
+    text-decoration: line-through;
+    white-space: nowrap;
+}
+.qm-row__add {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--clr-orange);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+    transition: background 0.18s, transform 0.15s;
+}
+.qm-row__add:hover  { background: var(--clr-orange-dim); }
+.qm-row__add:active { transform: scale(0.9); }
+.qm-row__add--done  { background: var(--clr-green); }
+
+/* ── Bottom category tabs (page links) ───────────────────── */
+.qm-tabs {
+    flex-shrink: 0;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    border-top: 1px solid var(--clr-gray-100);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: var(--clr-white);
+}
+.qm-tabs::-webkit-scrollbar { display: none; }
+.qm-tab {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 62px;
+    padding: 6px 8px;
+    border: none;
+    background: none;
+    border-radius: var(--radius-sm);
+    color: var(--clr-gray-400);
+    font-family: inherit;
+    font-size: 0.6rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.qm-tab__icon { font-size: 15px; line-height: 1; }
+.qm-tab span {
+    white-space: nowrap;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.qm-tab.active {
+    background: var(--clr-orange-light);
+    color: var(--clr-orange);
+}
+
+/* ── Narrow screens ───────────────────────────────────────── */
+@media (max-width: 380px) {
+    .qm-panel { width: 92vw; }
+    .qm-tab { min-width: 54px; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   HOTLINE FAB — visible on the homepage even before any store
+   is opened. This is the whole point: a customer can see prices
+   without ever tapping into a store first.
+   ══════════════════════════════════════════════════════════ */
+.qm-hotline-fab {
+    position: fixed;
+    left: 14px;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 14px);
+    z-index: 390;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 46px;
+    padding: 0 16px 0 14px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--clr-orange);
+    color: #fff;
+    font-family: inherit;
+    font-size: clamp(0.72rem, 1.9vw, 0.82rem);
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: var(--shadow-orange);
+    transition: transform 0.18s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.18s;
+    animation: qmFabIntro 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) 0.6s both;
+}
+.qm-hotline-fab:active { transform: scale(0.93); }
+.qm-hotline-fab__ring {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-pill);
+    border: 2px solid var(--clr-orange);
+    animation: qmFabPulse 2.2s ease-out infinite;
+    pointer-events: none;
+}
+.qm-hotline-fab__icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.qm-hotline-fab__badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--clr-green, #16a34a);
+    color: #fff;
+    font-size: 0.56rem;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: var(--radius-pill);
+    border: 2px solid var(--clr-black, #0f0f0f);
+    white-space: nowrap;
+}
+
+@keyframes qmFabIntro {
+    0%   { transform: translateY(40px) scale(0.6); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes qmFabPulse {
+    0%   { transform: scale(1);    opacity: 0.55; }
+    70%  { transform: scale(1.55); opacity: 0; }
+    100% { transform: scale(1.55); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .qm-hotline-fab { animation: none; }
+    .qm-hotline-fab__ring { animation: none; display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   STORE PICKER — bottom sheet, "hidden popup" revealed on tap
+   ══════════════════════════════════════════════════════════ */
+.qm-picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 660;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.26s ease;
+}
+.qm-picker-overlay.active { opacity: 1; pointer-events: all; }
+
+.qm-picker-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 661;
+    max-height: 78vh;
+    background: var(--clr-white);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.22);
+    transform: translateY(100%);
+    transition: transform 0.34s cubic-bezier(0.32, 1.1, 0.6, 1);
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.qm-picker-sheet.active { transform: translateY(0); }
+
+.qm-picker-handle {
+    width: 40px;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--clr-gray-200);
+    margin: 10px auto 4px;
+    flex-shrink: 0;
+}
+.qm-picker-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px clamp(14px, 4vw, 18px) 10px;
+}
+.qm-picker-title {
+    font-size: clamp(0.92rem, 2.4vw, 1.02rem);
+    font-weight: 800;
+    color: var(--clr-black);
+}
+.qm-picker-search {
+    flex-shrink: 0;
+    margin: 0 clamp(14px, 4vw, 18px) 10px;
+    height: 42px;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--clr-gray-100);
+    background: var(--clr-gray-50);
+    padding: 0 14px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--clr-black);
+    outline: none;
+    transition: border-color 0.15s;
+}
+.qm-picker-search:focus { border-color: var(--clr-orange); }
+.qm-picker-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 clamp(10px, 3vw, 14px) 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.qm-picker-loading, .qm-picker-empty {
+    text-align: center;
+    color: var(--clr-gray-400);
+    font-size: 0.85rem;
+    padding: 40px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+.qm-picker-spinner {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 3px solid var(--clr-gray-100);
+    border-top-color: var(--clr-orange);
+    animation: qmSpin 0.7s linear infinite;
+}
+@keyframes qmSpin { to { transform: rotate(360deg); } }
+
+.qm-pick-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: var(--clr-white);
+    border: 1px solid var(--clr-gray-100);
+    border-radius: var(--radius-md);
+    padding: 8px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: right;
+    transition: background 0.15s;
+}
+.qm-pick-row:active { background: var(--clr-orange-light); }
+.qm-pick-row__img {
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--clr-gray-100);
+}
+.qm-pick-row__img img { width: 100%; height: 100%; object-fit: cover; }
+.qm-pick-row__fallback {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+}
+.qm-pick-row__info { flex: 1; min-width: 0; }
+.qm-pick-row__name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--clr-black);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.qm-pick-row__tag {
+    font-size: 0.66rem;
+    color: var(--clr-gray-400);
+    font-weight: 600;
+    margin-top: 1px;
+}
+.qm-pick-row__arrow { color: var(--clr-gray-400); flex-shrink: 0; transform: scaleX(-1); }

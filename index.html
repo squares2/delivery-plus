@@ -7,7 +7,7 @@
          newer version has shipped, even if this page itself is being
          served from a stale cache. Bump alongside BUILD_TS in sw.js and
          the "version" field in version.json on every deploy. -->
-    <script>window.APP_VERSION = '20260716020000';</script>
+    <script>window.APP_VERSION = '20260716130000';</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#ffffff">
     <title>Delivo - كل شي بيوصلك لباب البيت</title>
@@ -50,6 +50,7 @@
     <link rel="stylesheet" href="styles/worldcup2026.css?v=1">
     <link rel="stylesheet" href="styles/promo-flip.css?v=7">
     <link rel="stylesheet" href="styles/hero-bg.css?v=1">
+    <link rel="stylesheet" href="styles/quick-menu.css?v=3">
 </head>
 <body>
 
@@ -1010,6 +1011,17 @@
                 </svg>
             </button>
 
+            <!-- Quick price-list button -->
+            <button class="sp-hero__quickmenu" id="sp-quickmenu-btn" aria-label="قائمة الأسعار" onclick="openQuickMenu()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+                <span>الأسعار</span>
+            </button>
+
             <!-- Store name + badges (above circle) -->
             <div class="sp-hero__info">
                 <div class="sp-hero__name" id="sp-hero-name">المتجر</div>
@@ -1322,6 +1334,7 @@
     <script src="scripts/categories.js?v=11"></script>
     <script src="scripts/cart.js?v=20"></script>
     <script src="scripts/store-panel.js?v=17"></script>
+    <script src="scripts/quick-menu.js?v=4"></script>
     <script src="scripts/mealtime.js?v=6"></script>
     <script src="scripts/promo-flip.js?v=6"></script>
     <script src="scripts/hero-bg.js?v=2"></script>
