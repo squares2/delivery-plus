@@ -94,6 +94,13 @@ if ('serviceWorker' in navigator && !_isLocalDev) {
 let _deferredPrompt = null;
 const SNOOZE_KEY = 'delivo_install_snooze';
 
+// Read by navbar.js so the center logo can double as a persistent
+// install/update CTA — set true the moment each becomes actionable, and
+// left true even if the corresponding banner gets snoozed/dismissed
+// (unlike the nagging banner, this is a quiet, always-there affordance).
+window._pwaInstallAvailable = false;
+window._pwaUpdateAvailable  = false;
+
 // Snooze: hide for 1 day if user taps ✕ (don't block for 7 days)
 function isSnoozed() {
     const t = localStorage.getItem(SNOOZE_KEY);
@@ -139,6 +146,8 @@ window.showInstallBanner = function() {
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     _deferredPrompt = e;
+    window._pwaInstallAvailable = true;
+    window.dispatchEvent(new Event('delivo:pwa-install-available'));
     setTimeout(showBanner, 2500);
 });
 
@@ -172,8 +181,10 @@ document.addEventListener('click', async (e) => {
 window.addEventListener('appinstalled', () => {
     console.log('[PWA] App installed ✓');
     _deferredPrompt = null;
+    window._pwaInstallAvailable = false;
     hideBanner();
     localStorage.removeItem(SNOOZE_KEY);
+    window.dispatchEvent(new Event('delivo:pwa-installed'));
 });
 
 // ── 3. iOS "Add to Home Screen" — bottom sheet ───────────────
@@ -226,9 +237,14 @@ if (isIosSafari()) {
     const androidBanner = document.getElementById('install-banner');
     if (androidBanner) androidBanner.style.display = 'none';
 
-    // Show the iOS bottom sheet
-    if (!isAlreadyInstalled() && !iosHintSnoozed()) {
-        setTimeout(showIosHint, 2500);
+    if (!isAlreadyInstalled()) {
+        // No beforeinstallprompt on iOS — this is the only install signal
+        // the center logo gets, so it stays on regardless of whether the
+        // auto-shown bottom sheet below is snoozed.
+        window._pwaInstallAvailable = true;
+        window.dispatchEvent(new Event('delivo:pwa-install-available'));
+        // Show the iOS bottom sheet (still subject to its own snooze)
+        if (!iosHintSnoozed()) setTimeout(showIosHint, 2500);
     }
 }
 
@@ -406,6 +422,8 @@ if (isIosSafari() && !isAlreadyInstalled() &&
 
     function _showUpdateBanner() {
         _updateBannerShown = true;
+        window._pwaUpdateAvailable = true;
+        window.dispatchEvent(new Event('delivo:pwa-update-available'));
         // Update takes priority over the install prompt — if that one's
         // already up when this becomes ready, step in front of it. It'll
         // resume automatically once this banner clears (see below).
@@ -459,6 +477,9 @@ if (isIosSafari() && !isAlreadyInstalled() &&
         } catch (_) { /* fall through to reload regardless */ }
         window.location.reload();
     }
+    // Let the center-logo CTA in navbar.js trigger the same reload path
+    // as the banner's own button — same cache-clear, same snooze.
+    window._forceAppUpdate = _forceUpdate;
 
     document.addEventListener('click', (e) => {
         if (e.target.closest('#update-btn')) _forceUpdate();

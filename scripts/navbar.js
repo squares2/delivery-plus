@@ -87,6 +87,31 @@ function initNavbar() {
                         </svg>
                         <span class="bb-multi-badge" id="bb-multi-badge">2</span>
                     </span>
+                    <!-- PWA — not installed yet: a gentle "download onto device"
+                         motion (arrow bobbing down onto a tray line). -->
+                    <span class="bb-logo-state bb-logo-state--hidden" id="bb-state-install">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <g>
+                                <animateTransform attributeName="transform" type="translate" values="0 0;0 2.5;0 0" dur="1.3s" repeatCount="indefinite"/>
+                                <path d="M12 3v10"/>
+                                <path d="M7 9l5 5 5-5"/>
+                            </g>
+                            <path d="M5 19h14" stroke-opacity="0.85"/>
+                        </svg>
+                        <span class="bb-track-pulse bb-pwa-pulse--install"></span>
+                    </span>
+                    <!-- PWA — update ready: a continuously-spinning refresh
+                         glyph, same "always-on, never nags" affordance. -->
+                    <span class="bb-logo-state bb-logo-state--hidden" id="bb-state-update">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <g>
+                                <animateTransform attributeName="transform" type="rotate" values="0 12 12;360 12 12" dur="2.4s" repeatCount="indefinite"/>
+                                <path d="M20 12a8 8 0 10-2.34 5.66"/>
+                                <path d="M20 8v4h-4"/>
+                            </g>
+                        </svg>
+                        <span class="bb-track-pulse bb-pwa-pulse--update"></span>
+                    </span>
                 </div>
                 <span class="bb-logo-btn__label" id="bb-logo-label">Delivo</span>
             </button>
@@ -188,6 +213,7 @@ function initNavbar() {
 
     updateCartBadge();
     _prefetchAdminPhoneForWhatsApp();
+    _applyLogoState(); // picks up install/update flags if pwa.js already signaled them
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -560,39 +586,82 @@ function _resetLogo() {
 }
 
 function _applyLogoState() {
-    if (_activeOrders.length === 0)      _setLogoState('logo');
-    else if (_activeOrders.length === 1) _setLogoState('track');
-    else                                 _setLogoState('multi');
+    if (_activeOrders.length === 1)      { _setLogoState('track'); return; }
+    if (_activeOrders.length > 1)        { _setLogoState('multi'); return; }
+    // No active order to track right now — this is the one moment the
+    // center logo is free to double as the PWA install/update CTA instead
+    // of just sitting there as a static home button.
+    if (window._pwaUpdateAvailable)  { _setLogoState('update');  return; }
+    if (window._pwaInstallAvailable) { _setLogoState('install'); return; }
+    _setLogoState('logo');
 }
 
 function _setLogoState(state) {
-    const stLogo  = document.getElementById('bb-state-logo');
-    const stTrack = document.getElementById('bb-state-track');
-    const stMulti = document.getElementById('bb-state-multi');
-    const label   = document.getElementById('bb-logo-label');
-    const circle  = document.querySelector('.bb-logo-btn__circle');
+    const stLogo    = document.getElementById('bb-state-logo');
+    const stTrack   = document.getElementById('bb-state-track');
+    const stMulti   = document.getElementById('bb-state-multi');
+    const stInstall = document.getElementById('bb-state-install');
+    const stUpdate  = document.getElementById('bb-state-update');
+    const label     = document.getElementById('bb-logo-label');
+    const circle    = document.querySelector('.bb-logo-btn__circle');
+    const btn       = document.getElementById('bb-logo-btn');
     if (!stLogo) return;
     stLogo.classList.add('bb-logo-state--hidden');
     stTrack.classList.add('bb-logo-state--hidden');
     stMulti.classList.add('bb-logo-state--hidden');
+    stInstall.classList.add('bb-logo-state--hidden');
+    stUpdate.classList.add('bb-logo-state--hidden');
+    circle.classList.remove('bb-logo-btn__circle--active', 'bb-logo-btn__circle--install', 'bb-logo-btn__circle--update');
     if (state === 'track') {
         stTrack.classList.remove('bb-logo-state--hidden');
         const _trackId = _activeOrders[0]?.id?.replace('id_', '#') || '';
         label.textContent = _trackId ? `تتبّع ${_trackId}` : 'تتبّع الطلب';
         circle.classList.add('bb-logo-btn__circle--active');
+        if (btn) btn.setAttribute('aria-label', label.textContent);
     } else if (state === 'multi') {
         stMulti.classList.remove('bb-logo-state--hidden');
         document.getElementById('bb-multi-badge').textContent = _activeOrders.length;
         label.textContent = 'طلبات نشطة';
         circle.classList.add('bb-logo-btn__circle--active');
+        if (btn) btn.setAttribute('aria-label', label.textContent);
+    } else if (state === 'install') {
+        stInstall.classList.remove('bb-logo-state--hidden');
+        label.textContent = 'ثبّت تطبيقك';
+        circle.classList.add('bb-logo-btn__circle--install');
+        if (btn) btn.setAttribute('aria-label', 'ثبّت تطبيق Delivo على جهازك');
+    } else if (state === 'update') {
+        stUpdate.classList.remove('bb-logo-state--hidden');
+        label.textContent = 'حدّث تطبيقك';
+        circle.classList.add('bb-logo-btn__circle--update');
+        if (btn) btn.setAttribute('aria-label', 'حدّث تطبيق Delivo لآخر إصدار');
     } else {
         stLogo.classList.remove('bb-logo-state--hidden');
         label.textContent = 'Delivo';
-        circle.classList.remove('bb-logo-btn__circle--active');
+        if (btn) btn.setAttribute('aria-label', 'الرئيسية');
     }
 }
 
+// React to PWA install/update availability signals from pwa.js — lets the
+// center logo double as a persistent, non-nagging install/update CTA
+// without polling anything itself; pwa.js just tells it when the
+// underlying signal (beforeinstallprompt, iOS, or a version check) changes.
+window.addEventListener('delivo:pwa-install-available', () => { if (document.getElementById('bb-logo-btn')) _applyLogoState(); });
+window.addEventListener('delivo:pwa-update-available',  () => { if (document.getElementById('bb-logo-btn')) _applyLogoState(); });
+window.addEventListener('delivo:pwa-installed',         () => { if (document.getElementById('bb-logo-btn')) _applyLogoState(); });
+
 function _handleLogoClick() {
+    if (_activeOrders.length === 0 && window._pwaUpdateAvailable) {
+        if (typeof window._forceAppUpdate === 'function') window._forceAppUpdate();
+        return;
+    }
+    if (_activeOrders.length === 0 && window._pwaInstallAvailable) {
+        if (typeof isIosSafari === 'function' && isIosSafari()) {
+            if (typeof window.showIosInstallHint === 'function') window.showIosInstallHint();
+        } else if (typeof window.triggerInstall === 'function') {
+            window.triggerInstall();
+        }
+        return;
+    }
     if (_activeOrders.length === 0) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (_activeOrders.length === 1) {
