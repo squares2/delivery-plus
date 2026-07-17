@@ -79,9 +79,29 @@
                         lng: s.lng ? parseFloat(s.lng) : null,
                     }));
             }
-            const wrap = document.getElementById('ext-suggested-stores');
-            if (wrap) wrap.innerHTML = _renderSuggestedStoreChips();
         } catch (_) { /* no suggested stores available — manual entry still works fine */ }
+        _renderStoreSelectInto();
+    }
+
+    /* ── Suggested internal (Delivo) stores ─────────────────────
+       Reuses stores.js's fetchAllStores() (same pattern/ source the
+       homepage store list reads) so every store already on Delivo
+       shows up here too, alongside the external ones above — one
+       consolidated dropdown instead of separate chip rows for each. */
+    let _internalStoreOptions = []; // [{ name, type }]
+    let _internalStoresLoaded = false;
+
+    async function _loadInternalStoreOptions() {
+        if (_internalStoresLoaded) return;
+        _internalStoresLoaded = true;
+        try {
+            const list = typeof fetchAllStores === 'function' ? await fetchAllStores() : [];
+            _internalStoreOptions = (list || [])
+                .filter(s => s && s.companyname && !s.disabled)
+                .map(s => ({ name: s.nameAr || s.companyname, type: s.type || '' }))
+                .sort((a, b) => a.name.localeCompare(b, 'ar'));
+        } catch (_) { _internalStoreOptions = []; }
+        _renderStoreSelectInto();
     }
 
     /* Same store-type → emoji taxonomy as Admin → متاجر خارجية (EXT_STORE_TYPES
@@ -95,11 +115,48 @@
     };
     function _extStoreTypeEmoji(type) { return EXT_STORE_TYPE_EMOJI[type] || '🏬'; }
 
-    function _renderSuggestedStoreChips() {
-        if (!_extStoreOptions.length) return '';
-        return _extStoreOptions.map(s =>
-            `<button type="button" class="ext-chip" onclick="_extQuickStore('${s.key}')">${_extStoreTypeEmoji(s.type)} ${s.name}</button>`
+    // Internal (pattern/) store types use stores.js's own taxonomy
+    // (TYPE_EMOJI_STORE, e.g. "Restaurants" → 🍽️) — different key set
+    // than the external one above, so it needs its own lookup.
+    function _internalStoreTypeEmoji(type) {
+        return (typeof TYPE_EMOJI_STORE === 'object' && TYPE_EMOJI_STORE[type]) || '🏬';
+    }
+
+    // Single dropdown combining every internal Delivo store with every
+    // admin-curated external one — replaces the old separate chip rows
+    // (one button per store took a lot of vertical space once the list
+    // grew) with one compact <select>, grouped so it's still obvious
+    // which stores are on Delivo vs. outside it.
+    function _renderStoreSelect() {
+        if (!_internalStoreOptions.length && !_extStoreOptions.length) return '';
+        const intOpts = _internalStoreOptions.map((s, i) =>
+            `<option value="internal:${i}">${_internalStoreTypeEmoji(s.type)} ${_esc(s.name)}</option>`
         ).join('');
+        const extOpts = _extStoreOptions.map(s =>
+            `<option value="external:${s.key}">${_extStoreTypeEmoji(s.type)} ${_esc(s.name)}</option>`
+        ).join('');
+        return `
+            <select id="ext-store-select" class="ext-input" onchange="_extStoreSelectChange(this.value)" style="margin-top:8px;">
+                <option value="">— اختر متجراً من القائمة (اختياري) —</option>
+                ${intOpts ? `<optgroup label="🛵 متاجر ديليفو">${intOpts}</optgroup>` : ''}
+                ${extOpts ? `<optgroup label="🏬 متاجر أخرى">${extOpts}</optgroup>` : ''}
+            </select>`;
+    }
+
+    function _renderStoreSelectInto() {
+        const wrap = document.getElementById('ext-suggested-stores');
+        if (wrap) wrap.innerHTML = _renderStoreSelect();
+    }
+
+    // Routes a <select> pick to the right handler based on its "source:id"
+    // value — an admin-curated external store, or a store already on Delivo.
+    function _extStoreSelectChange(value) {
+        if (!value) return;
+        const sep    = value.indexOf(':');
+        const source = value.slice(0, sep);
+        const id     = value.slice(sep + 1);
+        if (source === 'external') { _extQuickStore(id); return; }
+        if (source === 'internal') { _extQuickInternalStore(parseInt(id, 10)); return; }
     }
 
     function _extQuickStore(key) {
@@ -109,7 +166,7 @@
         _data.storeAddress = s.address || _data.storeAddress;
         _data.storePhone   = s.phone   || '';
         if (s.lat && s.lng) { _data.storeLat = s.lat; _data.storeLng = s.lng; }
-        _data.lockedStoreKey  = key;
+        _data.lockedStoreKey  = `external:${key}`;
         _data.lockedStoreName = s.name;
 
         const nameInp = document.getElementById('ext-store-name');
@@ -129,6 +186,48 @@
         // the system already has on file.
         _setStoreLocationLock(true);
         _refreshFeeEstimate();
+    }
+
+    // Picking a store already on Delivo — its location comes from
+    // pattern/ (via cart.js's _loadStoreLoc), not from a typed address,
+    // so the address field is left free instead of locked; storeLat
+    // being set already satisfies the "location known" validation rule.
+    async function _extQuickInternalStore(idx) {
+        const s = _internalStoreOptions[idx];
+        if (!s) return;
+        _data.storeName       = s.name;
+        _data.storePhone      = '';
+        _data.lockedStoreKey  = `internal:${idx}`;
+        _data.lockedStoreName = s.name;
+
+        const nameInp = document.getElementById('ext-store-name');
+        if (nameInp) nameInp.value = _data.storeName;
+
+        try {
+            if (typeof _loadStoreLoc === 'function') {
+                const loc = await _loadStoreLoc(s.name);
+                if (loc) {
+                    _data.storeLat = loc.lat;
+                    _data.storeLng = loc.lng;
+                    const addrInp    = document.getElementById('ext-store-addr');
+                    const badgeHost  = addrInp?.closest('.ext-field');
+                    if (badgeHost) {
+                        let badge = badgeHost.querySelector('.ext-coord-badge');
+                        if (!badge) { badge = document.createElement('div'); badge.className = 'ext-coord-badge'; badgeHost.insertBefore(badge, document.getElementById('ext-store-loc-lock-hint')); }
+                        badge.textContent = `📌 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}`;
+                    }
+                }
+            }
+        } catch (_) { /* no known location on file — customer can still set one manually */ }
+        _refreshFeeEstimate();
+    }
+
+    // True only when the currently-picked store is a locked external one —
+    // internal (Delivo) picks never disable the address/map fields, since
+    // their location comes from pattern/ in the background, not from what's
+    // typed here.
+    function _isLockedExternal() {
+        return !!(_data.lockedStoreKey && _data.lockedStoreKey.startsWith('external:'));
     }
 
     // Locks (or releases) the store address input + map button. Locked
@@ -207,8 +306,10 @@
         destLat          : null,
         destLng          : null,
         smartFee         : null,  // auto-calculated once both locations are known
-        lockedStoreKey   : null,  // externalStores/{key} of the suggested store currently locked in, or null
+        lockedStoreKey   : null,  // "external:<key>" or "internal:<index>" of the picked store, or null
         lockedStoreName  : '',    // exact name of that store — used to detect the customer editing it away
+        guestName        : '',    // only collected/used when window.DelivoUser is absent
+        guestPhone       : '',
     };
     let _currency = 'USD';
 
@@ -260,15 +361,10 @@
     ═══════════════════════════════════════════════════════ */
     function _openModal() {
         const user = window.DelivoUser;
-        if (!user) {
-            if (typeof window.openAuthModal === 'function') window.openAuthModal();
-            else alert('يرجى تسجيل الدخول أولاً');
-            return;
-        }
         // Reset state
         _data = { storeName:'', storeAddress:'', storeLat:null, storeLng:null, storePhone:'',
                   orderDescription:'', approxTotal:'', destAddress:'', destLat:null, destLng:null, smartFee:null,
-                  lockedStoreKey:null, lockedStoreName:'' };
+                  lockedStoreKey:null, lockedStoreName:'', guestName:'', guestPhone:'' };
         _currency = 'USD';
 
         const overlay = document.getElementById('ext-order-overlay');
@@ -283,6 +379,7 @@
         _render();
         _loadQuickItemCategories();
         _loadExternalStoreOptions();
+        _loadInternalStoreOptions();
     }
 
     function _closeModal() {
@@ -312,6 +409,20 @@
         return `
         <div style="padding-top:6px;">
 
+            ${!user ? `
+            <!-- Guest contact info ────────────────────────── -->
+            <div style="background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.25);border-radius:14px;padding:14px 14px 4px;margin-bottom:16px;">
+                <div class="ext-section-title" style="margin-top:0;"><span class="ext-section-icon ext-section-icon--guest">👤</span> معلومات التواصل</div>
+                <div class="ext-field">
+                    <label class="ext-label">الاسم الكامل <span style="color:var(--orange)">*</span></label>
+                    <input id="ext-guest-name" type="text" class="ext-input" placeholder="مثال: محمد حسن" value="${_esc(_data.guestName)}">
+                </div>
+                <div class="ext-field">
+                    <label class="ext-label">رقم الهاتف <span style="color:var(--orange)">*</span></label>
+                    <input id="ext-guest-phone" type="tel" class="ext-input" dir="ltr" placeholder="03 123 456" value="${_esc(_data.guestPhone)}">
+                </div>
+            </div>` : ''}
+
             <!-- Store ─────────────────────────────────────── -->
             <div style="background:var(--clr-orange-light);border:1px solid rgba(255,92,0,0.18);border-radius:14px;padding:14px 14px 4px;">
                 <div class="ext-section-title"><span class="ext-section-icon ext-section-icon--store">🏪</span> معلومات المتجر</div>
@@ -319,20 +430,20 @@
                 <div class="ext-field">
                     <label class="ext-label">اسم المتجر <span style="color:var(--orange)">*</span></label>
                     <input id="ext-store-name" type="text" class="ext-input" placeholder="مثال: مطعم قصر بعلبك، سوبرماركت الجميّل…" value="${_esc(_data.storeName)}">
-                    <div id="ext-suggested-stores" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;">${_renderSuggestedStoreChips()}</div>
+                    <div id="ext-suggested-stores">${_renderStoreSelect()}</div>
                 </div>
 
                 <div class="ext-field">
                     <label class="ext-label">📍 موقع المتجر <span style="color:var(--orange)">*</span></label>
                     <div style="display:flex;gap:8px;align-items:stretch;">
-                        <input id="ext-store-addr" type="text" class="ext-input${_data.lockedStoreKey ? ' ext-input--locked' : ''}" style="flex:1;" placeholder="المنطقة، الشارع، البناية…" value="${_esc(_data.storeAddress)}" ${_data.lockedStoreKey ? 'disabled' : ''}>
-                        <button onclick="_extPickMap('store')" class="ext-map-btn${_data.lockedStoreKey ? ' ext-map-btn--locked' : ''}" ${_data.lockedStoreKey ? 'disabled' : ''} title="حدد على الخريطة">
+                        <input id="ext-store-addr" type="text" class="ext-input${_isLockedExternal() ? ' ext-input--locked' : ''}" style="flex:1;" placeholder="المنطقة، الشارع، البناية…" value="${_esc(_data.storeAddress)}" ${_isLockedExternal() ? 'disabled' : ''}>
+                        <button onclick="_extPickMap('store')" class="ext-map-btn${_isLockedExternal() ? ' ext-map-btn--locked' : ''}" ${_isLockedExternal() ? 'disabled' : ''} title="حدد على الخريطة">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
                             خريطة
                         </button>
                     </div>
                     ${_data.storeLat ? `<div class="ext-coord-badge">📌 ${_data.storeLat.toFixed(5)}, ${_data.storeLng.toFixed(5)}</div>` : ''}
-                    <div id="ext-store-loc-lock-hint" style="display:${_data.lockedStoreKey ? 'block' : 'none'};margin-top:6px;font-size:0.72rem;color:var(--clr-gray-500);">
+                    <div id="ext-store-loc-lock-hint" style="display:${_isLockedExternal() ? 'block' : 'none'};margin-top:6px;font-size:0.72rem;color:var(--clr-gray-500);">
                         🔒 الموقع محدد تلقائياً لهذا المتجر — عدّل اسم المتجر أعلاه إذا كان متجرك مختلفاً لإدخال موقعه يدوياً
                     </div>
                 </div>
@@ -435,6 +546,8 @@
         document.getElementById('ext-store-addr')?.addEventListener('input', e => _data.storeAddress = e.target.value.trim());
         document.getElementById('ext-order-desc')?.addEventListener('input', e => _data.orderDescription = e.target.value.trim());
         document.getElementById('ext-dest-addr')?.addEventListener('input', e => _data.destAddress = e.target.value.trim());
+        document.getElementById('ext-guest-name')?.addEventListener('input', e => _data.guestName = e.target.value.trim());
+        document.getElementById('ext-guest-phone')?.addEventListener('input', e => _data.guestPhone = e.target.value.trim());
         _refreshFeeEstimate();
     }
 
@@ -443,6 +556,13 @@
         _data.storeAddress     = document.getElementById('ext-store-addr')?.value.trim() || '';
         _data.orderDescription = document.getElementById('ext-order-desc')?.value.trim() || '';
         _data.destAddress      = document.getElementById('ext-dest-addr')?.value.trim() || '';
+
+        if (!window.DelivoUser) {
+            _data.guestName  = document.getElementById('ext-guest-name')?.value.trim()  || '';
+            _data.guestPhone = document.getElementById('ext-guest-phone')?.value.trim() || '';
+            if (!_data.guestName)  return _shake('ext-guest-name', 'أدخل اسمك الكامل');
+            if (_data.guestPhone.replace(/\D/g, '').length < 7) return _shake('ext-guest-phone', 'أدخل رقم هاتف صحيح');
+        }
 
         if (!_data.storeName)    return _shake('ext-store-name', 'أدخل اسم المتجر');
         if (!_data.storeAddress && !_data.storeLat) return _shake('ext-store-addr', 'أدخل عنوان المتجر أو حدده على الخريطة');
@@ -476,7 +596,15 @@
                 const kmFromCenter = center ? _haversineKm(_data.destLat, _data.destLng, center.lat, center.lng) : null;
                 distanceKmForNight = kmFromCenter;
                 const tierFee = (center && kmFromCenter !== null) ? _calcCenterTierFee(kmFromCenter, cfg.centerTiers) : null;
-                rawFee = tierFee !== null ? tierFee : baseFee;
+                // Tier fees are admin-entered in ل.ل (large numbers) — convert to
+                // USD right away so the night-surcharge addition below (also USD)
+                // actually registers instead of getting rounded away against a
+                // number tens of thousands of times larger. _normalizeDeliveryFee
+                // converts back to a clean ل.ل number for display below, same as
+                // cart.js's _calcSmartFee does for regular checkout.
+                rawFee = tierFee !== null
+                    ? (typeof _toUSD === 'function' ? _toUSD(tierFee) : tierFee)
+                    : baseFee;
             } else {
                 if (!_data.storeLat) { _data.smartFee = null; return; }
                 const km = _haversineKm(_data.storeLat, _data.storeLng, _data.destLat, _data.destLng);
@@ -485,7 +613,7 @@
                 rawFee = Math.min(maxFee, Math.max(minFee, distFee));
             }
 
-            // Same smooth night-delivery bell-curve surcharge used by regular
+            // Same static night-delivery surcharge used by regular
             // checkout (scripts/cart.js's _calcNightSurcharge) — added on top so
             // a phone/manual order placed at night carries the same night fee a
             // normal customer order would.
@@ -658,8 +786,16 @@
     }
 
     async function _submitOrder() {
-        const user = window.DelivoUser;
-        if (!user) throw new Error('not logged in');
+        const user = window.DelivoUser || null;
+
+        // Identity: from the logged-in profile when there is one, otherwise
+        // from the contact-info fields a guest just filled in.
+        const uid      = user?.uid || '';
+        const fullname = user
+            ? (user.displayName || user.username || (user.email || '').split('@')[0] || '')
+            : _data.guestName;
+        const phone    = user ? (user.phone || '') : _data.guestPhone.replace(/\D/g, '');
+        const username = user ? (user.username || (user.email || '').split('@')[0] || '') : '';
 
         // Single free-text description line (matches admin's parseCart
         // format: qty:name:price:store:note) instead of itemized rows.
@@ -680,20 +816,20 @@
             cart          : cartStr,
             city          : 'Baalbeck',
             date          : dateStr,
-            delivryplusid : user.uid || '',
+            delivryplusid : uid,
             driver        : '0',
             rewardApplied : '',
-            fullname      : user.displayName || user.username || (user.email || '').split('@')[0] || '',
+            fullname      : fullname,
             lat           : _data.destLat   ? String(_data.destLat)  : '',
             lng           : _data.destLng   ? String(_data.destLng)  : '',
-            phone         : user.phone || '',
+            phone         : phone,
             read          : '0',
             state         : '0',
             store         : _data.storeName,
             street        : _data.destAddress || '',
             total         : totalStr,
             trackorder    : '0',
-            username      : user.username || (user.email || '').split('@')[0] || '',
+            username      : username,
             vault         : '0',
             // Extra fields for external orders
             externalOrder : '1',
@@ -702,24 +838,31 @@
             storeLng      : _data.storeLng  ? String(_data.storeLng) : '',
             storePhone    : _data.storePhone || '',
             deliveryFee   : _data.smartFee != null ? (_data.smartFee > 1000 ? String(_data.smartFee) : _data.smartFee.toFixed(2)) : '',
+            ...(!uid ? { guestOrder: '1' } : {}), // flags this as a non-registered customer for the admin dashboard
         };
 
-        await Promise.all([
-            fetch(`${RTDB}/requests/${requestKey}.json`,                          { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(requestObj) }),
-            fetch(`${RTDB}/historyRequests/${user.uid}/${requestKey}.json`,       { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...requestObj, trackorder:'0' }) }),
-            fetch(`${RTDB}/globalCounter/requestId.json`,                         { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(nextId) }),
-        ]);
+        const writes = [
+            fetch(`${RTDB}/requests/${requestKey}.json`,          { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(requestObj) }),
+            fetch(`${RTDB}/globalCounter/requestId.json`,         { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(nextId) }),
+        ];
+        // Only a registered customer has a uid to file order history under —
+        // guest orders still land in requests/ (so admin sees them right away)
+        // but have no historyRequests/ entry to attach to.
+        if (uid) {
+            writes.push(fetch(`${RTDB}/historyRequests/${uid}/${requestKey}.json`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...requestObj, trackorder:'0' }) }));
+        }
+        await Promise.all(writes);
 
         // WhatsApp notification to admin
         try {
             const adminResp = await fetch(`${RTDB}/settings/adminPhone.json`);
             const adminPhone = await adminResp.json();
             if (adminPhone) {
-                const name    = requestObj.fullname || 'مجهول';
-                const phone   = (user.phone || '').replace(/\D/g,'');
+                const name       = requestObj.fullname || 'مجهول';
+                const phoneDigits = phone.replace(/\D/g,'');
                 const waMsg   = encodeURIComponent(
-                    `🛍️ طلب خارجي جديد #${nextId}\n` +
-                    `👤 ${name} | 📞 +961${phone}\n` +
+                    `🛍️ طلب خارجي جديد #${nextId}${!uid ? ' (زائر)' : ''}\n` +
+                    `👤 ${name} | 📞 +961${phoneDigits}\n` +
                     `🏪 المتجر: ${_data.storeName} (${_data.storeAddress})\n` +
                     `🧾 ${_data.orderDescription}\n` +
                     `🏠 التوصيل إلى: ${_data.destAddress}`
@@ -727,7 +870,7 @@
                 const waLink = `https://wa.me/${adminPhone}?text=${waMsg}`;
                 fetch(`${RTDB}/pendingWaNotifications.json`, {
                     method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({ waLink, orderTime: new Date().toISOString(), customer: name, phone: '+961'+phone, stores: _data.storeName, read: false, externalOrder: true })
+                    body: JSON.stringify({ waLink, orderTime: new Date().toISOString(), customer: name, phone: '+961'+phoneDigits, stores: _data.storeName, read: false, externalOrder: true })
                 }).catch(() => {});
             }
         } catch(_) {}
@@ -948,6 +1091,8 @@
     window._extMapCancel  = _mapCancel;
     window._extQuickDest      = _extQuickDest;
     window._extQuickStore     = _extQuickStore;
+    window._extQuickInternalStore = _extQuickInternalStore;
+    window._extStoreSelectChange  = _extStoreSelectChange;
     window._extQuickItem      = _extQuickItem;
     window._extOpenItemPopup  = _extOpenItemPopup;
     window._extCloseItemPopup = _extCloseItemPopup;

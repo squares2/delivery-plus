@@ -12526,7 +12526,7 @@ function renderSettings() {
                         🌙 التوصيل الليلي
                         <span id="night-mode-badge" style="display:none;font-size:0.62rem;font-weight:800;background:rgba(129,140,248,0.15);color:#818cf8;border-radius:50px;padding:2px 8px;">مفعّل</span>
                     </div>
-                    <div class="setting-sub">إضافة تتصاعد تدريجياً بمنحنى ناعم خلال ساعات الليل، فوق أي رسوم توصيل عادية أو ذكية</div>
+                    <div class="setting-sub">إضافة ثابتة بالليرة اللبنانية طوال الفترة الليلية بالكامل، فوق أي رسوم توصيل عادية أو ذكية</div>
                 </div>
                 <label class="toggle">
                     <input type="checkbox" id="toggle-night-delivery" onchange="toggleNightDelivery(this.checked)">
@@ -12538,8 +12538,8 @@ function renderSettings() {
 
                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:0.72rem;color:var(--gray-light);line-height:1.7;">
                     <div style="color:#818cf8;font-weight:800;margin-bottom:4px;">🌙 كيف تعمل؟</div>
-                    بدل رسم ثابت يظهر فجأة عند ساعة معيّنة، ترتفع الإضافة تدريجياً بعد بداية الفترة الليلية، تبلغ ذروتها في منتصف الفترة، ثم تنخفض تدريجياً حتى نهايتها — تماماً كموجة، وتُضاف فوق الرسوم العادية (ثابتة كانت أو ذكية).
-                    <br><code>الإضافة = شدة_الليل (0↔1) × (رسم_ثابت + كم × رسم_لكل_كم)</code>
+                    رسم ثابت يُضاف بنفس القيمة طوال الفترة الليلية بالكامل — من لحظة البداية حتى لحظة النهاية دون أي تدرّج، فوق الرسوم العادية (ثابتة كانت أو ذكية). القيم تُدخل بالليرة اللبنانية (ل.ل).
+                    <br><code>الإضافة = الرسم_الثابت (ل.ل) + كم × الرسم_لكل_كم (ل.ل)</code> — تُطبّق بالكامل طوال فترة الليل، صفر خارجها
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
@@ -12558,14 +12558,14 @@ function renderSettings() {
                         <div style="font-size:0.65rem;color:var(--gray);margin-top:3px;">يمكن أن تمتد بعد منتصف الليل</div>
                     </div>
                     <div>
-                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;display:block;margin-bottom:5px;">الإضافة الثابتة عند الذروة ($)</label>
-                        <input type="number" id="nd-flat-fee" value="1.0" min="0" step="0.25"
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;display:block;margin-bottom:5px;">الإضافة الليلية الثابتة (ل.ل)</label>
+                        <input type="number" id="nd-flat-fee" value="90000" min="0" step="5000"
                                style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--white);font-family:var(--mono);outline:none;box-sizing:border-box;"
                                onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='var(--border)'">
                     </div>
                     <div>
-                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;display:block;margin-bottom:5px;">إضافة لكل كم عند الذروة ($)</label>
-                        <input type="number" id="nd-per-km" value="0" min="0" step="0.05"
+                        <label style="font-size:0.72rem;color:var(--gray);font-weight:700;display:block;margin-bottom:5px;">إضافة لكل كم (ل.ل)</label>
+                        <input type="number" id="nd-per-km" value="0" min="0" step="1000"
                                style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--white);font-family:var(--mono);outline:none;box-sizing:border-box;"
                                onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='var(--border)'">
                         <div style="font-size:0.65rem;color:var(--gray);margin-top:3px;">اختياري — اتركه 0 لتجاهل المسافة</div>
@@ -12575,7 +12575,7 @@ function renderSettings() {
                 <!-- 24h intensity curve preview -->
                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
                     <div style="font-size:0.72rem;color:var(--gray);font-weight:800;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
-                        <span>📈 منحنى الشدة خلال 24 ساعة</span>
+                        <span>📊 الفترة الليلية الفعّالة خلال 24 ساعة</span>
                         <span id="nd-now-label" style="color:#818cf8;font-family:var(--mono);"></span>
                     </div>
                     <div id="nd-curve-wrap"></div>
@@ -15723,19 +15723,19 @@ async function sdLoad() {
 
 /* ═══════════════════════════════════════════════════════════════
    NIGHT DELIVERY — admin settings functions
-   Same bell-curve formula as scripts/cart.js's _nightIntensity(): a
-   half-sine ramp 0→1→0 across the configured window, peaking exactly
-   at the midpoint, so the fee eases in and out instead of snapping
-   on/off at a fixed clock time.
+   Same static on/off window as scripts/cart.js's _isNightActive():
+   full fee for the entire configured window, no ramp — snaps on at
+   startHour and off at endHour. flatFee/perKm are entered here in
+   Lebanese Lira (large numbers are auto-detected as ل.ل, same
+   >1000-is-LBP convention used everywhere else — see _toUSD).
 ═══════════════════════════════════════════════════════════════ */
 
-function _ndIntensityAt(hourFrac, startHour, endHour) {
+function _ndActiveAt(hourFrac, startHour, endHour) {
     let duration = endHour - startHour;
     if (duration <= 0) duration += 24;
     let elapsed = hourFrac - startHour;
     if (elapsed < 0) elapsed += 24;
-    if (elapsed > duration) return 0;
-    return Math.sin(Math.PI * (elapsed / duration));
+    return elapsed <= duration ? 1 : 0;
 }
 
 function _ndBeirutHourFrac() {
@@ -15745,9 +15745,9 @@ function _ndBeirutHourFrac() {
     return h + m / 60;
 }
 
-// Draws the 24h intensity curve as inline SVG — rises after the night
-// window opens, peaks at its midpoint, eases back down by the close —
-// with a live dot marking "right now" in Beirut time.
+// Draws the 24h active window as inline SVG — a flat-topped rectangle for
+// the whole night period (no ramp), with a live dot marking "right now"
+// in Beirut time.
 function ndRenderCurve() {
     const wrap = document.getElementById('nd-curve-wrap');
     if (!wrap) return;
@@ -15757,9 +15757,9 @@ function ndRenderCurve() {
     const W = 600, H = 140, pad = 8;
     const pts = [];
     for (let h = 0; h <= 24; h += 0.5) {
-        const intensity = _ndIntensityAt(h, startHour, endHour);
+        const active = _ndActiveAt(h, startHour, endHour);
         const x = pad + (h / 24) * (W - pad * 2);
-        const y = H - pad - intensity * (H - pad * 2);
+        const y = H - pad - active * (H - pad * 2);
         pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
     }
     const linePath = 'M' + pts.join(' L');
@@ -15767,7 +15767,7 @@ function ndRenderCurve() {
 
     const nowFrac = _ndBeirutHourFrac();
     const nowX = pad + (nowFrac / 24) * (W - pad * 2);
-    const nowY = H - pad - _ndIntensityAt(nowFrac, startHour, endHour) * (H - pad * 2);
+    const nowY = H - pad - _ndActiveAt(nowFrac, startHour, endHour) * (H - pad * 2);
 
     const nowLabel = document.getElementById('nd-now-label');
     if (nowLabel) {
@@ -15805,11 +15805,13 @@ function ndRunPreview() {
     const testKm    = parseFloat(document.getElementById('nd-test-km')?.value)    || 0;
     const resultEl  = document.getElementById('nd-test-result');
 
-    const intensity  = _ndIntensityAt(testHour, startHour, endHour);
-    const surcharge  = intensity * (flatFee + perKm * testKm);
+    const active       = _ndActiveAt(testHour, startHour, endHour);
+    const surchargeLBP = active ? (flatFee + perKm * testKm) : 0;
     if (resultEl) {
-        resultEl.textContent = intensity > 0 ? `+ $${surcharge.toFixed(2)}` : 'لا توجد إضافة (نهار)';
-        resultEl.title = `شدة الليل: ${(intensity * 100).toFixed(0)}%`;
+        resultEl.textContent = active
+            ? `+ ${Math.round(surchargeLBP).toLocaleString('en-US')} ل.ل`
+            : 'لا توجد إضافة (نهار)';
+        resultEl.title = active ? 'ضمن الفترة الليلية' : 'خارج الفترة الليلية';
     }
     ndRenderCurve();
 }
@@ -18588,6 +18590,7 @@ let _aoDestLat = null, _aoDestLng = null;
 let _aoStoreLat = null, _aoStoreLng = null;
 let _aoQuickCategories = {};
 let _aoSmartCfgCache = undefined; // undefined = not fetched yet, null = fetched but absent
+let _aoNightCfgCache  = undefined; // undefined = not fetched yet, null = fetched but absent
 
 function renderAdminOrderPanel() {
     _aoInitOnce();
@@ -18924,7 +18927,8 @@ function _aoAppendItem(item) {
 
 // ── Delivery-fee auto-calculator — same formula & config
 // (settings/smartDelivery) as regular checkout in cart.js, applied
-// to this order's own store/destination pins. ──────────────────
+// to this order's own store/destination pins, plus the same static
+// night-delivery surcharge (settings/nightDelivery) regular checkout adds. ──
 function _aoHaversineKm(lat1, lng1, lat2, lng2) {
     const R = 6371;
     const dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
@@ -18945,6 +18949,34 @@ function _aoCalcCenterTierFee(distanceKm, centerTiers) {
     return parseFloat(sorted[sorted.length - 1].fee) || 0;
 }
 
+// Same static night-window surcharge as regular checkout (scripts/cart.js's
+// _calcNightSurcharge) — duplicated here since admin.html doesn't load
+// cart.js as a script. Reuses _ndActiveAt/_ndBeirutHourFrac (night-delivery
+// settings section above) and _toUSD (>1000 = ل.ل convention) so a
+// phone/manual order placed at night carries the same night fee a normal
+// customer order would. Returns the surcharge in USD.
+async function _aoCalcNightSurchargeUSD(distanceKm) {
+    if (_aoNightCfgCache === undefined) _aoNightCfgCache = await fbGet('settings/nightDelivery').catch(() => null);
+    const cfg = _aoNightCfgCache;
+    if (!cfg || !cfg.enabled) return 0;
+    const startHour = parseFloat(cfg.startHour ?? 22);
+    const endHour   = parseFloat(cfg.endHour   ?? 6);
+    if (!_ndActiveAt(_ndBeirutHourFrac(), startHour, endHour)) return 0;
+    const flatFeeUSD = _toUSD(parseFloat(cfg.flatFee ?? 90000));
+    const perKmUSD   = _toUSD(parseFloat(cfg.perKm   ?? 0));
+    return flatFeeUSD + perKmUSD * (distanceKm || 0);
+}
+
+// Same rounding convention as cart.js's _normalizeDeliveryFee — always
+// expresses the result in ل.ل, rounded to the nearest 10,000, whether the
+// input was USD-scale (<=1000) or already ل.ل-scale.
+function _aoNormalizeFeeLBP(fee) {
+    let n = parseFloat(fee);
+    if (isNaN(n)) return 0;
+    if (n <= 1000) n = n * (window._LBP_RATE || window._dollarRate || 90000);
+    return Math.round(n / 10000) * 10000;
+}
+
 async function _aoAutoCalcFee() {
     if (!_aoDestLat) { toast('حدّد موقع التوصيل أولاً', true); return; }
     try {
@@ -18958,14 +18990,15 @@ async function _aoAutoCalcFee() {
             if (!center || typeof center.lat !== 'number') { toast('⚠️ لم يُحدَّد موقع المركز بعد (الخريطة المباشرة)', true); return; }
             const km  = _aoHaversineKm(_aoDestLat, _aoDestLng, center.lat, center.lng);
             const tierFee = _aoCalcCenterTierFee(km, cfg.centerTiers);
-            const fee = tierFee !== null ? tierFee : parseFloat(cfg?.baseFee ?? 1.5);
-            // Tier fees are LBP-scale (large numbers); the baseFee fallback (used only
-            // when no tiers/center are configured yet) is USD-scale like the formula
-            // mode — the fee field auto-detects either based on magnitude, same as
-            // everywhere else money is typed in this panel (see _normalizeMoneyValue).
-            if (input) input.value = fee > 1000 ? String(Math.round(fee / 1000) * 1000) : fee.toFixed(2);
-            const feeLabel = fee > 1000 ? `${Math.round(fee).toLocaleString('en-US')} ل.ل` : `$${fee.toFixed(2)}`;
-            toast(`📍 المسافة من المركز ${km.toFixed(1)} كم — رسم الشريحة ${feeLabel}`);
+            const baseFeeRaw = tierFee !== null ? tierFee : parseFloat(cfg?.baseFee ?? 1.5);
+            const nightUSD = await _aoCalcNightSurchargeUSD(km);
+            // Combine in USD regardless of which scale the base fee started in
+            // (tier fees are ل.ل-scale, the baseFee fallback is USD-scale), then
+            // always express the total in ل.ل, rounded to the nearest 10,000 —
+            // same convention regular checkout uses everywhere.
+            const fee = _aoNormalizeFeeLBP(_toUSD(baseFeeRaw) + nightUSD);
+            if (input) input.value = String(fee);
+            toast(`📍 المسافة من المركز ${km.toFixed(1)} كم — رسم الشريحة ${fee.toLocaleString('en-US')} ل.ل${nightUSD > 0 ? ' 🌙' : ''}`);
             return;
         }
 
@@ -18975,9 +19008,11 @@ async function _aoAutoCalcFee() {
         const minFee    = parseFloat(cfg?.minFee    ?? 0.5);
         const maxFee    = parseFloat(cfg?.maxFee    ?? 5.0);
         const km  = _aoHaversineKm(_aoStoreLat, _aoStoreLng, _aoDestLat, _aoDestLng);
-        const fee = Math.min(maxFee, Math.max(minFee, baseFee + km * ratePerKm));
-        if (input) input.value = fee.toFixed(2);
-        toast(`🧮 المسافة ${km.toFixed(1)} كم — رسم مقترح $${fee.toFixed(2)}`);
+        const baseFeeUSD = Math.min(maxFee, Math.max(minFee, baseFee + km * ratePerKm));
+        const nightUSD = await _aoCalcNightSurchargeUSD(km);
+        const fee = _aoNormalizeFeeLBP(baseFeeUSD + nightUSD);
+        if (input) input.value = String(fee);
+        toast(`🧮 المسافة ${km.toFixed(1)} كم — رسم مقترح ${fee.toLocaleString('en-US')} ل.ل${nightUSD > 0 ? ' 🌙' : ''}`);
     } catch (e) { toast('تعذّر الحساب التلقائي', true); }
 }
 

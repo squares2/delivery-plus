@@ -83,13 +83,13 @@ async function _loadAdminPhoneLink() {
 /* ══════════════════════════════════════════════════════════════
    NIGHT DELIVERY SURGE
    Reads settings/nightDelivery = { enabled, startHour, endHour, flatFee, perKm }.
-   Adds a smooth surcharge on top of whatever the normal fee comes out to
-   (flat OR smart-computed) during night hours — but instead of snapping a
-   fixed extra fee on/off at the clock boundary, it ramps up gradually after
-   startHour, peaks exactly at the window's midpoint, and eases back down
-   by endHour, using a half-sine "bell curve". A rider working the 2am dip
-   earns the full night premium; someone ordering right at 10:01pm barely
-   notices a fee change at all — same shape a real surge-pricing curve has.
+   Adds a static surcharge on top of whatever the normal fee comes out to
+   (flat OR smart-computed) for the entire configured night window — full
+   fee the instant startHour hits, same fee at 2am as at 11:01pm, back to
+   $0 the instant endHour is reached. No ramp/curve.
+   flatFee/perKm are admin-entered in Lebanese Lira (large numbers, same
+   >1000-is-LBP convention as the rest of the app) and converted to USD
+   here via _toUSD before being added to the USD-denominated delivery fee.
 ══════════════════════════════════════════════════════════════ */
 let _nightCfg       = null;
 let _nightCfgLoaded = false;
@@ -116,15 +116,14 @@ function _beirutHourFrac() {
     return h + m / 60;
 }
 
-// 0 → 1 → 0 half-sine bell curve across [startHour, endHour], correctly
-// handling windows that cross midnight (e.g. 22 → 6).
-function _nightIntensity(startHour, endHour) {
+// true for the entire configured window, correctly handling windows that
+// cross midnight (e.g. 22 → 6). No ramp — the fee is fully on or fully off.
+function _isNightActive(startHour, endHour) {
     let duration = endHour - startHour;
     if (duration <= 0) duration += 24;
     let elapsed = _beirutHourFrac() - startHour;
     if (elapsed < 0) elapsed += 24;
-    if (elapsed > duration) return 0; // outside the window entirely
-    return Math.sin(Math.PI * (elapsed / duration));
+    return elapsed <= duration;
 }
 
 async function _calcNightSurcharge(distanceKm) {
@@ -132,11 +131,12 @@ async function _calcNightSurcharge(distanceKm) {
     if (!cfg || !cfg.enabled) return 0;
     const startHour = parseFloat(cfg.startHour ?? 22);
     const endHour   = parseFloat(cfg.endHour   ?? 6);
-    const flatFee   = parseFloat(cfg.flatFee   ?? 1.0);
-    const perKm     = parseFloat(cfg.perKm     ?? 0);
-    const intensity = _nightIntensity(startHour, endHour);
-    if (intensity <= 0) return 0;
-    return intensity * (flatFee + perKm * (distanceKm || 0));
+    if (!_isNightActive(startHour, endHour)) return 0;
+    // Stored in ل.ل — _toUSD auto-detects (values >1000 = LBP) and converts
+    // to the USD figure this function's caller expects.
+    const flatFeeUSD = _toUSD(parseFloat(cfg.flatFee ?? 90000));
+    const perKmUSD   = _toUSD(parseFloat(cfg.perKm   ?? 0));
+    return flatFeeUSD + perKmUSD * (distanceKm || 0);
 }
 
 // Small transparency touch shown next to the delivery-fee line in the cart —
@@ -144,8 +144,8 @@ async function _calcNightSurcharge(distanceKm) {
 async function _nightBadgeHtml() {
     const cfg = await _loadNightCfg();
     if (!cfg || !cfg.enabled) return '';
-    const intensity = _nightIntensity(parseFloat(cfg.startHour ?? 22), parseFloat(cfg.endHour ?? 6));
-    if (intensity <= 0) return '';
+    const active = _isNightActive(parseFloat(cfg.startHour ?? 22), parseFloat(cfg.endHour ?? 6));
+    if (!active) return '';
     return ` <span title="رسوم توصيل ليلي مُفعّلة الآن 🌙" style="font-size:0.85em;">🌙</span>`;
 }
 
