@@ -99,6 +99,61 @@
         } catch (_) { return {}; }
     }
 
+    // ── Attendance exclusions — lets an admin keep their own test/dev
+    // device (or a tester/employee account) out of the visitor counts,
+    // since someone constantly reloading the site to check a deploy
+    // isn't a real visitor. Stored at settings/attendanceExclusions:
+    //   { devices: {uuid: {label, addedAt}}, accounts: {uid: {label, addedAt}} }
+    async function fetchAttendanceExclusions() {
+        try {
+            const r = await fetch(`${RTDB_BASE}/settings/attendanceExclusions.json`);
+            const j = await r.json();
+            return j || {};
+        } catch (_) { return {}; }
+    }
+
+    async function _attAddExclusion(kind, key, label) {
+        const r = await fetch(`${RTDB_BASE}/settings/attendanceExclusions/${kind}/${key}.json`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: label || '', addedAt: Date.now() }),
+        });
+        if (!r.ok) throw new Error(`RTDB PUT ${r.status}`);
+    }
+
+    async function _attRemoveExclusion(kind, key) {
+        const r = await fetch(`${RTDB_BASE}/settings/attendanceExclusions/${kind}/${key}.json`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(`RTDB DELETE ${r.status}`);
+    }
+
+    // Builds the effective set of device UUIDs to drop from every count —
+    // the raw excluded devices, plus (best-effort) the current device UUID
+    // on file for each excluded account. Sessions only ever store `uuid`,
+    // never `uid`, so an account exclusion has to be resolved this way;
+    // if that account logs in from a new device later, its old exclusion
+    // won't follow automatically (same limitation admin-presence.js's own
+    // account matching has).
+    function _attBuildExcludedUuidSet(exclusions) {
+        const set = new Set(Object.keys(exclusions.devices || {}));
+        const excludedUids = new Set(Object.keys(exclusions.accounts || {}));
+        if (excludedUids.size && window.allUsers) {
+            Object.entries(window.allUsers).forEach(([uid, u]) => {
+                if (excludedUids.has(uid) && u && u.deviceUUID) set.add(u.deviceUUID);
+            });
+        }
+        return set;
+    }
+
+    function _attStripExcluded(sessionsByDate, excludedSet) {
+        if (!excludedSet.size) return sessionsByDate;
+        const out = {};
+        Object.entries(sessionsByDate || {}).forEach(([dateKey, bucket]) => {
+            const kept = {};
+            Object.entries(bucket || {}).forEach(([k, s]) => { if (!excludedSet.has(s.uuid)) kept[k] = s; });
+            out[dateKey] = kept;
+        });
+        return out;
+    }
+
     /* ── Aggregate ──────────────────────────────────────────────── */
     function buildDayList(days) {
         const out = [];
@@ -283,6 +338,104 @@
         </svg>`;
     }
 
+    function _hourlyDeviceIcon(s) {
+        if (s.os === 'ios') return '🍎';
+        if (s.os === 'android') return '🤖';
+        return s.device === 'mobile' ? '📱' : '💻';
+    }
+
+    // Same identity-matching approach as admin-presence.js's live "الزوار
+    // المتصلون" panel, reused here for historical sessions: a registered
+    // visit is matched back to its account via deviceUUID (attendance
+    // sessions don't store uid directly), a guest visit is matched to any
+    // pre-signup name+phone lead captured for that device.
+    function _hourlyIdentity(s) {
+        const uuid = s.uuid || '';
+        if (s.isRegistered && uuid && window.allUsers) {
+            const match = Object.values(window.allUsers).find(u => u && u.deviceUUID === uuid);
+            if (match) {
+                return {
+                    name:  match.displayName || match.fullname || match.username || null,
+                    user:  match.username || null,
+                    phone: match.phone || null,
+                };
+            }
+        }
+        if (uuid && window.allVisitors && window.allVisitors[uuid]) {
+            const lead = window.allVisitors[uuid];
+            if (lead && lead.fullName) return { name: lead.fullName, user: null, phone: lead.phone || null };
+        }
+        return { name: null, user: null, phone: null };
+    }
+
+    // Cache of the currently-rendered hourly chart's per-hour session lists
+    // and which day they belong to — read by the popup when a bar is
+    // clicked (click happens well after render, so this can't just be a
+    // local variable inside renderAttendance).
+    let _attHourlySessionsCache = Array.from({ length: 24 }, () => []);
+    let _attHourlyDateKeyCache  = '';
+
+    function _ensureAttHourlyPopup() {
+        if (document.getElementById('att-hp-overlay')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'att-hp-overlay';
+        overlay.className = 'att-hp-overlay';
+        overlay.innerHTML = `
+            <div class="att-hp-modal" id="att-hp-modal">
+                <div class="att-hp-header">
+                    <div class="att-hp-title" id="att-hp-title"></div>
+                    <button class="att-hp-close" id="att-hp-close" aria-label="إغلاق">✕</button>
+                </div>
+                <div class="att-hp-body" id="att-hp-body"></div>
+            </div>`;
+        document.body.appendChild(overlay);
+        // Click anywhere outside the modal (i.e. directly on the overlay
+        // backdrop) closes it — clicks inside the modal don't bubble to
+        // a target that IS the overlay, so this check is enough.
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) _closeAttHourlyPopup(); });
+        document.getElementById('att-hp-close').addEventListener('click', _closeAttHourlyPopup);
+    }
+
+    function _closeAttHourlyPopup() {
+        document.getElementById('att-hp-overlay')?.classList.remove('active');
+    }
+
+    function _attOpenHourlyPopup(hour) {
+        _ensureAttHourlyPopup();
+        const sessions = (_attHourlySessionsCache[hour] || []).slice().sort((a, b) => a.startedAt - b.startedAt);
+        const dayPrefix = _attHourlyDateKeyCache ? `${weekdayLabel(_attHourlyDateKeyCache)} ${dayLabel(_attHourlyDateKeyCache)} — ` : '';
+        document.getElementById('att-hp-title').textContent = `${dayPrefix}الساعة ${hour}:00 — ${fmtNum(sessions.length)} زيارة`;
+
+        const body = document.getElementById('att-hp-body');
+        if (!sessions.length) {
+            body.innerHTML = `<div style="padding:36px 20px;text-align:center;color:var(--gray,#6b6b82);font-size:.85rem;">لا توجد زيارات في هذه الساعة</div>`;
+        } else {
+            const fmtTime = new Intl.DateTimeFormat('ar', { timeZone: 'Asia/Beirut', hour: '2-digit', minute: '2-digit', hour12: false });
+            body.innerHTML = `
+            <table class="att-hp-table">
+                <thead><tr><th>الوقت</th><th>الجهاز</th><th>الحالة</th><th>الاسم / المستخدم</th><th>الهاتف</th></tr></thead>
+                <tbody>
+                ${sessions.map(s => {
+                    const time  = fmtTime.format(new Date(s.startedAt));
+                    const icon  = _hourlyDeviceIcon(s);
+                    const who   = s.isRegistered ? 'مسجّل' : 'زائر';
+                    const id    = _hourlyIdentity(s);
+                    const nameCell  = [id.name, id.user ? '@' + id.user : ''].filter(Boolean).join(' ') || '—';
+                    const phoneCell = id.phone ? (typeof window.formatPhone === 'function' ? window.formatPhone(id.phone) : id.phone) : '—';
+                    return `<tr>
+                        <td dir="ltr">${time}</td>
+                        <td>${icon}</td>
+                        <td>${who}${s.isNew ? ' <span class="att-hp-new">جديد</span>' : ''}</td>
+                        <td>${nameCell}</td>
+                        <td dir="ltr">${phoneCell}</td>
+                    </tr>`;
+                }).join('')}
+                </tbody>
+            </table>`;
+        }
+        document.getElementById('att-hp-overlay').classList.add('active');
+    }
+
     function svgHourlyBars(hourly) {
         const maxVal = niceMax(Math.max(...hourly, 1) * 1.15);
         const { svg: grid, innerH, innerW } = gridAndLabels(maxVal, 24);
@@ -295,11 +448,14 @@
             const hh = innerH * (v / maxVal);
             const y  = PAD.t + innerH - hh;
             const isPeak = v === peak && peak > 0;
+            // A full-height, transparent rect widens the click target to
+            // the whole hour-slot (not just the visible bar, which can be
+            // a sliver for quiet hours) — click opens the popup, no hover
+            // tooltip involved.
             return `
+                <rect class="att-hour-hit" data-hour="${h}" x="${(cx - gap / 2).toFixed(1)}" y="${PAD.t}" width="${gap.toFixed(1)}" height="${innerH.toFixed(1)}" fill="transparent"></rect>
                 <rect x="${(cx - barW / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${hh.toFixed(1)}" rx="2"
-                      fill="${isPeak ? COLOR.orange : 'rgba(255,92,0,.35)'}">
-                    <title>الساعة ${h}:00 — ${fmtNum(v)} زيارة</title>
-                </rect>
+                      fill="${isPeak ? COLOR.orange : 'rgba(255,92,0,.35)'}" style="pointer-events:none;"></rect>
                 ${h % 3 === 0 ? `<text x="${cx.toFixed(1)}" y="${VB_H - 8}" text-anchor="middle" font-size="9" fill="var(--gray,#6b6b82)">${h}</text>` : ''}`;
         }).join('');
 
@@ -365,7 +521,173 @@
 
     let _hasRenderedOnce = false;
 
-    /* ── Main render ────────────────────────────────────────────── */
+    // ── Exclusions management modal ─────────────────────────────
+    // Raw (unfiltered) devices, cached each render so the search box
+    // below has something to search even though the charts themselves
+    // only ever see the exclusion-filtered version.
+    let _attRawDevicesCache = {};
+
+    function _ensureAttExclusionsModal() {
+        if (document.getElementById('att-excl-overlay')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'att-excl-overlay';
+        overlay.className = 'att-hp-overlay';
+        overlay.innerHTML = `
+            <div class="att-hp-modal" id="att-excl-modal" style="max-width:640px;">
+                <div class="att-hp-header">
+                    <div class="att-hp-title">⚙️ استثناءات الحضور</div>
+                    <button class="att-hp-close" id="att-excl-close" aria-label="إغلاق">✕</button>
+                </div>
+                <div class="att-hp-body">
+                    <p style="font-size:.78rem;color:var(--gray-light,#a0a0b8);margin:0 0 14px;line-height:1.6;">
+                        الأجهزة أو الحسابات المستثناة هنا ما بتنحسب ضمن أي رقم أو رسم بياني بقسم الحضور — مفيدة لجهازك الشخصي وحسابات التجربة.
+                    </p>
+                    <input type="text" id="att-excl-search" class="att-excl-search-input" placeholder="دوّر باسم، @username، رقم هاتف، أو جزء من UUID الجهاز...">
+                    <div id="att-excl-results"></div>
+                    <div style="margin-top:20px;">
+                        <div style="font-weight:800;font-size:.8rem;margin-bottom:8px;color:var(--white,#f0f0f8);">المستثناة حالياً</div>
+                        <div id="att-excl-current"></div>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) _closeAttExclusionsModal(); });
+        document.getElementById('att-excl-close').addEventListener('click', _closeAttExclusionsModal);
+        document.getElementById('att-excl-search').addEventListener('input', (e) => _attRenderExclusionResults(e.target.value.trim()));
+    }
+
+    function _closeAttExclusionsModal() {
+        document.getElementById('att-excl-overlay')?.classList.remove('active');
+    }
+
+    async function _openAttExclusionsModal() {
+        _ensureAttExclusionsModal();
+        document.getElementById('att-excl-search').value = '';
+        document.getElementById('att-excl-results').innerHTML = '';
+        document.getElementById('att-excl-overlay').classList.add('active');
+        await _attRenderExclusionCurrentList();
+    }
+
+    async function _attRenderExclusionCurrentList() {
+        const exclusions = await fetchAttendanceExclusions();
+        const box = document.getElementById('att-excl-current');
+        if (!box) return;
+        const deviceRows = Object.entries(exclusions.devices || {});
+        const accountRows = Object.entries(exclusions.accounts || {});
+        if (!deviceRows.length && !accountRows.length) {
+            box.innerHTML = `<div style="font-size:.78rem;color:var(--gray,#6b6b82);">ما في أجهزة أو حسابات مستثناة حالياً</div>`;
+            return;
+        }
+        const row = (icon, label, sub, kind, key) => `
+            <div class="att-excl-row">
+                <span style="font-size:1rem;">${icon}</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:.8rem;color:var(--white,#f0f0f8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</div>
+                    ${sub ? `<div style="font-size:.68rem;color:var(--gray,#6b6b82);">${sub}</div>` : ''}
+                </div>
+                <button class="att-excl-remove-btn" data-kind="${kind}" data-key="${key}" title="إلغاء الاستثناء">✕</button>
+            </div>`;
+        box.innerHTML = [
+            ...deviceRows.map(([uuid, rec]) => row('📱', rec.label || `جهاز·${uuid.slice(0, 10)}`, `UUID: ${uuid.slice(0, 18)}…`, 'devices', uuid)),
+            ...accountRows.map(([uid, rec]) => row('👤', rec.label || `حساب·${uid.slice(0, 10)}`, 'حساب مستخدم', 'accounts', uid)),
+        ].join('');
+        box.querySelectorAll('.att-excl-remove-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true; btn.textContent = '…';
+                try {
+                    await _attRemoveExclusion(btn.dataset.kind, btn.dataset.key);
+                    toast('✅ تم إلغاء الاستثناء');
+                    await _attRenderExclusionCurrentList();
+                    renderAttendance();
+                } catch (e) {
+                    toast('⚠️ تعذّر إلغاء الاستثناء: ' + e.message, true);
+                    btn.disabled = false; btn.textContent = '✕';
+                }
+            });
+        });
+    }
+
+    async function _attRenderExclusionResults(query) {
+        const box = document.getElementById('att-excl-results');
+        if (!box) return;
+        if (!query) { box.innerHTML = ''; return; }
+        const q = query.toLowerCase();
+        const exclusions = await fetchAttendanceExclusions();
+        const alreadyExcludedDevices = new Set(Object.keys(exclusions.devices || {}));
+        const alreadyExcludedAccounts = new Set(Object.keys(exclusions.accounts || {}));
+
+        // Accounts — search by name / username / phone.
+        const accountMatches = Object.entries(window.allUsers || {})
+            .filter(([uid, u]) => {
+                if (!u) return false;
+                const hay = [u.displayName, u.fullname, u.username, u.phone].filter(Boolean).join(' ').toLowerCase();
+                return hay.includes(q);
+            })
+            .slice(0, 15)
+            .map(([uid, u]) => ({
+                kind: 'accounts', key: uid,
+                label: u.displayName || u.fullname || u.username || uid.slice(0, 10),
+                sub: [u.username ? '@' + u.username : '', u.phone ? (window.formatPhone ? window.formatPhone(u.phone) : u.phone) : ''].filter(Boolean).join(' — '),
+                icon: '👤',
+                excluded: alreadyExcludedAccounts.has(uid),
+            }));
+
+        // Devices — search by resolved name/phone (via leads or matching
+        // account), or by raw UUID substring for a device with no identity.
+        const deviceMatches = Object.entries(_attRawDevicesCache)
+            .map(([uuid, dev]) => {
+                const lead  = (window.allVisitors || {})[uuid];
+                const acct  = Object.values(window.allUsers || {}).find(u => u && u.deviceUUID === uuid);
+                const name  = (acct && (acct.displayName || acct.fullname || acct.username)) || (lead && lead.fullName) || null;
+                const phone = (acct && acct.phone) || (lead && lead.phone) || null;
+                const hay   = [name, phone, uuid].filter(Boolean).join(' ').toLowerCase();
+                return { uuid, dev, name, phone, hay };
+            })
+            .filter(d => d.hay.includes(q))
+            .slice(0, 15)
+            .map(d => ({
+                kind: 'devices', key: d.uuid,
+                label: d.name || `جهاز غير معروف`,
+                sub: [d.phone ? (window.formatPhone ? window.formatPhone(d.phone) : d.phone) : '', `${fmtNum(d.dev.visits || 0)} زيارة`, `UUID: ${d.uuid.slice(0, 14)}…`].filter(Boolean).join(' — '),
+                icon: '📱',
+                excluded: alreadyExcludedDevices.has(d.uuid),
+            }));
+
+        const all = [...accountMatches, ...deviceMatches];
+        if (!all.length) {
+            box.innerHTML = `<div style="padding:14px 0;font-size:.78rem;color:var(--gray,#6b6b82);">ما في نتائج مطابقة</div>`;
+            return;
+        }
+        box.innerHTML = all.map(r => `
+            <div class="att-excl-row">
+                <span style="font-size:1rem;">${r.icon}</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:.8rem;color:var(--white,#f0f0f8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.label}</div>
+                    ${r.sub ? `<div style="font-size:.68rem;color:var(--gray,#6b6b82);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.sub}</div>` : ''}
+                </div>
+                ${r.excluded
+                    ? `<span style="font-size:.68rem;font-weight:800;color:var(--gray,#6b6b82);">مستثنى بالفعل</span>`
+                    : `<button class="att-excl-add-btn" data-kind="${r.kind}" data-key="${r.key}" data-label="${(r.label || '').replace(/"/g, '&quot;')}">استثناء</button>`}
+            </div>`).join('');
+
+        box.querySelectorAll('.att-excl-add-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true; btn.textContent = '…';
+                try {
+                    await _attAddExclusion(btn.dataset.kind, btn.dataset.key, btn.dataset.label);
+                    toast('✅ تمت إضافة الاستثناء');
+                    await _attRenderExclusionResults(document.getElementById('att-excl-search').value.trim());
+                    await _attRenderExclusionCurrentList();
+                    renderAttendance();
+                } catch (e) {
+                    toast('⚠️ تعذّر إضافة الاستثناء: ' + e.message, true);
+                    btn.disabled = false; btn.textContent = 'استثناء';
+                }
+            });
+        });
+    }
+
+
     async function renderAttendance() {
         const root = document.getElementById('attendance-root');
         if (!root) return;
@@ -380,10 +702,17 @@
             </div>`;
         }
 
-        const [sessionsByDate, devices] = await Promise.all([
+        const [sessionsByDateRaw, devicesRaw, exclusions] = await Promise.all([
             fetchSessionsRange(currentRange),
             fetchDevices(),
+            fetchAttendanceExclusions(),
         ]);
+        const excludedUuids = _attBuildExcludedUuidSet(exclusions);
+        const sessionsByDate = _attStripExcluded(sessionsByDateRaw, excludedUuids);
+        const devices = excludedUuids.size
+            ? Object.fromEntries(Object.entries(devicesRaw).filter(([uuid]) => !excludedUuids.has(uuid)))
+            : devicesRaw;
+        _attRawDevicesCache = devicesRaw;
         const data = aggregate(sessionsByDate, currentRange, devices);
         _cache = data;
         _loading = false;
@@ -423,17 +752,24 @@
         // computed in `data.hourly`; any earlier day is fetched on its
         // own, since it may fall outside the currently selected range.
         const hourlyDateKey = dayKeyForOffset(hourlyOffset);
-        let hourlyBars;
-        if (hourlyOffset === 0) {
-            hourlyBars = data.hourly;
-        } else {
-            const daySessions = await fetchSessionsForDay(hourlyDateKey);
-            hourlyBars = new Array(24).fill(0);
-            Object.values(daySessions).forEach(s => { hourlyBars[beirutHour(s.startedAt)]++; });
-        }
+        const hourlySourceRaw = (hourlyOffset === 0)
+            ? (sessionsByDate[hourlyDateKey] || {})
+            : await fetchSessionsForDay(hourlyDateKey);
+        const hourlySource = excludedUuids.size
+            ? Object.fromEntries(Object.entries(hourlySourceRaw).filter(([, s]) => !excludedUuids.has(s.uuid)))
+            : hourlySourceRaw;
+        const hourlyBars = new Array(24).fill(0);
+        const hourlySessions = Array.from({ length: 24 }, () => []);
+        Object.values(hourlySource).forEach(s => {
+            const h = beirutHour(s.startedAt);
+            hourlyBars[h]++;
+            hourlySessions[h].push(s);
+        });
         const hourlyIsToday = hourlyOffset === 0;
         const hourlyTotal = hourlyBars.reduce((a, b) => a + b, 0);
         const hourlyAvgPerHour = hourlyTotal / 24;
+        _attHourlySessionsCache = hourlySessions;
+        _attHourlyDateKeyCache  = hourlyDateKey;
 
         const momentumChart = sectionCard(
             '📈 زخم الحضور اليومي',
@@ -469,9 +805,9 @@
 
         const hourlyNav = `
         <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;">
-            <button class="ph-btn att-hourly-btn" id="att-hourly-prev" title="عرض اليوم السابق">◀ اليوم السابق</button>
-            <span style="font-size:.78rem;color:var(--gray-light,#a0a0b8);font-weight:800;">${weekdayLabel(hourlyDateKey)} ${dayLabel(hourlyDateKey)}</span>
             <button class="ph-btn att-hourly-btn" id="att-hourly-next" ${hourlyIsToday ? 'disabled style="opacity:.35;cursor:not-allowed;"' : ''} title="عرض اليوم التالي">اليوم التالي ▶</button>
+            <span style="font-size:.78rem;color:var(--gray-light,#a0a0b8);font-weight:800;">${weekdayLabel(hourlyDateKey)} ${dayLabel(hourlyDateKey)}</span>
+            <button class="ph-btn att-hourly-btn" id="att-hourly-prev" title="عرض اليوم السابق">◀ اليوم السابق</button>
             ${!hourlyIsToday ? `<button class="ph-btn" id="att-hourly-today" style="margin-inline-start:auto;">↩ اليوم</button>` : ''}
         </div>`;
 
@@ -515,7 +851,7 @@
             </div>`
         );
 
-        root.innerHTML = kpiRow + rangePills + momentumChart + newVsReturning + regVsGuest + durationChart + hourlyChart + deviceMix;
+        root.innerHTML = kpiRow + rangePills + momentumChart + hourlyChart + newVsReturning + regVsGuest + durationChart + deviceMix;
         _hasRenderedOnce = true;
         requestAnimationFrame(() => { root.scrollTop = savedScrollTop; });
 
@@ -541,13 +877,23 @@
             hourlyOffset = 0;
             renderAttendance();
         });
+
+        // Click a bar (or its quiet-hour hit area) to open the scrollable
+        // visitor-list popup for that hour — no more hover tooltip.
+        root.querySelectorAll('.att-hour-hit').forEach(rect => {
+            rect.addEventListener('click', () => _attOpenHourlyPopup(parseInt(rect.dataset.hour, 10)));
+        });
     }
 
     window.renderAttendance = renderAttendance;
 
-    document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('attendance-refresh-btn')?.addEventListener('click', () => {
-            if (document.getElementById('panel-attendance')?.classList.contains('active')) renderAttendance();
-        });
+    // This file is injected dynamically on the window 'load' event (see
+    // admin.html), which always fires AFTER DOMContentLoaded — so waiting
+    // for DOMContentLoaded here would wait for an event that already
+    // happened, and this wiring would simply never run. The panel's DOM
+    // already exists by this point, so just wire it up directly.
+    document.getElementById('attendance-refresh-btn')?.addEventListener('click', () => {
+        if (document.getElementById('panel-attendance')?.classList.contains('active')) renderAttendance();
     });
+    document.getElementById('attendance-exclusions-btn')?.addEventListener('click', _openAttExclusionsModal);
 })();
