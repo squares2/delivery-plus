@@ -351,12 +351,13 @@
         </div>`;
     }
 
-    function sectionCard(title, subtitle, bodyHtml) {
+    function sectionCard(title, subtitle, bodyHtml, headerExtra) {
         return `
         <div style="background:var(--surface2,#18181f);border:1px solid var(--border,rgba(255,255,255,.07));border-radius:16px;padding:18px 20px;margin-bottom:16px;">
             <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
                 <h3 style="font-size:.95rem;font-weight:800;color:var(--white,#f0f0f8);margin:0;">${title}</h3>
                 ${subtitle ? `<span style="font-size:.74rem;color:var(--gray,#6b6b82);">${subtitle}</span>` : ''}
+                ${headerExtra || ''}
             </div>
             ${bodyHtml}
         </div>`;
@@ -431,6 +432,8 @@
             Object.values(daySessions).forEach(s => { hourlyBars[beirutHour(s.startedAt)]++; });
         }
         const hourlyIsToday = hourlyOffset === 0;
+        const hourlyTotal = hourlyBars.reduce((a, b) => a + b, 0);
+        const hourlyAvgPerHour = hourlyTotal / 24;
 
         const momentumChart = sectionCard(
             '📈 زخم الحضور اليومي',
@@ -472,10 +475,19 @@
             ${!hourlyIsToday ? `<button class="ph-btn" id="att-hourly-today" style="margin-inline-start:auto;">↩ اليوم</button>` : ''}
         </div>`;
 
+        const hourlyStats = `
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:800;color:var(--orange,#f97316);background:rgba(249,115,22,.12);border-radius:8px;padding:3px 9px;">
+                📊 الإجمالي: ${fmtNum(hourlyTotal)}
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:800;color:var(--blue,#3b82f6);background:rgba(59,130,246,.12);border-radius:8px;padding:3px 9px;">
+                📈 المعدّل بالساعة: ${hourlyAvgPerHour.toFixed(1)}
+            </span>`;
+
         const hourlyChart = sectionCard(
             hourlyIsToday ? '🕐 إيقاع اليوم الحالي (كل ساعة)' : `🕐 إيقاع يوم ${dayLabel(hourlyDateKey)} (كل ساعة)`,
             `أي ساعات ${hourlyIsToday ? 'اليوم' : 'ذلك اليوم'} شهدت أكبر زخم زوّار — بتوقيت بيروت`,
-            svgHourlyBars(hourlyBars) + hourlyNav
+            svgHourlyBars(hourlyBars) + hourlyNav,
+            hourlyStats
         );
 
         // Device mix across the whole selected range

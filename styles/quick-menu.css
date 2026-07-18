@@ -197,6 +197,26 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    position: relative;
+}
+.qm-row__name-inner { display: inline-block; }
+/* Only added when JS measures real overflow — short names never animate. */
+.qm-row__name.qm-marquee {
+    text-overflow: clip;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+}
+.qm-row__name.qm-marquee .qm-row__name-inner {
+    animation: qm-marquee-scroll var(--qm-marquee-dur, 6s) ease-in-out infinite;
+}
+@keyframes qm-marquee-scroll {
+    0%, 12%   { transform: translateX(0); }
+    45%, 60%  { transform: translateX(var(--qm-marquee-dist, 0)); }
+    92%, 100% { transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .qm-row__name.qm-marquee .qm-row__name-inner { animation: none; }
+    .qm-row__name.qm-marquee { text-overflow: ellipsis; -webkit-mask-image: none; mask-image: none; }
 }
 .qm-row__sub {
     font-size: clamp(0.62rem, 1.5vw, 0.68rem);

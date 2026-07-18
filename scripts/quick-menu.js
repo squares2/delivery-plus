@@ -42,7 +42,7 @@ function _qmRenderRow(item, storeName) {
             }
         </div>
         <div class="qm-row__info">
-            <div class="qm-row__name">${name}</div>
+            <div class="qm-row__name"><span class="qm-row__name-inner">${name}</span></div>
             ${item.catar ? `<div class="qm-row__sub">${item.catar}</div>` : ''}
         </div>
         <div class="qm-row__price-wrap">
@@ -78,6 +78,37 @@ function _qmQuickAdd(btn, uniqueId, name, price, storeName, storeType, imgUrl) {
 function _qmCatIcon(main, i) {
     const icons = ['🍽️','🥤','🍰','🍲','🍕','🥗','☕','🍦','🍞','🍟','🥙'];
     return icons[i % icons.length];
+}
+
+// Item names that don't fit their row (common on narrow/mobile screens)
+// get a slow back-and-forth scroll instead of just a clipped "…", so the
+// full name stays readable. Only overflowing names are touched — short
+// ones stay put. Re-measured every time rows are (re)rendered.
+function _qmApplyMarquee() {
+    const rows = document.querySelectorAll('#qm-track .qm-row__name');
+    rows.forEach(nameEl => {
+        const inner = nameEl.querySelector('.qm-row__name-inner');
+        if (!inner) return;
+        nameEl.classList.remove('qm-marquee');
+        nameEl.style.removeProperty('--qm-marquee-dist');
+        nameEl.style.removeProperty('--qm-marquee-dur');
+        const overflow = inner.scrollWidth - nameEl.clientWidth;
+        if (overflow > 4) {
+            // The row has a soft fade (--qm-mask-fade, in CSS) on both
+            // edges so the scroll doesn't look like a hard cut. That
+            // fade eats into the last bit of travel, so without extra
+            // clearance the final letter ends up sitting inside the
+            // faded zone and looks clipped even though it did scroll
+            // there — hence the +MASK_FADE on top of the plain overflow.
+            const MASK_FADE = 12;
+            const dist = overflow + MASK_FADE + 6;
+            nameEl.style.setProperty('--qm-marquee-dist', `${dist}px`);
+            // Longer names travel further, so scale duration to distance
+            // (roughly constant scroll speed) instead of one fixed timing.
+            nameEl.style.setProperty('--qm-marquee-dur', `${Math.max(3.5, dist / 22 + 2.5)}s`);
+            nameEl.classList.add('qm-marquee');
+        }
+    });
 }
 
 function openQuickMenu() {
@@ -142,6 +173,25 @@ function _qmOpenPanel({ tree, storeName, catOrder, displayName, logoSrc, logoEmo
     document.getElementById('qm-overlay').classList.add('active');
     document.getElementById('qm-panel').classList.add('active');
     document.body.classList.add('modal-open');
+
+    requestAnimationFrame(_qmApplyMarquee);
+    // The page's Arabic font (Almarai) loads async via Google Fonts with
+    // font-display:swap — the very first measurement can land on the
+    // fallback font's (narrower) text width, right before it swaps to
+    // the real font. Re-measure once the swap has actually happened so
+    // distances match the font that's really on screen.
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => requestAnimationFrame(_qmApplyMarquee));
+    }
+    if (!window._qmResizeBound) {
+        window._qmResizeBound = true;
+        let _qmResizeTimer = null;
+        window.addEventListener('resize', () => {
+            if (!document.getElementById('qm-panel')?.classList.contains('active')) return;
+            clearTimeout(_qmResizeTimer);
+            _qmResizeTimer = setTimeout(_qmApplyMarquee, 150);
+        });
+    }
 }
 
 /* ============================================================
