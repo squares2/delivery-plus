@@ -27,6 +27,7 @@
     };
 
     let currentRange = 30;         // days
+    let hourlyOffset = 0;          // days back from today — which single day the hourly-rhythm chart shows
     let _cache       = null;       // last computed dataset, for range-pill re-render w/o refetch when possible
     let _loading     = false;
 
@@ -72,6 +73,22 @@
             const j = await r.json();
             return j || {};
         } catch (_) { return {}; }
+    }
+
+    // Single day's sessions — used only to page the hourly-rhythm chart
+    // back to an earlier day, independent of the main range/period above.
+    async function fetchSessionsForDay(dateKey) {
+        try {
+            const r = await fetch(`${RTDB_BASE}/attendance/sessions/${dateKey}.json`);
+            const j = await r.json();
+            return j || {};
+        } catch (_) { return {}; }
+    }
+
+    function dayKeyForOffset(offsetDays) {
+        const d = new Date();
+        d.setDate(d.getDate() - offsetDays);
+        return beirutDateKey(d.getTime());
     }
 
     async function fetchDevices() {
@@ -345,6 +362,8 @@
         </div>`;
     }
 
+    let _hasRenderedOnce = false;
+
     /* ── Main render ────────────────────────────────────────────── */
     async function renderAttendance() {
         const root = document.getElementById('attendance-root');
@@ -352,9 +371,13 @@
         if (_loading) return;
         _loading = true;
 
-        root.innerHTML = `<div style="padding:60px;text-align:center;color:var(--gray,#6b6b82);">
-            <div style="font-size:2rem;margin-bottom:10px;">📊</div>جارِ تحميل إحصائيات الحضور…
-        </div>`;
+        const savedScrollTop = root.scrollTop;
+
+        if (!_hasRenderedOnce) {
+            root.innerHTML = `<div style="padding:60px;text-align:center;color:var(--gray,#6b6b82);">
+                <div style="font-size:2rem;margin-bottom:10px;">📊</div>جارِ تحميل إحصائيات الحضور…
+            </div>`;
+        }
 
         const [sessionsByDate, devices] = await Promise.all([
             fetchSessionsRange(currentRange),
@@ -394,6 +417,21 @@
             </button>`).join('')}
         </div>`;
 
+        // ── Hourly-rhythm chart's own day — independent of the range
+        // pills above. Day 0 (today) reuses the hourly data already
+        // computed in `data.hourly`; any earlier day is fetched on its
+        // own, since it may fall outside the currently selected range.
+        const hourlyDateKey = dayKeyForOffset(hourlyOffset);
+        let hourlyBars;
+        if (hourlyOffset === 0) {
+            hourlyBars = data.hourly;
+        } else {
+            const daySessions = await fetchSessionsForDay(hourlyDateKey);
+            hourlyBars = new Array(24).fill(0);
+            Object.values(daySessions).forEach(s => { hourlyBars[beirutHour(s.startedAt)]++; });
+        }
+        const hourlyIsToday = hourlyOffset === 0;
+
         const momentumChart = sectionCard(
             '📈 زخم الحضور اليومي',
             'إجمالي الزيارات يوميًا — الخط المتقطع هو المتوسط المتحرك لـ 7 أيام',
@@ -426,10 +464,18 @@
             svgLineArea(data.perDay.map(r => ({ date: r.date, mins: +(r.avgDurationMs / 60000).toFixed(1) })), 'mins', { color: COLOR.yellow, dim: COLOR.yellowDim, suffix: ' د', showAvg: false })
         );
 
+        const hourlyNav = `
+        <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;">
+            <button class="ph-btn att-hourly-btn" id="att-hourly-prev" title="عرض اليوم السابق">◀ اليوم السابق</button>
+            <span style="font-size:.78rem;color:var(--gray-light,#a0a0b8);font-weight:800;">${weekdayLabel(hourlyDateKey)} ${dayLabel(hourlyDateKey)}</span>
+            <button class="ph-btn att-hourly-btn" id="att-hourly-next" ${hourlyIsToday ? 'disabled style="opacity:.35;cursor:not-allowed;"' : ''} title="عرض اليوم التالي">اليوم التالي ▶</button>
+            ${!hourlyIsToday ? `<button class="ph-btn" id="att-hourly-today" style="margin-inline-start:auto;">↩ اليوم</button>` : ''}
+        </div>`;
+
         const hourlyChart = sectionCard(
-            '🕐 إيقاع اليوم الحالي (كل ساعة)',
-            'أي ساعات اليوم شهدت أكبر زخم زوّار — بتوقيت بيروت',
-            svgHourlyBars(data.hourly)
+            hourlyIsToday ? '🕐 إيقاع اليوم الحالي (كل ساعة)' : `🕐 إيقاع يوم ${dayLabel(hourlyDateKey)} (كل ساعة)`,
+            `أي ساعات ${hourlyIsToday ? 'اليوم' : 'ذلك اليوم'} شهدت أكبر زخم زوّار — بتوقيت بيروت`,
+            svgHourlyBars(hourlyBars) + hourlyNav
         );
 
         // Device mix across the whole selected range
@@ -458,12 +504,30 @@
         );
 
         root.innerHTML = kpiRow + rangePills + momentumChart + newVsReturning + regVsGuest + durationChart + hourlyChart + deviceMix;
+        _hasRenderedOnce = true;
+        requestAnimationFrame(() => { root.scrollTop = savedScrollTop; });
 
         root.querySelectorAll('.att-range-pill').forEach(btn => {
             btn.addEventListener('click', () => {
                 currentRange = parseInt(btn.dataset.days, 10);
                 renderAttendance();
             });
+        });
+
+        // Hourly chart's own day navigator — pages one day at a time,
+        // independent of the range pills above. "Next" is disabled once
+        // back at today.
+        document.getElementById('att-hourly-prev')?.addEventListener('click', () => {
+            hourlyOffset += 1;
+            renderAttendance();
+        });
+        document.getElementById('att-hourly-next')?.addEventListener('click', () => {
+            hourlyOffset = Math.max(0, hourlyOffset - 1);
+            renderAttendance();
+        });
+        document.getElementById('att-hourly-today')?.addEventListener('click', () => {
+            hourlyOffset = 0;
+            renderAttendance();
         });
     }
 

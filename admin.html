@@ -2481,6 +2481,13 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         إضافة خلفية
                     </button>
+                    <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;" title="إخفاء الخلفيات غير المفعّلة من القائمة">
+                        <span style="font-size:0.72rem;font-weight:700;color:var(--gray-light);white-space:nowrap;">🚫 إخفاء غير المفعّلة</span>
+                        <label class="toggle" style="transform:scale(0.8);">
+                            <input type="checkbox" id="herobg-hide-inactive-toggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </span>
                 </div>
                 <div id="herobg-grid" class="hb-grid"></div>
             </div>
@@ -3368,7 +3375,7 @@ async function _adminUploadImage(file, folder, filename, quality = 0.92) {
     /* Load attendance dashboard alongside it — separate file, read-only reporting layer */
     window.addEventListener('load', () => {
         const s2 = document.createElement('script');
-        s2.src = 'scripts/attendance-admin.js?v=1';
+        s2.src = 'scripts/attendance-admin.js?v=4';
         document.body.appendChild(s2);
     });
 const FIRESTORE   = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
@@ -3470,6 +3477,10 @@ let allBlacklist   = {};
 let storeFilter    = 'all';
 let storeSearch    = '';
 let hideDisabledStores = localStorage.getItem('delivo_hide_disabled_stores') === '1';
+// Hero backgrounds: hidden by default (unlike the stores toggle above),
+// so an admin only sees '1' explicitly means "show them" — anything
+// else (unset, or '0') keeps inactive cards out of the grid.
+let hideInactiveHeroBg = localStorage.getItem('delivo_show_inactive_herobg') !== '1';
 let mapLayers    = { stores: true, drivers: true, customers: true, orders: true, center: true, extStores: true, priceTiers: false };
 let adminMap     = null;
 let _adminMapStandardLayer  = null;
@@ -11544,7 +11555,14 @@ async function renderHeroBgAdmin() {
         return;
     }
 
-    grid.innerHTML = entries.map(([key, bg], idx) => _hbCardHtml(key, bg, idx, entries.length)).join('');
+    const visibleEntries = hideInactiveHeroBg ? entries.filter(([, bg]) => bg.active !== false) : entries;
+
+    if (!visibleEntries.length) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray);font-size:0.85rem;">كل الخلفيات مخفية حالياً 🙈<br><span style="font-size:0.72rem;">أطفئ "إخفاء غير المفعّلة" في الأعلى لرؤيتها</span></div>`;
+        return;
+    }
+
+    grid.innerHTML = visibleEntries.map(([key, bg], idx) => _hbCardHtml(key, bg, idx, visibleEntries.length)).join('');
 
     grid.querySelectorAll('[data-hb-edit]').forEach(btn => {
         btn.addEventListener('click', () => openHeroBgModal({ ..._heroBgCards[btn.dataset.hbEdit], _key: btn.dataset.hbEdit }));
@@ -11577,7 +11595,7 @@ function _hbCardHtml(key, bg, idx, total) {
     return `
     <div class="hb-card${isActive ? '' : ' inactive'}" draggable="true" data-hb-key="${key}">
         <div class="hb-card__poster">
-            <img class="hb-card__img" src="${imgSrc}" alt="" onerror="this.style.opacity=0.15">
+            <img class="hb-card__img" src="${imgSrc}" alt="" draggable="false" ondragstart="return false;" onerror="this.style.opacity=0.15">
             <div class="hb-card__scrim"></div>
 
             <div class="hb-card__top-row">
@@ -11626,6 +11644,7 @@ async function toggleHeroBgActive(key, active) {
         await fbUpdate(`settings/heroBackgrounds/${key}`, { active });
         toast(active ? '✅ الخلفية مفعّلة الآن' : '👁️‍🗨️ الخلفية مخفية عن الزوار');
         if (_heroBgCards[key]) _heroBgCards[key].active = active;
+        if (hideInactiveHeroBg) renderHeroBgAdmin();
     } catch (e) { toast('⚠️ تعذّر الحفظ: ' + e.message, true); renderHeroBgAdmin(); }
 }
 
@@ -16516,6 +16535,16 @@ storesHideDisabledToggle.addEventListener('change', e => {
     hideDisabledStores = e.target.checked;
     localStorage.setItem('delivo_hide_disabled_stores', hideDisabledStores ? '1' : '0');
     renderStores();
+});
+
+// Hide inactive hero backgrounds toggle (checkbox shows the OPPOSITE
+// of hideInactiveHeroBg — checked means "hide them")
+const herobgHideInactiveToggle = document.getElementById('herobg-hide-inactive-toggle');
+herobgHideInactiveToggle.checked = hideInactiveHeroBg;
+herobgHideInactiveToggle.addEventListener('change', e => {
+    hideInactiveHeroBg = e.target.checked;
+    localStorage.setItem('delivo_show_inactive_herobg', hideInactiveHeroBg ? '0' : '1');
+    renderHeroBgAdmin();
 });
 
 // Map refresh
