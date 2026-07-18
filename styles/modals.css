@@ -179,6 +179,18 @@
 .modal-box--account::before { display: none; }
 
 /* ── Header — stays fixed at top ──────────────────────────── */
+/* Shared scroll region for the account modal body — guest state, logged-in
+   state, and the always-visible settings/PWA row below all live in here as
+   one scrolling area (.acct-guest/.acct-user below keep their own flex/
+   overflow rules from before, but those are inert now that this wrapper
+   is the actual flex:1 child — harmless, kept to minimize the diff). */
+.acct-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
 .acct-header {
     display: flex;
     align-items: center;

@@ -774,6 +774,10 @@
                 <span class="acct-header__title">حسابي</span>
                 <button class="modal-close" data-close aria-label="Close">✕</button>
             </div>
+            <!-- Single shared scroll area — guest state, logged-in state, and
+                 the shared settings/PWA row below all scroll together as one
+                 region instead of each fighting for its own flex:1 space. -->
+            <div class="acct-scroll">
             <!-- Guest state -->
             <div class="acct-guest" id="acct-guest">
                 <div class="acct-guest__hero">
@@ -845,25 +849,33 @@
                         <div class="acct-row__end"><span class="acct-badge" id="acct-orders-badge" style="display:none;">0</span><span class="acct-chevron">›</span></div>
                     </button>
                 </div>
-                <p class="acct-sec-label">الإعدادات</p>
-                <div class="acct-menu">
-                    <button class="acct-row" id="acct-pwa-btn">
-                        <div class="acct-row__icon acct-row__icon--green">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                                <circle cx="12" cy="9" r="2.5"/>
-                            </svg>
-                        </div>
-                        <div class="acct-row__body">
-                            <span class="acct-row__title" id="acct-pwa-title">تثبيت التطبيق</span>
-                            <span class="acct-row__sub"  id="acct-pwa-sub">أضف Delivo لشاشتك الرئيسية</span>
-                        </div>
-                        <div class="acct-row__end">
-                            <span class="acct-pwa-badge" id="acct-pwa-badge" style="display:none;">✓ مثبّت</span>
-                            <span class="acct-chevron" id="acct-pwa-chevron">›</span>
-                        </div>
-                    </button>
-                </div>
+            </div>
+
+            <!-- Settings — visible whether logged in or not. Installing the
+                 app is a browser/device thing, not an account thing, so a
+                 guest shouldn't need to register just to see this row. -->
+            <p class="acct-sec-label">الإعدادات</p>
+            <div class="acct-menu">
+                <button class="acct-row" id="acct-pwa-btn">
+                    <div class="acct-row__icon acct-row__icon--green">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                            <circle cx="12" cy="9" r="2.5"/>
+                        </svg>
+                    </div>
+                    <div class="acct-row__body">
+                        <span class="acct-row__title" id="acct-pwa-title">تثبيت التطبيق</span>
+                        <span class="acct-row__sub"  id="acct-pwa-sub">أضف Delivo لشاشتك الرئيسية</span>
+                    </div>
+                    <div class="acct-row__end">
+                        <span class="acct-pwa-badge" id="acct-pwa-badge" style="display:none;">✓ مثبّت</span>
+                        <span class="acct-chevron" id="acct-pwa-chevron">›</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Logged-in-only settings (profile, password, sign out) ─── -->
+            <div class="acct-user" id="acct-user-tail" style="display:none;">
                 <div class="acct-menu">
                     <button class="acct-row" id="acct-profile-btn">
                         <div class="acct-row__icon acct-row__icon--orange"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--clr-orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
@@ -882,7 +894,8 @@
                         تسجيل الخروج
                     </button>
                 </div>
-                <p class="acct-version">Delivo v1.0</p>
+            </div>
+            <p class="acct-version">Delivo v1.0</p>
             </div>
         </div>
     </div>

@@ -414,6 +414,7 @@ input, select, textarea { font-family: var(--font); }
 }
 .orders-totals-mini b { color: var(--white); font-weight: 900; }
 .orders-totals-mini .ot-delivery { color: #22c55e; }
+.orders-totals-mini .ot-extra { color: #a78bfa; }
 .orders-date-filter {
     display: flex; align-items: center; gap: 8px;
 }
@@ -490,6 +491,16 @@ input, select, textarea { font-family: var(--font); }
 .oc-fee-edit {
     display: flex; align-items: center; gap: 2px; flex-shrink: 0;
     font-size: var(--fs-sm); color: var(--yellow);
+}
+.oc-extra-input {
+    width: 100px; background: transparent; border: none; border-bottom: 1px dashed rgba(167,139,250,0.5);
+    color: #a78bfa; font-family: var(--mono); font-size: var(--fs-sm); font-weight: 700;
+    padding: 0 2px; text-align: left;
+}
+.oc-extra-input:focus { outline: none; border-bottom-style: solid; }
+.oc-extra-edit {
+    display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+    font-size: var(--fs-sm); color: #a78bfa;
 }
 /* Inline-editable name/phone — every order, internal or external
    (otlob). Same "blend in, dashed underline reveals it's editable"
@@ -2191,6 +2202,7 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                     <div class="orders-totals-mini">
                         <span>💰 الطلبات: <b id="orders-total-orders">$0.00</b></span>
                         <span class="ot-delivery">🚗 التوصيل: <b id="orders-total-delivery">$0.00</b></span>
+                        <span class="ot-extra">➕ ربح إضافي: <b id="orders-total-extra">$0.00</b></span>
                     </div>
                     <div class="orders-date-filter">
                         <select class="orders-date-select" id="orders-date-select">
@@ -6566,18 +6578,21 @@ function renderOrders() {
     // ── Totals for the currently filtered set — order-only sum and
     // delivery-fee sum, both in USD, mirroring the same split shown on
     // each order card (manual deliveryFee override if set, else estimate).
-    let totalOrdersUSD = 0, totalDeliveryUSD = 0;
+    let totalOrdersUSD = 0, totalDeliveryUSD = 0, totalExtraUSD = 0;
     entries.forEach(([, o]) => {
         const deliveryProfit = getOrderDeliveryProfit(o, companyVars);
         const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : deliveryProfit;
         const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
         totalOrdersUSD   += _getOrderOnlyPrice(o, effectiveDeliveryRaw);
         totalDeliveryUSD += deliveryUSD;
+        if (o.extraProfit != null && o.extraProfit !== '') totalExtraUSD += _toUSD(o.extraProfit);
     });
     const totOrdersEl   = document.getElementById('orders-total-orders');
     const totDeliveryEl = document.getElementById('orders-total-delivery');
+    const totExtraEl    = document.getElementById('orders-total-extra');
     if (totOrdersEl)   totOrdersEl.textContent   = '$' + totalOrdersUSD.toFixed(2);
     if (totDeliveryEl) totDeliveryEl.textContent = '$' + totalDeliveryUSD.toFixed(2);
+    if (totExtraEl)    totExtraEl.textContent    = '$' + totalExtraUSD.toFixed(2);
 
 
     // ── Smart diff: preserve expanded state & scroll position, and
@@ -6664,6 +6679,9 @@ function buildOrderCard(key, order) {
             </span>
             <span class="oc-fee-edit" title="رسم التوصيل — محسوب تلقائياً، يمكن تعديله يدوياً">
                 💵<span class="oc-fee-cur">${_currencySymbol(order.deliveryFee)}</span><input type="number" class="oc-fee-input" data-oid="${key}" value="${order.deliveryFee != null && order.deliveryFee !== '' ? order.deliveryFee : (deliveryProfit !== null ? deliveryProfit.toFixed(2) : '')}" placeholder="—" step="0.01">
+            </span>
+            <span class="oc-extra-edit" title="ربح إضافي — مبلغ إضافي يُضاف يدوياً لهذا الطلب، بمعزل عن سعر الطلب ورسم التوصيل">
+                ➕<span class="oc-extra-cur">${_currencySymbol(order.extraProfit)}</span><input type="number" class="oc-extra-input" data-oid="${key}" value="${order.extraProfit != null && order.extraProfit !== '' ? order.extraProfit : ''}" placeholder="0" step="0.01">
             </span>
             <span class="oc-state state-badge-${state}">${STATE_LABELS[state] || state}</span>
             <span class="oc-toggle">▾</span>
@@ -6811,6 +6829,29 @@ function buildOrderCard(key, order) {
                 total: (orderOnlyPrice + newDeliveryUSD).toFixed(2)
             });
             toast('✅ تم تحديث رسم التوصيل');
+        });
+    }
+
+    // Editable extra profit — a manually-tracked bonus amount on top of
+    // the order price and delivery fee (e.g. a markup or side commission
+    // the admin wants to record against this order). Stored independently
+    // as order.extraProfit; never folded into orderprice/total, so it
+    // doesn't affect what the customer was charged.
+    const extraInput = card.querySelector('.oc-extra-input');
+    if (extraInput) {
+        extraInput.addEventListener('click', e => e.stopPropagation());
+        const extraCur = card.querySelector('.oc-extra-cur');
+        extraInput.addEventListener('input', () => {
+            const sym = _currencySymbol(extraInput.value);
+            if (extraCur) extraCur.textContent = sym;
+            extraInput.step = sym === 'ل.ل' ? '1000' : '0.01';
+        });
+        extraInput.addEventListener('change', async () => {
+            const val = _normalizeMoneyValue(extraInput.value.trim());
+            extraInput.value = val;
+            if (extraCur) extraCur.textContent = _currencySymbol(val);
+            await updateOrderFields(key, { extraProfit: val });
+            toast('✅ تم تحديث الربح الإضافي');
         });
     }
 

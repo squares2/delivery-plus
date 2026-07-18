@@ -612,6 +612,7 @@ function _setLogoState(state) {
     stInstall.classList.add('bb-logo-state--hidden');
     stUpdate.classList.add('bb-logo-state--hidden');
     circle.classList.remove('bb-logo-btn__circle--active', 'bb-logo-btn__circle--install', 'bb-logo-btn__circle--update');
+    label.classList.remove('bb-logo-btn__label--pwa');
     if (state === 'track') {
         stTrack.classList.remove('bb-logo-state--hidden');
         const _trackId = _activeOrders[0]?.id?.replace('id_', '#') || '';
@@ -627,16 +628,19 @@ function _setLogoState(state) {
     } else if (state === 'install') {
         stInstall.classList.remove('bb-logo-state--hidden');
         label.textContent = 'ثبّت تطبيقك';
+        label.classList.add('bb-logo-btn__label--pwa');
         circle.classList.add('bb-logo-btn__circle--install');
         if (btn) btn.setAttribute('aria-label', 'ثبّت تطبيق Delivo على جهازك');
     } else if (state === 'update') {
         stUpdate.classList.remove('bb-logo-state--hidden');
         label.textContent = 'حدّث تطبيقك';
+        label.classList.add('bb-logo-btn__label--pwa');
         circle.classList.add('bb-logo-btn__circle--update');
         if (btn) btn.setAttribute('aria-label', 'حدّث تطبيق Delivo لآخر إصدار');
     } else {
         stLogo.classList.remove('bb-logo-state--hidden');
         label.textContent = 'Delivo';
+        label.classList.remove('bb-logo-btn__label--pwa');
         if (btn) btn.setAttribute('aria-label', 'الرئيسية');
     }
 }

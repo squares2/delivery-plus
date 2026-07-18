@@ -209,6 +209,16 @@ body {
     white-space: nowrap;
 }
 
+/* PWA install/update labels ("ثبّت تطبيقك" / "حدّث تطبيقك") use the site's
+   own official font (Almarai, set on <body> in base.css) instead of the
+   stylized italic Latin wordmark font above — that one was designed for
+   the literal "Delivo" logotype, not for real Arabic UI copy. */
+.bb-logo-btn__label--pwa {
+    font-family: 'Almarai', sans-serif;
+    font-style: normal;
+    letter-spacing: 0;
+}
+
 
 
 /* ── Account: logged-in dot indicator ────────────────────── */

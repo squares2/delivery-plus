@@ -1495,15 +1495,17 @@ window.openAuthModal = async function() {
 };
 
 function renderAccountModal() {
-    const user    = window.DelivoUser;
-    const guestEl = document.getElementById('acct-guest');
-    const userEl  = document.getElementById('acct-user');
-    const acctBtn = document.getElementById('account-btn');
+    const user     = window.DelivoUser;
+    const guestEl  = document.getElementById('acct-guest');
+    const userEl   = document.getElementById('acct-user');
+    const userTail = document.getElementById('acct-user-tail'); // profile/password/sign-out — still login-only
+    const acctBtn  = document.getElementById('account-btn');
     if (!guestEl || !userEl) return;
 
     if (user) {
-        guestEl.style.display = 'none';
-        userEl.style.display  = '';
+        guestEl.style.display  = 'none';
+        userEl.style.display   = '';
+        if (userTail) userTail.style.display = '';
         const initial  = (user.displayName || user.username || 'U').charAt(0).toUpperCase();
         const avatarEl = document.getElementById('acct-avatar');
         const nameEl   = document.getElementById('acct-name');
@@ -1527,8 +1529,9 @@ function renderAccountModal() {
             window._delivoPresence.linkUser(user.uid, user.username || null);
         }
     } else {
-        guestEl.style.display = '';
-        userEl.style.display  = 'none';
+        guestEl.style.display  = '';
+        userEl.style.display   = 'none';
+        if (userTail) userTail.style.display = 'none';
         if (acctBtn) acctBtn.classList.remove('logged-in');
         // sync bottom bar
         const bbBtn = document.getElementById('bb-account-btn');
