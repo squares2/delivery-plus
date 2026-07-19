@@ -582,7 +582,10 @@ window._resetLogoToDefault = _resetLogo;
 function _resetLogo() {
     if (_trackListener) { _trackListener.close(); _trackListener = null; }
     _activeOrders = [];
-    _setLogoState('logo');
+    // Don't force the plain logo here — a guest (not logged in) with no
+    // orders to track should still see the install/update CTA if one is
+    // available, exactly like a logged-in user with no active orders.
+    _applyLogoState();
 }
 
 function _applyLogoState() {
