@@ -9867,8 +9867,15 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
     // Default center: Zahlé, Lebanon
     const DEFAULT_LAT = 33.8469;
     const DEFAULT_LNG = 35.9017;
-    const startLat = initLat || DEFAULT_LAT;
-    const startLng = initLng || DEFAULT_LNG;
+    // A store's saved location only counts if BOTH coordinates are real
+    // numbers — treating one present coordinate as "has a location" (the
+    // old `initLat ? ... : ...` checks below did this) crashed here
+    // whenever a store had only lat or only lng saved (e.g. from a
+    // partial/interrupted edit), and would silently center the map on a
+    // mismatched lat/lng pair even when it didn't crash.
+    const hasLoc  = typeof initLat === 'number' && typeof initLng === 'number' && !isNaN(initLat) && !isNaN(initLng);
+    const startLat = hasLoc ? initLat : DEFAULT_LAT;
+    const startLng = hasLoc ? initLng : DEFAULT_LNG;
 
     const overlay = document.createElement('div');
     overlay.id = 'sl-modal-overlay';
@@ -9901,7 +9908,7 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
                 </div>
                 <button id="sl-jump-btn" style="margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--white);font-size:0.78rem;font-family:inherit;cursor:pointer;white-space:nowrap;" title="انتقل إلى الإحداثيات">↗ انتقل</button>
             </div>
-            ${initLat ? `<div id="sl-current-loc" style="margin-top:8px;font-size:0.7rem;color:var(--gray);">الموقع الحالي: <span style="color:var(--orange);font-family:var(--mono);">${initLat.toFixed(6)}, ${initLng.toFixed(6)}</span></div>` : '<div id="sl-current-loc" style="margin-top:8px;font-size:0.7rem;color:rgba(239,68,68,0.8);">⚠ لا يوجد موقع محدد لهذا المتجر</div>'}
+            ${hasLoc ? `<div id="sl-current-loc" style="margin-top:8px;font-size:0.7rem;color:var(--gray);">الموقع الحالي: <span style="color:var(--orange);font-family:var(--mono);">${initLat.toFixed(6)}, ${initLng.toFixed(6)}</span></div>` : '<div id="sl-current-loc" style="margin-top:8px;font-size:0.7rem;color:rgba(239,68,68,0.8);">⚠ لا يوجد موقع محدد لهذا المتجر</div>'}
         </div>
 
         <div id="sl-map-container" style="flex:1;min-height:280px;position:relative;">
@@ -9919,7 +9926,7 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
     document.body.appendChild(overlay);
 
     // ── Init Leaflet map ───────────────────────────────────────
-    const slMap = L.map('sl-map', { zoomControl: true }).setView([startLat, startLng], initLat ? 16 : 13);
+    const slMap = L.map('sl-map', { zoomControl: true }).setView([startLat, startLng], hasLoc ? 16 : 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
         maxZoom: 19,
@@ -9938,7 +9945,7 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
     let selectedLng = initLng;
 
     // Place initial marker if coordinates exist
-    if (initLat && initLng) {
+    if (hasLoc) {
         slMarker = L.marker([initLat, initLng], { icon: pinIcon, draggable: true }).addTo(slMap);
         _slBindMarkerDrag(slMarker);
         document.getElementById('sl-lat').value = initLat.toFixed(6);
