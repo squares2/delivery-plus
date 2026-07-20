@@ -1335,12 +1335,23 @@ function initCart() {
         if (btn) { btn.disabled = true; btn.innerHTML = '<span>جاري…</span>'; }
 
         try {
-            // Get current counter
-            const counterResp = await fetch(`${RTDB_CART_URL}/globalCounter.json`);
-            const counterData = await counterResp.json();
-            let nextId = 200;
-            if (counterData && counterData.requestId) nextId = parseInt(counterData.requestId) + 1;
-            else if (typeof counterData === 'number')  nextId = counterData + 1;
+            // Reserve order id(s) atomically — one per store in this
+            // checkout — via the allocateOrderId Cloud Function. This
+            // replaces the old read-globalCounter-then-write-it-back
+            // pattern, which could race with external-order.js or the
+            // admin "create order" panel doing the same thing at the
+            // same moment and, on top of that, silently restarted the
+            // whole sequence at 1 if the counter read ever came back
+            // empty. The transaction inside that function makes both
+            // failure modes impossible.
+            const idsResp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/allocateOrderId', {
+                method : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body   : JSON.stringify({ count: stores.length || 1 }),
+            });
+            if (!idsResp.ok) throw new Error('تعذّر حجز رقم الطلب');
+            const idsData = await idsResp.json();
+            let nextId = idsData.firstId;
 
 
             const userProfile = window.DelivoUser || {};
@@ -1452,13 +1463,6 @@ function initCart() {
                 await Promise.all([writeRequest, writeHistory]);
                 nextId++;
             }
-
-            // Update counter
-            await fetch(`${RTDB_CART_URL}/globalCounter/requestId.json`, {
-                method  : 'PUT',
-                headers : { 'Content-Type': 'application/json' },
-                body    : JSON.stringify(nextId - 1),
-            });
 
             // Consume the queued reward (one-time use) now that it's been applied
             if (activeRewardNow) {

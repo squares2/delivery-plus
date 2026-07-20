@@ -802,10 +802,21 @@
         const cartStr  = `1:${_data.orderDescription}:0:${_data.storeName}:`;
         const totalStr = ''; // price is no longer collected from the customer — admin fills it in from the dashboard
 
-        // Counter
-        const counterResp = await fetch(`${RTDB}/globalCounter.json`);
-        const counter     = await counterResp.json();
-        let nextId        = (counter?.requestId || 0) + 1;
+        // Reserve the order id atomically via the allocateOrderId Cloud
+        // Function — see functions/allocateorderid.js. This used to read
+        // globalCounter directly and fall back to 0 (→ id 1) whenever
+        // that read came back empty, which is how the counter could get
+        // silently reset; the transaction inside that function removes
+        // both that fallback and the race with cart.js / admin.html
+        // doing the same thing at the same moment.
+        const idResp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/allocateOrderId', {
+            method : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body   : JSON.stringify({ count: 1 }),
+        });
+        if (!idResp.ok) throw new Error('تعذّر حجز رقم الطلب');
+        const idData      = await idResp.json();
+        let nextId        = idData.firstId;
         const requestKey  = `id_${nextId}`;
         const now = new Date();
         // Match cart.js's checkout date format (Y-M-D H:MM:SS, no zero-padding)
@@ -843,7 +854,6 @@
 
         const writes = [
             fetch(`${RTDB}/requests/${requestKey}.json`,          { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(requestObj) }),
-            fetch(`${RTDB}/globalCounter/requestId.json`,         { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(nextId) }),
         ];
         // Only a registered customer has a uid to file order history under —
         // guest orders still land in requests/ (so admin sees them right away)

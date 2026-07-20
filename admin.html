@@ -19217,8 +19217,20 @@ async function _aoSubmit() {
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '⏳ جاري الإنشاء…'; }
 
     try {
-        const counter    = await fbGet('globalCounter').catch(() => null);
-        const nextId     = (counter?.requestId || 0) + 1;
+        // Reserve the order id atomically via the allocateOrderId Cloud
+        // Function (see functions/allocateorderid.js) instead of reading
+        // globalCounter and writing it back here — that old pattern could
+        // race with a customer checking out (cart.js) or the external-order
+        // flow at the same moment, and silently fell back to id 1 if the
+        // read ever came back empty.
+        const idResp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/allocateOrderId', {
+            method : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body   : JSON.stringify({ count: 1 }),
+        });
+        if (!idResp.ok) throw new Error('تعذّر حجز رقم الطلب');
+        const idData    = await idResp.json();
+        const nextId     = idData.firstId;
         const requestKey = `id_${nextId}`;
         const now        = new Date();
         // Match the exact format cart.js writes at checkout (Y-M-D H:MM:SS,
@@ -19258,7 +19270,6 @@ async function _aoSubmit() {
 
         await fbSet(`requests/${requestKey}`, requestObj);
         if (uid) await fbSet(`historyRequests/${uid}/${requestKey}`, { ...requestObj, trackorder: '0' });
-        await fbSet('globalCounter/requestId', nextId);
 
         toast(`✅ تم إنشاء الطلب #${nextId}`);
         if (okEl) { okEl.style.display = 'block'; okEl.textContent = `✅ تم إنشاء الطلب #${nextId} بنجاح`; }
