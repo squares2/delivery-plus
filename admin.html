@@ -401,6 +401,18 @@ input, select, textarea { font-family: var(--font); }
 }
 .filter-pill.active  { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); }
 .filter-pill:hover   { border-color: var(--border-bright); color: var(--white); }
+/* Same look as .filter-pill, kept as its own class so it isn't picked up by
+   the generic "document.querySelectorAll('.filter-pill')" click handler
+   (which sets orderFilter/state, not what the sort toggle needs) */
+.sort-pill {
+    padding: var(--pad-xs) var(--pad-sm); border-radius: 50px;
+    border: 1.5px solid var(--border); background: var(--surface2);
+    color: var(--gray-light); font-size: var(--fs-sm); font-weight: 800;
+    transition: all 0.15s; white-space: nowrap; cursor: pointer; font-family: inherit;
+}
+.sort-pill.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); }
+.sort-pill:hover  { border-color: var(--border-bright); color: var(--white); }
+#panel-orders .sort-pill { padding: 3px 8px; font-size: 0.66rem; border-width: 1px; }
 /* Order-panel pills only — shrink without touching store/driver/customer/visitor
    pills, which unfortunately share the same .orders-toolbar wrapper class */
 #panel-orders .filter-pill {
@@ -2285,6 +2297,11 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                             <input type="date" id="orders-date-to" title="إلى تاريخ">
                         </div>
                     </div>
+                    <div class="orders-sort-toggle" style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:0.68rem;color:var(--gray);font-weight:700;">ترتيب:</span>
+                        <button class="sort-pill" data-sort="number" title="الأحدث رقماً أولاً">🔢 الرقم</button>
+                        <button class="sort-pill" data-sort="date" title="الأحدث تاريخاً أولاً">📅 التاريخ</button>
+                    </div>
                     <input type="text" class="search-box" id="orders-search" placeholder="بحث باسم العميل أو المتجر…">
                     <div class="orders-totals-mini" id="orders-results-mini">
                         <span>📋 النتائج: <b id="orders-results-count">0</b></span>
@@ -2783,6 +2800,17 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                                 <label class="setting-label" style="display:block;margin-bottom:5px;">ملاحظة (اختياري)</label>
                                 <input type="text" id="ao-note" placeholder="أي تفاصيل إضافية للسائق أو المتجر"
                                        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
+                            </div>
+
+                            <div>
+                                <label class="setting-label" style="display:block;margin-bottom:5px;">تاريخ ووقت الطلب (اختياري)</label>
+                                <div style="display:flex;gap:10px;">
+                                    <input type="date" id="ao-order-date"
+                                           style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;">
+                                    <input type="time" id="ao-order-time" step="1"
+                                           style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;">
+                                </div>
+                                <div style="font-size:0.7rem;color:var(--gray);margin-top:5px;">اتركهما فارغين ليُسجَّل الطلب بالوقت الحالي — أو حدّد تاريخاً سابقاً لتسجيل طلب قديم في قاعدة البيانات</div>
                             </div>
                         </div>
                     </div>
@@ -3533,9 +3561,11 @@ let _assignmentMode = 'both'; // 'both' | 'driver_only' | 'admin_only' — see s
 let adminUsers   = {};
 let orderFilter    = 'all';
 let orderSearch    = '';
-let orderDateFilter = 'all'; // 'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'
-let orderDateFrom   = '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
-let orderDateTo     = '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
+let orderSort       = localStorage.getItem('delivo_admin_order_sort') || 'date'; // 'number' | 'date' — see renderOrders(); persisted so it survives a refresh
+let _lastOrderSort  = null;     // tracks the previous orderSort so a mode switch forces a full re-sort of the DOM
+let orderDateFilter = localStorage.getItem('delivo_admin_order_date_filter') || 'all'; // 'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'
+let orderDateFrom   = localStorage.getItem('delivo_admin_order_date_from') || '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
+let orderDateTo     = localStorage.getItem('delivo_admin_order_date_to') || '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
 let driverFilter   = 'all';
 let driverSearch   = '';
 let customerFilter = 'all';
@@ -5828,6 +5858,53 @@ function _customerLastActive(uid, u, username, deviceUUID) {
     return _customerLastActiveTs(u);
 }
 
+// ── Shared order-state colors + popup markup — used by both the main
+// live map (renderMap) and the location-picker's "طلبات سابقة" layer,
+// so an order's popup looks and behaves identically everywhere it's
+// clicked from. ──
+const STATE_CLR = {
+    '0':{ bg:'#FF5C00', tx:'#fff', lbl:'جديد'      },
+    '1':{ bg:'#22c55e', tx:'#fff', lbl:'وُصِّل'     },
+    '2':{ bg:'#ef4444', tx:'#fff', lbl:'ملغي'       },
+    '3':{ bg:'#f59e0b', tx:'#000', lbl:'متأخر'      },
+};
+function orderPopupHTML(key, o) {
+    const idNum   = key.replace('id_','');
+    const state   = o.state || '0';
+    const clr     = STATE_CLR[state] || STATE_CLR['0'];
+    const drvOpts = allDrivers.filter(d=>d).map(d => {
+        const name = d.owner || d.username || '';
+        const sel  = o.driver === name ? 'selected' : '';
+        const dot  = d.status === 'online' ? '🟢' : '⚫';
+        return `<option value="${name}" ${sel}>${dot} ${name}</option>`;
+    }).join('');
+    return `
+    <div data-order-popup-id="${key}" style="font-family:Almarai;min-width:200px;direction:rtl;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="background:${clr.bg};color:${clr.tx};padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:800;">${clr.lbl}</span>
+            <b style="font-size:0.95rem">#${idNum}</b>
+        </div>
+        <div style="font-size:0.8rem;margin-bottom:2px;">🏪 ${o.store || '—'}</div>
+        <div style="font-size:0.8rem;margin-bottom:2px;">👤 ${o.fullname || o.username || '—'}</div>
+        <div style="font-size:0.8rem;margin-bottom:6px;">💰 <b style="color:#f59e0b">$${o.total || '0'}</b></div>
+        <div style="font-size:0.75rem;color:#aaa;margin-bottom:8px;">📅 ${o.date || '—'}</div>
+        <div style="border-top:1px solid #333;padding-top:8px;">
+            <div style="font-size:0.72rem;color:#aaa;margin-bottom:4px;">تعيين سائق</div>
+            <div style="display:flex;gap:4px;align-items:center;">
+                <select id="map-drv-${key}" style="flex:1;background:#1a1a2e;border:1px solid #333;
+                    border-radius:6px;padding:4px 6px;color:#fff;font-family:Almarai;font-size:0.72rem;">
+                    <option value="">— اختر سائقاً —</option>
+                    ${drvOpts}
+                </select>
+                <button onclick="mapAssignDriver('${key}')"
+                    style="background:#FF5C00;border:none;color:#fff;padding:4px 10px;
+                           border-radius:6px;cursor:pointer;font-family:Almarai;font-size:0.72rem;
+                           font-weight:700;white-space:nowrap;">✔ تعيين</button>
+            </div>
+        </div>
+    </div>`;
+}
+
 function renderMap() {
     if (!document.getElementById('panel-map').classList.contains('active')) return;
     if (!adminMap) { initMap(); setTimeout(renderMap, 400); return; }
@@ -6060,53 +6137,9 @@ function renderMap() {
             clusters.push(group);
         });
 
-        // ── Helper: state color ──────────────────────────────────
-        const STATE_CLR = {
-            '0':{ bg:'#FF5C00', tx:'#fff', lbl:'جديد'      },
-            '1':{ bg:'#22c55e', tx:'#fff', lbl:'وُصِّل'     },
-            '2':{ bg:'#ef4444', tx:'#fff', lbl:'ملغي'       },
-            '3':{ bg:'#f59e0b', tx:'#000', lbl:'متأخر'      },
-        };
+        // ── State colors + popup markup now shared at module scope
+        // (STATE_CLR / orderPopupHTML) — reused as-is here. ──
 
-        // ── Helper: editable popup HTML for one order ─────────
-        function orderPopupHTML(key, o) {
-            const idNum   = key.replace('id_','');
-            const state   = o.state || '0';
-            const clr     = STATE_CLR[state] || STATE_CLR['0'];
-            const drvOpts = allDrivers.filter(d=>d).map(d => {
-                const name = d.owner || d.username || '';
-                const sel  = o.driver === name ? 'selected' : '';
-                const dot  = d.status === 'online' ? '🟢' : '⚫';
-                return `<option value="${name}" ${sel}>${dot} ${name}</option>`;
-            }).join('');
-            return `
-            <div data-order-popup-id="${key}" style="font-family:Almarai;min-width:200px;direction:rtl;">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-                    <span style="background:${clr.bg};color:${clr.tx};padding:2px 8px;border-radius:20px;font-size:0.7rem;font-weight:800;">${clr.lbl}</span>
-                    <b style="font-size:0.95rem">#${idNum}</b>
-                </div>
-                <div style="font-size:0.8rem;margin-bottom:2px;">🏪 ${o.store || '—'}</div>
-                <div style="font-size:0.8rem;margin-bottom:2px;">👤 ${o.fullname || o.username || '—'}</div>
-                <div style="font-size:0.8rem;margin-bottom:6px;">💰 <b style="color:#f59e0b">$${o.total || '0'}</b></div>
-                <div style="font-size:0.75rem;color:#aaa;margin-bottom:8px;">📅 ${o.date || '—'}</div>
-                <div style="border-top:1px solid #333;padding-top:8px;">
-                    <div style="font-size:0.72rem;color:#aaa;margin-bottom:4px;">تعيين سائق</div>
-                    <div style="display:flex;gap:4px;align-items:center;">
-                        <select id="map-drv-${key}" style="flex:1;background:#1a1a2e;border:1px solid #333;
-                            border-radius:6px;padding:4px 6px;color:#fff;font-family:Almarai;font-size:0.72rem;">
-                            <option value="">— اختر سائقاً —</option>
-                            ${drvOpts}
-                        </select>
-                        <button onclick="mapAssignDriver('${key}')"
-                            style="background:#FF5C00;border:none;color:#fff;padding:4px 10px;
-                                   border-radius:6px;cursor:pointer;font-family:Almarai;font-size:0.72rem;
-                                   font-weight:700;white-space:nowrap;">✔ تعيين</button>
-                    </div>
-                </div>
-            </div>`;
-        }
-
-        // ── Render each cluster ───────────────────────────────
         clusters.forEach(group => {
             const centerLat = group.reduce((s, g) => s + g.lat, 0) / group.length;
             const centerLng = group.reduce((s, g) => s + g.lng, 0) / group.length;
@@ -6631,7 +6664,15 @@ function renderOrders() {
     const countEl = document.getElementById('orders-count-label');
 
     const entries = Object.entries(allOrders)
-        .sort(([a],[b]) => (parseInt(b.replace('id_',''))||0) - (parseInt(a.replace('id_',''))||0))
+        .sort(([a, oa], [b, ob]) => {
+            if (orderSort === 'date') {
+                const da = _parseOrderDate(oa)?.getTime() || 0;
+                const db = _parseOrderDate(ob)?.getTime() || 0;
+                if (db !== da) return db - da; // newest date first
+                // Tie-break on order number so same-timestamp orders don't jitter
+            }
+            return (parseInt(b.replace('id_',''))||0) - (parseInt(a.replace('id_',''))||0);
+        })
         .filter(([,o]) => {
             const isClosed = (o.vault == 1);
             if (orderFilter === 'archived') {
@@ -6687,7 +6728,21 @@ function renderOrders() {
         if (!newKeys.has(c.dataset.id)) c.remove();
     });
 
-    entries.forEach(([key, order]) => {
+    // If the admin just flipped the sort toggle, every card's on-screen
+    // position may now be wrong even though its data hasn't changed —
+    // the "skip if unchanged" optimization below would otherwise leave
+    // it sitting at its old (now-incorrect) spot. Clearing here and
+    // letting the loop below re-append everything in the freshly-sorted
+    // `entries` order is simplest; it only runs on that one toggle click,
+    // not on every periodic refresh.
+    const sortJustChanged = _lastOrderSort !== null && _lastOrderSort !== orderSort;
+    _lastOrderSort = orderSort;
+    if (sortJustChanged) {
+        list.querySelectorAll('.order-card[data-id]').forEach(c => c.remove());
+        _orderCardSnapshots = {};
+    }
+
+    entries.forEach(([key, order], idx) => {
         const existing = list.querySelector(`.order-card[data-id="${key}"]`);
         const snapshot = JSON.stringify(order);
 
@@ -6704,15 +6759,11 @@ function renderOrders() {
             // Replace in-place — keeps position and doesn't affect scroll
             existing.replaceWith(newCard);
         } else {
-            // New card — insert at correct sorted position
-            const allCards = [...list.querySelectorAll('.order-card[data-id]')];
-            const nextCard = allCards.find(el => {
-                const n = parseInt(el.dataset.id.replace('id_','')) || 0;
-                const m = parseInt(key.replace('id_','')) || 0;
-                return n < m;
-            });
-            if (nextCard) list.insertBefore(newCard, nextCard);
-            else list.appendChild(newCard);
+            // New card — insert at its position in the already-sorted
+            // `entries` array (works for both sort-by-number and
+            // sort-by-date, unlike comparing order numbers directly).
+            const refNode = list.children[idx] || null;
+            list.insertBefore(newCard, refNode);
         }
     });
 }
@@ -6781,7 +6832,9 @@ function buildOrderCard(key, order) {
                     </div>`).join('')}
             </div>
             <div class="oc-meta-row">
-                <span class="oc-meta-chip">📅 ${order.date || '—'}</span>
+                <span class="oc-meta-chip oc-date-edit" data-date-edit="${key}" style="cursor:pointer;" title="اضغط لتعديل تاريخ ووقت الطلب">
+                    📅 ${order.date || '—'} ✏️
+                </span>
                 <span class="oc-meta-chip" style="direction:ltr;">📞 ${formatPhone(order.phone)}</span>
                 <span class="oc-meta-chip">👤 ${order.username || '—'}</span>
                 <span class="oc-meta-chip">🏙 ${order.city || '—'}</span>
@@ -6975,6 +7028,17 @@ function buildOrderCard(key, order) {
         storeEditBtn.addEventListener('click', e => {
             e.stopPropagation();
             _ocEditOrderStore(key, order);
+        });
+    }
+
+    // Editable order date/time — mainly for backdating an order that
+    // actually happened before this system tracked it (e.g. entering
+    // historical WhatsApp/phone orders into the database).
+    const dateEditBtn = card.querySelector('[data-date-edit]');
+    if (dateEditBtn) {
+        dateEditBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            _ocEditOrderDate(key, order);
         });
     }
 
@@ -16645,6 +16709,22 @@ document.querySelectorAll('.filter-pill').forEach(btn => {
     });
 });
 
+// Order sort toggle (by number / by date) — see renderOrders()
+// Reflect the current (default or previously-saved) mode on load, since
+// the HTML no longer hardcodes which pill starts active.
+document.querySelectorAll('.sort-pill').forEach(btn => {
+    if (btn.dataset.sort === orderSort) btn.classList.add('active');
+});
+document.querySelectorAll('.sort-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.sort-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        orderSort = btn.dataset.sort;
+        localStorage.setItem('delivo_admin_order_sort', orderSort);
+        renderOrders();
+    });
+});
+
 // Order search
 document.getElementById('orders-search').addEventListener('input', e => {
     orderSearch = e.target.value.trim();
@@ -16652,17 +16732,27 @@ document.getElementById('orders-search').addEventListener('input', e => {
 });
 
 // Order date filter
+// Reflect the current (default or previously-saved) state on load, since
+// the <select>/inputs don't know about localStorage on their own.
+document.getElementById('orders-date-select').value = orderDateFilter;
+document.getElementById('orders-date-from').value = orderDateFrom;
+document.getElementById('orders-date-to').value = orderDateTo;
+document.getElementById('orders-date-custom').classList.toggle('active', orderDateFilter === 'custom');
+
 document.getElementById('orders-date-select').addEventListener('change', e => {
     orderDateFilter = e.target.value;
+    localStorage.setItem('delivo_admin_order_date_filter', orderDateFilter);
     document.getElementById('orders-date-custom').classList.toggle('active', orderDateFilter === 'custom');
     if (orderDateFilter !== 'custom') renderOrders();
 });
 document.getElementById('orders-date-from').addEventListener('change', e => {
     orderDateFrom = e.target.value;
+    localStorage.setItem('delivo_admin_order_date_from', orderDateFrom);
     if (orderDateFilter === 'custom') renderOrders();
 });
 document.getElementById('orders-date-to').addEventListener('change', e => {
     orderDateTo = e.target.value;
+    localStorage.setItem('delivo_admin_order_date_to', orderDateTo);
     if (orderDateFilter === 'custom') renderOrders();
 });
 
@@ -18395,6 +18485,80 @@ function _ocEditOrderLocation(key, order) {
     });
 }
 
+// Lets admin correct/backdate an order's date & time — mainly for
+// entering a historical order (one that actually happened by phone or
+// WhatsApp before it was logged here) with a real past timestamp instead
+// of "now". Uses _parseOrderDate (above) so it understands both the
+// current "Y-M-D H:MM:SS" format and the legacy slash format old manual
+// orders may still have, and always SAVES back in the current format.
+function _ocEditOrderDate(key, order) {
+    const stale = document.getElementById('date-edit-overlay');
+    if (stale) stale.remove();
+
+    const parsed = _parseOrderDate(order) || new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateVal = `${parsed.getFullYear()}-${pad(parsed.getMonth()+1)}-${pad(parsed.getDate())}`;
+    const timeVal = `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}:${pad(parsed.getSeconds())}`;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'date-edit-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:380px;font-family:var(--font);direction:rtl;padding:20px;box-sizing:border-box;">
+        <h3 style="font-size:1rem;font-weight:800;color:var(--white);margin:0 0 4px;">📅 تعديل تاريخ الطلب</h3>
+        <div style="font-size:0.75rem;color:var(--gray);margin-bottom:16px;">طلب #${key.replace('id_', '')}</div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <div style="flex:1;">
+                <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:4px;">التاريخ</label>
+                <input id="de-date" type="date" value="${dateVal}"
+                    style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;">
+            </div>
+            <div style="flex:1;">
+                <label style="font-size:0.68rem;color:var(--gray);font-weight:700;display:block;margin-bottom:4px;">الوقت</label>
+                <input id="de-time" type="time" step="1" value="${timeVal}"
+                    style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;box-sizing:border-box;">
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button id="de-cancel-btn" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;color:var(--white);font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;">إلغاء</button>
+            <button id="de-save-btn" style="flex:2;background:var(--orange);border:none;border-radius:12px;padding:10px;color:#fff;font-family:inherit;font-size:0.85rem;font-weight:800;cursor:pointer;">💾 حفظ</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    document.getElementById('de-cancel-btn').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    document.getElementById('de-save-btn').addEventListener('click', async () => {
+        const dEl = document.getElementById('de-date');
+        const tEl = document.getElementById('de-time');
+        if (!dEl.value) { toast('اختر تاريخاً صحيحاً', true); return; }
+        const [y, m, d] = dEl.value.split('-').map(Number);
+        const [h, mi, s] = (tEl.value || '00:00:00').split(':').map(Number);
+        // Same no-zero-padding format used everywhere else (cart.js /
+        // admin manual-order creation) so the admin date filter parses it.
+        const newDateStr = `${y}-${m}-${d} ${h||0}:${mi||0}:${s||0}`;
+        const btn = document.getElementById('de-save-btn');
+        btn.disabled = true; btn.textContent = '…';
+        try {
+            await updateOrderField(key, 'date', newDateStr);
+            toast('✅ تم تحديث تاريخ الطلب');
+            close();
+            // Force renderOrders to rebuild in sorted order rather than
+            // leaving this card in its old spot — matters when sorted by
+            // date, since editing the date should move the card, but the
+            // normal diff only rebuilds cards whose content changed and
+            // otherwise leaves untouched cards' positions alone.
+            _lastOrderSort = orderSort === 'date' ? 'number' : 'date';
+            renderOrders();
+        } catch (e) {
+            toast('فشل تحديث التاريخ: ' + e.message, true);
+            btn.disabled = false; btn.textContent = '💾 حفظ';
+        }
+    });
+}
+
 // Lets admin set/correct an order's store — same map-picker pattern as
 // _ocEditOrderLocation, but the pins here are every internal ("متاجر")
 // and external ("متاجر خارجية") store that has a saved lat/lng, plus a
@@ -18902,23 +19066,197 @@ function _fixSwappedLatLng(lat, lng) {
     return swappedLooksOk ? [lng, lat] : [lat, lng];
 }
 
+// ── Smart address lookup for phone-dictated locations ──
+// Three engines, tried in order, all biased to the Bekaa/Baalbek area:
+//   1. Google Places Text Search (New) — by far the best at informal
+//      local POIs ("معهد ...", "فرن الرحمة", "صيدلية ...") because
+//      Google's Lebanon business/landmark data is much richer than OSM.
+//   2. Google Geocoding API — catches street/area-level addresses that
+//      aren't a named business.
+//   3. Nominatim (OSM) — free last-resort fallback, e.g. if the Google
+//      key doesn't have those APIs enabled or quota runs out.
+// Returns up to 4 candidates so the admin can pick which "معهد فلان"
+// the caller actually meant instead of trusting a single blind match.
+// NOTE: requires "Places API (New)" + "Geocoding API" enabled for the
+// key in Google Cloud Console — otherwise it silently degrades to OSM.
+const _GMP_GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
+const _GMP_BIAS = { lat: 34.006, lng: 36.218, radiusM: 40000 }; // Baalbek + surrounding Bekaa
+
+async function _gmpGeocodeAddress(query) {
+    // ── 1. Google Places Text Search (New) ──
+    try {
+        const resp = await fetch('https://places.googleapis.com/v1/places:searchText', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': _GMP_GOOGLE_KEY,
+                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
+            },
+            body: JSON.stringify({
+                textQuery: query,
+                languageCode: 'ar',
+                regionCode: 'LB',
+                maxResultCount: 4,
+                locationBias: { circle: { center: { latitude: _GMP_BIAS.lat, longitude: _GMP_BIAS.lng }, radius: _GMP_BIAS.radiusM } },
+            }),
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.places?.length) {
+                return data.places.slice(0, 4).map(p => ({
+                    lat: p.location.latitude, lng: p.location.longitude,
+                    radius: 120, // Google POI pins are building-level — tight circle
+                    label: `${p.displayName?.text || ''}${p.formattedAddress ? ' — ' + p.formattedAddress : ''}`,
+                    source: 'Google Places',
+                }));
+            }
+        }
+    } catch (_) { /* fall through */ }
+
+    // ── 2. Google Geocoding API ──
+    try {
+        const bounds = '33.75,35.85|34.35,36.60'; // SW|NE box around Bekaa/Baalbek (soft bias)
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&region=lb&language=ar&bounds=${encodeURIComponent(bounds)}&key=${_GMP_GOOGLE_KEY}`;
+        const resp = await fetch(url);
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.status === 'OK' && data.results?.length) {
+                return data.results.slice(0, 4).map(r => {
+                    let radius = 250;
+                    const vp = r.geometry?.viewport;
+                    if (vp) {
+                        const latM = Math.abs(vp.northeast.lat - vp.southwest.lat) * 111000;
+                        const lngM = Math.abs(vp.northeast.lng - vp.southwest.lng) * 111000 * Math.cos(r.geometry.location.lat * Math.PI / 180);
+                        radius = Math.min(800, Math.max(90, Math.round(Math.max(latM, lngM) / 2)));
+                    }
+                    return { lat: r.geometry.location.lat, lng: r.geometry.location.lng, radius, label: r.formatted_address, source: 'Google' };
+                });
+            }
+        }
+    } catch (_) { /* fall through */ }
+
+    // ── 3. Nominatim (OSM) fallback ──
+    try {
+        const viewbox = '35.7,34.3,36.7,33.6';
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=lb&viewbox=${viewbox}&bounded=0&limit=4&accept-language=ar`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('geocode-network');
+        const results = await resp.json();
+        return results.slice(0, 4).map(r => {
+            let radius = 250;
+            if (r.boundingbox) {
+                const [south, north, west, east] = r.boundingbox.map(Number);
+                const latM = (north - south) * 111000;
+                const lngM = (east - west) * 111000 * Math.cos(((north + south) / 2) * Math.PI / 180);
+                radius = Math.min(800, Math.max(90, Math.round(Math.max(latM, lngM) / 2)));
+            }
+            return { lat: Number(r.lat), lng: Number(r.lon), radius, label: r.display_name, source: 'OSM' };
+        });
+    } catch (_) {
+        throw new Error('geocode-network');
+    }
+}
+
+// ── Universal coordinate parser — one paste box, any format ──
+// Accepts whatever the admin happens to have on the clipboard:
+//   • "33.991550, 36.175729"  (Google Maps place panel, WhatsApp)
+//   • "33.991550 36.175729"   (space/semicolon/tab separated)
+//   • 33°59'29.6"N 36°10'32.6"E   (DMS, Google Maps title bar)
+//   • a full Google Maps URL (…/@33.99,36.17,… or ?q=33.99,36.17)
+// Order is normalized through _fixSwappedLatLng, so pasting "lng, lat"
+// backwards still lands on the right spot within Lebanon's bounds.
+function _gmpParseCoords(raw) {
+    if (!raw) return null;
+    let s = String(raw).trim();
+
+    // Normalize unicode variants pasted from maps/WhatsApp: fancy quotes,
+    // Arabic decimal separators/digits, and RTL direction marks.
+    s = s.replace(/[\u200e\u200f\u202a-\u202e]/g, '')          // bidi control chars
+         .replace(/[’′]/g, "'").replace(/[”″]/g, '"')          // curly/prime marks → ascii
+         .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))     // Arabic-Indic digits
+         .replace(/٫/g, '.');                                   // Arabic decimal point
+
+    // ── DMS: 33°59'29.6"N 36°10'32.6"E (letters may come before or after) ──
+    const dmsRe = /(\d{1,3})°\s*(\d{1,2})'\s*([\d.]+)"?\s*([NSEW])/gi;
+    const dmsMatches = [...s.matchAll(dmsRe)];
+    if (dmsMatches.length >= 2) {
+        const toDec = m => {
+            let v = Number(m[1]) + Number(m[2]) / 60 + Number(m[3]) / 3600;
+            if (/[SW]/i.test(m[4])) v = -v;
+            return { v, isLat: /[NS]/i.test(m[4]) };
+        };
+        const a = toDec(dmsMatches[0]), b = toDec(dmsMatches[1]);
+        const lat = a.isLat ? a.v : b.v;
+        const lng = a.isLat ? b.v : a.v;
+        if (!isNaN(lat) && !isNaN(lng)) return _fixSwappedLatLng(lat, lng);
+    }
+
+    // ── Google Maps URL: prefer ?q=/&query= pin over the /@ viewport ──
+    const urlQ = s.match(/[?&](?:q|query|ll|destination)=(-?[\d.]+)\s*,\s*(-?[\d.]+)/i)
+              || s.match(/!3d(-?[\d.]+)!4d(-?[\d.]+)/)
+              || s.match(/@(-?[\d.]+),(-?[\d.]+)/);
+    if (urlQ) {
+        const lat = parseFloat(urlQ[1]), lng = parseFloat(urlQ[2]);
+        if (!isNaN(lat) && !isNaN(lng)) return _fixSwappedLatLng(lat, lng);
+    }
+
+    // ── Plain decimal pair, any common separator ──
+    // Grab the first two decimal numbers in the string.
+    const nums = s.match(/-?\d{1,3}\.\d+/g) || [];
+    if (nums.length >= 2) {
+        const lat = parseFloat(nums[0]), lng = parseFloat(nums[1]);
+        if (!isNaN(lat) && !isNaN(lng)) return _fixSwappedLatLng(lat, lng);
+    }
+
+    return null;
+}
+
 function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
     if (typeof L === 'undefined') { toast('تعذّر تحميل الخريطة', true); return; }
     const startLat = initLat || 34.003, startLng = initLng || 36.212; // Baalbeck-ish default
+
+    // Admin almost always opens this on a PC, so let it actually use the
+    // screen instead of sitting in a small fixed box — on narrow/mobile
+    // viewports it still falls back to something screen-appropriate.
+    const isWide     = window.innerWidth >= 860;
+    const cardWidth  = isWide ? 'min(1300px, 95vw)' : '95vw';
+    const cardHeight = isWide ? 'min(90vh, 900px)'  : '90vh';
 
     const overlay = document.createElement('div');
     overlay.id = 'generic-map-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
     overlay.innerHTML = `
-        <div style="background:var(--surface2);border-radius:16px;width:100%;max-width:640px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);">
+        <div style="background:var(--surface2);border-radius:16px;width:${cardWidth};height:${cardHeight};display:flex;flex-direction:column;overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
                 <div style="font-weight:800;color:var(--white);">${title || '📍 تحديد الموقع'}</div>
                 <button id="gmp-close" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;">✕</button>
             </div>
-            <div style="flex:1;min-height:340px;position:relative;">
-                <div id="gmp-canvas" style="width:100%;height:100%;min-height:340px;"></div>
+            <div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="gmp-addr-input" placeholder="📝 صف العنوان كما ذكره الزبون هاتفياً (مثال: بعلبك، قرب فرن الرحمة، مقابل الصيدلية)"
+                        style="flex:1;min-width:0;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;">
+                    <button id="gmp-addr-search" style="flex-shrink:0;background:var(--surface1,#1a1a1a);border:1px solid var(--orange);border-radius:10px;padding:9px 14px;color:var(--orange);font-family:inherit;font-size:0.8rem;font-weight:800;cursor:pointer;white-space:nowrap;">🔎 تحديد تقريبي</button>
+                </div>
+                <div id="gmp-addr-status" style="display:none;font-size:0.72rem;line-height:1.6;"></div>
+                <div id="gmp-addr-results" style="display:none;flex-wrap:wrap;gap:6px;"></div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <span style="font-size:0.75rem;color:var(--gray);font-weight:700;white-space:nowrap;">📡 إحداثيات:</span>
+                    <input type="text" id="gmp-coord-input" placeholder="الصق الإحداثيات كما هي — مثال: 33.991550, 36.175729 أو 33°59'29.6&quot;N 36°10'32.6&quot;E أو رابط خرائط غوغل"
+                        style="flex:1;min-width:220px;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:inherit;font-size:0.78rem;direction:ltr;text-align:left;">
+                    <button id="gmp-coord-apply" style="flex-shrink:0;background:var(--orange);border:none;border-radius:8px;padding:7px 12px;color:#fff;font-family:inherit;font-size:0.76rem;font-weight:800;cursor:pointer;white-space:nowrap;">📌 تطبيق</button>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <button id="gmp-layer-cust" style="background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:999px;padding:6px 12px;color:var(--gray);font-family:inherit;font-size:0.74rem;font-weight:800;cursor:pointer;white-space:nowrap;">👥 مواقع الزبائن</button>
+                    <button id="gmp-layer-hist" style="background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:999px;padding:6px 12px;color:var(--gray);font-family:inherit;font-size:0.74rem;font-weight:800;cursor:pointer;white-space:nowrap;">🕐 مواقع طلبات سابقة</button>
+                    <input type="text" id="gmp-people-filter" placeholder="🔍 فلترة بالاسم أو الهاتف (مثال: علي / 71...)"
+                        style="flex:1;min-width:180px;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--white);font-family:inherit;font-size:0.74rem;">
+                    <span id="gmp-layer-count" style="font-size:0.7rem;color:var(--gray);white-space:nowrap;"></span>
+                </div>
             </div>
-            <div style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);">
+            <div style="flex:1;min-height:260px;position:relative;">
+                <div id="gmp-canvas" style="width:100%;height:100%;min-height:260px;"></div>
+            </div>
+            <div style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);flex-shrink:0;">
                 <button id="gmp-cancel" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--white);font-family:inherit;cursor:pointer;">إلغاء</button>
                 <button id="gmp-save" style="flex:2;background:var(--orange);border:none;border-radius:10px;padding:10px;color:#fff;font-family:inherit;font-weight:800;cursor:pointer;">💾 حفظ الموقع</button>
             </div>
@@ -18976,20 +19314,291 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
 
     let marker = initLat ? L.marker([initLat, initLng], { draggable: true }).addTo(map) : null;
     let picked = initLat ? { lat: initLat, lng: initLng } : null;
-    if (marker) marker.on('dragend', () => { picked = marker.getLatLng(); });
+    // The dashed circle marks an *approximate* region when all the admin
+    // has is a spoken description — it's cleared the moment the location
+    // becomes exact (manual click/drag, or WhatsApp coordinates applied),
+    // since at that point the pin is no longer a guess.
+    let uncertaintyCircle = null;
+    const clearUncertainty = () => { if (uncertaintyCircle) { map.removeLayer(uncertaintyCircle); uncertaintyCircle = null; } };
+
+    const onMarkerMoved = () => { picked = marker.getLatLng(); clearUncertainty(); };
+    if (marker) marker.on('dragend', onMarkerMoved);
 
     map.on('click', e => {
         picked = e.latlng;
+        clearUncertainty();
         if (marker) marker.setLatLng(e.latlng);
         else {
             marker = L.marker(e.latlng, { draggable: true }).addTo(map);
-            marker.on('dragend', () => { picked = marker.getLatLng(); });
+            marker.on('dragend', onMarkerMoved);
         }
     });
 
     setTimeout(() => map.invalidateSize(), 80);
+    // Modal is sized relative to the viewport, so keep the map canvas in
+    // sync if the admin resizes the browser window while it's open.
+    const onWinResize = () => map.invalidateSize();
+    window.addEventListener('resize', onWinResize);
 
-    const close = () => { map.remove(); overlay.remove(); };
+    // ── Approximate locate from a phone-dictated address ──
+    // Uses the Google-first lookup chain above. Because informal spoken
+    // descriptions are ambiguous, up to 4 candidates come back as
+    // clickable chips — the admin picks the one matching what the caller
+    // meant, gets an uncertainty circle, and fine-tunes by dragging.
+    const addrStatusEl  = overlay.querySelector('#gmp-addr-status');
+    const addrResultsEl = overlay.querySelector('#gmp-addr-results');
+    const setAddrStatus = (text, color) => {
+        addrStatusEl.style.display = text ? 'block' : 'none';
+        addrStatusEl.style.color = color || 'var(--gray)';
+        addrStatusEl.textContent = text || '';
+    };
+    const focusCandidate = (c) => {
+        clearUncertainty();
+        uncertaintyCircle = L.circle([c.lat, c.lng], {
+            radius: c.radius, color: '#FF5C00', weight: 2, dashArray: '5,7',
+            fillColor: '#FF5C00', fillOpacity: 0.12,
+        }).addTo(map);
+        if (marker) marker.setLatLng([c.lat, c.lng]);
+        else { marker = L.marker([c.lat, c.lng], { draggable: true }).addTo(map); marker.on('dragend', onMarkerMoved); }
+        picked = { lat: c.lat, lng: c.lng };
+        map.setView([c.lat, c.lng], c.radius <= 150 ? 17 : 16);
+        setAddrStatus(`🎯 ${c.label.slice(0, 90)} — اسحب العلامة 📍 لتدقيق الموقع بعد التأكد من الزبون`, '#22c55e');
+    };
+    const renderCandidates = (list) => {
+        addrResultsEl.innerHTML = '';
+        addrResultsEl.style.display = list.length ? 'flex' : 'none';
+        list.forEach((c, i) => {
+            const chip = document.createElement('button');
+            chip.style.cssText = 'background:var(--surface1,#1a1a1a);border:1px solid var(--orange);border-radius:999px;padding:5px 11px;color:var(--white);font-family:inherit;font-size:0.72rem;font-weight:700;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            chip.textContent = `${i === 0 ? '⭐ ' : '📍 '}${c.label.slice(0, 60)}${c.label.length > 60 ? '…' : ''}`;
+            chip.title = `${c.label} (${c.source})`;
+            chip.addEventListener('click', () => focusCandidate(c));
+            addrResultsEl.appendChild(chip);
+        });
+    };
+    const runAddrSearch = async () => {
+        const q = overlay.querySelector('#gmp-addr-input').value.trim();
+        if (!q) { setAddrStatus('⚠️ اكتب وصف العنوان أولاً', '#ef4444'); return; }
+        const btn = overlay.querySelector('#gmp-addr-search');
+        const orig = btn.textContent;
+        btn.disabled = true; btn.textContent = '⏳ جاري البحث...';
+        renderCandidates([]);
+        setAddrStatus('🔎 يتم البحث عبر Google ضمن منطقة بعلبك/البقاع...');
+        try {
+            const candidates = await _gmpGeocodeAddress(q);
+            if (!candidates || !candidates.length) {
+                setAddrStatus('❌ ما لقينا نتيجة مطابقة — جرّب صياغة أخرى (اسم المؤسسة + البلدة)، أو حدد يدوياً / إحداثيات واتساب', '#ef4444');
+            } else {
+                renderCandidates(candidates);
+                focusCandidate(candidates[0]);
+            }
+        } catch (e) {
+            setAddrStatus('❌ تعذّر الاتصال بخدمات تحديد العناوين، حاول مجدداً', '#ef4444');
+        } finally {
+            btn.disabled = false; btn.textContent = orig;
+        }
+    };
+    overlay.querySelector('#gmp-addr-search').addEventListener('click', runAddrSearch);
+    overlay.querySelector('#gmp-addr-input').addEventListener('keydown', e => { if (e.key === 'Enter') runAddrSearch(); });
+
+    // ── Exact pin from a pasted coordinate string (WhatsApp share,
+    // Google Maps panel, DMS, or a full maps URL) — one box, any format.
+    const coordInput = overlay.querySelector('#gmp-coord-input');
+    const applyCoords = () => {
+        const parsed = _gmpParseCoords(coordInput.value);
+        if (!parsed) { toast('صيغة الإحداثيات غير مفهومة — الصقها كما هي من الخريطة أو واتساب', true); return; }
+        const [lat, lng] = parsed;
+        clearUncertainty();
+        if (marker) marker.setLatLng([lat, lng]);
+        else { marker = L.marker([lat, lng], { draggable: true }).addTo(map); marker.on('dragend', onMarkerMoved); }
+        picked = { lat, lng };
+        map.setView([lat, lng], 17);
+        setAddrStatus(`📌 تم تحديد النقطة: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, '#22c55e');
+    };
+    overlay.querySelector('#gmp-coord-apply').addEventListener('click', applyCoords);
+    coordInput.addEventListener('keydown', e => { if (e.key === 'Enter') applyCoords(); });
+    // Pasting is the whole point of this box — apply immediately so the
+    // admin doesn't even need to press the button.
+    coordInput.addEventListener('paste', () => setTimeout(applyCoords, 50));
+
+    // ── Reference layers: registered customers' saved locations +
+    // previous orders' delivery pins. When reception has the caller's
+    // name/phone, filtering instantly surfaces their saved home pin and
+    // every past delivery — clicking any dot adopts it as the new pin.
+    // Reads the admin panel's already-loaded allUsers / allOrders
+    // globals, so toggling is instant (no extra fetches). ──
+    const custLayer = L.layerGroup();
+    const histLayer = L.layerGroup();
+    let custOn = false, histOn = false;
+    const countEl = overlay.querySelector('#gmp-layer-count');
+
+    const _dotIcon = (bg, glyph) => L.divIcon({
+        className: '',
+        html: `<div style="width:26px;height:26px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-size:13px;">${glyph}</div>`,
+        iconSize: [26, 26], iconAnchor: [13, 13],
+    });
+    const CUST_ICON = _dotIcon('#2563eb', '👤');
+
+    const _adoptBtnHtml = (lat, lng) =>
+        `<button onclick="window._gmpAdoptRefPoint(${lat},${lng})" style="margin-top:6px;width:100%;background:#FF5C00;border:none;border-radius:8px;padding:6px 10px;color:#fff;font-family:inherit;font-size:0.74rem;font-weight:800;cursor:pointer;">📌 اعتماد هذا الموقع</button>`;
+    // Popup buttons are raw HTML, so the adopt action rides on a window
+    // hook scoped to this open picker; cleared again on close.
+    window._gmpAdoptRefPoint = (lat, lng) => {
+        clearUncertainty();
+        if (marker) marker.setLatLng([lat, lng]);
+        else { marker = L.marker([lat, lng], { draggable: true }).addTo(map); marker.on('dragend', onMarkerMoved); }
+        picked = { lat, lng };
+        map.closePopup();
+        map.setView([lat, lng], 17);
+    };
+
+    const _gmpEsc = (str) => String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const _filterMatch = (filter, ...fields) => {
+        if (!filter) return true;
+        const f = filter.toLowerCase().replace(/\s+/g, '');
+        return fields.some(v => String(v || '').toLowerCase().replace(/\s+/g, '').includes(f));
+    };
+
+    // One-time global stylesheet for the always-visible name/phone labels
+    // next to each customer/order dot — small enough not to clutter the
+    // map, but readable without needing to click every marker.
+    if (!document.getElementById('gmp-label-style')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'gmp-label-style';
+        styleEl.textContent = `
+            .gmp-marker-label { background:rgba(20,20,20,0.94); color:#fff; border:1.5px solid rgba(255,255,255,0.15);
+                border-radius:6px; padding:2px 7px; font-size:11px; font-weight:700; line-height:1.4;
+                box-shadow:0 1px 5px rgba(0,0,0,0.4); white-space:nowrap; direction:rtl; position:relative; }
+            .gmp-marker-label--cust { border-color:#2563eb; --gmp-stick:#2563eb; }
+            .gmp-marker-label--hist { border-color:#7c3aed; --gmp-stick:#7c3aed; }
+            /* A real leader line (stick + arrowhead), not just a tiny
+               nub — so the admin can see at a glance exactly which dot
+               each floating name/phone box belongs to, even in a
+               cluster of pins. Colored per layer (blue=customer,
+               purple=order) to match its marker. */
+            .leaflet-tooltip.gmp-marker-label.leaflet-tooltip-top:before {
+                content:''; border:none; border-radius:0;
+                position:absolute; left:50%; bottom:0;
+                width:2px; height:16px; margin-left:-1px; margin-bottom:-16px;
+                background:var(--gmp-stick, #fff);
+            }
+            .leaflet-tooltip.gmp-marker-label.leaflet-tooltip-top:after {
+                content:''; position:absolute; left:50%; bottom:0;
+                width:0; height:0; margin-left:-5px; margin-bottom:-21px;
+                border-left:5px solid transparent; border-right:5px solid transparent;
+                border-top:7px solid var(--gmp-stick, #fff);
+            }
+        `;
+        document.head.appendChild(styleEl);
+    }
+
+    function rebuildRefLayers() {
+        const filter = overlay.querySelector('#gmp-people-filter').value.trim();
+        let custN = 0, histN = 0;
+
+        custLayer.clearLayers();
+        if (custOn && typeof allUsers === 'object') {
+            Object.values(allUsers).forEach(u => {
+                const loc = u.location;
+                let lat = parseFloat(loc?.lat ?? loc?.latitude ?? u.lat ?? u.latitude ?? NaN);
+                let lng = parseFloat(loc?.lng ?? loc?.longitude ?? u.lng ?? u.longitude ?? NaN);
+                if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+                [lat, lng] = _fixSwappedLatLng(lat, lng);
+                const name  = u.displayName || u.fullname || u.username || '—';
+                const phone = u.phone || '';
+                if (!_filterMatch(filter, name, u.username, phone)) return;
+                custN++;
+                L.marker([lat, lng], { icon: CUST_ICON })
+                    .bindTooltip(`<b>${_gmpEsc(name)}</b>${phone ? '<br><bdi dir="ltr">📞 ' + _gmpEsc(formatPhone ? formatPhone(phone) : phone) + '</bdi>' : ''}`,
+                        { permanent: true, direction: 'top', offset: [0, -13], className: 'gmp-marker-label gmp-marker-label--cust' })
+                    .bindPopup(`<div style="font-family:inherit;font-size:0.8rem;min-width:170px;"><b>👤 ${name}</b><br><span dir="ltr">📞 ${_gmpEsc(formatPhone ? formatPhone(phone) : (phone || '—'))}</span><br><span style="color:#888;font-size:0.72rem;">موقع محفوظ بالحساب</span>${_adoptBtnHtml(lat, lng)}</div>`)
+                    .addTo(custLayer);
+            });
+        }
+
+        histLayer.clearLayers();
+        if (histOn && typeof allOrders === 'object') {
+            // Newest first, capped so a big history doesn't drown the map.
+            const entries = Object.entries(allOrders)
+                .filter(([, o]) => o && o.lat && o.lat !== '0' && o.lng && o.lng !== '0')
+                .sort((a, b) => parseInt(b[0].replace('id_', '')) - parseInt(a[0].replace('id_', '')));
+            for (const [key, o] of entries) {
+                if (histN >= 400) break;
+                let lat = parseFloat(o.lat), lng = parseFloat(o.lng);
+                if (isNaN(lat) || isNaN(lng)) continue;
+                [lat, lng] = _fixSwappedLatLng(lat, lng);
+                if (!_filterMatch(filter, o.fullname, o.username, o.phone)) continue;
+                histN++;
+                const orderNo = key.replace('id_', '');
+                const clr = STATE_CLR[o.state || '0'] || STATE_CLR['0'];
+                // Same pill badge as the main live map's order layer — just
+                // the order number, colored by state — so an admin who
+                // knows that map instantly recognizes these too.
+                const icon = mkDiv(
+                    `<div style="background:${clr.bg};color:${clr.tx};font-weight:800;font-size:0.62rem;
+                                 padding:3px 7px;border-radius:50px;white-space:nowrap;
+                                 box-shadow:0 2px 8px ${clr.bg}88;font-family:Almarai;
+                                 border:1.5px solid rgba(255,255,255,0.35);">#${orderNo}</div>`,
+                    null, [0, 0]
+                );
+                // Exact same popup as the main map (state, store, customer,
+                // total, date, driver-assign) — plus one extra action to
+                // adopt this order's delivery point as the new pin here.
+                L.marker([lat, lng], { icon })
+                    .bindPopup(orderPopupHTML(key, o) + _adoptBtnHtml(lat, lng))
+                    .addTo(histLayer);
+            }
+        }
+
+        countEl.textContent = (custOn || histOn) ? `${custN} زبون · ${histN} طلب` : '';
+
+        // When a filter narrows things to one person's few points, jump
+        // the view to them so reception doesn't have to hunt manually.
+        if (filter && (custN + histN) > 0 && (custN + histN) <= 12) {
+            const pts = [];
+            custLayer.eachLayer(m => pts.push(m.getLatLng()));
+            histLayer.eachLayer(m => pts.push(m.getLatLng()));
+            if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 17 });
+        }
+    }
+
+    const _chipStyle = (btn, on) => {
+        btn.style.background = on ? 'var(--orange)' : 'var(--surface1,#1a1a1a)';
+        btn.style.color      = on ? '#fff' : 'var(--gray)';
+        btn.style.borderColor= on ? 'var(--orange)' : 'var(--border)';
+    };
+    const custBtn = overlay.querySelector('#gmp-layer-cust');
+    const histBtn = overlay.querySelector('#gmp-layer-hist');
+    custBtn.addEventListener('click', () => {
+        custOn = !custOn;
+        _chipStyle(custBtn, custOn);
+        if (custOn) custLayer.addTo(map); else map.removeLayer(custLayer);
+        rebuildRefLayers();
+    });
+    histBtn.addEventListener('click', () => {
+        histOn = !histOn;
+        _chipStyle(histBtn, histOn);
+        if (histOn) histLayer.addTo(map); else map.removeLayer(histLayer);
+        rebuildRefLayers();
+    });
+    let _filterT = null;
+    overlay.querySelector('#gmp-people-filter').addEventListener('input', () => {
+        clearTimeout(_filterT);
+        _filterT = setTimeout(rebuildRefLayers, 250);
+        // Typing a name implies wanting to see that person's pins — turn
+        // both layers on automatically the first time the filter is used.
+        if (!custOn && !histOn) {
+            custOn = histOn = true;
+            _chipStyle(custBtn, true); _chipStyle(histBtn, true);
+            custLayer.addTo(map); histLayer.addTo(map);
+        }
+    });
+
+    const close = () => {
+        window.removeEventListener('resize', onWinResize);
+        delete window._gmpAdoptRefPoint;
+        map.remove(); overlay.remove();
+    };
     overlay.querySelector('#gmp-close').addEventListener('click', close);
     overlay.querySelector('#gmp-cancel').addEventListener('click', close);
     overlay.querySelector('#gmp-save').addEventListener('click', () => {
@@ -19214,6 +19823,8 @@ async function _aoSubmit() {
     const street = document.getElementById('ao-dest-street')?.value.trim() || '';
     const note   = document.getElementById('ao-note')?.value.trim() || '';
     const driver = document.getElementById('ao-driver-select')?.value || '0';
+    const customDate = document.getElementById('ao-order-date')?.value || '';   // "YYYY-MM-DD"
+    const customTime = document.getElementById('ao-order-time')?.value || '';   // "HH:MM" or "HH:MM:SS"
 
     // order.total is stored merged (order + delivery, USD) everywhere
     // else in the app — keep this order consistent with that model.
@@ -19240,11 +19851,22 @@ async function _aoSubmit() {
         const nextId     = idData.firstId;
         const requestKey = `id_${nextId}`;
         const now        = new Date();
-        // Match the exact format cart.js writes at checkout (Y-M-D H:MM:SS,
-        // no zero-padding) — this order type previously used en-GB
-        // DD/MM/YYYY, which the admin date filter couldn't parse and
-        // silently dropped these orders from any non-"all" date range.
-        const dateStr    = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+        // Admin can optionally backdate this order (e.g. to record one
+        // placed by phone/WhatsApp before this tool existed) — if either
+        // field is left blank, this falls back to right now exactly like
+        // before. Match the exact format cart.js writes at checkout
+        // (Y-M-D H:MM:SS, no zero-padding) — this order type previously
+        // used en-GB DD/MM/YYYY, which the admin date filter couldn't
+        // parse and silently dropped these orders from any non-"all"
+        // date range.
+        let dateStr;
+        if (customDate) {
+            const [cy, cm, cd] = customDate.split('-').map(Number);
+            const [ch, cmi, cs] = (customTime || '00:00:00').split(':').map(Number);
+            dateStr = `${cy}-${cm}-${cd} ${ch||0}:${cmi||0}:${cs||0}`;
+        } else {
+            dateStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+        }
 
         const requestObj = {
             cart          : `1:${orderDesc}:0:${storeName}:`,
@@ -19292,7 +19914,7 @@ async function _aoSubmit() {
 
 function _aoResetForm() {
     ['ao-guest-name','ao-guest-phone','ao-ext-store-name','ao-ext-store-phone','ao-ext-store-addr',
-     'ao-order-desc','ao-order-price','ao-delivery-fee','ao-note'].forEach(id => {
+     'ao-order-desc','ao-order-price','ao-delivery-fee','ao-note','ao-order-date','ao-order-time'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
