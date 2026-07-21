@@ -53,7 +53,7 @@
     // leaked/zombie node (crashed tab, killed app, REST client that never
     // got to fire beforeunload) that never got cleaned up.
     function countActive(raw) {
-        const cutoff = Date.now() - STALE_MS;
+        const cutoff = _correctedNow() - STALE_MS;
         let n = 0;
         for (const k in raw) {
             if (raw[k] && (raw[k].lastSeen || 0) >= cutoff) n++;
@@ -66,7 +66,7 @@
     // (not only admin) can prune them; throttled so we don't hammer RTDB
     // every time many tabs receive the same snapshot.
     function sweepStale(raw, deleteFn) {
-        const now = Date.now();
+        const now = _correctedNow();
         if (now - lastSweep < SWEEP_MS) return;
         lastSweep = now;
         const cutoff = now - STALE_MS;
@@ -101,6 +101,45 @@
             localStorage.setItem('delivo_device_uuid', uuid);
         }
         return uuid;
+    }
+
+    // ── Server-time correction ────────────────────────────────
+    // connectedAt/startedAt/lastSeen all ultimately come from this
+    // device's own clock. If it's wrong — a surprisingly common
+    // real-world case (phone set to the wrong time or timezone) —
+    // a session can log into an impossible hour/day in the admin's
+    // Attendance charts (e.g. a 6am bar appearing before 6am has
+    // even happened). _correctedNow() folds in the gap between this
+    // device's clock and Firebase's real server clock — read once
+    // via the SDK's virtual `.info/serverTimeOffset` when available,
+    // or a one-time write/read probe over REST otherwise — the same
+    // "never trust the client clock" principle already used for
+    // deviceLeads/lastVisit and customerActivity/lastActive below.
+    let _timeOffsetMs = 0;
+    function _correctedNow() { return Date.now() + _timeOffsetMs; }
+
+    function _initServerTimeOffsetSDK(db) {
+        try {
+            db.ref('.info/serverTimeOffset').on('value', snap => {
+                const v = snap.val();
+                if (typeof v === 'number' && isFinite(v)) _timeOffsetMs = v;
+            });
+        } catch (_) { /* keep offset at 0 — best-effort only */ }
+    }
+
+    async function _initServerTimeOffsetREST() {
+        try {
+            const localBefore = Date.now();
+            const r = await fetch(`${RTDB_BASE}/attendance/_timeProbe.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ '.sv': 'timestamp' }),
+            });
+            const serverTs   = await r.json();
+            const localAfter = Date.now();
+            if (typeof serverTs === 'number' && isFinite(serverTs)) {
+                _timeOffsetMs = serverTs - Math.round((localBefore + localAfter) / 2);
+            }
+        } catch (_) { /* keep offset at 0 — best-effort only */ }
     }
 
     function rtdbPut(path, data, keepalive = false) {
@@ -185,7 +224,7 @@
     function _attnTouch() {
         if (!_attnPath) return;
         fetch(`${RTDB_BASE}/${_attnPath}/lastSeen.json`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Date.now()),
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(_correctedNow()),
         }).catch(() => {});
     }
 
@@ -253,13 +292,14 @@
             username:    auth?.username || null,
             device:      /Mobi/i.test(ua) ? 'mobile' : 'desktop',
             os,          // 'ios' | 'android' | 'other' — lets the admin panel show 🍎/🤖 instead of a generic 📱
-            connectedAt: connectedAt || Date.now(),
-            lastSeen:    Date.now(),
+            connectedAt: connectedAt || _correctedNow(),
+            lastSeen:    _correctedNow(),
         };
     }
 
     /* ── SDK path ───────────────────────────────────────────── */
     function initWithSDK(uuid, db) {
+        _initServerTimeOffsetSDK(db);
         const ref          = db.ref(`presence/${uuid}`);
         const connectedRef = db.ref('.info/connected');
 
@@ -275,7 +315,7 @@
                 if (!registered) {
                     registered = true;
                     const existing = await ref.once('value').catch(() => null);
-                    connectedAt = (existing?.exists() && existing.val().connectedAt) || Date.now();
+                    connectedAt = (existing?.exists() && existing.val().connectedAt) || _correctedNow();
                     const payload = buildPayload(uuid, connectedAt);
                     await ref.set(payload).catch(() => {});
                     _attnBegin(uuid, payload.device, payload.os, connectedAt);
@@ -283,10 +323,10 @@
                     // Reconnect: update only — never set() which triggers leave+join on admin
                     const existing = await ref.once('value').catch(() => null);
                     if (existing?.exists()) {
-                        connectedAt = existing.val().connectedAt || connectedAt || Date.now();
-                        await ref.update({ lastSeen: Date.now(), uid: window._delivoAuthUser?.uid || null, username: window._delivoAuthUser?.username || null }).catch(() => {});
+                        connectedAt = existing.val().connectedAt || connectedAt || _correctedNow();
+                        await ref.update({ lastSeen: _correctedNow(), uid: window._delivoAuthUser?.uid || null, username: window._delivoAuthUser?.username || null }).catch(() => {});
                     } else {
-                        connectedAt = Date.now();
+                        connectedAt = _correctedNow();
                         await ref.set(buildPayload(uuid, connectedAt)).catch(() => {});
                     }
                 }
@@ -299,11 +339,11 @@
         setInterval(() => {
             if (document.visibilityState === 'hidden') return;
             ref.update({
-                lastSeen: Date.now(),
+                lastSeen: _correctedNow(),
                 uid:      window._delivoAuthUser?.uid      || null,
                 username: window._delivoAuthUser?.username || null,
             }).catch(() => {
-                connectedAt = connectedAt || Date.now();
+                connectedAt = connectedAt || _correctedNow();
                 ref.onDisconnect().remove().catch(() => {});
                 ref.set(buildPayload(uuid, connectedAt)).catch(() => {});
             });
@@ -315,7 +355,7 @@
         // Visibility restore: quiet update, not re-register
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible') return;
-            ref.update({ lastSeen: Date.now(), uid: window._delivoAuthUser?.uid || null, username: window._delivoAuthUser?.username || null }).catch(() => {});
+            ref.update({ lastSeen: _correctedNow(), uid: window._delivoAuthUser?.uid || null, username: window._delivoAuthUser?.username || null }).catch(() => {});
             _touchDeviceLeadVisit(uuid);
             _touchCustomerActivity();
             _attnTouch();
@@ -330,7 +370,7 @@
         window._delivoPresence = {
             linkUser(uid, username) {
                 window._delivoAuthUser = { uid, username };
-                ref.update({ uid, username: username || null, lastSeen: Date.now() }).catch(() => {});
+                ref.update({ uid, username: username || null, lastSeen: _correctedNow() }).catch(() => {});
                 _touchCustomerActivity();
                 _attnMarkRegistered();
             },
@@ -340,8 +380,9 @@
 
     /* ── REST fallback ──────────────────────────────────────── */
     async function initWithREST(uuid) {
+        await _initServerTimeOffsetREST();
         const path = `presence/${uuid}`;
-        const restConnectedAt = Date.now();
+        const restConnectedAt = _correctedNow();
         const restPayload = buildPayload(uuid, restConnectedAt);
         await rtdbPut(path, restPayload);
         _touchDeviceLeadVisit(uuid);
@@ -350,7 +391,7 @@
 
         const hb = setInterval(() => {
             if (document.visibilityState === 'hidden') return;
-            rtdbPut(path, { ...buildPayload(uuid, restConnectedAt), lastSeen: Date.now() });
+            rtdbPut(path, { ...buildPayload(uuid, restConnectedAt), lastSeen: _correctedNow() });
             _touchDeviceLeadVisit(uuid);
             _touchCustomerActivity();
             _attnTouch();
@@ -366,7 +407,7 @@
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible') return;
             cleaned = false;
-            rtdbPut(path, { ...buildPayload(uuid, restConnectedAt), lastSeen: Date.now() });
+            rtdbPut(path, { ...buildPayload(uuid, restConnectedAt), lastSeen: _correctedNow() });
             _touchDeviceLeadVisit(uuid);
             _touchCustomerActivity();
             _attnTouch();

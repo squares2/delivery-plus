@@ -196,9 +196,15 @@
             };
         });
 
-        // Today's hourly rhythm
+        // Today's hourly rhythm. Guard against a stray session logged with
+        // a future startedAt (a visitor device with a wrong clock, before
+        // the presence.js server-time fix) — showing an hour that hasn't
+        // happened yet is never correct, so those are dropped here rather
+        // than displayed.
+        const now = Date.now();
         const hourly = new Array(24).fill(0);
         Object.values(sessionsByDate[todayKey] || {}).forEach(s => {
+            if (!s.startedAt || s.startedAt > now) return;
             hourly[beirutHour(s.startedAt)]++;
         });
 
@@ -760,7 +766,9 @@
             : hourlySourceRaw;
         const hourlyBars = new Array(24).fill(0);
         const hourlySessions = Array.from({ length: 24 }, () => []);
+        const _nowMs = Date.now();
         Object.values(hourlySource).forEach(s => {
+            if (!s.startedAt || s.startedAt > _nowMs) return; // clock-skew guard — see aggregate()
             const h = beirutHour(s.startedAt);
             hourlyBars[h]++;
             hourlySessions[h].push(s);

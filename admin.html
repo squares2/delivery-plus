@@ -2685,17 +2685,30 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                             <div id="ao-cust-guest-body" style="display:none;">
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                     <div>
-                                        <label class="setting-label" style="display:block;margin-bottom:5px;">الاسم الكامل *</label>
-                                        <input type="text" id="ao-guest-name" placeholder="اسم العميل"
-                                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
-                                    </div>
-                                    <div>
                                         <label class="setting-label" style="display:block;margin-bottom:5px;">رقم الهاتف *</label>
                                         <input type="tel" id="ao-guest-phone" dir="ltr" placeholder="70123456"
                                                style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;">
                                     </div>
+                                    <div>
+                                        <label class="setting-label" style="display:block;margin-bottom:5px;">الاسم الكامل *</label>
+                                        <input type="text" id="ao-guest-name" placeholder="اسم العميل"
+                                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
+                                    </div>
                                 </div>
-                                <div style="font-size:0.68rem;color:var(--gray);margin-top:8px;">سيُسجَّل الطلب باسم زائر بدون حساب — الاسم والهاتف فقط.</div>
+                                <div style="font-size:0.68rem;color:var(--gray);margin-top:8px;">سيُسجَّل الطلب باسم زائر بدون حساب — الاسم والهاتف فقط. سيبقى بإمكانك إيجاده لاحقاً بالبحث عن رقم هاتفه.</div>
+
+                                <!-- Shown automatically when the typed phone matches a
+                                     previous "غير مسجل" caller in guestCustomers/ — lets
+                                     the admin reuse that name/address in one tap instead
+                                     of retyping it every time the same person calls in. -->
+                                <div id="ao-guest-known-hint" style="display:none;margin-top:10px;background:rgba(255,92,0,0.08);border:1px solid rgba(255,92,0,0.3);border-radius:10px;padding:10px 14px;align-items:center;justify-content:space-between;gap:10px;">
+                                    <div style="flex:1;min-width:0;">
+                                        <div style="font-weight:800;color:var(--orange);font-size:0.8rem;" id="ao-guest-known-title">—</div>
+                                        <div style="font-size:0.7rem;color:var(--gray);" id="ao-guest-known-sub">—</div>
+                                    </div>
+                                    <button type="button" id="ao-guest-known-fill-btn"
+                                            style="flex-shrink:0;background:rgba(255,92,0,0.15);color:var(--orange);border:1px solid rgba(255,92,0,0.35);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:0.72rem;font-weight:700;cursor:pointer;white-space:nowrap;">📋 تعبئة العنوان</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -3554,6 +3567,7 @@ let currentAdmin = null;
 let allOrders    = {};
 let allDrivers   = [];
 let allUsers        = {};
+let allGuestCustomers = {}; // guestCustomers/{phoneKey}: unregistered callers who ordered via admin's "اطلب" tool — see _aoUpsertGuestCustomer
 let allVisitors     = {}; // deviceLeads: unregistered visitors (full name + phone captured pre-signup)
 let allDeviceGroups = {}; // uuid → [user, user, ...]
 let allStores    = {};
@@ -4331,7 +4345,7 @@ function switchPanel(id) {
 
 let _catCurrentStore  = null;  // { name, type }
 let _catAllItems      = {};    // raw items from RTDB
-let _catActiveFilter  = null;  // current catmain tab
+let _catActiveFilter  = undefined;  // current catmain tab: undefined = not yet picked for this store, null = "الكل" (all), string = one catmain
 let _catSearchQuery   = '';    // item-name search filter (catalog-search input)
 
 // ── Entry point ───────────────────────────────────────────────
@@ -4374,6 +4388,7 @@ async function renderCatalog() {
 async function catalogOpenStore(storeName, storeType) {
     _catCurrentStore = { name: storeName, type: storeType };
     _catSearchQuery = '';
+    _catActiveFilter = undefined; // fresh store — let _renderCatalogItems() pick the default tab once
     document.getElementById('catalog-stores-view').style.display = 'none';
     const itemsView = document.getElementById('catalog-items-view');
     itemsView.style.display = 'flex';
@@ -4396,7 +4411,7 @@ async function catalogOpenStore(storeName, storeType) {
 function catalogBackToStores() {
     _catCurrentStore = null;
     _catAllItems = {};
-    _catActiveFilter = null;
+    _catActiveFilter = undefined;
     _catSearchQuery = '';
     document.getElementById('catalog-stores-view').style.display = '';
     document.getElementById('catalog-items-view').style.display = 'none';
@@ -4424,7 +4439,15 @@ function _renderCatalogItems() {
 
     // Build catmain tabs
     const mains = [...new Set(items.map(i => i.catmain || 'عام'))].sort();
-    if (!_catActiveFilter || !mains.includes(_catActiveFilter)) _catActiveFilter = mains[0];
+    // Only auto-pick a default tab the first time this store is opened
+    // (undefined) or if the previously-picked catmain no longer exists in
+    // this item set (stale). A deliberate "الكل" choice is stored as
+    // `null`, which must NOT be treated as "unset" here — that was the
+    // bug: every render silently snapped "الكل" back to the first tab,
+    // so it could never stay selected.
+    if (_catActiveFilter === undefined || (_catActiveFilter !== null && !mains.includes(_catActiveFilter))) {
+        _catActiveFilter = mains[0];
+    }
 
     bar.innerHTML = `
         <button onclick="_catSetFilter(null)"
@@ -4817,7 +4840,7 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw, customerActivity] = await Promise.all([
+        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw, customerActivity, guestCustomersRaw] = await Promise.all([
             fbGet('requests'),
             fbGet('drivers'),
             fsGetCollection('users'),
@@ -4830,9 +4853,13 @@ async function loadAllData() {
             fbGet('deviceLeads').catch(() => null),
             fbGet('externalStores').catch(() => null),
             fbGet('customerActivity').catch(() => null),
+            fbGet('guestCustomers').catch(() => null),
         ]);
 
         allExtStores = extStoresRaw || {};
+
+        allGuestCustomers = guestCustomersRaw || {};
+        window.allGuestCustomers = allGuestCustomers; // exposed for the "اطلب" search + any other panel that wants to look up an unregistered caller by phone
 
         allVisitors = deviceLeads || {};
         window.allVisitors = allVisitors; // exposed for admin-presence.js (matches guest sessions to unregistered name+phone leads)
@@ -14526,7 +14553,7 @@ async function deleteUserAccount(uid, username, displayName, phone) {
 // ══════════════════════════════════════════════════════════════
 
 const BACKUP_COLLECTIONS = ['users','usernames','orders','stores','categories','offers','settings','devices'];
-const BACKUP_RTDB_PATHS  = ['requests','historyRequests','drivers','pattern','settings','phoneIndex','devices','blacklist','adminUsers','globalCounter','users','deletedUsernames'];
+const BACKUP_RTDB_PATHS  = ['requests','historyRequests','guestCustomers','drivers','pattern','settings','phoneIndex','devices','blacklist','adminUsers','globalCounter','users','deletedUsernames'];
 
 function renderBackupPanel() {
     const el = document.getElementById('backup-content');
@@ -14921,7 +14948,7 @@ function bkLoadFile(input) {
                 chipsEl.innerHTML = '';
                 // Safe defaults for anti-hack — orders/users/requests NOT selected by default
                 const safeDefaults = ['settings','adminUsers','blacklist','categories','offers','stores'];
-                const unsafeDefaults = ['orders','users','usernames','requests','historyRequests','phoneIndex','devices','drivers','pattern','globalCounter'];
+                const unsafeDefaults = ['orders','users','usernames','requests','historyRequests','guestCustomers','phoneIndex','devices','drivers','pattern','globalCounter'];
                 [...fsCols.map(c=>({type:'fs',name:c})), ...rtdbPaths.map(p=>({type:'rtdb',name:p}))]
                     .forEach(({type, name}) => {
                         const isSafe = safeDefaults.includes(name);
@@ -15514,7 +15541,7 @@ async function resetProject() {
 
     // What to delete from RTDB
     const rtdbDelete = [
-        'requests', 'historyRequests', 'users', 'phoneIndex',
+        'requests', 'historyRequests', 'guestCustomers', 'users', 'phoneIndex',
         'devices', 'blacklist', 'deletedUsernames', 'pendingAuthDeletion',
         'drivers', 'driverDevices', 'device_fingerprints',
     ];
@@ -18891,11 +18918,25 @@ document.getElementById('or-refresh-btn')?.addEventListener('click', () => {
    Writes straight into requests/{key} (+ historyRequests for
    registered customers) using the same globalCounter/requestId
    sequence as regular checkout.
+
+   GUEST-CUSTOMER DIRECTORY — guestCustomers/{phoneKey}: every
+   "🆕 عميل غير مسجل" order upserts a lightweight record here
+   (name, phone, last address, order count/history) keyed by the
+   caller's normalized phone number — no account is ever created.
+   The customer search box above now searches this directory
+   alongside allUsers, so a returning walk-in caller is found by
+   name or phone exactly like a registered customer. Existing
+   guest orders already sitting in requests/ before this feature
+   shipped are mined into the directory once per session by
+   _aoBackfillGuestCustomersFromOrders() the first time this panel
+   opens, so past callers are searchable immediately too.
 ════════════════════════════════════════════════════════════ */
 let _aoInitialized  = false;
 let _aoCustMode     = 'registered'; // 'registered' | 'guest'
 let _aoStoreMode    = 'internal';   // 'internal' | 'external'
 let _aoSelectedCust = null;         // { uid, username, fullname, phone, city, street, lat, lng }
+let _aoSelectedGuestKey   = null;   // phoneKey of a matched guestCustomers/ record, once found/selected
+let _aoGuestBackfillDone  = false;
 let _aoDestLat = null, _aoDestLng = null;
 let _aoStoreLat = null, _aoStoreLng = null;
 let _aoQuickCategories = {};
@@ -18906,6 +18947,7 @@ function renderAdminOrderPanel() {
     _aoInitOnce();
     _aoPopulateStoreSelect();
     _aoPopulateDriverSelect();
+    _aoBackfillGuestCustomersFromOrders();
 }
 
 function _aoInitOnce() {
@@ -18915,6 +18957,8 @@ function _aoInitOnce() {
     document.getElementById('ao-cust-tab-registered')?.addEventListener('click', () => _aoSetCustMode('registered'));
     document.getElementById('ao-cust-tab-guest')?.addEventListener('click', () => _aoSetCustMode('guest'));
     document.getElementById('ao-cust-search')?.addEventListener('input', e => _aoSearchCustomers(e.target.value));
+    document.getElementById('ao-guest-phone')?.addEventListener('input', e => _aoOnGuestPhoneInput(e.target.value));
+    document.getElementById('ao-guest-known-fill-btn')?.addEventListener('click', _aoFillFromKnownGuest);
 
     document.querySelectorAll('[data-ao-store]').forEach(btn => {
         btn.addEventListener('click', () => _aoSetStoreMode(btn.dataset.aoStore));
@@ -18980,30 +19024,211 @@ function _aoPopulateDriverSelect() {
     if (current) sel.value = current;
 }
 
-// ── Registered-customer search ───────────────────────────────
+// ── Customer search — registered accounts (allUsers) AND
+// unregistered callers previously placed as a "🆕 عميل غير مسجل"
+// order (allGuestCustomers). A phone number now finds its owner
+// either way; guest rows are visually distinct and, on click,
+// switch to the guest tab with everything prefilled instead of
+// attaching an account that doesn't exist. ──────────────────────
 function _aoSearchCustomers(q) {
     const resultsEl = document.getElementById('ao-cust-results');
     if (!resultsEl) return;
     q = (q || '').trim().toLowerCase();
     if (!q) { resultsEl.innerHTML = ''; return; }
-    const matches = Object.entries(allUsers || {}).filter(([, u]) =>
+    const qDigits = q.replace(/\D/g, '');
+
+    const regMatches = Object.entries(allUsers || {}).filter(([, u]) =>
         (u.fullname || '').toLowerCase().includes(q) ||
         (u.username || '').toLowerCase().includes(q) ||
         (u.phone || '').includes(q)
-    ).slice(0, 12);
-    if (!matches.length) {
+    ).slice(0, 8);
+
+    const guestMatches = Object.entries(allGuestCustomers || {}).filter(([key, g]) =>
+        (g.fullname || '').toLowerCase().includes(q) ||
+        (g.phone || '').includes(q) ||
+        (qDigits && key.includes(qDigits))
+    ).slice(0, 8);
+
+    if (!regMatches.length && !guestMatches.length) {
         resultsEl.innerHTML = '<div style="font-size:0.78rem;color:var(--gray);padding:8px;">لا نتائج</div>';
         return;
     }
-    resultsEl.innerHTML = matches.map(([uid, u]) => `
+
+    const regHtml = regMatches.map(([uid, u]) => `
         <button type="button" class="ao-cust-result" data-uid="${uid}"
                 style="text-align:right;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--white);font-family:inherit;">
-            <div style="font-weight:700;">${u.fullname || u.username || '—'}</div>
-            <div style="font-size:0.72rem;color:var(--gray);">${u.username ? '@'+u.username+' · ' : ''}${formatPhone(u.phone)}</div>
+            <div style="font-weight:700;">🔗 ${u.fullname || u.username || '—'}</div>
+            <div style="font-size:0.72rem;color:var(--gray);">${u.username ? '@'+u.username+' · ' : ''}<bdi dir="ltr">${formatPhone(u.phone)}</bdi></div>
         </button>`).join('');
-    resultsEl.querySelectorAll('.ao-cust-result').forEach(btn => {
+
+    const guestHtml = guestMatches.map(([key, g]) => {
+        const count = g.orderCount || Object.keys(g.orders || {}).length || 1;
+        return `
+        <button type="button" class="ao-cust-result" data-guest-key="${key}"
+                style="text-align:right;background:rgba(255,92,0,0.06);border:1px solid rgba(255,92,0,0.25);border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--white);font-family:inherit;">
+            <div style="font-weight:700;">🆕 ${g.fullname || '—'}</div>
+            <div style="font-size:0.72rem;color:var(--gray);">غير مسجّل · <bdi dir="ltr">${formatPhone(g.phone)}</bdi> · طلب ${count} ${count === 1 ? 'مرة' : 'مرات'}</div>
+        </button>`;
+    }).join('');
+
+    resultsEl.innerHTML = regHtml + guestHtml;
+    resultsEl.querySelectorAll('.ao-cust-result[data-uid]').forEach(btn => {
         btn.addEventListener('click', () => _aoSelectCustomer(btn.dataset.uid));
     });
+    resultsEl.querySelectorAll('.ao-cust-result[data-guest-key]').forEach(btn => {
+        btn.addEventListener('click', () => _aoSelectGuestFromSearch(btn.dataset.guestKey));
+    });
+}
+
+// Picking a guest result from the (registered-tab) search box: switch
+// to the guest tab and prefill everything we already know about them,
+// instead of pretending they have an account.
+function _aoSelectGuestFromSearch(key) {
+    const g = allGuestCustomers?.[key];
+    if (!g) return;
+    _aoSetCustMode('guest');
+    const nameInp  = document.getElementById('ao-guest-name');
+    const phoneInp = document.getElementById('ao-guest-phone');
+    if (nameInp)  nameInp.value  = g.fullname || '';
+    if (phoneInp) phoneInp.value = g.phone || '';
+    _aoSelectedGuestKey = key;
+    _aoApplyGuestAddress(g);
+    _aoShowGuestKnownHint(g);
+
+    const resultsEl = document.getElementById('ao-cust-results');
+    if (resultsEl) resultsEl.innerHTML = '';
+    const searchInp = document.getElementById('ao-cust-search');
+    if (searchInp) searchInp.value = '';
+}
+
+// Live lookup as the admin types a phone number directly into the
+// guest tab — recognizes a returning caller without needing them to
+// go through the search box at all.
+function _aoOnGuestPhoneInput(val) {
+    const key = _aoPhoneKey(val);
+    if (!key || key.length < 7) { _aoHideGuestKnownHint(); _aoSelectedGuestKey = null; return; }
+    const g = allGuestCustomers?.[key];
+    if (!g) { _aoHideGuestKnownHint(); _aoSelectedGuestKey = null; return; }
+    _aoSelectedGuestKey = key;
+    _aoShowGuestKnownHint(g);
+}
+
+function _aoShowGuestKnownHint(g) {
+    const hint = document.getElementById('ao-guest-known-hint');
+    if (!hint) return;
+    const count = g.orderCount || Object.keys(g.orders || {}).length || 1;
+    const lastLabel = g.lastOrderAt ? ` · آخر طلب ${g.lastOrderAt.split(' ')[0]}` : '';
+    document.getElementById('ao-guest-known-title').textContent = `📋 عميل سابق: ${g.fullname || '—'}`;
+    document.getElementById('ao-guest-known-sub').textContent   = `طلب ${count} ${count === 1 ? 'مرة' : 'مرات'} سابقاً عبر اطلب${lastLabel}`;
+    hint.style.display = 'flex';
+}
+
+function _aoHideGuestKnownHint() {
+    const hint = document.getElementById('ao-guest-known-hint');
+    if (hint) hint.style.display = 'none';
+}
+
+function _aoApplyGuestAddress(g) {
+    const cityInp   = document.getElementById('ao-dest-city');
+    const streetInp = document.getElementById('ao-dest-street');
+    if (cityInp && g.city)     cityInp.value   = g.city;
+    if (streetInp && g.street) streetInp.value = g.street;
+    if (g.lat && g.lng) {
+        // Defensive: records saved before the swap-fix (or backfilled from
+        // an old order that already had it swapped) may still carry
+        // lat/lng flipped — re-check every time we apply, not just on write.
+        [_aoDestLat, _aoDestLng] = _fixSwappedLatLng(parseFloat(g.lat), parseFloat(g.lng));
+        _aoUpdateCoordBadge('dest');
+    }
+}
+
+// "📋 تعبئة العنوان" button next to the known-guest hint — fills in
+// their last known address without overwriting a name already typed.
+function _aoFillFromKnownGuest() {
+    if (!_aoSelectedGuestKey) return;
+    const g = allGuestCustomers?.[_aoSelectedGuestKey];
+    if (!g) return;
+    const nameInp = document.getElementById('ao-guest-name');
+    if (nameInp && !nameInp.value.trim()) nameInp.value = g.fullname || '';
+    _aoApplyGuestAddress(g);
+    toast('📋 تم تعبئة بيانات العميل السابقة');
+}
+
+// ── Guest-customer directory (guestCustomers/{phoneKey}) ─────────
+function _aoPhoneKey(raw) {
+    let digits = String(raw || '').replace(/\D/g, '');
+    if (digits.startsWith('961') && digits.length > 8) digits = digits.slice(3);
+    return digits;
+}
+
+// Creates/updates one guest's directory record in-memory (caller
+// persists it to Firebase) — shared by live order submission and the
+// one-time historical backfill below, so both stay in sync.
+//
+// Address/coordinates are only overwritten if this order is the
+// chronologically newest one seen for this guest so far — orders/
+// isn't guaranteed to be iterated in date order (its keys are
+// "id_N" strings, not sorted numerically), so a naive "always
+// overwrite" here could leave an OLDER order's address showing as
+// if it were current. Coordinates are also run through the same
+// _fixSwappedLatLng() Lebanon-bounds check used everywhere else in
+// the admin panel, since older manual orders can have lat/lng saved
+// swapped.
+function _aoUpsertGuestCustomer(phone, fullname, orderMeta) {
+    const key = _aoPhoneKey(phone);
+    if (!key) return null;
+    const rec = allGuestCustomers[key] || { fullname: '', phone: '', city: '', street: '', lat: '', lng: '', orderCount: 0, orders: {} };
+    rec.orders = rec.orders || {};
+    rec.orders[orderMeta.reqKey] = { date: orderMeta.date || '', store: orderMeta.store || '', total: orderMeta.total || '' };
+    rec.fullname = fullname || rec.fullname;
+    rec.phone    = phone    || rec.phone;
+
+    const od = orderMeta.date ? _parseOrderDate({ date: orderMeta.date }) : null;
+    const ms = od ? od.getTime() : null;
+    const isFirstEver = !rec.lastOrderMs && !rec.city && !rec.street && !rec.lat; // nothing recorded yet — always take what we have
+    const isNewest = isFirstEver || (ms !== null && (!rec.lastOrderMs || ms >= rec.lastOrderMs));
+    if (isNewest) {
+        if (orderMeta.city)   rec.city   = orderMeta.city;
+        if (orderMeta.street) rec.street = orderMeta.street;
+        if (orderMeta.lat && orderMeta.lng) {
+            const [fixedLat, fixedLng] = _fixSwappedLatLng(parseFloat(orderMeta.lat), parseFloat(orderMeta.lng));
+            rec.lat = String(fixedLat); rec.lng = String(fixedLng);
+        }
+    }
+    if (od) {
+        if (!rec.firstOrderMs || ms < rec.firstOrderMs) { rec.firstOrderMs = ms; rec.firstOrderAt = orderMeta.date; }
+        if (!rec.lastOrderMs  || ms > rec.lastOrderMs)  { rec.lastOrderMs  = ms; rec.lastOrderAt  = orderMeta.date; }
+    }
+    rec.orderCount = Object.keys(rec.orders).length;
+    allGuestCustomers[key] = rec;
+    return { key, rec };
+}
+
+// Runs once per admin session, the first time the "اطلب" panel opens:
+// mines every pre-existing guest order in requests/ (no delivryplusid,
+// i.e. never had this feature to save them into guestCustomers/) into
+// the directory, so callers from before this shipped are searchable
+// immediately instead of only from their next order onward.
+function _aoBackfillGuestCustomersFromOrders() {
+    if (_aoGuestBackfillDone) return;
+    _aoGuestBackfillDone = true;
+    const patch = {};
+    let changed = false;
+    Object.entries(allOrders || {}).forEach(([reqKey, o]) => {
+        if (!o || o.delivryplusid) return; // has a linked account — not a guest order
+        const phone    = (o.phone || '').trim();
+        const fullname = (o.fullname || '').trim();
+        if (!phone || !fullname) return;
+        const key = _aoPhoneKey(phone);
+        if (!key) return;
+        if (allGuestCustomers[key]?.orders?.[reqKey]) return; // already recorded
+        const result = _aoUpsertGuestCustomer(phone, fullname, {
+            reqKey, date: o.date, store: o.store, total: o.total,
+            city: o.city, street: o.street, lat: o.lat, lng: o.lng,
+        });
+        if (result) { patch[result.key] = result.rec; changed = true; }
+    });
+    if (changed) fbUpdate('guestCustomers', patch).catch(() => {});
 }
 
 function _aoSelectCustomer(uid) {
@@ -19024,7 +19249,7 @@ function _aoSelectCustomer(uid) {
     const nameEl = document.getElementById('ao-cust-selected-name');
     const subEl  = document.getElementById('ao-cust-selected-sub');
     if (nameEl) nameEl.textContent = _aoSelectedCust.fullname || '—';
-    if (subEl)  subEl.textContent  = `${_aoSelectedCust.username ? '@'+_aoSelectedCust.username+' · ' : ''}${formatPhone(_aoSelectedCust.phone)}`;
+    if (subEl)  subEl.innerHTML  = `${_aoSelectedCust.username ? '@'+_aoSelectedCust.username+' · ' : ''}<bdi dir="ltr">${formatPhone(_aoSelectedCust.phone)}</bdi>`;
 
     // Prefill delivery address from the customer's saved profile, if any
     const cityInp = document.getElementById('ao-dest-city');
@@ -19422,22 +19647,39 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
     coordInput.addEventListener('paste', () => setTimeout(applyCoords, 50));
 
     // ── Reference layers: registered customers' saved locations +
+    // unregistered guestCustomers/ callers' last known address, plus
     // previous orders' delivery pins. When reception has the caller's
     // name/phone, filtering instantly surfaces their saved home pin and
     // every past delivery — clicking any dot adopts it as the new pin.
-    // Reads the admin panel's already-loaded allUsers / allOrders
-    // globals, so toggling is instant (no extra fetches). ──
+    // Reads the admin panel's already-loaded allUsers / allGuestCustomers
+    // / allOrders globals, so toggling is instant (no extra fetches). ──
     const custLayer = L.layerGroup();
     const histLayer = L.layerGroup();
     let custOn = false, histOn = false;
     const countEl = overlay.querySelector('#gmp-layer-count');
 
-    const _dotIcon = (bg, glyph) => L.divIcon({
-        className: '',
-        html: `<div style="width:26px;height:26px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-size:13px;">${glyph}</div>`,
-        iconSize: [26, 26], iconAnchor: [13, 13],
-    });
-    const CUST_ICON = _dotIcon('#2563eb', '👤');
+    // Name/phone label is baked directly into the marker's own divIcon
+    // (instead of a separate floating Leaflet tooltip) so it is always
+    // pixel-locked to its dot — no possibility of the label drifting
+    // away from the marker it belongs to, even in a dense cluster.
+    const _personIcon = (bg, glyph, name, phone) => {
+        const nameEsc  = _gmpEsc(name);
+        const phoneEsc = phone ? _gmpEsc(formatPhone ? formatPhone(phone) : phone) : '';
+        const label = `<div style="position:absolute;top:50%;right:100%;transform:translateY(-50%);margin-right:6px;
+                        background:rgba(20,20,20,0.94);color:#fff;border:1.5px solid ${bg};border-radius:6px;
+                        padding:3px 8px;font-size:11px;font-weight:700;line-height:1.5;white-space:nowrap;
+                        direction:rtl;box-shadow:0 1px 5px rgba(0,0,0,0.4);">
+                        <b>${nameEsc}</b>${phoneEsc ? '<br><bdi dir="ltr">📞 ' + phoneEsc + '</bdi>' : ''}
+                    </div>`;
+        return L.divIcon({
+            className: '',
+            html: `<div style="position:relative;width:26px;height:26px;">
+                     <div style="width:26px;height:26px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-size:13px;">${glyph}</div>
+                     ${label}
+                   </div>`,
+            iconSize: [26, 26], iconAnchor: [13, 13],
+        });
+    };
 
     const _adoptBtnHtml = (lat, lng) =>
         `<button onclick="window._gmpAdoptRefPoint(${lat},${lng})" style="margin-top:6px;width:100%;background:#FF5C00;border:none;border-radius:8px;padding:6px 10px;color:#fff;font-family:inherit;font-size:0.74rem;font-weight:800;cursor:pointer;">📌 اعتماد هذا الموقع</button>`;
@@ -19459,39 +19701,6 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
         return fields.some(v => String(v || '').toLowerCase().replace(/\s+/g, '').includes(f));
     };
 
-    // One-time global stylesheet for the always-visible name/phone labels
-    // next to each customer/order dot — small enough not to clutter the
-    // map, but readable without needing to click every marker.
-    if (!document.getElementById('gmp-label-style')) {
-        const styleEl = document.createElement('style');
-        styleEl.id = 'gmp-label-style';
-        styleEl.textContent = `
-            .gmp-marker-label { background:rgba(20,20,20,0.94); color:#fff; border:1.5px solid rgba(255,255,255,0.15);
-                border-radius:6px; padding:2px 7px; font-size:11px; font-weight:700; line-height:1.4;
-                box-shadow:0 1px 5px rgba(0,0,0,0.4); white-space:nowrap; direction:rtl; position:relative; }
-            .gmp-marker-label--cust { border-color:#2563eb; --gmp-stick:#2563eb; }
-            .gmp-marker-label--hist { border-color:#7c3aed; --gmp-stick:#7c3aed; }
-            /* A real leader line (stick + arrowhead), not just a tiny
-               nub — so the admin can see at a glance exactly which dot
-               each floating name/phone box belongs to, even in a
-               cluster of pins. Colored per layer (blue=customer,
-               purple=order) to match its marker. */
-            .leaflet-tooltip.gmp-marker-label.leaflet-tooltip-top:before {
-                content:''; border:none; border-radius:0;
-                position:absolute; left:50%; bottom:0;
-                width:2px; height:16px; margin-left:-1px; margin-bottom:-16px;
-                background:var(--gmp-stick, #fff);
-            }
-            .leaflet-tooltip.gmp-marker-label.leaflet-tooltip-top:after {
-                content:''; position:absolute; left:50%; bottom:0;
-                width:0; height:0; margin-left:-5px; margin-bottom:-21px;
-                border-left:5px solid transparent; border-right:5px solid transparent;
-                border-top:7px solid var(--gmp-stick, #fff);
-            }
-        `;
-        document.head.appendChild(styleEl);
-    }
-
     function rebuildRefLayers() {
         const filter = overlay.querySelector('#gmp-people-filter').value.trim();
         let custN = 0, histN = 0;
@@ -19504,14 +19713,33 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
                 let lng = parseFloat(loc?.lng ?? loc?.longitude ?? u.lng ?? u.longitude ?? NaN);
                 if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
                 [lat, lng] = _fixSwappedLatLng(lat, lng);
-                const name  = u.displayName || u.fullname || u.username || '—';
                 const phone = u.phone || '';
+                // A registered account with no fullname/username on file still
+                // has a phone number — show that instead of a bare "—" so every
+                // pin on the map is identifiable at a glance.
+                const name  = u.displayName || u.fullname || u.username || (phone ? formatPhone(phone) : 'بدون اسم');
                 if (!_filterMatch(filter, name, u.username, phone)) return;
                 custN++;
-                L.marker([lat, lng], { icon: CUST_ICON })
-                    .bindTooltip(`<b>${_gmpEsc(name)}</b>${phone ? '<br><bdi dir="ltr">📞 ' + _gmpEsc(formatPhone ? formatPhone(phone) : phone) + '</bdi>' : ''}`,
-                        { permanent: true, direction: 'top', offset: [0, -13], className: 'gmp-marker-label gmp-marker-label--cust' })
+                L.marker([lat, lng], { icon: _personIcon('#2563eb', '👤', name, phone) })
                     .bindPopup(`<div style="font-family:inherit;font-size:0.8rem;min-width:170px;"><b>👤 ${name}</b><br><span dir="ltr">📞 ${_gmpEsc(formatPhone ? formatPhone(phone) : (phone || '—'))}</span><br><span style="color:#888;font-size:0.72rem;">موقع محفوظ بالحساب</span>${_adoptBtnHtml(lat, lng)}</div>`)
+                    .addTo(custLayer);
+            });
+
+            // Unregistered callers who ordered before via "اطلب" → "عميل غير
+            // مسجل" (guestCustomers/ — see _aoUpsertGuestCustomer). Shown on
+            // the same layer, orange-coded, so a returning walk-in caller's
+            // last delivery point is just as findable as a registered one's.
+            Object.values(allGuestCustomers || {}).forEach(g => {
+                let lat = parseFloat(g.lat), lng = parseFloat(g.lng);
+                if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+                [lat, lng] = _fixSwappedLatLng(lat, lng);
+                const phone = g.phone || '';
+                const name  = g.fullname || (phone ? formatPhone(phone) : 'بدون اسم');
+                if (!_filterMatch(filter, name, phone)) return;
+                custN++;
+                const count = g.orderCount || Object.keys(g.orders || {}).length || 1;
+                L.marker([lat, lng], { icon: _personIcon('#FF5C00', '🆕', name, phone) })
+                    .bindPopup(`<div style="font-family:inherit;font-size:0.8rem;min-width:170px;"><b>🆕 ${name}</b><br><span dir="ltr">📞 ${_gmpEsc(formatPhone ? formatPhone(phone) : (phone || '—'))}</span><br><span style="color:#FF5C00;font-size:0.72rem;">غير مسجّل · طلب ${count} ${count === 1 ? 'مرة' : 'مرات'} عبر اطلب</span>${_adoptBtnHtml(lat, lng)}</div>`)
                     .addTo(custLayer);
             });
         }
@@ -19900,6 +20128,16 @@ async function _aoSubmit() {
         await fbSet(`requests/${requestKey}`, requestObj);
         if (uid) await fbSet(`historyRequests/${uid}/${requestKey}`, { ...requestObj, trackorder: '0' });
 
+        // Guest (no account): upsert their entry in guestCustomers/ so a
+        // future search by this same phone number finds them again.
+        if (_aoCustMode === 'guest') {
+            const result = _aoUpsertGuestCustomer(phone, fullname, {
+                reqKey: requestKey, date: dateStr, store: storeName, total: totalMerged,
+                city, street, lat: _aoDestLat, lng: _aoDestLng,
+            });
+            if (result) fbUpdate(`guestCustomers/${result.key}`, result.rec).catch(() => {});
+        }
+
         toast(`✅ تم إنشاء الطلب #${nextId}`);
         if (okEl) { okEl.style.display = 'block'; okEl.textContent = `✅ تم إنشاء الطلب #${nextId} بنجاح`; }
         _aoResetForm();
@@ -19925,6 +20163,8 @@ function _aoResetForm() {
     const catItems = document.getElementById('ao-cat-items');
     if (catItems) catItems.style.display = 'none';
     aoClearSelectedCustomer();
+    _aoSelectedGuestKey = null;
+    _aoHideGuestKnownHint();
     _aoDestLat = _aoDestLng = _aoStoreLat = _aoStoreLng = null;
     _aoUpdateCoordBadge('dest'); _aoUpdateCoordBadge('store');
     const cityInp = document.getElementById('ao-dest-city');
