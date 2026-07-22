@@ -565,7 +565,15 @@
         }
 
         if (!_data.storeName)    return _shake('ext-store-name', 'أدخل اسم المتجر');
-        if (!_data.storeAddress && !_data.storeLat) return _shake('ext-store-addr', 'أدخل عنوان المتجر أو حدده على الخريطة');
+        // A store picked from the dropdown (a Delivo store or an
+        // admin-curated external one) is already known to the system —
+        // never demand its address/pin from the customer, even when no
+        // location is on file (the admin recognizes these stores by
+        // name). The lock self-clears the moment the customer edits
+        // the name away from the picked store (see _bindForm), so a
+        // manually-typed store still requires an address as before.
+        const pickedFromList = !!(_data.lockedStoreKey && _data.storeName === _data.lockedStoreName);
+        if (!pickedFromList && !_data.storeAddress && !_data.storeLat) return _shake('ext-store-addr', 'أدخل عنوان المتجر أو حدده على الخريطة');
         if (!_data.orderDescription) return _shake('ext-order-desc', 'صف طلبك بالتفصيل');
         if (!_data.destAddress && !_data.destLat) return _shake('ext-dest-addr', 'أدخل عنوان التوصيل أو حدده على الخريطة');
         return true;
