@@ -9,7 +9,7 @@
    Replace BUILD_TIMESTAMP with your deploy script, or just
    change this number whenever you upload new files.
    Even changing it by 1 is enough to bust all caches.        */
-const BUILD_TS    = '20260717170204';   // replaced by deploy.bat at deploy time
+const BUILD_TS    = '20260722120000';   // replaced by deploy.bat at deploy time
 const CACHE_NAME  = `delivo-${BUILD_TS}`;
 
 /* ── Assets to pre-cache on install ──────────────────────────
@@ -119,6 +119,30 @@ self.addEventListener('fetch', event => {
 
     const ext = url.pathname.split('.').pop().toLowerCase();
     const isImage = ['png','jpg','jpeg','gif','webp','svg','ico'].includes(ext);
+    const isNavigation = event.request.mode === 'navigate';
+
+    /* Last-resort fallback so respondWith() NEVER resolves to undefined.
+       Every branch below used to end a failed fetch with `.catch(() =>
+       cached)` — fine when something was cached, but if `cached` was also
+       undefined (nothing cached yet + network unreachable), respondWith()
+       received `undefined` instead of a Response, which the browser treats
+       as a hard failure of that request. For a navigation request (the
+       PWA's start_url), a handful of those in a row is exactly what makes
+       Android mark an already-installed app as broken and show "There was
+       a problem" / repeatedly-occurred instead of the page — and it won't
+       retry on its own until the user clears the app's storage or
+       reinstalls. A tiny inline page beats that hard failure. */
+    const OFFLINE_FALLBACK = () => new Response(
+        `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivo</title></head><body style="margin:0;height:100vh;display:flex;
+align-items:center;justify-content:center;background:#FF5C00;color:#fff;
+font-family:sans-serif;text-align:center;padding:24px;box-sizing:border-box;">
+<div><p style="font-size:18px;margin:0 0 16px;">تعذّر الاتصال بالإنترنت</p>
+<p style="font-size:14px;opacity:0.85;margin:0;">تحقق من الشبكة وحاول مجددًا</p>
+</div></body></html>`,
+        { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+    );
 
     if (isImage) {
         /* Cache-first for images — they rarely change */
@@ -131,7 +155,7 @@ self.addEventListener('fetch', event => {
                         caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
                     }
                     return res;
-                }).catch(() => cached);
+                }).catch(() => cached || new Response('', { status: 404 }));
             })
         );
     } else {
@@ -148,7 +172,17 @@ self.addEventListener('fetch', event => {
                         caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
                     }
                     return res;
-                }).catch(() => cached);
+                }).catch(async () => {
+                    if (cached) return cached;
+                    // Nothing cached for this exact URL either — for a page
+                    // load, fall back to the precached app shell rather than
+                    // giving up outright.
+                    if (isNavigation) {
+                        const shell = await caches.match('./index.html');
+                        if (shell) return shell;
+                    }
+                    return OFFLINE_FALLBACK();
+                });
 
                 // Keep the SW alive long enough for the background refresh
                 // to finish even after we've already responded from cache.
