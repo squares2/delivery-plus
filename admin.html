@@ -16727,9 +16727,9 @@ document.getElementById('orders-refresh-btn').addEventListener('click', async ()
 });
 
 // Order filter pills
-document.querySelectorAll('.filter-pill').forEach(btn => {
+document.querySelectorAll('[data-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         orderFilter = btn.dataset.filter;
         renderOrders();
