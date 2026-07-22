@@ -2611,10 +2611,10 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                 </div>
                 <!-- Toolbar -->
                 <div class="or-toolbar">
-                    <button class="filter-pill active" data-or-filter="active">🟠 جارية</button>
+                    <button class="filter-pill" data-or-filter="active">🟠 جارية</button>
                     <button class="filter-pill" data-or-filter="delivered">✅ مُوصَّلة</button>
                     <button class="filter-pill" data-or-filter="cancelled">✕ ملغاة</button>
-                    <button class="filter-pill" data-or-filter="all">الكل</button>
+                    <button class="filter-pill active" data-or-filter="all">الكل</button>
                     <input type="text" class="search-box" id="or-search" placeholder="بحث برقم الشحنة أو العميل أو المتجر…" style="margin-right:auto;max-width:240px;">
                 </div>
                 <!-- Table -->
@@ -18053,7 +18053,7 @@ if (savedSession) {
 // ═══════════════════════════════════════════════════════════════
 // ONLINE REQUESTS PANEL
 // ═══════════════════════════════════════════════════════════════
-let orFilter = 'active';
+let orFilter = 'all';
 let orSearch = '';
 let companyVars  = null;  // cached from Firebase /companydatas
 
@@ -20041,8 +20041,12 @@ async function _aoSubmit() {
     const orderDesc = document.getElementById('ao-order-desc')?.value.trim() || '';
     if (!orderDesc) return _aoErr('أدخل وصف الطلب');
 
-    const orderPrice = parseFloat(document.getElementById('ao-order-price')?.value) || 0;
-    if (orderPrice <= 0) return _aoErr('أدخل سعر الطلب');
+    const orderPriceRaw = parseFloat(document.getElementById('ao-order-price')?.value) || 0;
+    if (orderPriceRaw <= 0) return _aoErr('أدخل سعر الطلب');
+    // Same >1000-is-LBP convention used everywhere else (see _toUSD) — without
+    // this, a Lebanese-Lira price typed here (e.g. 1,500,000 ل.ل) was being
+    // added straight into the USD total instead of being converted first.
+    const orderPriceUSD = _toUSD(orderPriceRaw);
 
     const feeRaw = document.getElementById('ao-delivery-fee')?.value.trim();
     const feeVal = feeRaw ? _normalizeMoneyValue(feeRaw) : '';
@@ -20057,7 +20061,7 @@ async function _aoSubmit() {
     // order.total is stored merged (order + delivery, USD) everywhere
     // else in the app — keep this order consistent with that model.
     const deliveryUSD  = feeVal ? _deliveryFeeToUSD(feeVal) : 0;
-    const totalMerged  = (orderPrice + deliveryUSD).toFixed(2);
+    const totalMerged  = (orderPriceUSD + deliveryUSD).toFixed(2);
 
     const submitBtn = document.getElementById('ao-submit-btn');
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '⏳ جاري الإنشاء…'; }
@@ -20111,6 +20115,7 @@ async function _aoSubmit() {
             state         : '0',
             store         : storeName,
             total         : totalMerged,
+            orderprice    : orderPriceUSD.toFixed(2),
             trackorder    : '0',
             username      : username || '',
             vault         : '0',
