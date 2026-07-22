@@ -207,6 +207,7 @@ function _abortStoreIntro() {
 window._abortStoreIntro = _abortStoreIntro;
 
 function openStorePanel(storeId, storeName, storeType, rtdbKey) {
+    window.DelivoAttn?.event('storeOpen');
     if (_introInProgress) return; // ignore taps while the ~2.6s intro animation is already playing
     const _fireKey = rtdbKey || storeName; // always the English Firebase key
     const _introCacheKey = `pattern_${storeType}`;

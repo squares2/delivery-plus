@@ -209,6 +209,12 @@
             });
             if (key) _attnPath = `attendance/sessions/${dateKey}/${key}`;
 
+            // Carry over any funnel events that fired before this
+            // session record existed (e.g. a very fast store tap).
+            if (_funnel.storeOpens || _funnel.productAdds || _funnel.cartOpens || _funnel.checkoutStarts || _funnel.ordered) {
+                _funnelFlush(true);
+            }
+
             if (isNew) {
                 rtdbPut(`attendance/devices/${uuid}`, { firstSeen: startedAt, lastSeen: startedAt, visits: 1 });
             } else {
@@ -234,6 +240,96 @@
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(true),
         }).catch(() => {});
     }
+
+    /* ── Funnel + abandoned-cart tracking (attendance phase-1 upgrade) ──
+       Counts what THIS visit actually did — opened a store, added to
+       cart, opened the cart, started checkout, ordered — so the admin
+       Attendance panel can chart the visit→order funnel and a real
+       conversion rate instead of only raw traffic. Counters live
+       locally and the whole `funnel` object is re-PUT on change
+       (debounced): this session record is only ever written by this
+       page load, so the local counters are authoritative and there's
+       no read-modify-write race. Events may fire before _attnBegin
+       has created the session — they accumulate locally and the first
+       flush after _attnPath exists carries them all.
+
+       Abandoned cart: when the page is hidden/closed with items still
+       in the cart and no order submitted this visit, a small snapshot
+       (item count + USD value + who, if logged in) is written onto
+       the session so the admin can see exactly what walked away. */
+    let _funnel = { storeOpens: 0, productAdds: 0, cartOpens: 0, checkoutStarts: 0, ordered: false };
+    let _funnelTimer = null;
+
+    function _funnelFlush(immediate = false, keepalive = false) {
+        if (!_attnPath) return; // will retry on next event/heartbeat once session exists
+        const write = () => fetch(`${RTDB_BASE}/${_attnPath}/funnel.json`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(_funnel), keepalive,
+        }).catch(() => {});
+        clearTimeout(_funnelTimer);
+        if (immediate) write();
+        else _funnelTimer = setTimeout(write, 1500);
+    }
+
+    function _cartSnapshot() {
+        const c = window.DelivoCart;
+        if (!c || !Array.isArray(c.items) || !c.items.length) return null;
+        // Prefer the cart's own USD total (same >1000-is-LBP conversion
+        // used at checkout); fall back to a raw sum if unavailable.
+        let valueUSD = null;
+        try {
+            if (typeof window._delivoCartTotalUSD === 'function') valueUSD = +window._delivoCartTotalUSD().toFixed(2);
+        } catch (_) { /* fall through */ }
+        return {
+            items: c.items.reduce((s, i) => s + (i.qty || 1), 0),
+            valueUSD,
+            stores: [...new Set(c.items.map(i => i.storeName))].slice(0, 5),
+        };
+    }
+
+    function _abandonSnapshot(keepalive = false) {
+        if (!_attnPath || _funnel.ordered) return;
+        const snap = _cartSnapshot();
+        if (!snap) return;
+        const auth = window._delivoAuthUser || null;
+        fetch(`${RTDB_BASE}/${_attnPath}/abandonedCart.json`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...snap,
+                at:       _correctedNow(),
+                uid:      auth?.uid      || null,
+                username: auth?.username || null,
+            }),
+            keepalive,
+        }).catch(() => {});
+    }
+
+    window.DelivoAttn = {
+        event(name) {
+            switch (name) {
+                case 'storeOpen':     _funnel.storeOpens++;     break;
+                case 'addToCart':     _funnel.productAdds++;    break;
+                case 'cartOpen':      _funnel.cartOpens++;      break;
+                case 'checkoutStart': _funnel.checkoutStarts++; break;
+                case 'order':
+                    _funnel.ordered = true;
+                    _funnelFlush(true);
+                    // An order supersedes any abandoned-cart snapshot
+                    // written earlier in this same visit.
+                    if (_attnPath) rtdbDelete(`${_attnPath}/abandonedCart`);
+                    return;
+                default: return;
+            }
+            _funnelFlush();
+        },
+    };
+
+    window.addEventListener('pagehide', () => { _funnelFlush(true, true); _abandonSnapshot(true); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'hidden') return;
+        _funnelFlush(true, true);
+        _abandonSnapshot(true);
+    });
 
     // Whether this device already has a captured visitor-lead record
     // (deviceLeads/{uuid} — full name + phone from the first-launch modal).

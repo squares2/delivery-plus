@@ -825,6 +825,7 @@ function initCart() {
             }
             this.save();
             this.updateBadge();
+            window.DelivoAttn?.event('addToCart');
         },
 
         decrementItem(id, storeName) {
@@ -879,6 +880,7 @@ function initCart() {
         const overlay = document.getElementById('cart-overlay');
         const sidebar = document.getElementById('cart-sidebar');
         if (!overlay || !sidebar) return;
+        window.DelivoAttn?.event('cartOpen');
         // Load Arabic store names in background before rendering
         _loadNameArCache().then(() => {
             renderCartSidebar();
@@ -1259,6 +1261,7 @@ function initCart() {
         const cart   = window.DelivoCart;
         const stores = cart.getStores();
         if (stores.length === 0) return;
+        window.DelivoAttn?.event('checkoutStart');
 
         const user = window.DelivoUser;
         if (!user) {
@@ -1504,6 +1507,7 @@ function initCart() {
 
             cart.clear();
             closeCartSidebar();
+            window.DelivoAttn?.event('order');
 
             let successMsg;
             if (activeRewardNow) {
@@ -1916,6 +1920,9 @@ function _cartTotalUSD() {
     if (!window.DelivoCart) return 0;
     return _storeUSD(window.DelivoCart.items);
 }
+// Exposed for presence.js's abandoned-cart snapshot — same >1000-is-LBP
+// conversion as checkout, so the admin sees a true USD value.
+window._delivoCartTotalUSD = _cartTotalUSD;
 
 function _cslug(s) {
     return String(s).replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_');

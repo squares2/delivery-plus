@@ -170,9 +170,12 @@
         const todayKey = dayKeys[dayKeys.length - 1];
         const yesterdayKey = dayKeys.length > 1 ? dayKeys[dayKeys.length - 2] : null;
 
+        const abandonedCarts = []; // range-wide, newest first (filled below)
+
         const perDay = dayKeys.map(dateKey => {
             const list = Object.values(sessionsByDate[dateKey] || {});
             let newDev = 0, registered = 0, durSum = 0, durCount = 0;
+            let browsed = 0, addedToCart = 0, cartOpened = 0, checkoutStarted = 0, ordered = 0, bounces = 0;
             const deviceKinds = { mobile: 0, desktop: 0, ios: 0, android: 0, other: 0 };
 
             list.forEach(s => {
@@ -182,6 +185,23 @@
                 if (dur > 0 && dur < 6 * 3600 * 1000) { durSum += dur; durCount++; } // cap crashed/zombie outliers
                 if (s.device === 'mobile') deviceKinds.mobile++; else deviceKinds.desktop++;
                 if (s.os === 'ios') deviceKinds.ios++; else if (s.os === 'android') deviceKinds.android++; else deviceKinds.other++;
+
+                // ── Funnel (sessions recorded before this feature shipped
+                // simply have no `funnel` node and count as zero-event) ──
+                const f = s.funnel || {};
+                const hasEvent = (f.storeOpens || f.productAdds || f.cartOpens || f.checkoutStarts || f.ordered);
+                if (f.storeOpens)     browsed++;
+                if (f.productAdds)    addedToCart++;
+                if (f.cartOpens)      cartOpened++;
+                if (f.checkoutStarts) checkoutStarted++;
+                if (f.ordered)        ordered++;
+                // Bounce = in-and-out with nothing done: no funnel event
+                // and under 30 seconds on site.
+                if (!hasEvent && dur < 30 * 1000) bounces++;
+
+                if (s.abandonedCart && !f.ordered) {
+                    abandonedCarts.push({ ...s.abandonedCart, date: dateKey, device: s.device, os: s.os });
+                }
             });
 
             return {
@@ -193,8 +213,11 @@
                 guest: list.length - registered,
                 avgDurationMs: durCount ? durSum / durCount : 0,
                 deviceKinds,
+                browsed, addedToCart, cartOpened, checkoutStarted, ordered, bounces,
             };
         });
+
+        abandonedCarts.sort((a, b) => (b.at || 0) - (a.at || 0));
 
         // Today's hourly rhythm. Guard against a stray session logged with
         // a future startedAt (a visitor device with a wrong clock, before
@@ -217,10 +240,22 @@
         const durRows       = perDay.filter(r => r.avgDurationMs > 0);
         const avgDurAll     = durRows.length ? durRows.reduce((a, r) => a + r.avgDurationMs, 0) / durRows.length : 0;
 
+        const funnelTotals = {
+            visits:          totalVisits,
+            browsed:         perDay.reduce((a, r) => a + r.browsed, 0),
+            addedToCart:     perDay.reduce((a, r) => a + r.addedToCart, 0),
+            cartOpened:      perDay.reduce((a, r) => a + r.cartOpened, 0),
+            checkoutStarted: perDay.reduce((a, r) => a + r.checkoutStarted, 0),
+            ordered:         perDay.reduce((a, r) => a + r.ordered, 0),
+            bounces:         perDay.reduce((a, r) => a + r.bounces, 0),
+        };
+
         return {
             perDay, hourly, todayRow, yesterdayRow,
             totalDevicesEver: Object.keys(devices || {}).length,
             rangeTotals: { totalVisits, totalNew, totalReg, avgDurAll },
+            funnelTotals,
+            abandonedCarts,
         };
     }
 
@@ -735,10 +770,16 @@
         const newDelta    = y && y.newDevices > 0 ? ((t.newDevices - y.newDevices) / y.newDevices) * 100 : null;
         const durDelta    = (y && y.avgDurationMs > 0 && t.avgDurationMs > 0) ? ((t.avgDurationMs - y.avgDurationMs) / y.avgDurationMs) * 100 : null;
         const regPct      = t.total > 0 ? Math.round((t.registered / t.total) * 100) : 0;
+        const convPct     = t.total > 0 ? Math.round((t.ordered / t.total) * 100) : 0;
+        const bouncePct   = t.total > 0 ? Math.round((t.bounces / t.total) * 100) : 0;
+        const yConv       = (y && y.total > 0) ? (y.ordered / y.total) * 100 : null;
+        const convDelta   = (yConv !== null && yConv > 0) ? (convPct - yConv) : null;
 
         const kpiRow = `
         <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;">
             ${kpiCard('👁️', 'زيارات اليوم', fmtNum(t.total), 'إجمالي مرات فتح الموقع اليوم', visitsDelta, COLOR.orange)}
+            ${kpiCard('🛒', 'نسبة التحويل اليوم', convPct + '%', `${fmtNum(t.ordered)} زيارة انتهت بطلب من ${fmtNum(t.total)}`, convDelta, COLOR.green)}
+            ${kpiCard('🚪', 'نسبة الارتداد اليوم', bouncePct + '%', `${fmtNum(t.bounces)} دخلوا وخرجوا دون أي تفاعل`, null, COLOR.red || '#ef4444')}
             ${kpiCard('🆕', 'أجهزة جديدة اليوم', fmtNum(t.newDevices), 'لأول مرة على الإطلاق', newDelta, COLOR.blue)}
             ${kpiCard('🔁', 'زوار عائدون', fmtNum(t.returning), 'زاروا الموقع من قبل', null, COLOR.purple)}
             ${kpiCard('✅', 'نسبة المسجّلين', regPct + '%', `${fmtNum(t.registered)} من ${fmtNum(t.total)} مسجّلون`, null, COLOR.green)}
@@ -811,6 +852,70 @@
             svgLineArea(data.perDay.map(r => ({ date: r.date, mins: +(r.avgDurationMs / 60000).toFixed(1) })), 'mins', { color: COLOR.yellow, dim: COLOR.yellowDim, suffix: ' د', showAvg: false })
         );
 
+        // ── Visit → order funnel (whole selected range) ──────────────
+        const ft = data.funnelTotals;
+        const funnelRows = [
+            { label: '👁️ زيارة',           value: ft.visits,          color: COLOR.orange },
+            { label: '🏪 فتح متجراً',       value: ft.browsed,         color: COLOR.blue },
+            { label: '➕ أضاف للسلة',       value: ft.addedToCart,     color: COLOR.purple },
+            { label: '🛒 فتح السلة',        value: ft.cartOpened,      color: COLOR.yellow },
+            { label: '📝 بدأ إرسال الطلب', value: ft.checkoutStarted, color: '#f472b6' },
+            { label: '✅ أرسل طلباً',       value: ft.ordered,         color: COLOR.green },
+        ];
+        const funnelMax = Math.max(1, ft.visits);
+        const funnelHtml = funnelRows.map((r, i) => {
+            const pctOfVisits = Math.round((r.value / funnelMax) * 100);
+            const prev = i > 0 ? funnelRows[i - 1].value : null;
+            const dropTxt = (prev !== null && prev > 0)
+                ? `<span style="font-size:.68rem;color:var(--gray,#6b6b82);">${Math.round((r.value / prev) * 100)}% من المرحلة السابقة</span>`
+                : '';
+            return `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">
+                <div style="width:150px;flex-shrink:0;font-size:.78rem;font-weight:800;color:var(--white,#fff);">${r.label}</div>
+                <div style="flex:1;background:rgba(255,255,255,.05);border-radius:8px;height:26px;position:relative;overflow:hidden;">
+                    <div style="width:${Math.max(pctOfVisits, r.value > 0 ? 3 : 0)}%;height:100%;background:${r.color};border-radius:8px;transition:width .4s;"></div>
+                    <span style="position:absolute;inset-inline-start:10px;top:50%;transform:translateY(-50%);font-size:.74rem;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55);">${fmtNum(r.value)} (${pctOfVisits}%)</span>
+                </div>
+                <div style="width:140px;flex-shrink:0;text-align:start;">${dropTxt}</div>
+            </div>`;
+        }).join('');
+        const funnelNote = `
+            <div style="margin-top:6px;font-size:.72rem;color:var(--gray,#6b6b82);">
+                الزيارات المسجّلة قبل تفعيل نظام التتبّع تُحتسب كزيارات بدون تفاعل — الأرقام تصبح دقيقة تدريجياً مع تراكم البيانات الجديدة.
+            </div>`;
+        const funnelChart = sectionCard(
+            '🎯 قمع التحويل: من الزيارة إلى الطلب',
+            `أين يتوقف الزوّار قبل إتمام الطلب — خلال آخر ${currentRange} يوم`,
+            funnelHtml + funnelNote
+        );
+
+        // ── Abandoned carts (whole selected range, newest first) ─────
+        const ab = data.abandonedCarts || [];
+        const abRegistered = ab.filter(a => a.username || a.uid);
+        const abGuests     = ab.length - abRegistered.length;
+        const abRowsHtml = ab.slice(0, 30).map(a => {
+            const who = a.username
+                ? `<b style="color:var(--white,#fff);">${a.username}</b>`
+                : `<span style="color:var(--gray-light,#a0a0b8);">زائر ${a.os === 'ios' ? '🍎' : a.os === 'android' ? '🤖' : ''}</span>`;
+            const val = (typeof a.valueUSD === 'number') ? `$${a.valueUSD.toFixed(2)}` : '—';
+            const when = a.at ? new Date(a.at).toLocaleString('ar-LB', { timeZone: 'Asia/Beirut', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : a.date;
+            const storesTxt = Array.isArray(a.stores) && a.stores.length ? a.stores.join('، ') : '';
+            return `
+            <div style="display:flex;align-items:center;gap:12px;padding:9px 4px;border-bottom:1px solid rgba(255,255,255,.05);font-size:.78rem;">
+                <div style="flex:1;min-width:0;">${who}${storesTxt ? `<div style="font-size:.68rem;color:var(--gray,#6b6b82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${storesTxt}</div>` : ''}</div>
+                <div style="flex-shrink:0;color:var(--gray-light,#a0a0b8);">🧺 ${fmtNum(a.items)} منتج</div>
+                <div style="flex-shrink:0;font-weight:800;color:var(--orange,#f97316);">${val}</div>
+                <div style="flex-shrink:0;font-size:.68rem;color:var(--gray,#6b6b82);">${when}</div>
+            </div>`;
+        }).join('');
+        const abandonedSection = sectionCard(
+            '🧺 سلال متروكة (غادروا دون إرسال الطلب)',
+            `خلال آخر ${currentRange} يوم — ${fmtNum(abRegistered.length)} مسجّلون يمكن متابعتهم، و${fmtNum(abGuests)} زوّار`,
+            ab.length
+                ? abRowsHtml + (ab.length > 30 ? `<div style="margin-top:8px;font-size:.72rem;color:var(--gray,#6b6b82);">عرض أحدث 30 من أصل ${fmtNum(ab.length)}</div>` : '')
+                : `<div style="padding:18px;text-align:center;color:var(--gray,#6b6b82);font-size:.8rem;">لا توجد سلال متروكة مسجّلة خلال هذه الفترة 🎉</div>`
+        );
+
         const hourlyNav = `
         <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;">
             <button class="ph-btn att-hourly-btn" id="att-hourly-next" ${hourlyIsToday ? 'disabled style="opacity:.35;cursor:not-allowed;"' : ''} title="عرض اليوم التالي">اليوم التالي ▶</button>
@@ -859,7 +964,7 @@
             </div>`
         );
 
-        root.innerHTML = kpiRow + rangePills + momentumChart + hourlyChart + newVsReturning + regVsGuest + durationChart + deviceMix;
+        root.innerHTML = kpiRow + rangePills + funnelChart + abandonedSection + momentumChart + hourlyChart + newVsReturning + regVsGuest + durationChart + deviceMix;
         _hasRenderedOnce = true;
         requestAnimationFrame(() => { root.scrollTop = savedScrollTop; });
 
