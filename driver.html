@@ -2016,6 +2016,14 @@ function startDriverSession() {
             if (!geoWatchId) startTracking();
         }
     });
+    // Some WebViews restore from bfcache via pageshow without firing
+    // visibilitychange — cover that path too.
+    window.addEventListener('pageshow', async () => {
+        if (document.visibilityState === 'visible') {
+            await requestWakeLock();
+            if (!geoWatchId) startTracking();
+        }
+    });
 
     // Live listener on requests
     _loadStoresIndex();
@@ -2031,6 +2039,7 @@ function setupLogout() {
         if (!driverData) return;
         // Stop GPS first so no stale location writes happen after status clears
         if (geoWatchId !== null) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+        if (_gpsWatchdogTimer) { clearInterval(_gpsWatchdogTimer); _gpsWatchdogTimer = null; }
         // Stop Android background service BEFORE clearing driverData
         if (window.AndroidBridge && window.AndroidBridge.stopBackgroundTracking) {
             window.AndroidBridge.stopBackgroundTracking();
@@ -2057,13 +2066,23 @@ function setupLogout() {
 }
 
 // ── GPS Tracking ──────────────────────────────────────────────
+let _lastFixAt = 0;          // when the last successful fix arrived
+let _gpsWatchdogTimer = null;
+
 function startTracking() {
     if (!navigator.geolocation || !driverData) return;
+
+    // Never stack two watches — clear any previous one first
+    if (geoWatchId !== null) {
+        try { navigator.geolocation.clearWatch(geoWatchId); } catch (e) {}
+        geoWatchId = null;
+    }
 
     geoWatchId = navigator.geolocation.watchPosition(
         (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
+            _lastFixAt = Date.now();
 
             // Update driver location in RTDB
             db.ref(`drivers/${driverData.id}/location`).update({
@@ -2075,9 +2094,33 @@ function startTracking() {
                 window.AndroidBridge.updateFirebaseLocation(driverData.id, lat, lng);
             }
         },
-        (err) => console.warn('[Driver GPS]', err),
+        (err) => {
+            console.warn('[Driver GPS]', err);
+            // TIMEOUT (code 3) is transient — the watch keeps trying on its own.
+            // PERMISSION_DENIED (1) / POSITION_UNAVAILABLE (2) can leave the
+            // watch dead — tear it down and let the watchdog below restart it.
+            if (err && (err.code === 1 || err.code === 2)) {
+                try { navigator.geolocation.clearWatch(geoWatchId); } catch (e) {}
+                geoWatchId = null;
+            }
+        },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
     );
+
+    // Web-side GPS watchdog — every 30s, if we're logged in but the watch
+    // died or hasn't produced a fix in 60s, restart it. (The native Android
+    // service is the real background lifeline; this keeps the in-page
+    // foreground stream just as self-healing.)
+    if (!_gpsWatchdogTimer) {
+        _gpsWatchdogTimer = setInterval(() => {
+            if (!driverData) return;
+            const stale = _lastFixAt && (Date.now() - _lastFixAt > 60000);
+            if (geoWatchId === null || stale) {
+                console.warn('[Driver GPS] watchdog restart — watch dead or stale');
+                startTracking();
+            }
+        }, 30000);
+    }
 }
 
 // Android Bridge — called by WebView when it gets a background location update

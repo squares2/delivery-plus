@@ -447,6 +447,51 @@ input, select, textarea { font-family: var(--font); }
 }
 .orders-date-custom input[type="date"]:focus { border-color: var(--orange); }
 
+/* Daily delivered-orders "candle" chart — sits above the orders list */
+.orders-chart-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 14px 18px 6px;
+    margin-bottom: 14px;
+}
+.orders-chart-card.collapsed { padding-bottom: 14px; }
+.orders-chart-card.collapsed .orders-chart-header { margin-bottom: 0; }
+.orders-chart-card.collapsed .orders-chart-range,
+.orders-chart-card.collapsed .orders-chart-body { display: none; }
+.orders-chart-toggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--border); background: transparent; color: var(--gray-light);
+    transition: all 0.15s; flex-shrink: 0; padding: 0;
+}
+.orders-chart-toggle:hover { border-color: var(--border-bright); color: var(--white); }
+.orders-chart-toggle svg { transition: transform 0.2s; }
+.orders-chart-card.collapsed .orders-chart-toggle svg { transform: rotate(-90deg); }
+.orders-chart-header {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 4px; cursor: pointer;
+}
+.orders-chart-header h3 {
+    font-size: 0.86rem; font-weight: 800; color: var(--white); margin: 0;
+    display: flex; align-items: center; gap: 6px;
+}
+.orders-chart-total {
+    font-size: 0.72rem; color: var(--gray); font-weight: 700;
+}
+.orders-chart-total b { color: var(--green); font-weight: 900; }
+.orders-chart-range { display: flex; gap: 6px; margin-inline-start: auto; }
+.chart-range-pill {
+    padding: 3px 10px; border-radius: 50px; cursor: pointer; font-family: inherit;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--gray-light); font-size: 0.66rem; font-weight: 800;
+    transition: all 0.15s; white-space: nowrap;
+}
+.chart-range-pill.active { border-color: var(--orange); color: var(--orange); background: var(--orange-faint); }
+.chart-range-pill:hover  { border-color: var(--border-bright); color: var(--white); }
+.orders-chart-body { width: 100%; overflow: visible; }
+.orders-chart-empty {
+    padding: 24px 0; text-align: center; color: var(--gray); font-size: 0.78rem;
+}
+
 .search-box {
     flex: 1; min-width: 180px; max-width: 320px;
     background: var(--surface2); border: 1.5px solid var(--border);
@@ -2307,6 +2352,22 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                         <span>📋 النتائج: <b id="orders-results-count">0</b></span>
                     </div>
                 </div>
+                <div class="orders-chart-card collapsed" id="orders-chart-card">
+                    <div class="orders-chart-header" id="orders-chart-header">
+                        <button class="orders-chart-toggle" id="orders-chart-toggle-btn" aria-label="توسيع/طي الرسم البياني">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <h3>📊 الطلبات المسلَّمة يومياً</h3>
+                        <span class="orders-chart-total" id="orders-chart-total"></span>
+                        <div class="orders-chart-range">
+                            <button class="chart-range-pill" data-chart-range="7">7 أيام</button>
+                            <button class="chart-range-pill active" data-chart-range="14">14 يوم</button>
+                            <button class="chart-range-pill" data-chart-range="30">30 يوم</button>
+                        </div>
+                    </div>
+                    <div class="orders-chart-body" id="orders-chart-body"></div>
+                </div>
+
                 <div class="orders-list" id="orders-list">
                     <div class="empty-state" id="orders-empty" style="display:none;">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17H5a2 2 0 0 0-2 2"/><path d="M9 3H5a2 2 0 0 0-2 2v14"/><rect x="9" y="3" width="12" height="18" rx="2"/></svg>
@@ -3580,6 +3641,8 @@ let _lastOrderSort  = null;     // tracks the previous orderSort so a mode switc
 let orderDateFilter = localStorage.getItem('delivo_admin_order_date_filter') || 'all'; // 'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'
 let orderDateFrom   = localStorage.getItem('delivo_admin_order_date_from') || '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
 let orderDateTo     = localStorage.getItem('delivo_admin_order_date_to') || '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
+let orderChartRange = parseInt(localStorage.getItem('delivo_admin_order_chart_range')) || 14; // 7 | 14 | 30 — days shown in the delivered-orders daily "candle" chart
+let orderChartCollapsed = localStorage.getItem('delivo_admin_order_chart_collapsed') !== '0'; // shrunk by default; '0' means the admin explicitly expanded it before
 let driverFilter   = 'all';
 let driverSearch   = '';
 let customerFilter = 'all';
@@ -6793,6 +6856,102 @@ function renderOrders() {
             list.insertBefore(newCard, refNode);
         }
     });
+
+    renderOrdersDailyChart();
+}
+
+// ── Daily delivered-orders "candle" chart ───────────────────────────
+// Hand-built SVG bar chart (same visual language as the attendance
+// dashboard's charts) showing how many orders reached state '1'
+// ("وُصِّل") on each of the last N days. Reads straight from the
+// already-loaded `allOrders` (no extra fetch), so it stays in sync
+// with everything else on this panel and includes archived/vaulted
+// orders too — vault only hides an order from the list view, it
+// doesn't change whether it was actually delivered that day.
+const _ORD_CHART_VB_W = 1000, _ORD_CHART_VB_H = 220;
+const _ORD_CHART_PAD  = { l: 34, r: 10, t: 16, b: 26 };
+
+function _ordChartLocalKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _ordChartDayLabel(d) {
+    return d.toLocaleDateString('ar-LB', { day: 'numeric', month: 'short' });
+}
+function _ordChartNiceMax(v) {
+    if (v <= 0) return 4;
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    const n = v / p;
+    const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+    return step * p;
+}
+
+function renderOrdersDailyChart() {
+    const body  = document.getElementById('orders-chart-body');
+    const totEl = document.getElementById('orders-chart-total');
+    if (!body) return;
+
+    // Build the last `orderChartRange` calendar days (local time), oldest first
+    const days = [];
+    for (let i = orderChartRange - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() - i);
+        days.push({ date: d, key: _ordChartLocalKey(d), count: 0 });
+    }
+    const byKey = {};
+    days.forEach(row => { byKey[row.key] = row; });
+
+    Object.values(allOrders).forEach(o => {
+        if ((o.state || '0') !== '1') return; // only delivered orders ("وُصِّل")
+        const od = _parseOrderDate(o);
+        if (!od) return;
+        const row = byKey[_ordChartLocalKey(od)];
+        if (row) row.count++;
+    });
+
+    const total = days.reduce((a, r) => a + r.count, 0);
+    if (totEl) totEl.innerHTML = `آخر ${orderChartRange} يوم — <b>${total}</b> طلب مُسلَّم`;
+
+    if (total === 0) {
+        body.innerHTML = `<div class="orders-chart-empty">لا توجد طلبات مُسلَّمة في هذه الفترة</div>`;
+        return;
+    }
+
+    const maxVal  = _ordChartNiceMax(Math.max(...days.map(r => r.count), 1) * 1.15);
+    const innerH  = _ORD_CHART_VB_H - _ORD_CHART_PAD.t - _ORD_CHART_PAD.b;
+    const innerW  = _ORD_CHART_VB_W - _ORD_CHART_PAD.l - _ORD_CHART_PAD.r;
+    const n       = days.length;
+    const gap     = innerW / n;
+    const barW    = Math.max(4, Math.min(30, gap * 0.55));
+    const every   = n <= 10 ? 1 : n <= 20 ? 2 : 3;
+
+    let grid = '';
+    for (let i = 0; i <= 4; i++) {
+        const y   = _ORD_CHART_PAD.t + innerH - (innerH * i / 4);
+        const val = Math.round(maxVal * i / 4);
+        grid += `<line x1="${_ORD_CHART_PAD.l}" y1="${y}" x2="${_ORD_CHART_VB_W - _ORD_CHART_PAD.r}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+        grid += `<text x="${_ORD_CHART_PAD.l - 8}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--gray)" font-family="var(--mono)">${val}</text>`;
+    }
+
+    const bars = days.map((r, i) => {
+        const cx    = _ORD_CHART_PAD.l + gap * i + gap / 2;
+        const h     = innerH * (r.count / maxVal);
+        const yTop  = _ORD_CHART_PAD.t + innerH - h;
+        const showLabel = i % every === 0 || i === n - 1;
+        const isToday = i === n - 1;
+        return `
+            ${r.count > 0 ? `<text x="${cx.toFixed(1)}" y="${(yTop - 6).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="800" fill="${isToday ? 'var(--orange)' : 'var(--green)'}">${r.count}</text>` : ''}
+            <rect x="${(cx - barW / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" rx="3" fill="${isToday ? 'var(--orange)' : 'var(--green)'}" opacity="${isToday ? '1' : '0.85'}">
+                <title>${_ordChartDayLabel(r.date)} — ${r.count} طلب مُسلَّم</title>
+            </rect>
+            ${showLabel ? `<text x="${cx.toFixed(1)}" y="${_ORD_CHART_VB_H - 8}" text-anchor="middle" font-size="9.5" fill="var(--gray)">${_ordChartDayLabel(r.date)}</text>` : ''}`;
+    }).join('');
+
+    body.innerHTML = `
+        <svg viewBox="0 0 ${_ORD_CHART_VB_W} ${_ORD_CHART_VB_H}" preserveAspectRatio="none" style="width:100%;height:190px;overflow:visible;">
+            ${grid}
+            ${bars}
+        </svg>`;
 }
 
 function buildOrderCard(key, order) {
@@ -16756,6 +16915,30 @@ document.querySelectorAll('.sort-pill').forEach(btn => {
 document.getElementById('orders-search').addEventListener('input', e => {
     orderSearch = e.target.value.trim();
     renderOrders();
+});
+
+// Daily delivered-orders chart — range pills (7 / 14 / 30 days)
+document.querySelectorAll('#orders-chart-card .chart-range-pill').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.chartRange) === orderChartRange);
+    btn.addEventListener('click', e => {
+        e.stopPropagation(); // don't let this bubble up to the header's collapse toggle
+        orderChartRange = parseInt(btn.dataset.chartRange);
+        localStorage.setItem('delivo_admin_order_chart_range', orderChartRange);
+        document.querySelectorAll('#orders-chart-card .chart-range-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderOrdersDailyChart();
+    });
+});
+
+// Daily delivered-orders chart — collapse/expand (shrunk by default).
+// Clicking anywhere on the header toggles it; the chevron button is just
+// a visual affordance sitting inside that same header.
+document.getElementById('orders-chart-card').classList.toggle('collapsed', orderChartCollapsed);
+document.getElementById('orders-chart-header').addEventListener('click', () => {
+    orderChartCollapsed = !orderChartCollapsed;
+    localStorage.setItem('delivo_admin_order_chart_collapsed', orderChartCollapsed ? '1' : '0');
+    document.getElementById('orders-chart-card').classList.toggle('collapsed', orderChartCollapsed);
+    if (!orderChartCollapsed) renderOrdersDailyChart(); // draw lazily on first expand
 });
 
 // Order date filter

@@ -30,6 +30,7 @@
     let hourlyOffset = 0;          // days back from today — which single day the hourly-rhythm chart shows
     let _cache       = null;       // last computed dataset, for range-pill re-render w/o refetch when possible
     let _loading     = false;
+    let _abandonedCollapsed = localStorage.getItem('delivo_admin_att_abandoned_collapsed') !== '0'; // shrunk by default; '0' means the admin explicitly expanded it before
 
     /* ── Date helpers (Beirut calendar day, matching presence.js) ──── */
     function beirutDateKey(ts) {
@@ -176,6 +177,7 @@
             const list = Object.values(sessionsByDate[dateKey] || {});
             let newDev = 0, registered = 0, durSum = 0, durCount = 0;
             let browsed = 0, addedToCart = 0, cartOpened = 0, checkoutStarted = 0, ordered = 0, bounces = 0;
+            let trackedCount = 0; // sessions on this day that actually have a `funnel` node (tracking was live)
             const deviceKinds = { mobile: 0, desktop: 0, ios: 0, android: 0, other: 0 };
 
             list.forEach(s => {
@@ -187,7 +189,10 @@
                 if (s.os === 'ios') deviceKinds.ios++; else if (s.os === 'android') deviceKinds.android++; else deviceKinds.other++;
 
                 // ── Funnel (sessions recorded before this feature shipped
-                // simply have no `funnel` node and count as zero-event) ──
+                // simply have no `funnel` node at all — distinct from a
+                // tracked session with zero events, so we can tell them
+                // apart and scope the funnel to only tracked days) ──
+                if (s.funnel !== undefined) trackedCount++;
                 const f = s.funnel || {};
                 const hasEvent = (f.storeOpens || f.productAdds || f.cartOpens || f.checkoutStarts || f.ordered);
                 if (f.storeOpens)     browsed++;
@@ -214,6 +219,7 @@
                 avgDurationMs: durCount ? durSum / durCount : 0,
                 deviceKinds,
                 browsed, addedToCart, cartOpened, checkoutStarted, ordered, bounces,
+                trackedCount,
             };
         });
 
@@ -240,14 +246,25 @@
         const durRows       = perDay.filter(r => r.avgDurationMs > 0);
         const avgDurAll     = durRows.length ? durRows.reduce((a, r) => a + r.avgDurationMs, 0) / durRows.length : 0;
 
+        // ── Scope the funnel to days that actually have tracking data.
+        // Sessions logged before the funnel feature shipped have no
+        // `funnel` node at all — mixing them in as "visits" massively
+        // deflates every conversion percentage. Find the first day with
+        // any tracked session and sum the funnel only from there forward,
+        // so the numbers are honest from day one instead of only
+        // becoming accurate after weeks of new data pile up.
+        const funnelStartIdx = perDay.findIndex(r => r.trackedCount > 0);
+        const funnelRows_    = funnelStartIdx === -1 ? [] : perDay.slice(funnelStartIdx);
         const funnelTotals = {
-            visits:          totalVisits,
-            browsed:         perDay.reduce((a, r) => a + r.browsed, 0),
-            addedToCart:     perDay.reduce((a, r) => a + r.addedToCart, 0),
-            cartOpened:      perDay.reduce((a, r) => a + r.cartOpened, 0),
-            checkoutStarted: perDay.reduce((a, r) => a + r.checkoutStarted, 0),
-            ordered:         perDay.reduce((a, r) => a + r.ordered, 0),
-            bounces:         perDay.reduce((a, r) => a + r.bounces, 0),
+            visits:          funnelRows_.reduce((a, r) => a + r.total, 0),
+            browsed:         funnelRows_.reduce((a, r) => a + r.browsed, 0),
+            addedToCart:     funnelRows_.reduce((a, r) => a + r.addedToCart, 0),
+            cartOpened:      funnelRows_.reduce((a, r) => a + r.cartOpened, 0),
+            checkoutStarted: funnelRows_.reduce((a, r) => a + r.checkoutStarted, 0),
+            ordered:         funnelRows_.reduce((a, r) => a + r.ordered, 0),
+            bounces:         funnelRows_.reduce((a, r) => a + r.bounces, 0),
+            startKey:        funnelStartIdx === -1 ? null : perDay[funnelStartIdx].date,
+            daysCount:       funnelRows_.length,
         };
 
         return {
@@ -857,8 +874,8 @@
         const funnelRows = [
             { label: '👁️ زيارة',           value: ft.visits,          color: COLOR.orange },
             { label: '🏪 فتح متجراً',       value: ft.browsed,         color: COLOR.blue },
-            { label: '➕ أضاف للسلة',       value: ft.addedToCart,     color: COLOR.purple },
             { label: '🛒 فتح السلة',        value: ft.cartOpened,      color: COLOR.yellow },
+            { label: '➕ أضاف للسلة',       value: ft.addedToCart,     color: COLOR.purple },
             { label: '📝 بدأ إرسال الطلب', value: ft.checkoutStarted, color: '#f472b6' },
             { label: '✅ أرسل طلباً',       value: ft.ordered,         color: COLOR.green },
         ];
@@ -879,13 +896,20 @@
                 <div style="width:140px;flex-shrink:0;text-align:start;">${dropTxt}</div>
             </div>`;
         }).join('');
-        const funnelNote = `
+        const funnelNote = ft.startKey
+            ? `
             <div style="margin-top:6px;font-size:.72rem;color:var(--gray,#6b6b82);">
-                الزيارات المسجّلة قبل تفعيل نظام التتبّع تُحتسب كزيارات بدون تفاعل — الأرقام تصبح دقيقة تدريجياً مع تراكم البيانات الجديدة.
+                محسوبة فقط من ${dayLabel(ft.startKey)} (تاريخ بدء تفعيل نظام التتبّع) حتى اليوم — الزيارات المسجّلة قبل ذلك التاريخ مستبعدة تماماً لأنها لا تحتوي بيانات تفاعل، فلا تُشوّه النسب.
+            </div>`
+            : `
+            <div style="margin-top:6px;font-size:.72rem;color:var(--gray,#6b6b82);">
+                لا توجد بعد أي زيارات مسجّلة بنظام التتبّع الجديد خلال هذه الفترة.
             </div>`;
         const funnelChart = sectionCard(
             '🎯 قمع التحويل: من الزيارة إلى الطلب',
-            `أين يتوقف الزوّار قبل إتمام الطلب — خلال آخر ${currentRange} يوم`,
+            ft.startKey
+                ? `أين يتوقف الزوّار قبل إتمام الطلب — منذ ${dayLabel(ft.startKey)} (${fmtNum(ft.daysCount)} يوم تتبّع فعلي)`
+                : `أين يتوقف الزوّار قبل إتمام الطلب`,
             funnelHtml + funnelNote
         );
 
@@ -908,13 +932,20 @@
                 <div style="flex-shrink:0;font-size:.68rem;color:var(--gray,#6b6b82);">${when}</div>
             </div>`;
         }).join('');
-        const abandonedSection = sectionCard(
-            '🧺 سلال متروكة (غادروا دون إرسال الطلب)',
-            `خلال آخر ${currentRange} يوم — ${fmtNum(abRegistered.length)} مسجّلون يمكن متابعتهم، و${fmtNum(abGuests)} زوّار`,
-            ab.length
-                ? abRowsHtml + (ab.length > 30 ? `<div style="margin-top:8px;font-size:.72rem;color:var(--gray,#6b6b82);">عرض أحدث 30 من أصل ${fmtNum(ab.length)}</div>` : '')
-                : `<div style="padding:18px;text-align:center;color:var(--gray,#6b6b82);font-size:.8rem;">لا توجد سلال متروكة مسجّلة خلال هذه الفترة 🎉</div>`
-        );
+        const abandonedBodyHtml = ab.length
+            ? abRowsHtml + (ab.length > 30 ? `<div style="margin-top:8px;font-size:.72rem;color:var(--gray,#6b6b82);">عرض أحدث 30 من أصل ${fmtNum(ab.length)}</div>` : '')
+            : `<div style="padding:18px;text-align:center;color:var(--gray,#6b6b82);font-size:.8rem;">لا توجد سلال متروكة مسجّلة خلال هذه الفترة 🎉</div>`;
+        const abandonedSection = `
+        <div style="background:var(--surface2,#18181f);border:1px solid var(--border,rgba(255,255,255,.07));border-radius:16px;padding:18px 20px;margin-bottom:16px;">
+            <div id="att-abandoned-header" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;${_abandonedCollapsed ? '' : 'margin-bottom:14px;'}">
+                <button id="att-abandoned-toggle" style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--border,rgba(255,255,255,.07));background:transparent;color:var(--gray-light,#a0a0b8);flex-shrink:0;padding:0;cursor:pointer;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${_abandonedCollapsed ? '-90deg' : '0deg'});transition:transform .2s;"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <h3 style="font-size:.95rem;font-weight:800;color:var(--white,#f0f0f8);margin:0;">🧺 سلال متروكة (غادروا دون إرسال الطلب)</h3>
+                <span style="font-size:.74rem;color:var(--gray,#6b6b82);">خلال آخر ${currentRange} يوم — ${fmtNum(abRegistered.length)} مسجّلون يمكن متابعتهم، و${fmtNum(abGuests)} زوّار</span>
+            </div>
+            <div id="att-abandoned-body" style="${_abandonedCollapsed ? 'display:none;' : ''}">${abandonedBodyHtml}</div>
+        </div>`;
 
         const hourlyNav = `
         <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;">
@@ -989,6 +1020,19 @@
         document.getElementById('att-hourly-today')?.addEventListener('click', () => {
             hourlyOffset = 0;
             renderAttendance();
+        });
+
+        // Abandoned-carts section — collapsed by default; toggling just
+        // flips visibility + the chevron in place, no refetch/re-render needed.
+        document.getElementById('att-abandoned-header')?.addEventListener('click', () => {
+            _abandonedCollapsed = !_abandonedCollapsed;
+            localStorage.setItem('delivo_admin_att_abandoned_collapsed', _abandonedCollapsed ? '1' : '0');
+            const header = document.getElementById('att-abandoned-header');
+            const body   = document.getElementById('att-abandoned-body');
+            const chevron = header.querySelector('svg');
+            if (body)    body.style.display = _abandonedCollapsed ? 'none' : '';
+            if (header)  header.style.marginBottom = _abandonedCollapsed ? '0' : '14px';
+            if (chevron) chevron.style.transform = `rotate(${_abandonedCollapsed ? '-90deg' : '0deg'})`;
         });
 
         // Click a bar (or its quiet-hour hit area) to open the scrollable
