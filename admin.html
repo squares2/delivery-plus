@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Delivo — لوحة الإدارة</title>
 <link rel="icon" href="assets/favicon-32.png">
+<link rel="manifest" href="manifest-admin.json">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="assets/icon-152.png">
+<link rel="apple-touch-icon" sizes="144x144" href="assets/icon-144.png">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Delivo Admin">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -2218,6 +2227,9 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                 <span style="color:var(--gray);font-size:0.65rem;">متصل الآن</span>
             </div>
         </div>
+        <button id="pwa-install-btn" title="تثبيت اللوحة على الجهاز" onclick="_admTriggerInstall()" style="position:relative;background:none;border:none;cursor:pointer;padding:7px 10px;border-radius:10px;color:var(--gray);display:none;align-items:center;gap:4px;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 19h14"/></svg>
+        </button>
         <button id="wa-notif-btn" title="WA" onclick="toggleWaNotifPanel()" style="position:relative;background:none;border:none;cursor:pointer;padding:7px 10px;border-radius:10px;font-size:1.15rem;color:var(--gray);display:none;align-items:center;gap:4px;">📲<span id="wa-notif-count" style="position:absolute;top:4px;right:4px;background:#22c55e;color:#fff;font-size:0.58rem;font-weight:900;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;line-height:1;"></span></button>
         <button class="js-notif-bell" onclick="_toggleNotifMute()" title="الإشعارات الصوتية" style="background:none;border:none;cursor:pointer;padding:7px 10px;border-radius:10px;font-size:1.15rem;color:var(--gray);">🔔</button>
         <div class="topbar__user" id="topbar-user-btn">
@@ -3431,6 +3443,68 @@ if ('serviceWorker' in navigator) {
         setTimeout(() => window.location.reload(), 800);
     });
 }
+</script>
+<script>
+// ── PWA install button — lets an admin install this dashboard as its
+// own home-screen app (separate from the customer app, via manifest-admin.json) ──
+(function() {
+    const btn = document.getElementById('pwa-install-btn');
+    if (!btn) return;
+
+    function isStandalone() {
+        return window.navigator.standalone === true ||
+               window.matchMedia('(display-mode: standalone)').matches;
+    }
+    function isIosSafari() {
+        const ua = navigator.userAgent;
+        const isIos = /iphone|ipad|ipod/i.test(ua);
+        const isSafari = /safari/i.test(ua) && !/crios|fxios|opios|chromium/i.test(ua);
+        return isIos && isSafari;
+    }
+
+    if (isStandalone()) return; // already installed — leave button hidden
+
+    let _admDeferredPrompt = null;
+
+    // Android / desktop Chrome: browser fires this when installable
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        _admDeferredPrompt = e;
+        btn.style.display = 'inline-flex';
+    });
+
+    // iOS Safari never fires beforeinstallprompt — show the button anyway
+    // and fall back to on-screen instructions (Share ← Add to Home Screen)
+    if (isIosSafari()) btn.style.display = 'inline-flex';
+
+    window._admTriggerInstall = async function() {
+        if (_admDeferredPrompt) {
+            _admDeferredPrompt.prompt();
+            const { outcome } = await _admDeferredPrompt.userChoice;
+            console.log('[Admin PWA] Install outcome:', outcome);
+            if (outcome === 'accepted') {
+                _admDeferredPrompt = null;
+                btn.style.display = 'none';
+            }
+            return;
+        }
+        if (isIosSafari()) {
+            if (typeof toast === 'function') {
+                toast('📲 لتثبيت اللوحة: افتح قائمة المشاركة ← إضافة إلى الشاشة الرئيسية');
+            } else {
+                alert('لتثبيت اللوحة: افتح قائمة المشاركة (Share) ثم اختر "إضافة إلى الشاشة الرئيسية"');
+            }
+            return;
+        }
+        if (typeof toast === 'function') toast('التثبيت غير متاح على هذا المتصفح حالياً');
+    };
+
+    window.addEventListener('appinstalled', () => {
+        console.log('[Admin PWA] Installed ✓');
+        _admDeferredPrompt = null;
+        btn.style.display = 'none';
+    });
+})();
 </script>
 <script>
 (function() {
