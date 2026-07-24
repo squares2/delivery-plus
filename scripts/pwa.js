@@ -421,6 +421,13 @@ if (isIosSafari() && !isAlreadyInstalled() &&
     }
 
     function _showUpdateBanner() {
+        // ── Try a silent auto-apply first ──────────────────────────
+        // If the customer isn't in the middle of anything (empty cart,
+        // no modal or cart sidebar open), the friendliest update is the
+        // invisible one: just refresh into the new version, no tap
+        // needed. The banner remains the fallback for anyone mid-order.
+        if (_tryAutoApplyUpdate()) return;
+
         _updateBannerShown = true;
         window._pwaUpdateAvailable = true;
         window.dispatchEvent(new Event('delivo:pwa-update-available'));
@@ -499,6 +506,92 @@ if (isIosSafari() && !isAlreadyInstalled() &&
     setInterval(() => {
         if (document.visibilityState === 'visible') _checkForNewVersion();
     }, 5 * 60 * 1000); // every 5 minutes while the app is open and in view
+
+    // ── Silent auto-apply ─────────────────────────────────────────
+    // Reloading into the new version without asking is only OK when it
+    // can't possibly lose the customer anything:
+    //   • cart is empty (nothing mid-order to interrupt — cart items
+    //     themselves survive reloads via localStorage, but a reload
+    //     mid-checkout or mid-form would still be jarring)
+    //   • no modal and no cart sidebar open
+    // A once-per-10-minutes guard prevents a reload loop when the CDN
+    // is still serving the old index.html right after a deploy (reload
+    // would land on the old APP_VERSION, mismatch again, reload again…).
+    const AUTO_APPLY_GUARD_KEY = 'delivo_auto_update_at';
+    function _autoApplyAllowed() {
+        const t = parseInt(localStorage.getItem(AUTO_APPLY_GUARD_KEY) || '0', 10);
+        return !t || (Date.now() - t > 10 * 60 * 1000);
+    }
+    function _uiIsIdle() {
+        const cartCount   = window.DelivoCart ? window.DelivoCart.getCount() : 0;
+        const modalOpen   = !!document.querySelector('.modal-overlay.active');
+        const sidebarOpen = !!document.getElementById('cart-sidebar')?.classList.contains('active');
+        return cartCount === 0 && !modalOpen && !sidebarOpen;
+    }
+    function _tryAutoApplyUpdate() {
+        if (!_autoApplyAllowed() || !_uiIsIdle()) return false;
+        localStorage.setItem(AUTO_APPLY_GUARD_KEY, Date.now().toString());
+        console.log('[PWA] New version — auto-applying silently (idle UI)');
+        _forceUpdate();
+        return true;
+    }
+
+    // If the banner IS showing (customer was mid-something when the
+    // update landed), apply it the moment they background the app —
+    // a reload while hidden is completely invisible to them, and they
+    // resume straight into the new version.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden'
+            && _updateBannerShown
+            && _uiIsIdle()
+            && _autoApplyAllowed()) {
+            localStorage.setItem(AUTO_APPLY_GUARD_KEY, Date.now().toString());
+            _forceUpdate();
+        }
+    });
+
+    // ── Push layer: RTDB appVersion stream ────────────────────────
+    // The polling above means an already-open app can take up to 5
+    // minutes to notice a deploy. This closes that gap to ~seconds:
+    // the same Firebase SSE trick store-status-listener.js uses, on a
+    // tiny appVersion node. Write the new version string there as the
+    // last step of every deploy and every open site/PWA reacts
+    // immediately — silently self-refreshing when idle, or showing the
+    // banner when mid-order. Harmless no-op if the node doesn't exist.
+    (function _versionPushStream() {
+        const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+        let retryMs = 5000;
+        const MAX_RETRY = 60000;
+
+        function _handlePushedVersion(raw) {
+            const v = (raw && typeof raw === 'object') ? raw.version : raw;
+            if (!v || typeof v !== 'string') return;
+            if (!window.APP_VERSION || v === window.APP_VERSION) return;
+            // Same entry point the poller uses — auto-applies when idle,
+            // banner otherwise. Bypasses the snooze deliberately: a push
+            // is an explicit "update now" signal from the admin, unlike
+            // the passive periodic check.
+            _showUpdateBanner();
+        }
+
+        function connect() {
+            let es;
+            try { es = new EventSource(`${RTDB}/appVersion.json?accept=text/event-stream`); }
+            catch (_) { return; } // ancient browser — polling still covers it
+            es.addEventListener('put', e => {
+                try { _handlePushedVersion(JSON.parse(e.data).data); retryMs = 5000; } catch (_) {}
+            });
+            es.addEventListener('patch', e => {
+                try { _handlePushedVersion(JSON.parse(e.data).data); } catch (_) {}
+            });
+            es.onerror = () => {
+                es.close();
+                setTimeout(connect, retryMs);
+                retryMs = Math.min(retryMs * 2, MAX_RETRY);
+            };
+        }
+        connect();
+    })();
 })();
 // ── 7. Notification permission ────────────────────────────────
 // Request gently after the page settles (only if not already decided)
