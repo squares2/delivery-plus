@@ -651,6 +651,24 @@ input, select, textarea { font-family: var(--font); }
     border-radius: 50px; padding: 4px var(--pad-sm);
     font-size: var(--fs-sm); font-weight: 700; color: var(--gray-light);
 }
+/* 👤 customer-type chip — green for a registered account (verified by
+   OTP, has a username), blue for a "standard" customer who only has a
+   name+phone on file (guest/otlob entry, no account). Distinct colors
+   at a glance instead of both looking like the same neutral gray chip. */
+.oc-cust-registered {
+    color: var(--green); border-color: rgba(34,197,94,0.3); background: var(--green-glow);
+}
+.oc-cust-standard {
+    color: var(--blue); border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.08);
+}
+/* WhatsApp quick-call chips — one for messaging the customer, one for
+   the order's store (only rendered when a usable phone number exists
+   for that side). Plain <a> tags styled to match .oc-meta-chip. */
+.oc-wa-btn {
+    text-decoration: none; cursor: pointer;
+    color: #25D366; border-color: rgba(37,211,102,0.35); background: rgba(37,211,102,0.08);
+}
+.oc-wa-btn:hover { background: rgba(37,211,102,0.18); }
 .oc-actions { display: flex; gap: var(--gap-sm); margin-top: var(--pad-md); flex-wrap: wrap; }
 .oc-action-btn {
     flex: 1; padding: var(--pad-xs) var(--pad-sm); border-radius: var(--radius-md);
@@ -3610,6 +3628,39 @@ if ('serviceWorker' in navigator) {
    DELIVO ADMIN — Core
 ═══════════════════════════════════════════════════════════════ */
 const RTDB        = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+// External stores cache — declared here (rather than down near
+// renderExtStores(), where it used to live) because renderMap() and
+// other code in this earlier script block already read/write it
+// during initial load, before that later script block has run. A
+// `let` declared only down there left this in the temporal dead zone
+// whenever the live-map/auth-state code fired first, throwing
+// "allExtStores is not defined" (see renderMap's forEach over it).
+let allExtStores = {};    // cached from Firebase externalStores/
+
+// Some historical orders (at least order #42, likely others created the
+// same way) ended up with lat/lng saved backwards — the real longitude
+// sitting in the "lat" field and the real latitude in "lng". Lebanon's
+// geography makes this easy to detect: latitude here is always ~32–35.5,
+// longitude always ~34–37.5, and those two bands barely overlap — so a
+// pair that fails the normal check but passes when swapped is almost
+// certainly backwards, not a legitimately different location. Used
+// wherever a stored order.lat/order.lng gets turned into a real map
+// position, so old bad records self-heal instead of pointing at the
+// wrong spot forever.
+// Hoisted here (rather than down near the shared map-picker modal, where
+// it used to live) for the same cross-script-block reason as
+// allExtStores just above — renderMap() and buildOrderCard() in this
+// earlier script block already call it during initial load, before that
+// later script block has run, which threw "_fixSwappedLatLng is not
+// defined" whenever the live map or order list rendered first.
+function _fixSwappedLatLng(lat, lng) {
+    const inRange = (v, lo, hi) => v >= lo && v <= hi;
+    const LAT_RANGE = [32.0, 35.5], LNG_RANGE = [34.0, 37.5];
+    const looksOk = inRange(lat, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lng, LNG_RANGE[0], LNG_RANGE[1]);
+    if (looksOk) return [lat, lng];
+    const swappedLooksOk = inRange(lng, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lat, LNG_RANGE[0], LNG_RANGE[1]);
+    return swappedLooksOk ? [lng, lat] : [lat, lng];
+}
 // Store-count RTDB key (must match driver.html / scripts/stores.js).
 // RTDB path segments can't contain . # $ [ ] / so we sanitise.
 function _countKey(name) {
@@ -7119,6 +7170,19 @@ function buildOrderCard(key, order) {
     // splitting the old merged order.total for orders never edited yet.
     const orderOnlyPrice = _getOrderOnlyPrice(order, effectiveDeliveryRaw);
 
+    // WhatsApp quick-call links — customer's own phone, and the order's
+    // store phone (external stores carry their own storePhone; internal
+    // stores only have one if that field happens to be set on the store
+    // record). Both are '' (and simply don't render a chip) when there's
+    // no usable number, or the number isn't a complete Lebanese mobile.
+    const custWaLink  = (order.phone && _isCompleteLebanesePhone(order.phone)) ? _waLinkFromPhone(order.phone) : '';
+    // Internal stores don't have a "phone" field — their WhatsApp number
+    // is saved separately as .whatsapp (see the "متاجر" panel's own
+    // WhatsApp save button, _storeSetField(name, type, 'whatsapp', ...)).
+    // External stores keep using their own storePhone saved onto the order.
+    const storePhoneRaw = order.storePhone || (allStores[order.store] && allStores[order.store].whatsapp) || '';
+    const storeWaLink = (storePhoneRaw && _isCompleteLebanesePhone(storePhoneRaw)) ? _waLinkFromPhone(storePhoneRaw) : '';
+
     card.innerHTML = `
         <div class="oc-header">
             <span class="oc-id">#${idNum}</span>
@@ -7173,9 +7237,11 @@ function buildOrderCard(key, order) {
                     📅 ${order.date || '—'} ✏️
                 </span>
                 <span class="oc-meta-chip" style="direction:ltr;">📞 ${formatPhone(order.phone)}</span>
-                <span class="oc-meta-chip">👤 ${order.username || '—'}</span>
+                ${custWaLink ? `<a class="oc-meta-chip oc-wa-btn" href="${custWaLink}" target="_blank" rel="noopener" title="مراسلة العميل على واتساب">💬 واتساب</a>` : ''}
+                <span class="oc-meta-chip ${order.username ? 'oc-cust-registered' : 'oc-cust-standard'}" title="${order.username ? 'عميل مسجّل — لديه حساب وتم التحقق من رقمه برمز تأكيد' : 'عميل عادي — بيانات أولية فقط (اسم ورقم هاتف) بدون حساب'}">👤 ${order.username || '—'}</span>
                 <span class="oc-meta-chip">🏙 ${order.city || '—'}</span>
                 ${order.street ? `<span class="oc-meta-chip">🛣 ${order.street}</span>` : ''}
+                ${storeWaLink ? `<a class="oc-meta-chip oc-wa-btn" href="${storeWaLink}" target="_blank" rel="noopener" title="مراسلة المتجر على واتساب">💬 واتساب المتجر</a>` : ''}
                 <span class="oc-meta-chip oc-loc-edit" data-loc-edit="${key}" style="cursor:pointer;" title="اضغط لتعديل موقع التوصيل على الخريطة">
                     📍 تحديد الموقع ✏️
                 </span>
@@ -18603,6 +18669,65 @@ function formatPhone(raw) {
     return `+961 ${part1}${grouped ? ' ' + grouped : ''}`.trim();
 }
 
+// Builds a wa.me chat link from a stored phone value — same digit
+// normalization as formatPhone() above (handles a "961" country-code
+// prefix or a leading "0" already present in the stored value), just
+// re-assembled into a link instead of a display string. Returns '' when
+// there's nothing usable to link to.
+function _waLinkFromPhone(raw) {
+    let digits = String(raw || '').replace(/\D/g, '');
+    if (digits.startsWith('961') && digits.length > 8) digits = digits.slice(3);
+    digits = digits.replace(/^0/, '');
+    return digits ? `https://wa.me/961${digits}` : '';
+}
+
+// True only for a complete Lebanese mobile number — accepts either form:
+// with country code ("+96176123456"/"96176123456") or local ("76123456"),
+// same digit-normalization as _waLinkFromPhone. Used to hold back WhatsApp
+// buttons/chips when a stored phone is missing digits or obviously not a
+// real Lebanese mobile number, rather than offering a button that would
+// just fail or message the wrong person.
+function _isCompleteLebanesePhone(raw) {
+    let digits = String(raw || '').replace(/\D/g, '');
+    if (digits.startsWith('961') && digits.length > 8) digits = digits.slice(3);
+    digits = digits.replace(/^0/, '');
+    // 8-digit mobile prefixes (70/71/76/78/79/81/82/83/86), or the old
+    // Alfa "03" prefix which is 7 digits once its leading 0 is dropped.
+    return /^(70|71|76|78|79|81|82|83|86)\d{6}$/.test(digits) || /^3\d{6}$/.test(digits);
+}
+
+// Sends a WhatsApp message straight from the browser via GREEN-API —
+// same approach scripts/modal-auth.js already uses for OTP codes
+// (settings/greenApiInstance + settings/greenApiToken, cached on
+// window._greenApi* after the first successful read). No WhatsApp
+// app/web tab is ever opened; the message just arrives in the
+// customer's chat. Throws on failure so callers can toast the error.
+async function _sendGreenApiWhatsapp(phone, message) {
+    let idInstance = window._greenApiInstance || '';
+    let apiToken   = window._greenApiToken    || '';
+    if (!idInstance || !apiToken) {
+        const s = await fbGet('settings').catch(() => null);
+        if (s?.greenApiInstance) idInstance = window._greenApiInstance = s.greenApiInstance;
+        if (s?.greenApiToken)    apiToken   = window._greenApiToken    = s.greenApiToken;
+    }
+    if (!idInstance || !apiToken) throw new Error('GREEN-API غير مهيأ — تحقق من إعدادات الأدمن');
+    let digits = String(phone || '').replace(/\D/g, '');
+    if (digits.startsWith('961') && digits.length > 8) digits = digits.slice(3);
+    digits = digits.replace(/^0/, '');
+    if (!digits) throw new Error('رقم هاتف غير صالح');
+    const chatId   = '961' + digits + '@c.us';
+    const gaServer = String(idInstance).slice(0, 4);
+    const apiUrl   = `https://${gaServer}.api.greenapi.com/waInstance${idInstance}/sendMessage/${apiToken}`;
+    const resp = await fetch(apiUrl, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ chatId, message }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.error) throw new Error(data.error || `فشل الإرسال (${resp.status})`);
+    return true;
+}
+
 function orStateLabel(state) {
     const map = { '0':'جديد', '1':'وُصِّل', '2':'ملغى', '3':'متأخر', '6':'استُلم', '7':'قيد التحضير', '8':'جاهز للتسليم' };
     return map[state] || state;
@@ -18906,6 +19031,8 @@ function _ocEditOrderLocation(key, order) {
         title: `📍 تعديل موقع التوصيل — طلب #${key.replace('id_', '')}`,
         initLat: lat,
         initLng: lng,
+        showAddressSearch: false,
+        waPhone: order.phone || '',
         onSave: async (newLat, newLng) => {
             await Promise.all([
                 updateOrderField(key, 'lat', String(newLat)),
@@ -19792,24 +19919,6 @@ function aoClearSelectedCustomer() {
 // ── Shared map picker modal — used by "اطلب" (store & destination
 // pins) and by "متاجر خارجية" (external store location). Pass a
 // title, optional initial lat/lng, and an onSave(lat,lng) callback. ──
-// Some historical orders (at least order #42, likely others created the
-// same way) ended up with lat/lng saved backwards — the real longitude
-// sitting in the "lat" field and the real latitude in "lng". Lebanon's
-// geography makes this easy to detect: latitude here is always ~32–35.5,
-// longitude always ~34–37.5, and those two bands barely overlap — so a
-// pair that fails the normal check but passes when swapped is almost
-// certainly backwards, not a legitimately different location. Used
-// wherever a stored order.lat/order.lng gets turned into a real map
-// position, so old bad records self-heal instead of pointing at the
-// wrong spot forever.
-function _fixSwappedLatLng(lat, lng) {
-    const inRange = (v, lo, hi) => v >= lo && v <= hi;
-    const LAT_RANGE = [32.0, 35.5], LNG_RANGE = [34.0, 37.5];
-    const looksOk = inRange(lat, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lng, LNG_RANGE[0], LNG_RANGE[1]);
-    if (looksOk) return [lat, lng];
-    const swappedLooksOk = inRange(lng, LAT_RANGE[0], LAT_RANGE[1]) && inRange(lat, LNG_RANGE[0], LNG_RANGE[1]);
-    return swappedLooksOk ? [lng, lat] : [lat, lng];
-}
 
 // ── Smart address lookup for phone-dictated locations ──
 // Three engines, tried in order, all biased to the Bekaa/Baalbek area:
@@ -19956,9 +20065,43 @@ function _gmpParseCoords(raw) {
     return null;
 }
 
-function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
+function _openGenericMapPicker({ title, initLat, initLng, onSave, showAddressSearch = true, waPhone = null }) {
     if (typeof L === 'undefined') { toast('تعذّر تحميل الخريطة', true); return; }
     const startLat = initLat || 34.003, startLng = initLng || 36.212; // Baalbeck-ish default
+
+    // When the address/coordinates input section is turned off (order
+    // delivery-location editing — see _ocEditOrderLocation), a single
+    // WhatsApp button replaces it instead: sends the customer a message
+    // (directly via GREEN-API — see gmp-wa-request's click handler below,
+    // no WhatsApp app/web tab ever opens) asking them to share their live
+    // location in the chat, which the admin then eyeballs onto the
+    // satellite map below (click-to-pin still works exactly the same).
+    // Held back entirely when the phone isn't a complete Lebanese mobile
+    // number — nothing usable to send to.
+    const waRequestPhone = (!showAddressSearch && waPhone && _isCompleteLebanesePhone(waPhone)) ? waPhone : '';
+    const waRequestMsg = 'مرحباً 👋، لتحديد موقع التوصيل بدقة، نرجو منك إرسال موقعك الحالي إلينا مباشرة عبر واتساب (📎 ثم 📍 الموقع). شكراً لك 🙏 — Delivo';
+
+    const addressSectionHtml = showAddressSearch ? `
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="gmp-addr-input" placeholder="📝 صف العنوان كما ذكره الزبون هاتفياً (مثال: بعلبك، قرب فرن الرحمة، مقابل الصيدلية)"
+                        style="flex:1;min-width:0;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;">
+                    <button id="gmp-addr-search" style="flex-shrink:0;background:var(--surface1,#1a1a1a);border:1px solid var(--orange);border-radius:10px;padding:9px 14px;color:var(--orange);font-family:inherit;font-size:0.8rem;font-weight:800;cursor:pointer;white-space:nowrap;">🔎 تحديد تقريبي</button>
+                </div>
+                <div id="gmp-addr-status" style="display:none;font-size:0.72rem;line-height:1.6;"></div>
+                <div id="gmp-addr-results" style="display:none;flex-wrap:wrap;gap:6px;"></div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <span style="font-size:0.75rem;color:var(--gray);font-weight:700;white-space:nowrap;">📡 إحداثيات:</span>
+                    <input type="text" id="gmp-coord-input" placeholder="الصق الإحداثيات كما هي — مثال: 33.991550, 36.175729 أو 33°59'29.6&quot;N 36°10'32.6&quot;E أو رابط خرائط غوغل"
+                        style="flex:1;min-width:220px;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:inherit;font-size:0.78rem;direction:ltr;text-align:left;">
+                    <button id="gmp-coord-apply" style="flex-shrink:0;background:var(--orange);border:none;border-radius:8px;padding:7px 12px;color:#fff;font-family:inherit;font-size:0.76rem;font-weight:800;cursor:pointer;white-space:nowrap;">📌 تطبيق</button>
+                </div>` : (waRequestPhone ? `
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button type="button" id="gmp-wa-request"
+                        style="flex:1;text-align:center;background:rgba(37,211,102,0.12);border:1.5px solid #25D366;border-radius:10px;padding:10px 14px;color:#25D366;font-family:inherit;font-size:0.85rem;font-weight:800;cursor:pointer;">
+                        📲 اطلب الموقع من الزبون عبر واتساب
+                    </button>
+                </div>
+                <div style="font-size:0.7rem;color:var(--gray);">تُرسَل الرسالة مباشرة دون فتح واتساب — بعد استلام الزبون للموقع، انقر على المكان المطابق في الخريطة أدناه لتثبيت العلامة 📍</div>` : '');
 
     // Admin almost always opens this on a PC, so let it actually use the
     // screen instead of sitting in a small fixed box — on narrow/mobile
@@ -19977,19 +20120,7 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
                 <button id="gmp-close" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;">✕</button>
             </div>
             <div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;">
-                <div style="display:flex;gap:8px;">
-                    <input type="text" id="gmp-addr-input" placeholder="📝 صف العنوان كما ذكره الزبون هاتفياً (مثال: بعلبك، قرب فرن الرحمة، مقابل الصيدلية)"
-                        style="flex:1;min-width:0;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;">
-                    <button id="gmp-addr-search" style="flex-shrink:0;background:var(--surface1,#1a1a1a);border:1px solid var(--orange);border-radius:10px;padding:9px 14px;color:var(--orange);font-family:inherit;font-size:0.8rem;font-weight:800;cursor:pointer;white-space:nowrap;">🔎 تحديد تقريبي</button>
-                </div>
-                <div id="gmp-addr-status" style="display:none;font-size:0.72rem;line-height:1.6;"></div>
-                <div id="gmp-addr-results" style="display:none;flex-wrap:wrap;gap:6px;"></div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <span style="font-size:0.75rem;color:var(--gray);font-weight:700;white-space:nowrap;">📡 إحداثيات:</span>
-                    <input type="text" id="gmp-coord-input" placeholder="الصق الإحداثيات كما هي — مثال: 33.991550, 36.175729 أو 33°59'29.6&quot;N 36°10'32.6&quot;E أو رابط خرائط غوغل"
-                        style="flex:1;min-width:220px;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:inherit;font-size:0.78rem;direction:ltr;text-align:left;">
-                    <button id="gmp-coord-apply" style="flex-shrink:0;background:var(--orange);border:none;border-radius:8px;padding:7px 12px;color:#fff;font-family:inherit;font-size:0.76rem;font-weight:800;cursor:pointer;white-space:nowrap;">📌 تطبيق</button>
-                </div>
+                ${addressSectionHtml}
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button id="gmp-layer-cust" style="background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:999px;padding:6px 12px;color:var(--gray);font-family:inherit;font-size:0.74rem;font-weight:800;cursor:pointer;white-space:nowrap;">👥 مواقع الزبائن</button>
                     <button id="gmp-layer-hist" style="background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:999px;padding:6px 12px;color:var(--gray);font-family:inherit;font-size:0.74rem;font-weight:800;cursor:pointer;white-space:nowrap;">🕐 مواقع طلبات سابقة</button>
@@ -20090,9 +20221,15 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
     // descriptions are ambiguous, up to 4 candidates come back as
     // clickable chips — the admin picks the one matching what the caller
     // meant, gets an uncertainty circle, and fine-tunes by dragging.
+    // Only wired up when showAddressSearch rendered this section at all
+    // (see waRequestPhone/addressSectionHtml above) — order delivery-
+    // location editing replaces it with the WhatsApp-request button
+    // instead, so none of these elements exist in that case.
+    let setAddrStatus = () => {}; // no-op stand-in when the section is hidden
+    if (showAddressSearch) {
     const addrStatusEl  = overlay.querySelector('#gmp-addr-status');
     const addrResultsEl = overlay.querySelector('#gmp-addr-results');
-    const setAddrStatus = (text, color) => {
+    setAddrStatus = (text, color) => {
         addrStatusEl.style.display = text ? 'block' : 'none';
         addrStatusEl.style.color = color || 'var(--gray)';
         addrStatusEl.textContent = text || '';
@@ -20165,6 +20302,7 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
     // Pasting is the whole point of this box — apply immediately so the
     // admin doesn't even need to press the button.
     coordInput.addEventListener('paste', () => setTimeout(applyCoords, 50));
+    } // end if (showAddressSearch)
 
     // ── Reference layers: registered customers' saved locations +
     // unregistered guestCustomers/ callers' last known address, plus
@@ -20341,6 +20479,22 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave }) {
             custLayer.addTo(map); histLayer.addTo(map);
         }
     });
+
+    const waReqBtn = overlay.querySelector('#gmp-wa-request');
+    if (waReqBtn) {
+        waReqBtn.addEventListener('click', async () => {
+            const orig = waReqBtn.textContent;
+            waReqBtn.disabled = true; waReqBtn.textContent = '⏳ جارِ الإرسال...';
+            try {
+                await _sendGreenApiWhatsapp(waRequestPhone, waRequestMsg);
+                toast('✅ تم إرسال طلب الموقع للزبون عبر واتساب');
+                waReqBtn.textContent = '✅ تم الإرسال';
+            } catch (e) {
+                toast('❌ فشل الإرسال: ' + e.message, true);
+                waReqBtn.disabled = false; waReqBtn.textContent = orig;
+            }
+        });
+    }
 
     const close = () => {
         window.removeEventListener('resize', onWinResize);
@@ -20818,7 +20972,6 @@ function _autoHoursClosedInfo(autoHours) {
     return { reason: 'خارج أوقات الدوام' };
 }
 
-let allExtStores   = {};    // cached from Firebase externalStores/
 let _esFilter      = 'all'; // all | active | inactive
 let _esTypeFilter  = '';
 let _esSearch      = '';
