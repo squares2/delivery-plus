@@ -436,6 +436,11 @@ input, select, textarea { font-family: var(--font); }
 .orders-totals-mini b { color: var(--white); font-weight: 900; }
 .orders-totals-mini .ot-delivery { color: #22c55e; }
 .orders-totals-mini .ot-extra { color: #a78bfa; }
+/* Net-profit chip — bright, bolder green so it stands out from the
+   plain delivery total next to it; this is the number that actually
+   matters to the admin, spelled out in the chip text itself (not just
+   a hover tooltip) since it's a derived value, not a raw one. */
+.orders-totals-mini .ot-net { color: var(--green); font-weight: 900; }
 .orders-date-filter {
     display: flex; align-items: center; gap: 8px;
 }
@@ -541,6 +546,11 @@ input, select, textarea { font-family: var(--font); }
 .oc-customer-ph   { font-family: var(--mono); font-size: 0.76rem; color: var(--gray-light); direction: ltr; }
 .oc-total { font-family: var(--mono); font-size: var(--fs-md); font-weight: 600; color: var(--green); flex-shrink: 0; }
 .oc-total-edit { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+/* Small caption sitting above the order/delivery/extra-profit inputs so
+   it's clear at a glance which value each one edits, instead of relying
+   only on the hover title tooltip. */
+.oc-field-group { display: flex; flex-direction: column; align-items: center; gap: 1px; flex-shrink: 0; }
+.oc-field-label { font-size: 0.6rem; color: var(--gray); font-weight: 700; text-align: center; width: 100%; }
 .oc-total-cur { font-family: var(--mono); font-size: var(--fs-md); font-weight: 600; color: var(--green); }
 .oc-total-input {
     width: 132px; background: var(--surface2); border: 1px solid var(--border);
@@ -2347,6 +2357,9 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                         <span>💰 الطلبات: <b id="orders-total-orders">$0.00</b></span>
                         <span class="ot-delivery">🚗 التوصيل: <b id="orders-total-delivery">$0.00</b></span>
                         <span class="ot-extra">➕ ربح إضافي: <b id="orders-total-extra">$0.00</b></span>
+                        <span class="ot-net" title="نصف رسوم التوصيل (لأن النصف الآخر للسائق) + كل الربح الإضافي">
+                            💚 صافي ربحك (نصف التوصيل + الإضافي): <b id="orders-total-net">$0.00</b>
+                        </span>
                     </div>
                     <div class="orders-date-filter">
                         <select class="orders-date-select" id="orders-date-select">
@@ -3629,12 +3642,35 @@ async function _adminUploadImage(file, folder, filename, quality = 0.92) {
         s.src = 'scripts/admin-presence.js?v=5';
         document.body.appendChild(s);
     });
-    /* Load attendance dashboard alongside it — separate file, read-only reporting layer */
-    window.addEventListener('load', () => {
-        const s2 = document.createElement('script');
-        s2.src = 'scripts/attendance-admin.js?v=15';
-        document.body.appendChild(s2);
-    });
+    /* Load attendance dashboard alongside it — separate file, read-only
+       reporting layer. Injected through _ensureAttendanceLoaded() so the
+       same loader can also be called on-demand from switchPanel: if the
+       admin clicks "الحضور" before this load-time injection has finished
+       (or if it failed — cache hiccup, missing file), the panel loads the
+       script right then instead of crashing on an undefined
+       renderAttendance. */
+    let _attScriptPromise = null;
+    function _ensureAttendanceLoaded() {
+        if (typeof window.renderAttendance === 'function') return Promise.resolve();
+        if (_attScriptPromise) return _attScriptPromise;
+        _attScriptPromise = new Promise((resolve, reject) => {
+            const s2 = document.createElement('script');
+            s2.src = 'scripts/attendance-admin.js?v=15';
+            s2.onload  = () => resolve();
+            s2.onerror = () => { _attScriptPromise = null; reject(new Error('attendance-admin.js failed to load')); };
+            document.body.appendChild(s2);
+        });
+        return _attScriptPromise;
+    }
+    // Kicks off the render only once the script is genuinely ready —
+    // shared by the load-time prefetch below and both switchPanel/
+    // initial-panel call sites.
+    function renderAttendanceSafe() {
+        _ensureAttendanceLoaded()
+            .then(() => { if (typeof window.renderAttendance === 'function') window.renderAttendance(); })
+            .catch(() => { if (typeof toast === 'function') toast('تعذّر تحميل لوحة الحضور — أعد تحميل الصفحة', true); });
+    }
+    window.addEventListener('load', () => { _ensureAttendanceLoaded().catch(() => {}); });
 const FIRESTORE   = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
 const FB_API_KEY  = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
 const FB_AUTH_URL = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB_API_KEY}`;
@@ -4385,7 +4421,7 @@ function startApp() {
         if (id === 'drivers')    renderDrivers();
         if (id === 'customers')  renderCustomers();
         if (id === 'visitors')   renderVisitors();
-        if (id === 'attendance') renderAttendance();
+        if (id === 'attendance') renderAttendanceSafe();
         if (id === 'stores')     renderStores();
         if (id === 'ext-stores') renderExtStores();
         if (id === 'employees')  renderEmployees();
@@ -4470,7 +4506,7 @@ function switchPanel(id) {
     if (id === 'drivers')   renderDrivers();
     if (id === 'customers') renderCustomers();
     if (id === 'visitors')  renderVisitors();
-    if (id === 'attendance') renderAttendance();
+    if (id === 'attendance') renderAttendanceSafe();
     if (id === 'stores')    renderStores();
     if (id === 'ext-stores') renderExtStores();
     if (id === 'employees') renderEmployees();
@@ -6887,9 +6923,15 @@ function renderOrders() {
     const totOrdersEl   = document.getElementById('orders-total-orders');
     const totDeliveryEl = document.getElementById('orders-total-delivery');
     const totExtraEl    = document.getElementById('orders-total-extra');
+    const totNetEl      = document.getElementById('orders-total-net');
     if (totOrdersEl)   totOrdersEl.textContent   = '$' + totalOrdersUSD.toFixed(2);
     if (totDeliveryEl) totDeliveryEl.textContent = '$' + totalDeliveryUSD.toFixed(2);
     if (totExtraEl)    totExtraEl.textContent    = '$' + totalExtraUSD.toFixed(2);
+    // Net profit — half the delivery total (the other half goes to the
+    // driver) plus the full extra-profit total. Simple on purpose: this
+    // is the one number meant to answer "how much did I actually make?"
+    // without the admin having to do the math themselves.
+    if (totNetEl) totNetEl.textContent = '$' + ((totalDeliveryUSD / 2) + totalExtraUSD).toFixed(2);
 
 
     // ── Smart diff: preserve expanded state & scroll position, and
@@ -7077,15 +7119,24 @@ function buildOrderCard(key, order) {
                     <input type="tel" class="oc-phone-input" data-oid="${key}" value="${(order.phone || '').replace(/"/g, '&quot;')}" placeholder="رقم الهاتف" dir="ltr">
                 </div>
             </span>
-            <span class="oc-total-edit" title="سعر الطلب بدون رسم التوصيل — اضغط للتعديل">
-                <span class="oc-total-cur">${_currencySymbol(orderOnlyPrice)}</span><input type="number" class="oc-total-input" data-oid="${key}" value="${orderOnlyPrice ? orderOnlyPrice.toFixed(2) : ''}" placeholder="0" step="0.01">
-            </span>
-            <span class="oc-fee-edit" title="رسم التوصيل — محسوب تلقائياً، يمكن تعديله يدوياً">
-                💵<span class="oc-fee-cur">${_currencySymbol(order.deliveryFee)}</span><input type="number" class="oc-fee-input" data-oid="${key}" value="${order.deliveryFee != null && order.deliveryFee !== '' ? order.deliveryFee : (deliveryProfit !== null ? deliveryProfit.toFixed(2) : '')}" placeholder="—" step="0.01">
-            </span>
-            <span class="oc-extra-edit" title="ربح إضافي — مبلغ إضافي يُضاف يدوياً لهذا الطلب، بمعزل عن سعر الطلب ورسم التوصيل">
-                ➕<span class="oc-extra-cur">${_currencySymbol(order.extraProfit)}</span><input type="number" class="oc-extra-input" data-oid="${key}" value="${order.extraProfit != null && order.extraProfit !== '' ? order.extraProfit : ''}" placeholder="0" step="0.01">
-            </span>
+            <div class="oc-field-group">
+                <span class="oc-field-label">سعر الطلب</span>
+                <span class="oc-total-edit" title="سعر الطلب بدون رسم التوصيل — اضغط للتعديل">
+                    <span class="oc-total-cur">${_currencySymbol(orderOnlyPrice)}</span><input type="number" class="oc-total-input" data-oid="${key}" value="${orderOnlyPrice ? orderOnlyPrice.toFixed(2) : ''}" placeholder="0" step="0.01">
+                </span>
+            </div>
+            <div class="oc-field-group">
+                <span class="oc-field-label">رسم التوصيل</span>
+                <span class="oc-fee-edit" title="رسم التوصيل — محسوب تلقائياً، يمكن تعديله يدوياً">
+                    💵<span class="oc-fee-cur">${_currencySymbol(order.deliveryFee)}</span><input type="number" class="oc-fee-input" data-oid="${key}" value="${order.deliveryFee != null && order.deliveryFee !== '' ? order.deliveryFee : (deliveryProfit !== null ? deliveryProfit.toFixed(2) : '')}" placeholder="—" step="0.01">
+                </span>
+            </div>
+            <div class="oc-field-group">
+                <span class="oc-field-label">ربح إضافي</span>
+                <span class="oc-extra-edit" title="ربح إضافي — مبلغ إضافي يُضاف يدوياً لهذا الطلب، بمعزل عن سعر الطلب ورسم التوصيل">
+                    ➕<span class="oc-extra-cur">${_currencySymbol(order.extraProfit)}</span><input type="number" class="oc-extra-input" data-oid="${key}" value="${order.extraProfit != null && order.extraProfit !== '' ? order.extraProfit : ''}" placeholder="0" step="0.01">
+                </span>
+            </div>
             <span class="oc-state state-badge-${state}">${STATE_LABELS[state] || state}</span>
             <span class="oc-toggle">▾</span>
         </div>
@@ -7127,6 +7178,7 @@ function buildOrderCard(key, order) {
                 ${!driverAssigned && !order.claimStatus ? `<span class="oc-meta-chip" style="color:var(--red);border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.07);font-size:0.68rem;">⏳ بانتظار سائق</span>` : ''}
                 ${order.vault && order.vault !== '0' ? `<span class="oc-meta-chip" style="color:var(--yellow);border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);">💰 دفع نقدي: $${order.vault}</span>` : ''}
                 ${order.externalOrder === '1' ? `<span class="oc-meta-chip" style="color:#fb923c;border-color:rgba(251,146,60,0.35);background:rgba(251,146,60,0.1);font-size:0.72rem;">🛍️ طلب خارجي${order.storeAddress ? ' · ' + order.storeAddress : ''}</span>` : ''}
+                ${order.guestOrder === '1' ? `<span class="oc-meta-chip" style="color:#22d3ee;border-color:rgba(34,211,238,0.35);background:rgba(34,211,238,0.08);font-size:0.72rem;" title="طلب من الموقع بدون حساب — رقم الهاتف فقط. يظهر في بحث «اطلب» كعميل غير مسجل">🙋 طلب ضيف — بدون حساب</span>` : ''}
                 ${order.trackorder==1 ? `<span class="oc-meta-chip" style="color:var(--blue);">📡 تتبع نشط</span>` : ''}
                 ${order.xnote ? `<span class="oc-meta-chip" style="flex-basis:100%;">💬 ${order.xnote}</span>` : ''}
             </div>

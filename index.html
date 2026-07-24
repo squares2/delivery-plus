@@ -7,7 +7,7 @@
          newer version has shipped, even if this page itself is being
          served from a stale cache. Bump alongside BUILD_TS in sw.js and
          the "version" field in version.json on every deploy. -->
-    <script>window.APP_VERSION = '20260722120000';</script>
+    <script>window.APP_VERSION = '20260724150000';</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delivo - كل شي بيوصلك لباب البيت</title>
     <link rel="manifest" href="manifest.json">
@@ -545,6 +545,57 @@
             <p style="text-align:center;font-size:0.82rem;color:var(--clr-gray-500);margin-top:14px;">
                 لديك حساب مسبقاً؟
                 <a href="#" id="launch-goto-login" style="color:var(--clr-orange);font-weight:700;text-decoration:none;">سجّل الدخول</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- ══ Guest checkout modal — the anti-abandonment answer to forced
+         registration: an order needs ONLY a phone number to go through.
+         Name and delivery location are asked for right here too, but as
+         clearly-optional encouragements (each one shows WHY it helps),
+         never as blockers. Opens from cartCheckout() when no account is
+         logged in, prefilled from the device lead when one exists. ══ -->
+    <div class="modal-overlay" id="modal-guest-checkout">
+        <div class="modal-box">
+            <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+            <h2 class="modal-title">أرسل طلبك الآن 🚀</h2>
+            <p class="modal-subtitle">رقم هاتفك فقط يكفي لإرسال الطلب — بدون تسجيل حساب</p>
+            <p id="guest-co-error" class="modal-error" style="display:none;"></p>
+
+            <div class="modal-field">
+                <label for="guest-co-phone">رقم الهاتف <span style="color:var(--clr-orange);">*</span></label>
+                <div class="phone-input-row">
+                    <span class="phone-prefix">🇱🇧 +961</span>
+                    <input type="tel" id="guest-co-phone" placeholder="03 123 456" dir="ltr"
+                           autocomplete="tel" maxlength="10" inputmode="numeric">
+                </div>
+                <span class="field-hint">لنتمكن من التواصل معك بخصوص طلبك</span>
+            </div>
+
+            <div class="modal-field">
+                <label for="guest-co-name">الاسم <span style="color:var(--clr-gray-500);font-weight:500;">(اختياري)</span></label>
+                <input type="text" id="guest-co-name" placeholder="اسمك الكريم" autocomplete="name">
+                <span class="field-hint">يساعد السائق على تسليم طلبك بشكل أسرع 😊</span>
+            </div>
+
+            <div class="modal-field">
+                <label>موقع التوصيل <span style="color:var(--clr-gray-500);font-weight:500;">(اختياري)</span></label>
+                <div id="guest-co-loc-status" style="font-size:0.8rem;color:var(--clr-gray-500);margin-bottom:8px;">لم يتم تحديد الموقع بعد</div>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" id="guest-co-loc-gps"
+                            style="flex:1;padding:9px;background:var(--clr-surface-2,#f5f5f5);border:1.5px solid var(--clr-border,#e5e5e5);border-radius:10px;font-family:inherit;font-size:0.8rem;font-weight:700;cursor:pointer;color:inherit;">📡 موقعي الحالي</button>
+                    <button type="button" id="guest-co-loc-map"
+                            style="flex:1;padding:9px;background:var(--clr-surface-2,#f5f5f5);border:1.5px solid var(--clr-border,#e5e5e5);border-radius:10px;font-family:inherit;font-size:0.8rem;font-weight:700;cursor:pointer;color:inherit;">🗺 على الخريطة</button>
+                </div>
+                <span class="field-hint">تحديد موقعك يوصّل طلبك أسرع وبرسوم أدق — ويمكنك تخطّيه</span>
+            </div>
+
+            <button id="guest-co-submit" class="btn-primary"
+                    style="width:100%;justify-content:center;padding:13px;font-weight:900;">✔ إرسال الطلب</button>
+
+            <p style="text-align:center;font-size:0.82rem;color:var(--clr-gray-500);margin-top:14px;">
+                لديك حساب مسبقاً؟
+                <a href="#" id="guest-co-goto-login" style="color:var(--clr-orange);font-weight:700;text-decoration:none;">سجّل الدخول</a>
             </p>
         </div>
     </div>
@@ -1235,6 +1286,21 @@
     <button class="reward-reminder__close" onclick="_dismissReminderToast()" aria-label="إغلاق">✕</button>
 </div>
 
+<!-- ── Abandoned-cart nudge banner — shown by the cart-reminder engine in
+     cart.js when items are sitting in the cart un-ordered: on returning
+     to the site with a saved cart, after a few idle minutes, or on
+     desktop exit-intent. One tap resumes checkout; ✕ silences it for
+     the rest of the session. ── -->
+<div id="cart-resume-banner" role="alert" aria-live="polite">
+    <span class="cart-resume__icon">🛒</span>
+    <div class="cart-resume__body">
+        <div class="cart-resume__title">سلتك بانتظارك!</div>
+        <div class="cart-resume__sub" id="cart-resume-sub">أكمل طلبك الآن قبل أن تشتاق إليك 😉</div>
+    </div>
+    <button class="cart-resume__open" id="cart-resume-open">أكمل طلبك</button>
+    <button class="cart-resume__close" id="cart-resume-close" aria-label="إغلاق">✕</button>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════
          SCRIPTS
     ═══════════════════════════════════════════════════════ -->
@@ -1854,6 +1920,44 @@
     font-family: 'Almarai', sans-serif;
 }
 .reward-reminder__close {
+    background: none; border: none; color: #9ca3af; font-size: 1.1rem;
+    cursor: pointer; flex-shrink: 0; line-height: 1; padding: 0 2px;
+}
+
+/* ── Abandoned-cart resume banner — same visual family as the reward
+   reminder toast above (dark card, orange accent, floating over the
+   bottom bar) with a gentle attention-pulse on the border so it reads
+   as "your order is waiting" rather than an error. ── */
+#cart-resume-banner {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(135deg,#1a1a1a,#2d1a00);
+    border: 1.5px solid #FF5C00; border-radius: 18px;
+    padding: 12px 18px; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(255,92,0,0.25);
+    z-index: 9999; max-width: 340px; width: calc(100% - 40px);
+    opacity: 0; transition: opacity 0.35s, transform 0.35s;
+    pointer-events: none;
+}
+#cart-resume-banner.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+    pointer-events: all;
+    animation: cart-resume-pulse 2.4s ease-in-out infinite;
+}
+@keyframes cart-resume-pulse {
+    0%, 100% { box-shadow: 0 8px 32px rgba(255,92,0,0.25); }
+    50%      { box-shadow: 0 8px 40px rgba(255,92,0,0.5); }
+}
+.cart-resume__icon { font-size: 1.6rem; flex-shrink: 0; }
+.cart-resume__body { flex: 1; min-width: 0; }
+.cart-resume__title { font-size: 0.82rem; font-weight: 800; color: #fff; }
+.cart-resume__sub   { font-size: 0.71rem; color: #f97316; margin-top: 2px; font-weight: 600; }
+.cart-resume__open  {
+    background: #FF5C00; color: #fff; border: none; border-radius: 12px;
+    padding: 6px 12px; font-size: 0.72rem; font-weight: 800;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    font-family: 'Almarai', sans-serif;
+}
+.cart-resume__close {
     background: none; border: none; color: #9ca3af; font-size: 1.1rem;
     cursor: pointer; flex-shrink: 0; line-height: 1; padding: 0 2px;
 }

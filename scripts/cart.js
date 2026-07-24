@@ -859,6 +859,10 @@ function initCart() {
 
         save() {
             localStorage.setItem('delivo_cart_v2', JSON.stringify(this.items));
+            // Timestamp every cart mutation — the abandoned-cart reminder
+            // engine (see _initCartReminders) uses this to know how long
+            // items have been sitting un-ordered.
+            try { localStorage.setItem('delivo_cart_touched', String(Date.now())); } catch (_) {}
         },
 
         updateBadge() {
@@ -1264,39 +1268,29 @@ function initCart() {
         window.DelivoAttn?.event('checkoutStart');
 
         const user = window.DelivoUser;
-        if (!user) {
+        const guestInfo = (!user && window._delivoGuestInfo) ? window._delivoGuestInfo : null;
+        if (!user && !guestInfo) {
+            // ── No account and no guest info yet — open the phone-only
+            // guest checkout sheet instead of forcing registration+OTP.
+            // This was the single biggest abandonment point in the funnel:
+            // people filled a cart, hit "إرسال الطلب", got a registration
+            // wall, and left. Now a phone number alone completes the order;
+            // name/location are asked for in the same sheet as clearly
+            // optional. The sheet calls cartCheckout() again on submit
+            // with window._delivoGuestInfo set. ──
             closeCartSidebar();
-            setTimeout(async () => {
-                let lead = null;
-                try { lead = await window.DelivoAuth.getDeviceLead(); } catch (_) {}
-
-                if (lead && !lead.converted) {
-                    // Already gave us name+phone at launch — just need
-                    // location + OTP now, then the order goes through.
-                    if (typeof window.startPhoneFirstRegistration === 'function') {
-                        window.startPhoneFirstRegistration(lead.fullName, lead.phone, () => window.cartCheckout());
-                    } else if (typeof openModal === 'function') {
-                        openModal('modal-login'); // defensive fallback
-                    }
-                } else if (typeof openModal === 'function') {
-                    // No lead at all yet (rare — e.g. cart survived from
-                    // before the launch modal was ever completed). Capture
-                    // name+phone first, then chain straight into the same
-                    // registration-completion step above.
-                    window._launchModalOnSuccess = async () => {
-                        const freshLead = await window.DelivoAuth.getDeviceLead();
-                        if (freshLead && typeof window.startPhoneFirstRegistration === 'function') {
-                            window.startPhoneFirstRegistration(freshLead.fullName, freshLead.phone, () => window.cartCheckout());
-                        }
-                    };
-                    openModal('modal-launch');
-                }
-            }, 200);
+            setTimeout(() => _openGuestCheckout(), 200);
             return;
         }
 
-        // Block checkout if no phone number on file
-        const userPhone = (window.DelivoUser && window.DelivoUser.phone) || '';
+        // Guest submit path — phone came validated from the sheet;
+        // everything else about them is optional by design.
+        const isGuest = !!guestInfo;
+
+        // Block checkout if no phone number at all — the ONLY hard
+        // requirement to place an order. Guests already validated theirs
+        // in the guest sheet; logged-in accounts read it from the profile.
+        const userPhone = isGuest ? guestInfo.phone : ((window.DelivoUser && window.DelivoUser.phone) || '');
         if (!userPhone) {
             closeCartSidebar();
             setTimeout(() => {
@@ -1306,22 +1300,23 @@ function initCart() {
             return;
         }
 
-        // ── Require a delivery location — once ──────────────────────
-        // Applies equally to brand-new and long-existing accounts: this
-        // checks the CURRENT profile at the moment of checkout, not
-        // signup date, so any account (old or new) that never set a
-        // location gets caught here on its next order, regardless of
-        // when it was created. The cart's own location picker (GPS or
-        // map pin, in the "extras" panel below the cart items) already
-        // existed as an optional convenience — this just makes it
-        // mandatory the first time, and once picked it's written back
-        // to the profile further down so this gate never fires again.
-        const profileLocOnFile = window.DelivoUser.location || {};
-        const hasProfileLoc    = !!((profileLocOnFile.lat || window.DelivoUser.lat));
+        // ── Delivery location — encouraged, never required ───────────
+        // Previously a hard gate that blocked checkout until a location
+        // was picked; that wall showed up in the funnel as abandoned
+        // carts. Now: the FIRST press without a location opens the picker
+        // panel with a friendly nudge explaining why it helps, and the
+        // SECOND press goes straight through without one (the admin can
+        // always set/fix the pin later from the orders panel, and the
+        // driver has the phone number regardless). Guests get their
+        // encouragement inside the guest sheet itself, so no extra nudge
+        // here for them.
+        const profileLocOnFile = isGuest ? {} : (window.DelivoUser.location || {});
+        const hasProfileLoc    = !isGuest && !!((profileLocOnFile.lat || window.DelivoUser.lat));
         const cartLocLatEl     = document.getElementById('cart-loc-lat');
         const cartLocLngEl     = document.getElementById('cart-loc-lng');
         const hasCartPickedLoc = !!(cartLocLatEl && cartLocLatEl.value && cartLocLngEl && cartLocLngEl.value);
-        if (!hasProfileLoc && !hasCartPickedLoc) {
+        if (!isGuest && !hasProfileLoc && !hasCartPickedLoc && !window._delivoLocNudged) {
+            window._delivoLocNudged = true; // one nudge only — next press sends
             const extrasToggle = document.getElementById('cart-extras-toggle');
             const extrasPanel  = document.getElementById('cart-extras-panel');
             if (extrasPanel && !extrasPanel.classList.contains('open')) {
@@ -1329,7 +1324,7 @@ function initCart() {
                 extrasToggle?.classList.add('open');
             }
             extrasPanel?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-            _showToast('📍 حدد موقعك أولاً لإتمام الطلب — اضغط "موقعي الحالي" أو "تحديد على الخريطة" بالأسفل', 'error');
+            _showToast('📍 ننصح بتحديد موقعك ليصلك الطلب أسرع — أو اضغط «إرسال الطلب» مجدداً للمتابعة بدونه', 'error');
             return;
         }
 
@@ -1357,7 +1352,8 @@ function initCart() {
             let nextId = idsData.firstId;
 
 
-            const userProfile = window.DelivoUser || {};
+            const userProfile = isGuest ? {} : (window.DelivoUser || {});
+            const guestUid    = isGuest ? '' : (user.uid || '');
             const now         = new Date();
             const dateStr     = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
 
@@ -1380,12 +1376,11 @@ function initCart() {
             }
 
             // Save this location to the profile if it wasn't on file yet —
-            // this is what makes the checkout-time location gate above a
-            // true one-time step instead of asking again on every order.
+            // this is what makes the checkout-time location nudge above a
+            // one-time step instead of asking again on every order.
             // Fire-and-forget: never worth blocking or failing an order
-            // over a profile write, the gate above already guarantees
-            // orderLat/orderLng are set at this point.
-            if (!hasProfileLoc && orderLat && orderLng) {
+            // over a profile write. Guests have no profile to write to.
+            if (!isGuest && !hasProfileLoc && orderLat && orderLng) {
                 const newLoc = { lat: parseFloat(orderLat), lng: parseFloat(orderLng) };
                 fetch(`${RTDB_CART_URL}/users/${user.uid}/location.json`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -1432,11 +1427,13 @@ function initCart() {
                     cart         : cartStr,
                     city         : 'Baalbeck',
                     date         : dateStr,
-                    delivryplusid: user.uid || '',
+                    delivryplusid: guestUid,
                     deliveryFee  : String(deliveryFeeLBP),
                     driver       : '0',
                     rewardApplied: activeRewardNow ? `${activeRewardNow.type}:${activeRewardNow.value || ''}` : '',
-                    fullname     : userProfile.displayName || user.displayName || user.email || '',
+                    fullname     : isGuest
+                                    ? (guestInfo.name || 'زبون')
+                                    : (userProfile.displayName || user.displayName || user.email || ''),
                     lat          : String(orderLat),
                     lng          : String(orderLng),
                     phone        : phone,
@@ -1446,8 +1443,9 @@ function initCart() {
                     street       : userProfile.street || '',
                     total        : storeTotal,
                     trackorder   : '0',
-                    username     : userProfile.username || (user.email || '').split('@')[0] || '',
+                    username     : isGuest ? '' : (userProfile.username || (user.email || '').split('@')[0] || ''),
                     vault        : '0',
+                    ...(isGuest ? { guestOrder: '1' } : {}),
                 };
 
                 const writeRequest = fetch(`${RTDB_CART_URL}/requests/${requestKey}.json`, {
@@ -1456,15 +1454,41 @@ function initCart() {
                     body    : JSON.stringify(requestObj),
                 });
 
-                const historyObj = { ...requestObj, trackorder: '0' };
-                const writeHistory = fetch(`${RTDB_CART_URL}/historyRequests/${user.uid}/${requestKey}.json`, {
-                    method  : 'PUT',
-                    headers : { 'Content-Type': 'application/json' },
-                    body    : JSON.stringify(historyObj),
-                });
+                // Guests have no account, so no per-user history node to
+                // mirror into — the admin still sees the order in requests/
+                // exactly like any other, and can find the caller again via
+                // the guestCustomers/ upsert below.
+                const writes = [writeRequest];
+                if (!isGuest) {
+                    const historyObj = { ...requestObj, trackorder: '0' };
+                    writes.push(fetch(`${RTDB_CART_URL}/historyRequests/${user.uid}/${requestKey}.json`, {
+                        method  : 'PUT',
+                        headers : { 'Content-Type': 'application/json' },
+                        body    : JSON.stringify(historyObj),
+                    }));
+                }
 
-                await Promise.all([writeRequest, writeHistory]);
+                await Promise.all(writes);
                 nextId++;
+            }
+
+            // Guest bookkeeping — both fire-and-forget, never blocking the
+            // order that's already been saved:
+            //  • guestCustomers/{phoneKey}: same directory the admin's
+            //    "اطلب" panel maintains, so this caller is findable by
+            //    phone/name in future admin searches.
+            //  • deviceLeads: only when this device never left a lead
+            //    (the launch modal may have been skipped) — gives the
+            //    admin's leads list the same visibility it already has
+            //    for launch-modal visitors.
+            if (isGuest) {
+                _guestUpsertCustomer(guestInfo, stores, dateStr).catch(() => {});
+                try {
+                    const existingLead = await window.DelivoAuth?.getDeviceLead?.();
+                    if (!existingLead && guestInfo.name) {
+                        window.DelivoAuth?.saveDeviceLead?.({ fullName: guestInfo.name, phone: guestInfo.phone })?.catch?.(() => {});
+                    }
+                } catch (_) {}
             }
 
             // Consume the queued reward (one-time use) now that it's been applied
@@ -1481,20 +1505,23 @@ function initCart() {
                 if (adminPhoneResp.ok) {
                     const adminPhone = await adminPhoneResp.json();
                     if (adminPhone) {
-                        const userProfile = window.DelivoUser || {};
-                        const phone       = (userProfile.phone || '').replace(/\D/g,'');
-                        const name        = userProfile.displayName || userProfile.username || 'مجهول';
+                        const profileForWa = window.DelivoUser || {};
+                        const waPhoneRaw   = isGuest ? guestInfo.phone : (profileForWa.phone || '');
+                        const waPhone      = (waPhoneRaw || '').replace(/\D/g,'').replace(/^961/, '');
+                        const name         = isGuest
+                                              ? ((guestInfo.name || 'زبون') + ' (ضيف)')
+                                              : (profileForWa.displayName || profileForWa.username || 'مجهول');
                         const storeList   = stores.join(' + ');
                         const msgLines    = [
                             `🔔 *طلب جديد على Delivo*`,
-                            `👤 ${name}  📞 +961${phone}`,
+                            `👤 ${name}  📞 +961${waPhone}`,
                             `🏪 ${storeList}`,
                             `📍 https://maps.google.com/?q=${orderLat},${orderLng}`,
                         ];
                         const waMsg  = encodeURIComponent(msgLines.join('\n'));
                         const waLink = `https://wa.me/${adminPhone}?text=${waMsg}`;
                         // Store notification in RTDB for admin — do NOT redirect customer
-                        fetch(RTDB_CART_URL + '/pendingWaNotifications.json', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ waLink, orderTime:new Date().toISOString(), customer:name, phone:'+961'+phone, stores:storeList, read:false }) }).catch(function(){});
+                        fetch(RTDB_CART_URL + '/pendingWaNotifications.json', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ waLink, orderTime:new Date().toISOString(), customer:name, phone:'+961'+waPhone, stores:storeList, read:false }) }).catch(function(){});
                     }
                 }
             } catch (_) { /* non-critical — order is already saved */ }
@@ -1508,10 +1535,14 @@ function initCart() {
             cart.clear();
             closeCartSidebar();
             window.DelivoAttn?.event('order');
+            window._delivoGuestInfo = null;
+            _cartReminderOrderPlaced();
 
             let successMsg;
             if (activeRewardNow) {
                 successMsg = `🎉 تم تطبيق مكافأتك (${activeRewardNow.reward || 'مكافأة'}) على هذا الطلب!`;
+            } else if (isGuest) {
+                successMsg = `✅ تم إرسال طلبك بنجاح! سنتواصل معك على رقمك عند الحاجة 📞`;
             } else {
                 successMsg = `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح!`;
             }
@@ -1596,6 +1627,12 @@ function initCart() {
 
     /* ── Coverage-radius warning modal ─────────────────────── */
     _initCoverageWarningModal();
+
+    /* ── Guest checkout sheet (phone-only ordering) ─────────── */
+    _initGuestCheckout();
+
+    /* ── Abandoned-cart reminder engine ─────────────────────── */
+    _initCartReminders();
 }
 
 function _initCartLocation() {
@@ -1932,4 +1969,248 @@ function _getQty(id, storeName) {
     if (!window.DelivoCart) return 0;
     const item = window.DelivoCart.items.find(i => i.id === id && i.storeName === storeName);
     return item ? item.qty : 0;
+}
+/* ══════════════════════════════════════════════════════════════
+   GUEST CHECKOUT — phone-only ordering, no registration wall.
+   Opened by cartCheckout() when nobody is logged in. The sheet
+   (#modal-guest-checkout in index.html) asks for:
+     • phone  — REQUIRED, same Lebanese-format validation used by
+                the rest of the app
+     • name   — optional, gently encouraged
+     • location — optional, gently encouraged; reuses the cart's
+                own hidden lat/lng inputs + existing GPS routine
+                and map-pin modal, so whatever gets picked here is
+                exactly what checkout already reads.
+   On submit it stores {phone, name} in window._delivoGuestInfo
+   and re-runs cartCheckout(), which then follows the guest branch.
+══════════════════════════════════════════════════════════════ */
+function _guestCoErr(msg) {
+    const el = document.getElementById('guest-co-error');
+    if (el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+}
+
+function _guestCoRefreshLocStatus() {
+    const statusEl = document.getElementById('guest-co-loc-status');
+    if (!statusEl) return;
+    const lat = document.getElementById('cart-loc-lat')?.value;
+    const lng = document.getElementById('cart-loc-lng')?.value;
+    if (lat && lng) {
+        statusEl.textContent = '✅ تم تحديد موقع التوصيل';
+        statusEl.style.color = 'var(--clr-green, #16a34a)';
+        statusEl.style.fontWeight = '700';
+    } else {
+        statusEl.textContent = 'لم يتم تحديد الموقع بعد';
+        statusEl.style.color = '';
+        statusEl.style.fontWeight = '';
+    }
+}
+
+let _guestCoLocPoll = null;
+function _openGuestCheckout() {
+    const modal = document.getElementById('modal-guest-checkout');
+    if (!modal) { if (typeof openModal === 'function') openModal('modal-launch'); return; } // defensive fallback
+    _guestCoErr('');
+
+    // Prefill from the device lead when this visitor already gave
+    // name+phone at the launch modal — one less thing to retype.
+    try {
+        window.DelivoAuth?.getDeviceLead?.().then(lead => {
+            if (!lead) return;
+            const phoneInp = document.getElementById('guest-co-phone');
+            const nameInp  = document.getElementById('guest-co-name');
+            if (phoneInp && !phoneInp.value && lead.phone)    phoneInp.value = lead.phone;
+            if (nameInp  && !nameInp.value  && lead.fullName) nameInp.value  = lead.fullName;
+        }).catch(() => {});
+    } catch (_) {}
+
+    _guestCoRefreshLocStatus();
+    // The GPS/map pickers write into hidden inputs without firing any
+    // event — a light poll while the sheet is open keeps its status
+    // line honest the moment a location lands. Self-clears as soon as
+    // the sheet closes by ANY path (✕, backdrop click, Escape, submit).
+    if (_guestCoLocPoll) clearInterval(_guestCoLocPoll);
+    _guestCoLocPoll = setInterval(() => {
+        const m = document.getElementById('modal-guest-checkout');
+        if (!m || !m.classList.contains('active')) {
+            clearInterval(_guestCoLocPoll); _guestCoLocPoll = null; return;
+        }
+        _guestCoRefreshLocStatus();
+    }, 600);
+
+    if (typeof openModal === 'function') openModal('modal-guest-checkout');
+    else modal.classList.add('active');
+}
+
+function _initGuestCheckout() {
+    const modal = document.getElementById('modal-guest-checkout');
+    if (!modal) return;
+
+    // Location buttons — delegate to the cart's own, battle-tested
+    // pickers (GPS handler + full-screen map modal) instead of
+    // duplicating them; both write into #cart-loc-lat/lng which the
+    // guest submit below and checkout itself already read.
+    document.getElementById('guest-co-loc-gps')?.addEventListener('click', () => {
+        document.getElementById('cart-loc-gps')?.click();
+    });
+    document.getElementById('guest-co-loc-map')?.addEventListener('click', () => {
+        document.getElementById('cart-loc-map')?.click();
+    });
+
+    document.getElementById('guest-co-goto-login')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (_guestCoLocPoll) { clearInterval(_guestCoLocPoll); _guestCoLocPoll = null; }
+        if (typeof closeModal === 'function') closeModal('modal-guest-checkout');
+        if (typeof openModal  === 'function') openModal('modal-login');
+    });
+
+    modal.querySelector('[data-close]')?.addEventListener('click', () => {
+        if (_guestCoLocPoll) { clearInterval(_guestCoLocPoll); _guestCoLocPoll = null; }
+        if (typeof closeModal === 'function') closeModal('modal-guest-checkout');
+        else modal.classList.remove('active');
+    });
+
+    document.getElementById('guest-co-submit')?.addEventListener('click', async () => {
+        const btn      = document.getElementById('guest-co-submit');
+        const phoneRaw = (document.getElementById('guest-co-phone')?.value || '').replace(/[\s\-]/g, '');
+        const name     = (document.getElementById('guest-co-name')?.value || '').trim();
+
+        if (!phoneRaw) { _guestCoErr('رقم الهاتف مطلوب لإرسال الطلب'); return; }
+        if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneRaw)) {
+            _guestCoErr('رقم الهاتف غير صحيح. أدخل رقماً لبنانياً صحيحاً (مثال: 03123456)');
+            return;
+        }
+        _guestCoErr('');
+
+        window._delivoGuestInfo = { phone: phoneRaw, name };
+        if (_guestCoLocPoll) { clearInterval(_guestCoLocPoll); _guestCoLocPoll = null; }
+        if (typeof closeModal === 'function') closeModal('modal-guest-checkout');
+        else modal.classList.remove('active');
+
+        const orig = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الإرسال…'; }
+        try { await window.cartCheckout(); }
+        finally { if (btn) { btn.disabled = false; btn.textContent = orig; } }
+    });
+}
+
+/* Upsert this guest into guestCustomers/{phoneKey} — the same directory
+   the admin's "اطلب" panel maintains for walk-in callers, so a future
+   admin search by this phone/name finds them with their order history. */
+async function _guestUpsertCustomer(guestInfo, stores, dateStr) {
+    let key = String(guestInfo.phone || '').replace(/\D/g, '');
+    if (key.startsWith('961') && key.length > 8) key = key.slice(3);
+    if (!key) return;
+
+    const lat = document.getElementById('cart-loc-lat')?.value || '';
+    const lng = document.getElementById('cart-loc-lng')?.value || '';
+
+    let existing = null;
+    try {
+        const r = await fetch(`${RTDB_CART_URL}/guestCustomers/${key}.json`);
+        existing = r.ok ? await r.json() : null;
+    } catch (_) {}
+
+    const rec = {
+        fullname   : guestInfo.name || (existing && existing.fullname) || 'زبون',
+        phone      : guestInfo.phone,
+        city       : 'Baalbeck',
+        lastOrderAt: dateStr,
+        lastStore  : stores.join(' + '),
+        orderCount : ((existing && existing.orderCount) || 0) + 1,
+        source     : 'webCheckout',
+        ...(lat && lng ? { lat, lng } : {}),
+    };
+    await fetch(`${RTDB_CART_URL}/guestCustomers/${key}.json`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rec),
+    });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ABANDONED-CART REMINDERS — the in-page half of the attendance
+   funnel work: the dashboard showed WHERE visitors drop (items in
+   cart, order never sent); this actively pulls them back at the
+   three moments that matter, without ever nagging:
+     1. RETURN VISIT — page loads with items already saved in the
+        cart from before → banner right away.
+     2. IDLE — items added this visit but no order after 4 minutes
+        of sitting there → one banner.
+     3. EXIT INTENT (desktop) — mouse leaves toward the tab bar
+        with items in cart → one banner.
+   Shared rules: never while the cart sidebar is open, at most one
+   automatic appearance per trigger per session, ✕ silences the
+   whole engine for the session, and placing an order clears
+   everything. The banner itself is #cart-resume-banner.
+══════════════════════════════════════════════════════════════ */
+const _CART_REMIND_IDLE_MS = 4 * 60 * 1000;
+
+function _cartReminderState() {
+    try { return JSON.parse(sessionStorage.getItem('delivo_cart_remind') || '{}'); }
+    catch (_) { return {}; }
+}
+function _cartReminderMark(k) {
+    const st = _cartReminderState();
+    st[k] = 1;
+    try { sessionStorage.setItem('delivo_cart_remind', JSON.stringify(st)); } catch (_) {}
+}
+
+function _showCartResumeBanner(trigger) {
+    const st = _cartReminderState();
+    if (st.muted || st[trigger]) return;                       // ✕ pressed, or this trigger already fired
+    if (!window.DelivoCart || window.DelivoCart.getCount() === 0) return;
+    const sidebar = document.getElementById('cart-sidebar');
+    if (sidebar && sidebar.classList.contains('active')) return; // cart already open — pointless
+    const banner = document.getElementById('cart-resume-banner');
+    if (!banner || banner.classList.contains('show')) return;
+
+    const count = window.DelivoCart.getCount();
+    const total = _cartTotalUSD();
+    const sub   = document.getElementById('cart-resume-sub');
+    if (sub) sub.textContent = `${count} ${count === 1 ? 'صنف' : 'أصناف'} بقيمة $${total.toFixed(2)} — أرسل طلبك بضغطة واحدة`;
+
+    _cartReminderMark(trigger);
+    banner.classList.add('show');
+    // Auto-hide after a while — it made its point; the cart badge stays.
+    setTimeout(() => banner.classList.remove('show'), 12000);
+}
+
+function _cartReminderOrderPlaced() {
+    document.getElementById('cart-resume-banner')?.classList.remove('show');
+    try { sessionStorage.setItem('delivo_cart_remind', JSON.stringify({ muted: 1 })); } catch (_) {}
+}
+
+function _initCartReminders() {
+    const banner = document.getElementById('cart-resume-banner');
+    if (!banner) return;
+
+    document.getElementById('cart-resume-open')?.addEventListener('click', () => {
+        banner.classList.remove('show');
+        if (typeof window.openCartSidebar === 'function') window.openCartSidebar();
+    });
+    document.getElementById('cart-resume-close')?.addEventListener('click', () => {
+        banner.classList.remove('show');
+        const st = _cartReminderState();
+        st.muted = 1;
+        try { sessionStorage.setItem('delivo_cart_remind', JSON.stringify(st)); } catch (_) {}
+    });
+
+    // 1. Return visit — a cart that survived from a previous visit is
+    //    the clearest abandoned-cart signal there is. Small delay so it
+    //    doesn't fight the page's own load-time UI.
+    const touched   = parseInt(localStorage.getItem('delivo_cart_touched') || '0', 10);
+    const fromPrior = touched && (Date.now() - touched > 10 * 60 * 1000); // >10 min old = earlier visit
+    if (window.DelivoCart && window.DelivoCart.getCount() > 0 && fromPrior) {
+        setTimeout(() => _showCartResumeBanner('return'), 3500);
+    }
+
+    // 2. Idle — items in the cart, minutes pass, no order.
+    setTimeout(() => _showCartResumeBanner('idle'), _CART_REMIND_IDLE_MS);
+
+    // 3. Exit intent — desktop only (mouse dashes up toward the tab
+    //    bar / close button). Mobile has no equivalent signal worth
+    //    guessing at, and triggers 1+2 cover it there.
+    document.addEventListener('mouseout', (e) => {
+        if (e.relatedTarget || e.clientY > 24) return;
+        _showCartResumeBanner('exit');
+    });
 }
