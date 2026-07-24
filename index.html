@@ -7,7 +7,7 @@
          newer version has shipped, even if this page itself is being
          served from a stale cache. Bump alongside BUILD_TS in sw.js and
          the "version" field in version.json on every deploy. -->
-    <script>window.APP_VERSION = '20260724190000';</script>
+    <script>window.APP_VERSION = '20260725014500';</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delivo - كل شي بيوصلك لباب البيت</title>
     <link rel="manifest" href="manifest.json">
@@ -41,8 +41,8 @@
     <link rel="stylesheet" href="styles/hero.css?v=7">
     <link rel="stylesheet" href="styles/cards.css?v=9">
     <link rel="stylesheet" href="styles/modals.css?v=23">
-    <link rel="stylesheet" href="styles/store-panel.css?v=3">
-    <link rel="stylesheet" href="styles/cart.css?v=8">
+    <link rel="stylesheet" href="styles/store-panel.css?v=4">
+    <link rel="stylesheet" href="styles/cart.css?v=9">
     <link rel="stylesheet" href="styles/footer.css?v=7">
     <!-- WORLD CUP 2026 PROMO — remove this line + styles/worldcup2026.css to retire the campaign -->
     <link rel="stylesheet" href="styles/worldcup2026.css?v=1">
@@ -590,8 +590,17 @@
                 <span class="field-hint">يجب تحديد موقعك (موقعي الحالي أو تحديد يدوي) لإرسال الطلب</span>
             </div>
 
-            <button id="guest-co-submit" class="btn-primary"
-                    style="width:100%;justify-content:center;padding:13px;font-weight:900;">✔ إرسال الطلب</button>
+            <button id="guest-co-submit" class="cart-checkout-btn">
+                <span class="cart-checkout-btn__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="9" cy="20" r="1.4"/>
+                        <circle cx="18" cy="20" r="1.4"/>
+                        <path d="M2.5 3h2l2.2 11.3a2 2 0 0 0 2 1.7h8.6a2 2 0 0 0 2-1.6L21 8H6"/>
+                    </svg>
+                </span>
+                <span>إرسال الطلب</span>
+            </button>
 
             <p style="text-align:center;font-size:0.82rem;color:var(--clr-gray-500);margin-top:14px;">
                 لديك حساب مسبقاً؟
@@ -1114,7 +1123,17 @@
         <div class="sp-cart-bar" id="sp-cart-bar">
             <button class="sp-cart-bar__btn" id="sp-cart-bar-btn">
                 <span class="sp-cart-bar__count" id="sp-cart-count">0 منتج</span>
-                <span>عرض السلة</span>
+                <span class="sp-cart-bar__label">
+                    <span class="sp-cart-bar__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="9" cy="20" r="1.4"/>
+                            <circle cx="18" cy="20" r="1.4"/>
+                            <path d="M2.5 3h2l2.2 11.3a2 2 0 0 0 2 1.7h8.6a2 2 0 0 0 2-1.6L21 8H6"/>
+                        </svg>
+                    </span>
+                    عرض السلة
+                </span>
                 <span class="sp-cart-bar__total" id="sp-cart-total"></span>
             </button>
         </div>
@@ -1264,12 +1283,15 @@
                 </span>
             </div>
             <button class="cart-checkout-btn" id="cart-checkout-btn">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-                إرسال الطلب
+                <span class="cart-checkout-btn__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="9" cy="20" r="1.4"/>
+                        <circle cx="18" cy="20" r="1.4"/>
+                        <path d="M2.5 3h2l2.2 11.3a2 2 0 0 0 2 1.7h8.6a2 2 0 0 0 2-1.6L21 8H6"/>
+                    </svg>
+                </span>
+                <span>إرسال الطلب</span>
             </button>
             <button class="cart-clear-btn" id="cart-clear-btn">مسح السلة</button>
         </div>
@@ -1409,7 +1431,7 @@
     <script src="scripts/modals.js?v=7"></script>
     <script src="scripts/stores.js?v=16"></script>
     <script src="scripts/categories.js?v=11"></script>
-    <script src="scripts/cart.js?v=24"></script>
+    <script src="scripts/cart.js?v=25"></script>
     <script src="scripts/store-panel.js?v=18"></script>
     <script src="scripts/quick-menu.js?v=9" defer></script>
     <script src="scripts/mealtime.js?v=6"></script>
