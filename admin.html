@@ -586,6 +586,16 @@ input, select, textarea { font-family: var(--font); }
 }
 .oc-phone-input::placeholder { color: var(--gray); font-family: inherit; }
 .oc-phone-input:focus { outline: none; border-bottom-style: solid; border-bottom-color: var(--orange); }
+/* Inline-editable order description — the item "name" segment of the
+   cart string (this is what otlob's "وصف الطلب" writes into). Same
+   dashed-underline treatment as the header's name/phone inputs. */
+.oc-item-name-input {
+    background: transparent; border: none; border-bottom: 1px dashed rgba(255,255,255,0.2);
+    color: var(--gray-light); font-family: inherit; font-size: var(--fs-sm);
+    padding: 0 2px; width: 100%; max-width: 260px;
+}
+.oc-item-name-input::placeholder { color: var(--gray); }
+.oc-item-name-input:focus { outline: none; border-bottom-style: solid; border-bottom-color: var(--orange); color: var(--white); }
 .oc-state { flex-shrink: 0; padding: 3px var(--pad-sm); border-radius: 50px; font-size: var(--fs-xs); font-weight: 800; }
 .state-badge-0 { background: rgba(255,92,0,0.15);  color: var(--orange); }
 .state-badge-1 { background: var(--green-glow);     color: var(--green);  }
@@ -2734,54 +2744,49 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
 
                 <div style="max-width:820px;margin:0 auto;padding:20px 16px 60px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;height:100%;box-sizing:border-box;">
 
-                    <!-- 1. Customer -->
+                    <!-- 1. Customer — merged single flow: one phone field searches
+                         registered accounts AND previous walk-in callers at once
+                         (via _aoSearchCustomers). Found → pick it from the results
+                         like before. Not found → a plain, always-optional name
+                         field sits right under it to finish a brand-new customer.
+                         Phone is the only thing that's ever required here. -->
                     <div class="settings-section">
                         <div class="settings-section-title">👤 العميل</div>
                         <div style="padding:16px;">
-                            <div class="or-toolbar" style="margin-bottom:14px;padding:0;border-bottom:none;">
-                                <button type="button" class="filter-pill active" id="ao-cust-tab-registered" data-ao-cust="registered">🔗 عميل مسجل</button>
-                                <button type="button" class="filter-pill" id="ao-cust-tab-guest" data-ao-cust="guest">🆕 عميل غير مسجل</button>
+                            <label class="setting-label" id="ao-label-cust-phone" style="display:block;margin-bottom:5px;">رقم الهاتف *</label>
+                            <input type="tel" id="ao-cust-phone" class="search-box" dir="ltr" inputmode="tel"
+                                   style="width:100%;max-width:none;box-sizing:border-box;font-family:var(--mono);"
+                                   placeholder="ابحث برقم الهاتف أو الاسم — أو أدخل رقم جديد">
+                            <div id="ao-cust-results" style="margin-top:8px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+                            <div id="ao-cust-selected" style="display:none;margin-top:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:10px 14px;align-items:center;justify-content:space-between;">
+                                <div>
+                                    <div style="font-weight:800;color:var(--green);" id="ao-cust-selected-name">—</div>
+                                    <div style="font-size:0.72rem;color:var(--gray);" id="ao-cust-selected-sub">—</div>
+                                </div>
+                                <button type="button" onclick="aoClearSelectedCustomer()" style="background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;">✕</button>
                             </div>
 
-                            <div id="ao-cust-registered-body">
-                                <input type="text" id="ao-cust-search" class="search-box" style="width:100%;max-width:none;box-sizing:border-box;" placeholder="ابحث بالاسم، اسم المستخدم، أو رقم الهاتف…">
-                                <div id="ao-cust-results" style="margin-top:8px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
-                                <div id="ao-cust-selected" style="display:none;margin-top:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:10px 14px;align-items:center;justify-content:space-between;">
-                                    <div>
-                                        <div style="font-weight:800;color:var(--green);" id="ao-cust-selected-name">—</div>
-                                        <div style="font-size:0.72rem;color:var(--gray);" id="ao-cust-selected-sub">—</div>
-                                    </div>
-                                    <button type="button" onclick="aoClearSelectedCustomer()" style="background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;">✕</button>
-                                </div>
+                            <!-- Only shown while no registered account is selected —
+                                 i.e. for a brand-new or previously-seen walk-in caller.
+                                 Fully optional: left blank, the order is saved under
+                                 a generic placeholder name instead of blocking submit. -->
+                            <div id="ao-cust-name-wrap" style="margin-top:10px;">
+                                <label class="setting-label" id="ao-label-cust-name" style="display:block;margin-bottom:5px;">الاسم الكامل (اختياري)</label>
+                                <input type="text" id="ao-cust-name" placeholder="يُترك فارغاً لتسجيله كـ «زبون»"
+                                       style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
                             </div>
 
-                            <div id="ao-cust-guest-body" style="display:none;">
-                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                                    <div>
-                                        <label class="setting-label" style="display:block;margin-bottom:5px;">رقم الهاتف *</label>
-                                        <input type="tel" id="ao-guest-phone" dir="ltr" placeholder="70123456"
-                                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;">
-                                    </div>
-                                    <div>
-                                        <label class="setting-label" style="display:block;margin-bottom:5px;">الاسم الكامل *</label>
-                                        <input type="text" id="ao-guest-name" placeholder="اسم العميل"
-                                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
-                                    </div>
+                            <!-- Shown automatically when the typed phone matches a
+                                 previous "غير مسجل" caller in guestCustomers/ — lets
+                                 the admin reuse that name/address in one tap instead
+                                 of retyping it every time the same person calls in. -->
+                            <div id="ao-guest-known-hint" style="display:none;margin-top:10px;background:rgba(255,92,0,0.08);border:1px solid rgba(255,92,0,0.3);border-radius:10px;padding:10px 14px;align-items:center;justify-content:space-between;gap:10px;">
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-weight:800;color:var(--orange);font-size:0.8rem;" id="ao-guest-known-title">—</div>
+                                    <div style="font-size:0.7rem;color:var(--gray);" id="ao-guest-known-sub">—</div>
                                 </div>
-                                <div style="font-size:0.68rem;color:var(--gray);margin-top:8px;">سيُسجَّل الطلب باسم زائر بدون حساب — الاسم والهاتف فقط. سيبقى بإمكانك إيجاده لاحقاً بالبحث عن رقم هاتفه.</div>
-
-                                <!-- Shown automatically when the typed phone matches a
-                                     previous "غير مسجل" caller in guestCustomers/ — lets
-                                     the admin reuse that name/address in one tap instead
-                                     of retyping it every time the same person calls in. -->
-                                <div id="ao-guest-known-hint" style="display:none;margin-top:10px;background:rgba(255,92,0,0.08);border:1px solid rgba(255,92,0,0.3);border-radius:10px;padding:10px 14px;align-items:center;justify-content:space-between;gap:10px;">
-                                    <div style="flex:1;min-width:0;">
-                                        <div style="font-weight:800;color:var(--orange);font-size:0.8rem;" id="ao-guest-known-title">—</div>
-                                        <div style="font-size:0.7rem;color:var(--gray);" id="ao-guest-known-sub">—</div>
-                                    </div>
-                                    <button type="button" id="ao-guest-known-fill-btn"
-                                            style="flex-shrink:0;background:rgba(255,92,0,0.15);color:var(--orange);border:1px solid rgba(255,92,0,0.35);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:0.72rem;font-weight:700;cursor:pointer;white-space:nowrap;">📋 تعبئة العنوان</button>
-                                </div>
+                                <button type="button" id="ao-guest-known-fill-btn"
+                                        style="flex-shrink:0;background:rgba(255,92,0,0.15);color:var(--orange);border:1px solid rgba(255,92,0,0.35);border-radius:8px;padding:6px 12px;font-family:inherit;font-size:0.72rem;font-weight:700;cursor:pointer;white-space:nowrap;">📋 تعبئة العنوان</button>
                             </div>
                         </div>
                     </div>
@@ -2818,6 +2823,7 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                             </div>
 
                             <div id="ao-store-internal-body">
+                                <label class="setting-label" id="ao-label-store-select" style="display:block;margin-bottom:5px;">اختر المتجر</label>
                                 <select id="ao-store-select"
                                         style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
                                     <option value="">— اختر متجراً —</option>
@@ -2834,7 +2840,7 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                                 </div>
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                     <div>
-                                        <label class="setting-label" style="display:block;margin-bottom:5px;">اسم المتجر *</label>
+                                        <label class="setting-label" id="ao-label-ext-store-name" style="display:block;margin-bottom:5px;">اسم المتجر *</label>
                                         <input type="text" id="ao-ext-store-name" placeholder="اسم المتجر"
                                                style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
                                     </div>
@@ -2858,7 +2864,7 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                         <div class="settings-section-title">🧾 تفاصيل الطلب</div>
                         <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
                             <div>
-                                <label class="setting-label" style="display:block;margin-bottom:5px;">وصف الطلب *</label>
+                                <label class="setting-label" id="ao-label-order-desc" style="display:block;margin-bottom:5px;">وصف الطلب *</label>
                                 <textarea id="ao-order-desc" rows="3" placeholder="مثال: برغر دجاج حار بدون بصل، طلبين بطاطا وسط…"
                                           style="width:100%;resize:vertical;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;"></textarea>
                                 <div id="ao-cat-chips" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;"></div>
@@ -2867,7 +2873,7 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
 
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                 <div>
-                                    <label class="setting-label" style="display:block;margin-bottom:5px;">سعر الطلب ($) *</label>
+                                    <label class="setting-label" id="ao-label-order-price" style="display:block;margin-bottom:5px;">سعر الطلب ($) *</label>
                                     <input type="number" id="ao-order-price" step="0.01" min="0" placeholder="0.00"
                                            style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;">
                                 </div>
@@ -2911,6 +2917,12 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                             </select>
                         </div>
                     </div>
+
+                    <!-- Live, non-blocking warning — updated by _aoUpdateMissingWarnings()
+                         on every relevant input change. Never prevents submission; just
+                         tells the admin which optional-but-important fields will fall
+                         back to a placeholder value. -->
+                    <div id="ao-missing-warning" style="display:none;color:var(--red);font-size:0.78rem;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:8px 14px;"></div>
 
                     <div id="ao-error" style="display:none;color:var(--red);font-size:0.82rem;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:10px 14px;"></div>
                     <div id="ao-success" style="display:none;text-align:center;color:var(--green);font-weight:800;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:10px;padding:10px 14px;"></div>
@@ -7081,10 +7093,12 @@ function buildOrderCard(key, order) {
           <div class="oc-body-inner">
             <div class="oc-body-inner-pad">
             <div class="oc-items-list">
-                ${items.map(i => `
+                ${items.map((i, idx) => `
                     <div class="oc-item-row">
                         <span class="name">
-                            ${i.name}
+                            ${i.editable
+                                ? `<input type="text" class="oc-item-name-input" data-oid="${key}" data-item-idx="${idx}" value="${(i.name || '').replace(/"/g, '&quot;')}" placeholder="وصف الطلب">`
+                                : (i.name || '')}
                             ${i.notes ? `<span class="oc-item-notes">📝 ${i.notes}</span>` : ''}
                         </span>
                         <span class="qty">×${i.qty}</span>
@@ -7271,6 +7285,22 @@ function buildOrderCard(key, order) {
         });
     }
 
+    // Inline-editable order description — the item "name" segment written
+    // into order.cart. Mainly useful for otlob orders left at the default
+    // "طلب" placeholder, but works for any order using the standard cart
+    // format (i.editable), one item at a time.
+    card.querySelectorAll('.oc-item-name-input').forEach(inp => {
+        inp.addEventListener('click', e => e.stopPropagation());
+        inp.addEventListener('change', async () => {
+            const idx = parseInt(inp.dataset.itemIdx, 10);
+            const val = inp.value.trim() || 'طلب';
+            inp.value = val;
+            const newCart = _ocRebuildCartItemName(order.cart, idx, val);
+            await updateOrderFields(key, { cart: newCart });
+            toast('✅ تم تحديث وصف الطلب');
+        });
+    });
+
     // Editable delivery location — opens the same map picker used in
     // "اطلب", pre-filled with the order's current pin if it has one.
     const locEditBtn = card.querySelector('[data-loc-edit]');
@@ -7401,6 +7431,25 @@ function buildOrderCard(key, order) {
     return card;
 }
 
+// Rebuilds a standard "qty:name:price:store:notes,..." cart string with
+// just one item's name segment swapped — used by the editable order-
+// description input on each order card. Leaves every other item and
+// every other segment (qty, price, store, notes) untouched. Returns the
+// original string unchanged if the cart isn't in the standard format
+// (e.g. legacy "2× شاورما | ..." external-order carts aren't safely
+// editable this way).
+function _ocRebuildCartItemName(cartStr, itemIndex, newName) {
+    const str = cartStr || '';
+    if (!str.includes(':')) return str;
+    const segs = str.split(',').filter(Boolean);
+    if (!segs[itemIndex]) return str;
+    const parts = segs[itemIndex].split(':');
+    parts[1] = newName;
+    while (parts.length < 3) parts.push('');
+    segs[itemIndex] = parts.join(':');
+    return segs.join(',');
+}
+
 function parseCart(cartStr) {
     const items = [];
     const str = cartStr || '';
@@ -7409,7 +7458,7 @@ function parseCart(cartStr) {
     if (str.includes(':')) {
         str.split(',').filter(Boolean).forEach(seg => {
             const p = seg.split(':');
-            if (p.length >= 3) items.push({ qty: p[0], name: p[1], price: parseFloat(p[2]) || 0, notes: p[4] || '' });
+            if (p.length >= 3) items.push({ qty: p[0], name: p[1], price: parseFloat(p[2]) || 0, notes: p[4] || '', editable: true });
         });
         return items;
     }
@@ -19189,7 +19238,6 @@ document.getElementById('or-refresh-btn')?.addEventListener('click', () => {
    opens, so past callers are searchable immediately too.
 ════════════════════════════════════════════════════════════ */
 let _aoInitialized  = false;
-let _aoCustMode     = 'registered'; // 'registered' | 'guest'
 let _aoStoreMode    = 'internal';   // 'internal' | 'external'
 let _aoSelectedCust = null;         // { uid, username, fullname, phone, city, street, lat, lng }
 let _aoSelectedGuestKey   = null;   // phoneKey of a matched guestCustomers/ record, once found/selected
@@ -19205,22 +19253,28 @@ function renderAdminOrderPanel() {
     _aoPopulateStoreSelect();
     _aoPopulateDriverSelect();
     _aoBackfillGuestCustomersFromOrders();
+    _aoUpdateMissingWarnings();
 }
 
 function _aoInitOnce() {
     if (_aoInitialized) return;
     _aoInitialized = true;
 
-    document.getElementById('ao-cust-tab-registered')?.addEventListener('click', () => _aoSetCustMode('registered'));
-    document.getElementById('ao-cust-tab-guest')?.addEventListener('click', () => _aoSetCustMode('guest'));
-    document.getElementById('ao-cust-search')?.addEventListener('input', e => _aoSearchCustomers(e.target.value));
-    document.getElementById('ao-guest-phone')?.addEventListener('input', e => _aoOnGuestPhoneInput(e.target.value));
+    document.getElementById('ao-cust-phone')?.addEventListener('input', e => {
+        _aoSearchCustomers(e.target.value);
+        _aoOnGuestPhoneInput(e.target.value);
+        _aoUpdateMissingWarnings();
+    });
+    document.getElementById('ao-cust-name')?.addEventListener('input', _aoUpdateMissingWarnings);
     document.getElementById('ao-guest-known-fill-btn')?.addEventListener('click', _aoFillFromKnownGuest);
 
     document.querySelectorAll('[data-ao-store]').forEach(btn => {
         btn.addEventListener('click', () => _aoSetStoreMode(btn.dataset.aoStore));
     });
     document.getElementById('ao-store-select')?.addEventListener('change', _aoOnInternalStoreChange);
+    document.getElementById('ao-ext-store-name')?.addEventListener('input', _aoUpdateMissingWarnings);
+    document.getElementById('ao-order-desc')?.addEventListener('input', _aoUpdateMissingWarnings);
+    document.getElementById('ao-order-price')?.addEventListener('input', _aoUpdateMissingWarnings);
 
     document.getElementById('ao-dest-map-btn')?.addEventListener('click', () => _aoOpenMapPicker('dest'));
     document.getElementById('ao-store-map-btn')?.addEventListener('click', () => _aoOpenMapPicker('store'));
@@ -19232,16 +19286,6 @@ function _aoInitOnce() {
     _aoLoadQuickCategories();
 }
 
-function _aoSetCustMode(mode) {
-    _aoCustMode = mode;
-    document.getElementById('ao-cust-tab-registered')?.classList.toggle('active', mode === 'registered');
-    document.getElementById('ao-cust-tab-guest')?.classList.toggle('active', mode === 'guest');
-    const regBody = document.getElementById('ao-cust-registered-body');
-    const guestBody = document.getElementById('ao-cust-guest-body');
-    if (regBody)   regBody.style.display   = mode === 'registered' ? '' : 'none';
-    if (guestBody) guestBody.style.display = mode === 'guest'      ? '' : 'none';
-}
-
 function _aoSetStoreMode(mode) {
     _aoStoreMode = mode;
     document.querySelectorAll('[data-ao-store]').forEach(b => b.classList.toggle('active', b.dataset.aoStore === mode));
@@ -19250,6 +19294,66 @@ function _aoSetStoreMode(mode) {
     if (intBody) intBody.style.display = mode === 'internal' ? '' : 'none';
     if (extBody) extBody.style.display = mode === 'external' ? 'flex' : 'none';
     if (mode === 'external') _aoPopulateExtQuickSelect();
+    _aoUpdateMissingWarnings();
+}
+
+// ── Missing-field warnings — purely visual, never blocks submit. Turns
+// a field's label red and lists it in a small banner above the submit
+// button when it's still empty, so the admin can see at a glance which
+// placeholder values ("زبون", "غير محدد", "طلب", 0) will be used. ──────
+function _aoMarkLabel(labelId, missing) {
+    const el = document.getElementById(labelId);
+    if (el) el.style.color = missing ? 'var(--red)' : '';
+}
+
+function _aoUpdateMissingWarnings() {
+    const missing = [];
+
+    const phone = document.getElementById('ao-cust-phone')?.value.trim();
+    const phoneMissing = !_aoSelectedCust && !phone;
+    _aoMarkLabel('ao-label-cust-phone', phoneMissing);
+    if (phoneMissing) missing.push('رقم الهاتف');
+
+    // The name field only matters while no registered account is picked —
+    // it's hidden entirely once one is selected.
+    if (!_aoSelectedCust) {
+        const nameMissing = !document.getElementById('ao-cust-name')?.value.trim();
+        _aoMarkLabel('ao-label-cust-name', nameMissing);
+        if (nameMissing) missing.push('اسم العميل (سيُسجَّل كـ «زبون»)');
+    } else {
+        _aoMarkLabel('ao-label-cust-name', false);
+    }
+
+    if (_aoStoreMode === 'external') {
+        const extMissing = !document.getElementById('ao-ext-store-name')?.value.trim();
+        _aoMarkLabel('ao-label-ext-store-name', extMissing);
+        _aoMarkLabel('ao-label-store-select', false);
+        if (extMissing) missing.push('اسم المتجر (سيُسجَّل كـ «غير محدد»)');
+    } else {
+        const storeMissing = !document.getElementById('ao-store-select')?.value;
+        _aoMarkLabel('ao-label-store-select', storeMissing);
+        _aoMarkLabel('ao-label-ext-store-name', false);
+        if (storeMissing) missing.push('المتجر (سيُسجَّل كـ «غير محدد»)');
+    }
+
+    const descMissing = !document.getElementById('ao-order-desc')?.value.trim();
+    _aoMarkLabel('ao-label-order-desc', descMissing);
+    if (descMissing) missing.push('وصف الطلب (سيُسجَّل كـ «طلب»)');
+
+    const priceRaw = parseFloat(document.getElementById('ao-order-price')?.value);
+    const priceMissing = !priceRaw || priceRaw <= 0;
+    _aoMarkLabel('ao-label-order-price', priceMissing);
+    if (priceMissing) missing.push('سعر الطلب (سيُسجَّل كـ 0)');
+
+    const banner = document.getElementById('ao-missing-warning');
+    if (banner) {
+        if (missing.length) {
+            banner.style.display = 'block';
+            banner.textContent = `⚠️ يمكن إنشاء الطلب، لكن ينقصه: ${missing.join(' · ')}`;
+        } else {
+            banner.style.display = 'none';
+        }
+    }
 }
 
 function _aoPopulateStoreSelect() {
@@ -19268,6 +19372,7 @@ function _aoOnInternalStoreChange() {
     _aoStoreLat = (store && store.lat) ? parseFloat(store.lat) : null;
     _aoStoreLng = (store && store.lng) ? parseFloat(store.lng) : null;
     _aoUpdateCoordBadge('store'); // internal store has no visible badge element, no-op guard inside handles it
+    _aoUpdateMissingWarnings();
 }
 
 function _aoPopulateDriverSelect() {
@@ -19343,9 +19448,8 @@ function _aoSearchCustomers(q) {
 function _aoSelectGuestFromSearch(key) {
     const g = allGuestCustomers?.[key];
     if (!g) return;
-    _aoSetCustMode('guest');
-    const nameInp  = document.getElementById('ao-guest-name');
-    const phoneInp = document.getElementById('ao-guest-phone');
+    const nameInp  = document.getElementById('ao-cust-name');
+    const phoneInp = document.getElementById('ao-cust-phone');
     if (nameInp)  nameInp.value  = g.fullname || '';
     if (phoneInp) phoneInp.value = g.phone || '';
     _aoSelectedGuestKey = key;
@@ -19354,13 +19458,12 @@ function _aoSelectGuestFromSearch(key) {
 
     const resultsEl = document.getElementById('ao-cust-results');
     if (resultsEl) resultsEl.innerHTML = '';
-    const searchInp = document.getElementById('ao-cust-search');
-    if (searchInp) searchInp.value = '';
+    _aoUpdateMissingWarnings();
 }
 
-// Live lookup as the admin types a phone number directly into the
-// guest tab — recognizes a returning caller without needing them to
-// go through the search box at all.
+// Live lookup as the admin types straight into the merged phone field —
+// recognizes a returning walk-in caller without needing to click a
+// search result at all.
 function _aoOnGuestPhoneInput(val) {
     const key = _aoPhoneKey(val);
     if (!key || key.length < 7) { _aoHideGuestKnownHint(); _aoSelectedGuestKey = null; return; }
@@ -19405,7 +19508,7 @@ function _aoFillFromKnownGuest() {
     if (!_aoSelectedGuestKey) return;
     const g = allGuestCustomers?.[_aoSelectedGuestKey];
     if (!g) return;
-    const nameInp = document.getElementById('ao-guest-name');
+    const nameInp = document.getElementById('ao-cust-name');
     if (nameInp && !nameInp.value.trim()) nameInp.value = g.fullname || '';
     _aoApplyGuestAddress(g);
     toast('📋 تم تعبئة بيانات العميل السابقة');
@@ -19497,7 +19600,7 @@ function _aoSelectCustomer(uid) {
         lat: (u.location && u.location.lat) || u.lat || null,
         lng: (u.location && u.location.lng) || u.lng || null,
     };
-    const searchInp = document.getElementById('ao-cust-search');
+    const searchInp = document.getElementById('ao-cust-phone');
     if (searchInp) searchInp.value = '';
     const resultsEl = document.getElementById('ao-cust-results');
     if (resultsEl) resultsEl.innerHTML = '';
@@ -19507,6 +19610,12 @@ function _aoSelectCustomer(uid) {
     const subEl  = document.getElementById('ao-cust-selected-sub');
     if (nameEl) nameEl.textContent = _aoSelectedCust.fullname || '—';
     if (subEl)  subEl.innerHTML  = `${_aoSelectedCust.username ? '@'+_aoSelectedCust.username+' · ' : ''}<bdi dir="ltr">${formatPhone(_aoSelectedCust.phone)}</bdi>`;
+    // A registered account already has its own name on file — hide the
+    // free-text name field (and any stale guest hint) while it's selected.
+    const nameWrap = document.getElementById('ao-cust-name-wrap');
+    if (nameWrap) nameWrap.style.display = 'none';
+    _aoHideGuestKnownHint();
+    _aoUpdateMissingWarnings();
 
     // Prefill delivery address from the customer's saved profile, if any
     const cityInp = document.getElementById('ao-dest-city');
@@ -19524,6 +19633,9 @@ function aoClearSelectedCustomer() {
     _aoSelectedCust = null;
     const box = document.getElementById('ao-cust-selected');
     if (box) box.style.display = 'none';
+    const nameWrap = document.getElementById('ao-cust-name-wrap');
+    if (nameWrap) nameWrap.style.display = '';
+    _aoUpdateMissingWarnings();
 }
 
 // ── Shared map picker modal — used by "اطلب" (store & destination
@@ -20270,36 +20382,36 @@ async function _aoSubmit() {
     if (errEl) errEl.style.display = 'none';
     if (okEl)  okEl.style.display  = 'none';
 
-    // ── Resolve customer ──
+    // ── Resolve customer ── the merged "اطلب" flow: a registered account
+    // picked from the search results always wins; otherwise this is a
+    // guest/new-customer order using whatever is in the merged phone+name
+    // fields. Phone is the only thing that blocks submission — every other
+    // field here gets a sensible placeholder instead of an error, since
+    // whoever's typing this in is often rushing through it on a call. ──
     let fullname = '', phone = '', username = '', uid = '';
-    if (_aoCustMode === 'registered') {
-        if (!_aoSelectedCust) return _aoErr('اختر عميلاً مسجلاً من نتائج البحث');
+    if (_aoSelectedCust) {
         ({ fullname, phone, username, uid } = _aoSelectedCust);
     } else {
-        fullname = document.getElementById('ao-guest-name')?.value.trim() || '';
-        phone    = document.getElementById('ao-guest-phone')?.value.trim() || '';
-        if (!fullname) return _aoErr('أدخل اسم العميل');
-        if (!phone)    return _aoErr('أدخل رقم هاتف العميل');
+        phone    = document.getElementById('ao-cust-phone')?.value.trim() || '';
+        fullname = document.getElementById('ao-cust-name')?.value.trim()  || 'زبون';
+        if (!phone) return _aoErr('أدخل رقم هاتف العميل');
     }
 
-    // ── Resolve store ──
+    // ── Resolve store ── no store picked/typed simply lands the order as
+    // "غير محدد" rather than blocking submission.
     const isExternal = _aoStoreMode === 'external';
     let storeName = '', storeAddress = '', storePhone = '';
     if (isExternal) {
-        storeName    = document.getElementById('ao-ext-store-name')?.value.trim() || '';
+        storeName    = document.getElementById('ao-ext-store-name')?.value.trim() || 'غير محدد';
         storeAddress = document.getElementById('ao-ext-store-addr')?.value.trim()  || '';
         storePhone   = document.getElementById('ao-ext-store-phone')?.value.trim() || '';
-        if (!storeName) return _aoErr('أدخل اسم المتجر');
     } else {
-        storeName = document.getElementById('ao-store-select')?.value || '';
-        if (!storeName) return _aoErr('اختر متجراً');
+        storeName = document.getElementById('ao-store-select')?.value || 'غير محدد';
     }
 
-    const orderDesc = document.getElementById('ao-order-desc')?.value.trim() || '';
-    if (!orderDesc) return _aoErr('أدخل وصف الطلب');
+    const orderDesc = document.getElementById('ao-order-desc')?.value.trim() || 'طلب';
 
     const orderPriceRaw = parseFloat(document.getElementById('ao-order-price')?.value) || 0;
-    if (orderPriceRaw <= 0) return _aoErr('أدخل سعر الطلب');
     // Same >1000-is-LBP convention used everywhere else (see _toUSD) — without
     // this, a Lebanese-Lira price typed here (e.g. 1,500,000 ل.ل) was being
     // added straight into the USD total instead of being converted first.
@@ -20392,7 +20504,7 @@ async function _aoSubmit() {
 
         // Guest (no account): upsert their entry in guestCustomers/ so a
         // future search by this same phone number finds them again.
-        if (_aoCustMode === 'guest') {
+        if (!_aoSelectedCust) {
             const result = _aoUpsertGuestCustomer(phone, fullname, {
                 reqKey: requestKey, date: dateStr, store: storeName, total: totalMerged,
                 city, street, lat: _aoDestLat, lng: _aoDestLng,
@@ -20413,7 +20525,7 @@ async function _aoSubmit() {
 }
 
 function _aoResetForm() {
-    ['ao-guest-name','ao-guest-phone','ao-ext-store-name','ao-ext-store-phone','ao-ext-store-addr',
+    ['ao-cust-phone','ao-cust-name','ao-ext-store-name','ao-ext-store-phone','ao-ext-store-addr',
      'ao-order-desc','ao-order-price','ao-delivery-fee','ao-note','ao-order-date','ao-order-time'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -20433,6 +20545,7 @@ function _aoResetForm() {
     if (cityInp) cityInp.value = 'Baalbeck';
     const quickSel = document.getElementById('ao-ext-quickselect');
     if (quickSel) quickSel.value = '';
+    _aoUpdateMissingWarnings();
 }
 
 // ── admin-order integration: quick-pick from active external stores ──
