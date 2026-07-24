@@ -7,6 +7,46 @@
      window.DelivoUser   — current user or null
    ============================================================ */
 
+/* ── Device-UUID handoff (?duid=…) ─────────────────────────────
+   Bridges the storage wall between the browser and the installed
+   PWA — critical on iOS, where Safari and a home-screen app have
+   fully partitioned localStorage, so the PWA would otherwise mint
+   a brand-new device UUID and "forget" everything this customer
+   did on the website (their lead, visitor history, device record).
+
+   How the handoff works end-to-end:
+     1. While browsing in Safari, pwa.js rewrites the manifest's
+        start_url to include this device's UUID as ?duid=…
+     2. The customer taps "Add to Home Screen" — the param gets
+        baked into the installed app's start URL.
+     3. First PWA launch lands here with ?duid=… and an EMPTY
+        localStorage → we adopt the website's UUID as our own.
+
+   Adoption rules (must run BEFORE anything reads the UUID, hence
+   top-of-file):
+     • only a well-formed UUID is accepted
+     • only when this context has no UUID of its own yet — a PWA
+       that already has an identity keeps it, same anti-merge
+       policy as getOrCreateDeviceUUID
+     • the param is scrubbed from the URL either way so it never
+       lingers in shares/bookmarks/history                     ── */
+(function () {
+    try {
+        const params = new URLSearchParams(location.search);
+        const duid   = params.get('duid');
+        if (duid) {
+            const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(duid);
+            if (looksLikeUuid && !localStorage.getItem('delivo_device_uuid')) {
+                localStorage.setItem('delivo_device_uuid', duid);
+                console.log('[Delivo] Adopted device UUID from install handoff ✓');
+            }
+            params.delete('duid');
+            const clean = location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash;
+            history.replaceState(null, '', clean);
+        }
+    } catch (_) { /* storage blocked or malformed URL — carry on normally */ }
+})();
+
 const FIREBASE_CONFIG = {
     apiKey:            "AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0",
     authDomain:        "deliveryonline-300f7.firebaseapp.com",
@@ -129,6 +169,25 @@ function onFirebaseReady() {
 
     // Build a stable fingerprint from device characteristics
     async function getDeviceFingerprint() {
+        // iOS reports a slightly different userAgent inside an installed
+        // home-screen PWA than in the Safari tab: the standalone context
+        // omits the trailing "Version/x.y" and "Safari/x.y" tokens. Since
+        // the UA is a fingerprint component, that one difference made the
+        // SAME physical device hash differently in browser vs PWA — so
+        // the PWA's Firestore recovery missed and minted a second UUID.
+        // Stripping those two tokens (and nothing else — the OS version /
+        // WebKit build stay, they're real entropy) makes both contexts
+        // hash identically, letting an installed PWA with empty storage
+        // recover the website's UUID via the fingerprint collection even
+        // when the ?duid= install handoff wasn't available.
+        // NOTE: this changes fingerprint hashes going forward, so old
+        // device_fingerprints docs won't match — harmless, since the
+        // lookup only runs when local storage is empty, and a fresh
+        // mapping gets written on the spot.
+        const normalizedUA = (navigator.userAgent || '')
+            .replace(/\s*Version\/[\d.]+/g, '')
+            .replace(/\s*Safari\/[\d.]+/g, '');
+
         const components = [
             navigator.language        || '',
             navigator.languages?.join(',') || '',
@@ -137,7 +196,7 @@ function onFirebaseReady() {
             screen.width + 'x' + screen.height,
             screen.colorDepth         || '',
             Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-            navigator.userAgent       || '',
+            normalizedUA,
             // ── Extra entropy — none of the above differ much between two
             // people using the same phone model/OS/browser version, which
             // is exactly the collision problem on a small, homogeneous user

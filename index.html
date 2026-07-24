@@ -7,7 +7,7 @@
          newer version has shipped, even if this page itself is being
          served from a stale cache. Bump alongside BUILD_TS in sw.js and
          the "version" field in version.json on every deploy. -->
-    <script>window.APP_VERSION = '20260724173000';</script>
+    <script>window.APP_VERSION = '20260724190000';</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delivo - كل شي بيوصلك لباب البيت</title>
     <link rel="manifest" href="manifest.json">
@@ -42,7 +42,7 @@
     <link rel="stylesheet" href="styles/cards.css?v=9">
     <link rel="stylesheet" href="styles/modals.css?v=23">
     <link rel="stylesheet" href="styles/store-panel.css?v=3">
-    <link rel="stylesheet" href="styles/cart.css?v=7">
+    <link rel="stylesheet" href="styles/cart.css?v=8">
     <link rel="stylesheet" href="styles/footer.css?v=7">
     <!-- WORLD CUP 2026 PROMO — remove this line + styles/worldcup2026.css to retire the campaign -->
     <link rel="stylesheet" href="styles/worldcup2026.css?v=1">
@@ -579,7 +579,7 @@
             </div>
 
             <div class="modal-field">
-                <label>موقع التوصيل <span style="color:var(--clr-gray-500);font-weight:500;">(اختياري)</span></label>
+                <label>موقع التوصيل <span id="guest-co-loc-required-tag" style="color:var(--clr-orange);font-weight:700;">*</span></label>
                 <div id="guest-co-loc-status" style="font-size:0.8rem;color:var(--clr-gray-500);margin-bottom:8px;">لم يتم تحديد الموقع بعد</div>
                 <div style="display:flex;gap:8px;">
                     <button type="button" id="guest-co-loc-gps"
@@ -587,7 +587,7 @@
                     <button type="button" id="guest-co-loc-map"
                             style="flex:1;padding:9px;background:var(--clr-surface-2,#f5f5f5);border:1.5px solid var(--clr-border,#e5e5e5);border-radius:10px;font-family:inherit;font-size:0.8rem;font-weight:700;cursor:pointer;color:inherit;">🗺 على الخريطة</button>
                 </div>
-                <span class="field-hint">تحديد موقعك يوصّل طلبك أسرع وبرسوم أدق — ويمكنك تخطّيه</span>
+                <span class="field-hint">يجب تحديد موقعك (موقعي الحالي أو تحديد يدوي) لإرسال الطلب</span>
             </div>
 
             <button id="guest-co-submit" class="btn-primary"
@@ -1214,7 +1214,7 @@
                             <circle cx="12" cy="10" r="3"/>
                         </svg>
                         <span>موقع التوصيل</span>
-                        <span class="cart-location__optional">(اختياري)</span>
+                        <span class="cart-location__optional" id="cart-location__optional-tag">*</span>
                     </div>
                     <div class="cart-location__status" id="cart-loc-status">
                         <span class="cart-location__status-text" id="cart-loc-status-text">لم يتم تحديد الموقع</span>
@@ -1400,7 +1400,7 @@
     </div>
 
     <script src="scripts/navbar.js?v=14"></script>
-    <script src="scripts/firebase-init.js?v=11"></script>
+    <script src="scripts/firebase-init.js?v=12"></script>
     <script src="scripts/platform-status.js?v=1" defer></script>
     <script src="scripts/modal-auth.js?v=30"></script>
     <script src="scripts/onboarding.js?v=1"></script>
@@ -1409,13 +1409,13 @@
     <script src="scripts/modals.js?v=7"></script>
     <script src="scripts/stores.js?v=16"></script>
     <script src="scripts/categories.js?v=11"></script>
-    <script src="scripts/cart.js?v=22"></script>
+    <script src="scripts/cart.js?v=24"></script>
     <script src="scripts/store-panel.js?v=18"></script>
     <script src="scripts/quick-menu.js?v=9" defer></script>
     <script src="scripts/mealtime.js?v=6"></script>
     <script src="scripts/promo-flip.js?v=6"></script>
     <script src="scripts/hero-bg.js?v=2"></script>
-    <script src="scripts/pwa.js?v=10" defer></script>
+    <script src="scripts/pwa.js?v=11" defer></script>
     <script src="scripts/presence.js?v=4"></script>
     <script src="scripts/back-handler.js?v=2" defer></script>
     <!-- WORLD CUP 2026 PROMO — remove this line + scripts/worldcup2026.js to retire the campaign -->

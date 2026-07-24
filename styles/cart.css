@@ -347,6 +347,39 @@
     .cart-checkout-btn { animation: none !important; }
 }
 
+/* ── Location-button warning flash ────────────────────────────
+   Draws the eye toward whichever "set my location" button actually
+   resolves the location warning — used on both the cart's own
+   #cart-loc-gps/#cart-loc-map buttons and the guest checkout
+   sheet's #guest-co-loc-gps/#guest-co-loc-map (inline-styled, so
+   this class carries its own border/background, not just the
+   animation). Applied for a few seconds after a blocked/no-location
+   checkout press, removed automatically once a location is set. */
+.loc-btn-flash {
+    animation: loc-btn-sparkle 0.9s ease-in-out 4;
+    position: relative;
+    z-index: 1;
+}
+@keyframes loc-btn-sparkle {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(220,38,38,0.45);
+        border-color: #dc2626 !important;
+        background: rgba(220,38,38,0.06);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(220,38,38,0);
+        border-color: #f59e0b !important;
+        background: rgba(245,158,11,0.12);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .loc-btn-flash {
+        animation: none !important;
+        border-color: #dc2626 !important;
+        background: rgba(220,38,38,0.08) !important;
+    }
+}
+
 /* ── Clear cart link ──────────────────────────────────────── */
 .cart-clear-btn {
     background: none;

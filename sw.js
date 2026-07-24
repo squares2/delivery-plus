@@ -9,7 +9,7 @@
    Replace BUILD_TIMESTAMP with your deploy script, or just
    change this number whenever you upload new files.
    Even changing it by 1 is enough to bust all caches.        */
-const BUILD_TS    = '20260724173000';   // replaced by deploy.bat at deploy time
+const BUILD_TS    = '20260724190000';   // replaced by deploy.bat at deploy time
 const CACHE_NAME  = `delivo-${BUILD_TS}`;
 
 /* ── Assets to pre-cache on install ──────────────────────────
@@ -165,7 +165,14 @@ font-family:sans-serif;text-align:center;padding:24px;box-sizing:border-box;">
            Falls back to waiting on the network only when there's nothing
            cached yet (first visit). */
         event.respondWith(
-            caches.match(event.request).then(cached => {
+            /* Navigations match the cache ignoring the query string — the
+               installed PWA's start_url now carries ?duid=… (device-UUID
+               install handoff, see scripts/pwa.js § 0.5), and without
+               ignoreSearch that exact URL would never hit the precached
+               shell, forcing every PWA cold start to wait on the network.
+               Non-navigation requests keep exact matching so ?v= cache
+               busting on scripts/styles still works. */
+            caches.match(event.request, isNavigation ? { ignoreSearch: true } : undefined).then(cached => {
                 const networkFetch = fetch(event.request).then(res => {
                     if (res && res.status === 200) {
                         const clone = res.clone();

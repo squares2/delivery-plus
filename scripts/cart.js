@@ -81,6 +81,45 @@ async function _loadAdminPhoneLink() {
 })();
 
 /* ══════════════════════════════════════════════════════════════
+   LOCATION OBLIGATION — settings/requireLocation (boolean)
+   Admin toggle: when true/null/missing (default), the customer MUST
+   set a delivery location (GPS or manual pin) before "إرسال الطلب"
+   goes through. When explicitly false, the button still warns the
+   customer their order will be sent without a location, but a
+   second press lets it through anyway.
+══════════════════════════════════════════════════════════════ */
+let _reqLocCfg       = null;
+let _reqLocCfgLoaded = false;
+
+async function _loadRequireLocationCfg() {
+    if (_reqLocCfgLoaded) return _reqLocCfg;
+    try {
+        const r = await fetch(`${RTDB_CART_URL}/settings/requireLocation.json`);
+        _reqLocCfg = r.ok ? await r.json() : null;
+    } catch (_) { _reqLocCfg = null; }
+    _reqLocCfgLoaded = true;
+    return _reqLocCfg;
+}
+
+// Sparkle/flash the location-picker buttons for a few seconds to draw
+// the eye toward the fix when checkout is blocked/warned over a
+// missing location. `ids` is whichever pair is actually visible —
+// the cart sidebar's own buttons or the guest sheet's. Auto-clears
+// after the animation runs its course, and _clearLocBtnFlash() below
+// clears it early the moment a location actually gets set.
+let _locBtnFlashTimer = null;
+function _flashLocButtons(ids) {
+    ids.forEach(id => document.getElementById(id)?.classList.add('loc-btn-flash'));
+    if (_locBtnFlashTimer) clearTimeout(_locBtnFlashTimer);
+    _locBtnFlashTimer = setTimeout(() => _clearLocBtnFlash(), 3600);
+}
+function _clearLocBtnFlash() {
+    ['cart-loc-gps', 'cart-loc-map', 'guest-co-loc-gps', 'guest-co-loc-map']
+        .forEach(id => document.getElementById(id)?.classList.remove('loc-btn-flash'));
+    if (_locBtnFlashTimer) { clearTimeout(_locBtnFlashTimer); _locBtnFlashTimer = null; }
+}
+
+/* ══════════════════════════════════════════════════════════════
    NIGHT DELIVERY SURGE
    Reads settings/nightDelivery = { enabled, startHour, endHour, flatFee, perKm }.
    Adds a static surcharge on top of whatever the normal fee comes out to
@@ -1248,23 +1287,23 @@ function initCart() {
             return;
         }
 
-        // ── Delivery location — encouraged, never required ───────────
-        // Previously a hard gate that blocked checkout until a location
-        // was picked; that wall showed up in the funnel as abandoned
-        // carts. Now: the FIRST press without a location opens the picker
-        // panel with a friendly nudge explaining why it helps, and the
-        // SECOND press goes straight through without one (the admin can
-        // always set/fix the pin later from the orders panel, and the
-        // driver has the phone number regardless). Guests get their
-        // encouragement inside the guest sheet itself, so no extra nudge
-        // here for them.
+        // ── Delivery location — obligation is admin-configurable ──────
+        // settings/requireLocation (true/null/missing = required,
+        // default): checkout is hard-blocked until the customer sets a
+        // location via GPS ("موقعي") or the manual map picker ("تحديد
+        // الموقع") — every press without one re-opens the picker panel
+        // and re-shows the warning.
+        // When the admin explicitly disables the obligation (false):
+        // the first press without a location only warns that the
+        // order will be sent without one; a second press proceeds.
         const profileLocOnFile = isGuest ? {} : (window.DelivoUser.location || {});
         const hasProfileLoc    = !isGuest && !!((profileLocOnFile.lat || window.DelivoUser.lat));
         const cartLocLatEl     = document.getElementById('cart-loc-lat');
         const cartLocLngEl     = document.getElementById('cart-loc-lng');
         const hasCartPickedLoc = !!(cartLocLatEl && cartLocLatEl.value && cartLocLngEl && cartLocLngEl.value);
-        if (!isGuest && !hasProfileLoc && !hasCartPickedLoc && !window._delivoLocNudged) {
-            window._delivoLocNudged = true; // one nudge only — next press sends
+        if (!isGuest && !hasProfileLoc && !hasCartPickedLoc) {
+            const reqLocCfg      = await _loadRequireLocationCfg();
+            const locationIsReq  = (reqLocCfg === null || reqLocCfg === undefined || reqLocCfg === true || reqLocCfg === 'true');
             const extrasToggle = document.getElementById('cart-extras-toggle');
             const extrasPanel  = document.getElementById('cart-extras-panel');
             if (extrasPanel && !extrasPanel.classList.contains('open')) {
@@ -1272,8 +1311,16 @@ function initCart() {
                 extrasToggle?.classList.add('open');
             }
             extrasPanel?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-            _showToast('📍 ننصح بتحديد موقعك ليصلك الطلب أسرع — أو اضغط «إرسال الطلب» مجدداً للمتابعة بدونه', 'error');
-            return;
+            _flashLocButtons(['cart-loc-gps', 'cart-loc-map']);
+            if (locationIsReq) {
+                _showToast('📍 يجب تحديد موقعك أولاً (موقعي الحالي أو تحديد يدوي) لإرسال الطلب', 'error');
+                return;
+            }
+            if (!window._delivoLocNudged) {
+                window._delivoLocNudged = true; // one warning only — next press sends anyway
+                _showToast('⚠️ لم تحدد موقعك — سيصل طلبك بدون موقع دقيق. اضغط «إرسال الطلب» مجدداً للمتابعة', 'error');
+                return;
+            }
         }
 
         const btn = document.getElementById('cart-checkout-btn');
@@ -1594,6 +1641,18 @@ function _initCartLocation() {
     const lngInput  = document.getElementById('cart-loc-lng');
     if (!gpsBtn || !mapBtn) return;
 
+    // Label the location field "* required" or "(optional)" to match
+    // whatever the admin has set at settings/requireLocation, instead
+    // of a hardcoded claim that could contradict the actual behavior.
+    _loadRequireLocationCfg().then(cfg => {
+        const tag = document.getElementById('cart-location__optional-tag');
+        if (!tag) return;
+        const isReq = (cfg === null || cfg === undefined || cfg === true || cfg === 'true');
+        tag.textContent = isReq ? '*' : '(اختياري)';
+        tag.style.color = isReq ? 'var(--clr-orange, #ff5c00)' : '';
+        tag.style.fontWeight = isReq ? '700' : '';
+    });
+
     function setLocation(lat, lng, label) {
         latInput.value  = lat;
         lngInput.value  = lng;
@@ -1602,6 +1661,7 @@ function _initCartLocation() {
         clearBtn.style.display = 'inline-flex';
         gpsBtn.classList.remove('active');
         mapBtn.classList.remove('active');
+        _clearLocBtnFlash();
         const locDot = document.getElementById('cart-extras-loc-dot');
         if (locDot) locDot.style.display = 'inline';
         _recalcDeliveryFees();
@@ -1973,6 +2033,14 @@ function _openGuestCheckout() {
     } catch (_) {}
 
     _guestCoRefreshLocStatus();
+    _loadRequireLocationCfg().then(cfg => {
+        const tag = document.getElementById('guest-co-loc-required-tag');
+        if (!tag) return;
+        const isReq = (cfg === null || cfg === undefined || cfg === true || cfg === 'true');
+        tag.textContent = isReq ? '*' : '(اختياري)';
+        tag.style.color = isReq ? 'var(--clr-orange, #ff5c00)' : 'var(--clr-gray-500)';
+        tag.style.fontWeight = isReq ? '700' : '500';
+    });
     // The GPS/map pickers write into hidden inputs without firing any
     // event — a light poll while the sheet is open keeps its status
     // line honest the moment a location lands. Self-clears as soon as
@@ -2008,12 +2076,14 @@ function _initGuestCheckout() {
     document.getElementById('guest-co-goto-login')?.addEventListener('click', (e) => {
         e.preventDefault();
         if (_guestCoLocPoll) { clearInterval(_guestCoLocPoll); _guestCoLocPoll = null; }
+        _clearLocBtnFlash();
         if (typeof closeModal === 'function') closeModal('modal-guest-checkout');
         if (typeof openModal  === 'function') openModal('modal-login');
     });
 
     modal.querySelector('[data-close]')?.addEventListener('click', () => {
         if (_guestCoLocPoll) { clearInterval(_guestCoLocPoll); _guestCoLocPoll = null; }
+        _clearLocBtnFlash();
         if (typeof closeModal === 'function') closeModal('modal-guest-checkout');
         else modal.classList.remove('active');
     });
@@ -2027,6 +2097,25 @@ function _initGuestCheckout() {
         if (!/^(03|70|71|76|78|79|81|82|83|86)\d{6}$/.test(phoneRaw)) {
             _guestCoErr('رقم الهاتف غير صحيح. أدخل رقماً لبنانياً صحيحاً (مثال: 03123456)');
             return;
+        }
+
+        // Same admin-configurable location obligation as the regular
+        // checkout button (see cartCheckout): required by default,
+        // soft one-time warning when the admin disables it.
+        const guestHasLoc = !!(document.getElementById('cart-loc-lat')?.value && document.getElementById('cart-loc-lng')?.value);
+        if (!guestHasLoc) {
+            const reqLocCfg     = await _loadRequireLocationCfg();
+            const locationIsReq = (reqLocCfg === null || reqLocCfg === undefined || reqLocCfg === true || reqLocCfg === 'true');
+            _flashLocButtons(['guest-co-loc-gps', 'guest-co-loc-map']);
+            if (locationIsReq) {
+                _guestCoErr('📍 يجب تحديد موقعك (موقعي الحالي أو تحديد يدوي) لإرسال الطلب');
+                return;
+            }
+            if (!window._delivoGuestLocNudged) {
+                window._delivoGuestLocNudged = true;
+                _guestCoErr('⚠️ لم تحدد موقعك — سيصل طلبك بدون موقع دقيق. اضغط الزر مجدداً للمتابعة');
+                return;
+            }
         }
         _guestCoErr('');
 

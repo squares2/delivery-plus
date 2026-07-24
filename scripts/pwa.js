@@ -26,6 +26,66 @@ function _syncBottomBarOffset() {
     bar.style.bottom = height + 'px';
 }
 
+// ── 0.5 Bake this device's UUID into the install manifest ──────
+// The receiving half lives at the top of firebase-init.js (the ?duid=
+// adoption block); this is the giving half. While the customer is
+// still in the BROWSER, rewrite the manifest's start_url to carry the
+// browser's device UUID — so if they later tap "Add to Home Screen",
+// the installed PWA launches with ?duid=… and adopts the same identity
+// instead of minting a new one.
+//
+// iOS-only on purpose:
+//   • iOS is where the problem exists (Safari ↔ home-screen apps have
+//     fully partitioned storage). Android's installed PWA shares the
+//     browser profile's storage, so the UUID already matches there —
+//     and swapping in a blob: manifest on Android can break Chrome's
+//     WebAPK install flow, so we don't touch it.
+//   • Skipped when already running standalone — nothing to hand off.
+//
+// Implementation notes: a blob: manifest resolves relative URLs
+// against the blob origin (i.e. breaks them), so every icon src plus
+// start_url/scope is absolutized against the real origin first.
+(function _injectUuidManifest() {
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS masquerading as macOS
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+    if (!isIOS || isStandalone) return;
+
+    const link = document.querySelector('link[rel="manifest"]');
+    if (!link) return;
+
+    async function inject() {
+        try {
+            let uuid = localStorage.getItem('delivo_device_uuid');
+            if (!uuid && window.DelivoAuth?.getDeviceUUID) {
+                uuid = await window.DelivoAuth.getDeviceUUID();
+            }
+            if (!uuid) return;
+
+            const res = await fetch('manifest.json');
+            if (!res.ok) return;
+            const m = await res.json();
+
+            m.start_url = location.origin + '/?duid=' + encodeURIComponent(uuid);
+            m.scope     = location.origin + '/';
+            if (Array.isArray(m.icons)) {
+                m.icons = m.icons.map(ic => ({ ...ic, src: new URL(ic.src, location.href).href }));
+            }
+
+            const blob = new Blob([JSON.stringify(m)], { type: 'application/manifest+json' });
+            link.href = URL.createObjectURL(blob);
+            console.log('[PWA] Manifest start_url now carries this device UUID for install handoff ✓');
+        } catch (_) { /* static manifest stays — worst case is today's behavior */ }
+    }
+
+    // DelivoAuth appears once firebase-init has done its thing; give it a
+    // moment, then go with whatever's available (localStorage fast path
+    // usually already has the UUID by then).
+    if (document.readyState === 'complete') setTimeout(inject, 1200);
+    else window.addEventListener('load', () => setTimeout(inject, 1200));
+})();
+
 // ── 1. Register Service Worker ────────────────────────────────
 // Skipped entirely on localhost/127.0.0.1 — the whole point of this
 // service worker is production caching behavior (instant repeat visits,

@@ -568,6 +568,17 @@ input, select, textarea { font-family: var(--font); }
     display: flex; align-items: center; gap: 2px; flex-shrink: 0;
     font-size: var(--fs-sm); color: var(--yellow);
 }
+/* "🧮 تلقائي" — recomputes this order's delivery fee from the smart
+   (distance-based) formula/tiers, same engine as customer checkout and
+   the otlob auto-calc button. Sits right under the fee field so it
+   reads as part of the same control, not a separate bolted-on action. */
+.oc-fee-auto-btn {
+    background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 5px; color: var(--yellow); font-size: 0.68rem; font-weight: 700;
+    padding: 1px 5px; cursor: pointer; font-family: inherit; line-height: 1.5;
+}
+.oc-fee-auto-btn:hover { background: rgba(245,158,11,0.2); }
+.oc-fee-auto-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .oc-extra-input {
     width: 100px; background: transparent; border: none; border-bottom: 1px dashed rgba(167,139,250,0.5);
     color: #a78bfa; font-family: var(--mono); font-size: var(--fs-sm); font-weight: 700;
@@ -7130,6 +7141,7 @@ function buildOrderCard(key, order) {
                 <span class="oc-fee-edit" title="رسم التوصيل — محسوب تلقائياً، يمكن تعديله يدوياً">
                     💵<span class="oc-fee-cur">${_currencySymbol(order.deliveryFee)}</span><input type="number" class="oc-fee-input" data-oid="${key}" value="${order.deliveryFee != null && order.deliveryFee !== '' ? order.deliveryFee : (deliveryProfit !== null ? deliveryProfit.toFixed(2) : '')}" placeholder="—" step="0.01">
                 </span>
+                <button type="button" class="oc-fee-auto-btn" data-fee-auto="${key}" title="احسب رسم التوصيل تلقائياً حسب المسافة (يتطلب تحديد موقع التوصيل)">🧮 تلقائي</button>
             </div>
             <div class="oc-field-group">
                 <span class="oc-field-label">ربح إضافي</span>
@@ -7288,6 +7300,19 @@ function buildOrderCard(key, order) {
                 total: (orderOnlyPrice + newDeliveryUSD).toFixed(2)
             });
             toast('✅ تم تحديث رسم التوصيل');
+        });
+    }
+
+    // "🧮 تلقائي" — recompute this order's delivery fee from the smart
+    // (distance-based) engine on demand, using the order's saved
+    // destination pin + its store's location.
+    const feeAutoBtn = card.querySelector('[data-fee-auto]');
+    if (feeAutoBtn) {
+        feeAutoBtn.addEventListener('click', async e => {
+            e.stopPropagation();
+            feeAutoBtn.disabled = true;
+            await _ocAutoCalcFee(key);
+            renderOrders();
         });
     }
 
@@ -12921,6 +12946,19 @@ function renderSettings() {
                 </label>
             </div>
         </div>
+        <div class="settings-section">
+            <div class="settings-section-title">📍 إلزامية تحديد موقع التوصيل</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">إلزام العميل بتحديد الموقع (موقعي الحالي أو تحديد يدوي) قبل إرسال الطلب</div>
+                    <div class="setting-sub">عند التفعيل (الافتراضي) لا يمكن الضغط على "إرسال الطلب" بدون موقع محدد. عند التعطيل يُسمح بالإرسال بدون موقع بعد تحذير العميل بأن طلبه سيصل بدون موقع دقيق</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-require-location" onchange="setRequireLocation(this.checked)" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
         <div class="settings-section" id="delivery-settings-section">
             <div class="settings-section-title">🛵 رسوم التوصيل</div>
 
@@ -14593,6 +14631,8 @@ async function loadSettings() {
         if (topStoresTog) topStoresTog.checked = (s.topStoresVisible === null || s.topStoresVisible === undefined || s.topStoresVisible === true || s.topStoresVisible === 'true');
         const introTog = document.getElementById('toggle-intro');
         if (introTog) introTog.checked = (s.introEnabled === null || s.introEnabled === undefined || s.introEnabled === true || s.introEnabled === 'true');
+        const reqLocTog = document.getElementById('toggle-require-location');
+        if (reqLocTog) reqLocTog.checked = (s.requireLocation === null || s.requireLocation === undefined || s.requireLocation === true || s.requireLocation === 'true');
         // Test mode
         const testToggle = document.getElementById('toggle-test-mode');
         const testBadge  = document.getElementById('test-mode-badge');
@@ -14613,6 +14653,13 @@ async function setMaintenance(val) {
         await fbSet('settings/maintenance', val);
         toast(val ? '🔧 وضع الصيانة مفعّل' : '✅ الموقع يعمل بشكل طبيعي');
     } catch(e) { toast('فشل تحديث وضع الصيانة', true); }
+}
+
+async function setRequireLocation(val) {
+    try {
+        await fbSet('settings/requireLocation', val);
+        toast(val ? '📍 إلزامية الموقع مفعّلة — لا يمكن الطلب بدون موقع' : '⚠️ إلزامية الموقع معطّلة — يمكن الطلب بدون موقع بعد تحذير العميل');
+    } catch(e) { toast('فشل تحديث إعداد إلزامية الموقع', true); }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -18865,9 +18912,61 @@ function _ocEditOrderLocation(key, order) {
                 updateOrderField(key, 'lng', String(newLng)),
             ]);
             toast('✅ تم تحديث موقع التوصيل');
+            // Setting/changing the location is exactly the moment the smart
+            // delivery fee can now be (re)computed — auto-trigger the same
+            // calculation the "🧮 تلقائي" button runs, so the admin doesn't
+            // have to press both separately.
+            if (allOrders[key]) { allOrders[key].lat = String(newLat); allOrders[key].lng = String(newLng); }
+            await _ocAutoCalcFee(key, { quiet: true });
             renderOrders();
         },
     });
+}
+
+// Resolve a store's coordinates for the order-card auto-fee calc —
+// external-store orders carry their own storeLat/storeLng (saved by
+// _ocEditOrderStore), internal stores are looked up from the live
+// allStores cache by name.
+function _ocResolveStoreCoords(order) {
+    if (order.storeLat && order.storeLng) {
+        return { lat: parseFloat(order.storeLat), lng: parseFloat(order.storeLng) };
+    }
+    const s = allStores[order.store];
+    if (s && s.lat && s.lng) return { lat: parseFloat(s.lat), lng: parseFloat(s.lng) };
+    return { lat: null, lng: null };
+}
+
+// Order-card "🧮 تلقائي" — computes and applies the smart delivery fee for
+// one specific order, using its saved destination pin (order.lat/lng) and
+// its store's location, via the same _calcAutoDeliveryFee engine as the
+// otlob form and regular customer checkout. `opts.quiet` suppresses the
+// "no location" warning toast, used when this is auto-triggered right
+// after a location was just saved (so nothing should be missing) rather
+// than from the admin pressing the button directly.
+async function _ocAutoCalcFee(key, opts = {}) {
+    const order = allOrders[key];
+    if (!order) return;
+    const hasLoc = order.lat && order.lat !== '0';
+    if (!hasLoc) {
+        if (!opts.quiet) toast('لا يوجد موقع توصيل محفوظ لهذا الطلب — حدّد الموقع أولاً', true);
+        return;
+    }
+    const [destLat, destLng] = _fixSwappedLatLng(parseFloat(order.lat), parseFloat(order.lng));
+    const { lat: storeLat, lng: storeLng } = _ocResolveStoreCoords(order);
+    const result = await _calcAutoDeliveryFee(destLat, destLng, storeLat, storeLng).catch(() => null);
+    if (!result) {
+        if (!opts.quiet) toast('تعذّر الحساب — تأكّد من تحديد متجر الطلب وموقعه', true);
+        return;
+    }
+    const effectiveDeliveryRaw = (order.deliveryFee != null && order.deliveryFee !== '') ? order.deliveryFee : getOrderDeliveryProfit(order, companyVars);
+    const orderOnlyUSD    = _getOrderOnlyPrice(order, effectiveDeliveryRaw);
+    const newDeliveryUSD  = _deliveryFeeToUSD(String(result.fee));
+    await updateOrderFields(key, {
+        deliveryFee: String(result.fee),
+        orderprice : orderOnlyUSD.toFixed(2),
+        total      : (orderOnlyUSD + newDeliveryUSD).toFixed(2),
+    });
+    toast(`🧮 رسم تلقائي: ${result.fee.toLocaleString('en-US')} ل.ل${result.distanceKm != null ? ' — ' + result.distanceKm.toFixed(1) + ' كم' : ''}`);
 }
 
 // Lets admin correct/backdate an order's date & time — mainly for
@@ -20418,6 +20517,39 @@ async function _aoAutoCalcFee() {
         if (input) input.value = String(fee);
         toast(`🧮 المسافة ${km.toFixed(1)} كم — رسم مقترح ${fee.toLocaleString('en-US')} ل.ل${nightUSD > 0 ? ' 🌙' : ''}`);
     } catch (e) { toast('تعذّر الحساب التلقائي', true); }
+}
+
+// Shared core of the otlob auto-calc button above, factored out so an
+// existing order card's own "🧮 تلقائي" button (_ocAutoCalcFee below) can
+// reuse the exact same smart-delivery + night-surcharge math instead of a
+// third copy of it. Returns { fee, distanceKm } (fee in ل.ل) or null when
+// it can't be computed (missing destination, or missing store location
+// in formula mode).
+async function _calcAutoDeliveryFee(destLat, destLng, storeLat, storeLng) {
+    if (destLat == null || destLng == null || isNaN(destLat) || isNaN(destLng)) return null;
+    if (_aoSmartCfgCache === undefined) _aoSmartCfgCache = await fbGet('settings/smartDelivery').catch(() => null);
+    const cfg  = _aoSmartCfgCache;
+    const mode = cfg?.mode || 'formula';
+
+    if (mode === 'centerTiers') {
+        const center = await fbGet('settings/deliveryCenter').catch(() => null);
+        if (!center || typeof center.lat !== 'number') return null;
+        const km = _aoHaversineKm(destLat, destLng, center.lat, center.lng);
+        const tierFee = _aoCalcCenterTierFee(km, cfg.centerTiers);
+        const baseFeeRaw = tierFee !== null ? tierFee : parseFloat(cfg?.baseFee ?? 1.5);
+        const nightUSD = await _aoCalcNightSurchargeUSD(km);
+        return { fee: _aoNormalizeFeeLBP(_toUSD(baseFeeRaw) + nightUSD), distanceKm: km };
+    }
+
+    if (storeLat == null || storeLng == null || isNaN(storeLat) || isNaN(storeLng)) return null;
+    const baseFee   = parseFloat(cfg?.baseFee   ?? 1.5);
+    const ratePerKm = parseFloat(cfg?.ratePerKm ?? 0.3);
+    const minFee    = parseFloat(cfg?.minFee    ?? 0.5);
+    const maxFee    = parseFloat(cfg?.maxFee    ?? 5.0);
+    const km = _aoHaversineKm(storeLat, storeLng, destLat, destLng);
+    const baseFeeUSD = Math.min(maxFee, Math.max(minFee, baseFee + km * ratePerKm));
+    const nightUSD = await _aoCalcNightSurchargeUSD(km);
+    return { fee: _aoNormalizeFeeLBP(baseFeeUSD + nightUSD), distanceKm: km };
 }
 
 // ── Submit ───────────────────────────────────────────────────
