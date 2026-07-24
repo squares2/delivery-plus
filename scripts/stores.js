@@ -104,6 +104,7 @@ async function fetchAllStores() {
                     type,
                     rank        : s.rank || 0,
                     disabled    : s.disabled,
+                    autoHours   : s.autoHours || null, // ← daily auto open/close window, needed for _autoHoursClosedInfo
                 });
             }
         }

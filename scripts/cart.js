@@ -874,6 +874,11 @@ function initCart() {
                 bbBadge.textContent = count;
                 bbBadge.style.display = count > 0 ? 'flex' : 'none';
             }
+            // Same flash toggle as navbar.js's updateCartBadge() — kept in
+            // sync here too since this is the path item add/remove actually
+            // calls (navbar.js's own updater fires separately, e.g. on
+            // auth state changes).
+            document.getElementById('bb-cart-btn')?.classList.toggle('bb-tab--has-items', count > 0);
         }
     };
 
@@ -977,7 +982,6 @@ function initCart() {
     }
 
     function _renderStoreGroup(storeName, items) {
-        const feeDisplay = `<span class="fee-loading" style="color:var(--clr-gray-400);font-size:0.75em;">…</span>`;
         const displayName = (_nameArCache[storeName] && _nameArCache[storeName]) || storeName;
 
         return `
@@ -992,34 +996,15 @@ function initCart() {
             <div class="cart-store-group__subtotal">
                 المجموع: <strong>${'$' + _storeUSD(items).toFixed(2)}</strong>
             </div>
-            <div class="cart-store-group__delivery-hint" id="fee-hint-${_cslug(storeName)}">
-                🛵 رسوم توصيل هذا المتجر: ${feeDisplay}
+            <!-- Per-store delivery fee is intentionally NOT shown as a number
+                 anymore — it depends on the customer's distance from this
+                 store, which isn't finalized until Delivo staff review the
+                 order, so a computed estimate here just confused people.
+                 A plain explanatory remark replaces it instead. -->
+            <div class="cart-store-group__delivery-hint cart-store-group__delivery-hint--remark" id="fee-hint-${_cslug(storeName)}">
+                🛵 رسم التوصيل سيُضاف حسب المسافة — سيحدده موظف ديليفو لاحقاً
             </div>
         </div>`;
-    }
-
-    // Async: fill in smart fee hint after DOM is ready
-    async function _updateStoreFeeHints() {
-        const cart    = window.DelivoCart;
-        const coords  = _getCustomerCoords();
-        const stores  = cart.getStores();
-        for (const storeName of stores) {
-            const items    = cart.getStoreItems(storeName);
-            const subtotal = _storeUSD(items);
-            const hintEl   = document.getElementById(`fee-hint-${_cslug(storeName)}`);
-            if (!hintEl) continue;
-            try {
-                const fee = await _getStoreFee(storeName, coords.lat, coords.lng, subtotal);
-                const cfg = await _loadSmartCfg();
-                const isSmartMode = cfg && cfg.enabled;
-                const badge = isSmartMode
-                    ? `<span style="font-size:0.68em;background:rgba(255,92,0,0.12);color:var(--clr-orange);border-radius:4px;padding:1px 5px;margin-right:4px;">ذكي</span>`
-                    : '';
-                hintEl.innerHTML = `🛵 رسوم توصيل هذا المتجر: ${badge}<strong>${_formatDeliveryFee(fee)}</strong>`;
-            } catch(_) {}
-        }
-        // Also refresh totals with smart fees
-        await _refreshTotalsAsync();
     }
 
     /* ── Single cart item row HTML ──────────────────────────── */
@@ -1184,68 +1169,31 @@ function initCart() {
     }
 
     function _refreshTotals() {
-        // Sync version — uses flat fee; replaced by async version when smart mode is on
+        // Delivery fee is never charged/estimated at checkout anymore (see
+        // cartCheckout) — the footer just shows a plain remark instead of
+        // a number, and the grand total is subtotal minus any discount.
         const cart         = window.DelivoCart;
         const subtotalEl   = document.getElementById('cart-subtotal');
         const deliveryEl   = document.getElementById('cart-delivery');
         const grandtotalEl = document.getElementById('cart-grandtotal');
         const bannerEl     = document.getElementById('cart-free-delivery-banner');
         const subtotalUSD  = _cartTotalUSD();
-        const storeCount   = cart.getStores().length;
 
-        let deliveryFee = storeCount * DELIVERY_FEE_PER_STORE; // raw USD — used for the actual total math
-        const { grandTotal } = _applyActiveRewardToTotals(subtotalUSD, deliveryFee, false);
+        const { grandTotal } = _applyActiveRewardToTotals(subtotalUSD, 0, false);
 
         if (subtotalEl)   subtotalEl.textContent   = '$' + subtotalUSD.toFixed(2);
-        if (deliveryEl) {
-            if (_activeReward && _activeReward.type === 'free_delivery') {
-                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">${_formatDeliveryFee(storeCount * DELIVERY_FEE_PER_STORE)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
-            } else {
-                deliveryEl.textContent = deliveryFee > 0 ? _formatDeliveryFee(deliveryFee) : 'مجاناً';
-            }
-        }
+        if (deliveryEl)   deliveryEl.textContent   = 'يُحدَّد لاحقاً حسب المسافة';
         if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);
 
         if (bannerEl) bannerEl.style.display = 'none';
-
-        // Trigger async smart-fee update (non-blocking)
-        _updateStoreFeeHints().catch(() => {});
     }
 
+    // Kept as a thin alias — a few call sites (e.g. after location/reward
+    // changes) await this expecting the async signature; there's nothing
+    // left to await now that delivery isn't computed here, so it just
+    // runs the sync version.
     async function _refreshTotalsAsync() {
-        const cart         = window.DelivoCart;
-        const subtotalEl   = document.getElementById('cart-subtotal');
-        const deliveryEl   = document.getElementById('cart-delivery');
-        const grandtotalEl = document.getElementById('cart-grandtotal');
-        const bannerEl     = document.getElementById('cart-free-delivery-banner');
-        const subtotalUSD  = _cartTotalUSD();
-        const stores       = cart.getStores();
-        const coords       = _getCustomerCoords();
-
-        if (subtotalEl) subtotalEl.textContent = '$' + subtotalUSD.toFixed(2);
-        if (bannerEl)   bannerEl.style.display = 'none';
-
-        // Sum per-store fees
-        let totalDelivery = 0;
-        for (const storeName of stores) {
-            const items   = cart.getStoreItems(storeName);
-            const storeSub = _storeUSD(items);
-            const fee     = await _getStoreFee(storeName, coords.lat, coords.lng, storeSub);
-            totalDelivery += fee;
-        }
-        // totalDelivery stays raw USD here — it feeds the actual grand-total
-        // math below; only the displayed delivery line is shown in LBP.
-
-        const { deliveryFee, grandTotal } = _applyActiveRewardToTotals(subtotalUSD, totalDelivery, false);
-        if (deliveryEl) {
-            if (_activeReward && _activeReward.type === 'free_delivery') {
-                deliveryEl.innerHTML = `<span style="text-decoration:line-through;color:#aaa;font-size:0.82em;">${_formatDeliveryFee(totalDelivery)}</span> <span style="color:#ea580c;font-weight:800;">مجاناً 🎉</span>`;
-            } else {
-                deliveryEl.textContent = _formatDeliveryFee(deliveryFee);
-                _nightBadgeHtml().then(badge => { if (badge) deliveryEl.insertAdjacentHTML('beforeend', badge); });
-            }
-        }
-        if (grandtotalEl) grandtotalEl.textContent = '$' + grandTotal.toFixed(2);
+        _refreshTotals();
     }
 
     function _syncStorePanelQty(id, qty) {
@@ -1388,29 +1336,30 @@ function initCart() {
                 }).then(() => { window.DelivoUser.location = newLoc; }).catch(() => {});
             }
 
-            // Compute effective delivery fee per store (smart or flat)
-            const coords = _getCustomerCoords();
-
-            // Resolve active queued reward (free_delivery / discount_fixed / discount_percent)
+            // Resolve active queued reward (discount_fixed / discount_percent —
+            // free_delivery rewards are moot now that checkout never charges
+            // for delivery in the first place; _consumeActiveReward below
+            // still marks any queued free_delivery reward as used so it
+            // doesn't linger, it just has nothing left to waive here).
             const activeRewardNow = await _checkActiveReward();
 
-            // Write one request per store
+            // Delivery fee at checkout time is intentionally always 0 —
+            // it depends on distance from each store, which isn't known
+            // reliably enough here to charge for. Delivo staff review the
+            // order and set the real fee afterward from the admin order
+            // card's own editable field (already wired up separately);
+            // the customer sees only the "سيُحدَّد لاحقاً" remark, never a
+            // number, so there's nothing here to under/over-charge.
             for (const storeName of stores) {
                 const storeItems     = cart.getStoreItems(storeName);
                 const storeSub       = _storeUSD(storeItems);
-                let   smartFee       = await _getStoreFee(storeName, coords.lat, coords.lng, storeSub);
-                // smartFee stays raw USD here — it drives storeTotalNum below.
-                // The LBP-converted value (for saving/display) is derived
-                // separately further down, after any free-delivery reward.
+                let storeTotalNum = storeSub;
 
-                // Apply free-delivery reward
-                if (activeRewardNow && activeRewardNow.type === 'free_delivery') {
-                    smartFee = 0;
-                }
-
-                let storeTotalNum = storeSub + smartFee;
-
-                // Apply discount rewards proportionally across stores
+                // Apply discount rewards proportionally across stores.
+                // (free_delivery rewards are moot now that delivery is
+                // never charged at checkout — nothing left for them to
+                // waive — but discount rewards on the item subtotal
+                // itself still apply as before.)
                 if (activeRewardNow && activeRewardNow.type === 'discount_fixed' && stores.length) {
                     const share = (parseFloat(activeRewardNow.value) || 0) / stores.length;
                     storeTotalNum = Math.max(0, storeTotalNum - share);
@@ -1420,7 +1369,7 @@ function initCart() {
 
                 const cartStr        = storeItems.map(i => `${i.qty}:${i.name}:${i.price}:${storeName}:${(i.notes||'').replace(/,/g,'،').replace(/:/g,'؛')}`).join(',');
                 const storeTotal     = storeTotalNum.toFixed(2);
-                const deliveryFeeLBP = smartFee > 0 ? _normalizeDeliveryFee(smartFee) : 0;
+                const deliveryFeeLBP = 0;
                 const requestKey = `id_${nextId}`;
 
                 const requestObj = {

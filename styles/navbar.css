@@ -148,6 +148,32 @@ body {
     box-shadow: 0 0 0 2px #0d0d0d;
 }
 
+/* ── Cart tab "has items" flash — a gentle attention pulse on the
+   whole cart icon (not just the badge) so a cart sitting un-ordered
+   stays visible in a corner-of-the-eye glance, not just a tiny number.
+   Purely visual; toggled by updateCartBadge()/DelivoCart.updateBadge()
+   whenever the cart has 1+ items. ── */
+#bb-cart-btn.bb-tab--has-items .bb-tab__icon svg {
+    animation: bb-cart-flash 1.4s ease-in-out infinite;
+}
+#bb-cart-btn.bb-tab--has-items #bb-cart-badge {
+    animation: bb-cart-badge-flash 1.4s ease-in-out infinite;
+}
+@keyframes bb-cart-flash {
+    0%, 100% { stroke: var(--clr-orange, #FF5C00); transform: scale(1); }
+    50%      { stroke: #ff9c00; transform: scale(1.14); }
+}
+@keyframes bb-cart-badge-flash {
+    0%, 100% { box-shadow: 0 0 0 2px #0d0d0d, 0 0 0 0 rgba(255,92,0,0.6); }
+    50%      { box-shadow: 0 0 0 2px #0d0d0d, 0 0 0 5px rgba(255,92,0,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #bb-cart-btn.bb-tab--has-items .bb-tab__icon svg,
+    #bb-cart-btn.bb-tab--has-items #bb-cart-badge {
+        animation: none;
+    }
+}
+
 /* ══════════════════════════════════════════════════════════
    CENTER LOGO BUTTON — elevated circle (like ArabSeed)
 ══════════════════════════════════════════════════════════ */

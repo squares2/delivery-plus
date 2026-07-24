@@ -271,6 +271,14 @@
 }
 .cart-total-label { font-weight: 600; }
 .cart-total-val   { font-weight: 700; }
+/* Delivery fee is a plain informational remark now, not a number —
+   lighter weight than the bold monetary values around it so it doesn't
+   read as a price. */
+.cart-total-val--remark {
+    font-weight: 600;
+    font-size: 0.85em;
+    color: var(--clr-gray-500);
+}
 
 /* ── Checkout button ──────────────────────────────────────── */
 .cart-checkout-warning {
@@ -438,6 +446,13 @@
 .cart-store-group__delivery-hint strong {
     color: var(--clr-orange, #FF5C00);
     font-weight: 800;
+}
+/* Remark variant — no computed number to bold anymore, just a plain
+   explanatory line, so it's lighter-weight than the old fee display. */
+.cart-store-group__delivery-hint--remark {
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: normal;
 }
 /* ── Swipe drag handle (mobile hint) ─────────────────────── */
 .cart-drag-handle {

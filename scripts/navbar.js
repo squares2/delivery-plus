@@ -1309,4 +1309,7 @@ function updateCartBadge() {
     const count = window.DelivoCart ? window.DelivoCart.getCount() : 0;
     badge.textContent = count;
     badge.style.display = count > 0 ? 'flex' : 'none';
+    // Flash the whole cart tab while items are sitting un-ordered — a
+    // quiet nudge that doesn't require opening the cart to notice.
+    document.getElementById('bb-cart-btn')?.classList.toggle('bb-tab--has-items', count > 0);
 }

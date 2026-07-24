@@ -204,9 +204,32 @@ let _qmStoresCache = null;
 
 async function _qmFetchStoreList() {
     if (_qmStoresCache) return _qmStoresCache;
-    _qmStoresCache = typeof fetchAllStores === 'function'
-        ? await fetchAllStores()
-        : [];
+    const [rawStores, storeStatusRaw] = await Promise.all([
+        typeof fetchAllStores === 'function' ? fetchAllStores() : [],
+        rtdbGet('storeStatus').catch(() => null),
+    ]);
+    const storeStatus = storeStatusRaw || {};
+
+    // Same closed-status logic as categories.js's store dropdown — manual
+    // admin closure (storeStatus/{name}.closed) always wins; the daily
+    // autoHours window is only checked when there's no manual closure.
+    // This is the piece the quick price-list previously skipped entirely
+    // (it only ever checked .disabled), which is why a temporarily-closed
+    // store's real prices were still fully visible here.
+    _qmStoresCache = rawStores.map(s => {
+        const st           = storeStatus[s.companyname];
+        const manualClosed = st && (st.closed === true || st.closed === '1' || st.closed === 1);
+        const autoInfo     = !manualClosed && typeof _autoHoursClosedInfo === 'function'
+                                ? _autoHoursClosedInfo(s.autoHours) : null;
+        const closed       = manualClosed || !!autoInfo;
+        if (!closed) return s;
+        return {
+            ...s,
+            _closed      : true,
+            _closedReason: manualClosed ? (st.reason  || '') : (autoInfo ? autoInfo.reason     : ''),
+            _opensAt     : manualClosed ? (st.opensAt || '') : (autoInfo ? autoInfo.opensAtIso  : ''),
+        };
+    });
     return _qmStoresCache;
 }
 
@@ -240,8 +263,15 @@ function _qmPickerRow(store) {
     const tag   = (typeof TYPE_TAGS_AR !== 'undefined' && TYPE_TAGS_AR[store.type]) || store.type || '';
     const slug  = (store.imgSlug && store.imgSlug.trim()) || (typeof toSlug === 'function' ? toSlug(store.companyname) : '');
     const name  = store.nameAr && store.nameAr.trim() ? store.nameAr.trim() : store.companyname;
+    const isClosed = !!store._closed;
+    // Closed stores stay visible in the list (so it's clear the store
+    // exists) but aren't clickable — same rule as the homepage store
+    // dropdown: no prices shown for a store that isn't taking orders
+    // right now, whether that's a manual admin closure or outside its
+    // daily auto-hours window.
     return `
-    <button class="qm-pick-row" onclick='_qmPickStore(${JSON.stringify(store).replace(/'/g,"&apos;")})'>
+    <button class="qm-pick-row${isClosed ? ' qm-pick-row--closed' : ''}"
+            ${isClosed ? 'disabled' : `onclick='_qmPickStore(${JSON.stringify(store).replace(/'/g,"&apos;")})'`}>
         <div class="qm-pick-row__img">
             <img src="assets/${slug}.webp" alt="" loading="lazy"
                  onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -249,9 +279,9 @@ function _qmPickerRow(store) {
         </div>
         <div class="qm-pick-row__info">
             <div class="qm-pick-row__name">${name}</div>
-            <div class="qm-pick-row__tag">${tag}</div>
+            <div class="qm-pick-row__tag">${isClosed ? `⏰ مغلق حالياً${store._closedReason ? ' — ' + store._closedReason : ''}` : tag}</div>
         </div>
-        <svg class="qm-pick-row__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        ${isClosed ? '' : `<svg class="qm-pick-row__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`}
     </button>`;
 }
 
@@ -289,6 +319,10 @@ function _qmPickerRender(stores) {
 }
 
 async function _qmPickStore(store) {
+    // Defensive — the picker row above already disables clicking for a
+    // closed store, but never show prices here even if this gets called
+    // some other way.
+    if (store && store._closed) return;
     closeQmPicker();
     _ensureQuickMenu();
     document.getElementById('qm-overlay').classList.add('active');
