@@ -331,6 +331,21 @@
 .cart-checkout-btn--loading {
     pointer-events: none;
 }
+/* Gentle attention pulse — nudges the customer toward the one action
+   that actually completes the order, the same "don't just sit there
+   un-ordered" spirit as the flashing cart icon and the abandoned-cart
+   banner. Pauses automatically once disabled/loading (mid-submit or a
+   blocked state), and respects prefers-reduced-motion. */
+.cart-checkout-btn:not(:disabled):not(.cart-checkout-btn--loading) {
+    animation: cart-checkout-pulse 2s ease-in-out infinite;
+}
+@keyframes cart-checkout-pulse {
+    0%, 100% { box-shadow: var(--shadow-orange); transform: scale(1); }
+    50%      { box-shadow: 0 6px 24px rgba(255,92,0,0.55); transform: scale(1.025); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cart-checkout-btn { animation: none !important; }
+}
 
 /* ── Clear cart link ──────────────────────────────────────── */
 .cart-clear-btn {
