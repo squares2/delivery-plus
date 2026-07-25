@@ -20081,27 +20081,36 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave, showAddressSea
     const waRequestPhone = (!showAddressSearch && waPhone && _isCompleteLebanesePhone(waPhone)) ? waPhone : '';
     const waRequestMsg = 'مرحباً 👋، لتحديد موقع التوصيل بدقة، نرجو منك إرسال موقعك الحالي إلينا مباشرة عبر واتساب (📎 ثم 📍 الموقع). شكراً لك 🙏 — Delivo';
 
-    const addressSectionHtml = showAddressSearch ? `
+    const addressSearchHtml = showAddressSearch ? `
                 <div style="display:flex;gap:8px;">
                     <input type="text" id="gmp-addr-input" placeholder="📝 صف العنوان كما ذكره الزبون هاتفياً (مثال: بعلبك، قرب فرن الرحمة، مقابل الصيدلية)"
                         style="flex:1;min-width:0;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--white);font-family:inherit;font-size:0.82rem;">
                     <button id="gmp-addr-search" style="flex-shrink:0;background:var(--surface1,#1a1a1a);border:1px solid var(--orange);border-radius:10px;padding:9px 14px;color:var(--orange);font-family:inherit;font-size:0.8rem;font-weight:800;cursor:pointer;white-space:nowrap;">🔎 تحديد تقريبي</button>
                 </div>
-                <div id="gmp-addr-status" style="display:none;font-size:0.72rem;line-height:1.6;"></div>
-                <div id="gmp-addr-results" style="display:none;flex-wrap:wrap;gap:6px;"></div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <span style="font-size:0.75rem;color:var(--gray);font-weight:700;white-space:nowrap;">📡 إحداثيات:</span>
-                    <input type="text" id="gmp-coord-input" placeholder="الصق الإحداثيات كما هي — مثال: 33.991550, 36.175729 أو 33°59'29.6&quot;N 36°10'32.6&quot;E أو رابط خرائط غوغل"
-                        style="flex:1;min-width:220px;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:inherit;font-size:0.78rem;direction:ltr;text-align:left;">
-                    <button id="gmp-coord-apply" style="flex-shrink:0;background:var(--orange);border:none;border-radius:8px;padding:7px 12px;color:#fff;font-family:inherit;font-size:0.76rem;font-weight:800;cursor:pointer;white-space:nowrap;">📌 تطبيق</button>
-                </div>` : (waRequestPhone ? `
+                <div id="gmp-addr-results" style="display:none;flex-wrap:wrap;gap:6px;"></div>` : '';
+    const waSectionHtml = waRequestPhone ? `
                 <div style="display:flex;gap:8px;align-items:center;">
                     <button type="button" id="gmp-wa-request"
                         style="flex:1;text-align:center;background:rgba(37,211,102,0.12);border:1.5px solid #25D366;border-radius:10px;padding:10px 14px;color:#25D366;font-family:inherit;font-size:0.85rem;font-weight:800;cursor:pointer;">
                         📲 اطلب الموقع من الزبون عبر واتساب
                     </button>
                 </div>
-                <div style="font-size:0.7rem;color:var(--gray);">تُرسَل الرسالة مباشرة دون فتح واتساب — بعد استلام الزبون للموقع، انقر على المكان المطابق في الخريطة أدناه لتثبيت العلامة 📍</div>` : '');
+                <div style="font-size:0.7rem;color:var(--gray);">تُرسَل الرسالة مباشرة دون فتح واتساب — بعد استلام الزبون للموقع، انقر على المكان المطابق في الخريطة أدناه، أو الصق إحداثياته في الحقل أدناه 📍</div>` : '';
+    // The coordinate-paste box is always available — even on the order
+    // delivery-location picker (showAddressSearch:false) — since a caller
+    // may dictate/paste exact coordinates (WhatsApp share, Google Maps
+    // link) rather than only replying to the WhatsApp location-request
+    // button above.
+    const addressSectionHtml = `
+                ${addressSearchHtml}
+                <div id="gmp-addr-status" style="display:none;font-size:0.72rem;line-height:1.6;"></div>
+                ${waSectionHtml}
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <span style="font-size:0.75rem;color:var(--gray);font-weight:700;white-space:nowrap;">📡 إحداثيات:</span>
+                    <input type="text" id="gmp-coord-input" placeholder="الصق الإحداثيات كما هي — مثال: 33.991550, 36.175729 أو 33°59'29.6&quot;N 36°10'32.6&quot;E أو رابط خرائط غوغل"
+                        style="flex:1;min-width:220px;background:var(--surface1,#1a1a1a);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--white);font-family:inherit;font-size:0.78rem;direction:ltr;text-align:left;">
+                    <button id="gmp-coord-apply" style="flex-shrink:0;background:var(--orange);border:none;border-radius:8px;padding:7px 12px;color:#fff;font-family:inherit;font-size:0.76rem;font-weight:800;cursor:pointer;white-space:nowrap;">📌 تطبيق</button>
+                </div>`;
 
     // Admin almost always opens this on a PC, so let it actually use the
     // screen instead of sitting in a small fixed box — on narrow/mobile
@@ -20225,15 +20234,14 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave, showAddressSea
     // (see waRequestPhone/addressSectionHtml above) — order delivery-
     // location editing replaces it with the WhatsApp-request button
     // instead, so none of these elements exist in that case.
-    let setAddrStatus = () => {}; // no-op stand-in when the section is hidden
-    if (showAddressSearch) {
     const addrStatusEl  = overlay.querySelector('#gmp-addr-status');
-    const addrResultsEl = overlay.querySelector('#gmp-addr-results');
-    setAddrStatus = (text, color) => {
+    const setAddrStatus = (text, color) => {
         addrStatusEl.style.display = text ? 'block' : 'none';
         addrStatusEl.style.color = color || 'var(--gray)';
         addrStatusEl.textContent = text || '';
     };
+    if (showAddressSearch) {
+    const addrResultsEl = overlay.querySelector('#gmp-addr-results');
     const focusCandidate = (c) => {
         clearUncertainty();
         uncertaintyCircle = L.circle([c.lat, c.lng], {
@@ -20282,9 +20290,14 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave, showAddressSea
     };
     overlay.querySelector('#gmp-addr-search').addEventListener('click', runAddrSearch);
     overlay.querySelector('#gmp-addr-input').addEventListener('keydown', e => { if (e.key === 'Enter') runAddrSearch(); });
+    } // end if (showAddressSearch)
 
     // ── Exact pin from a pasted coordinate string (WhatsApp share,
     // Google Maps panel, DMS, or a full maps URL) — one box, any format.
+    // Always wired up (not just when showAddressSearch is true) so the
+    // order delivery-location picker — which relies on the WhatsApp
+    // location-request button instead of the address-search box — can
+    // still accept coordinates the customer shares back.
     const coordInput = overlay.querySelector('#gmp-coord-input');
     const applyCoords = () => {
         const parsed = _gmpParseCoords(coordInput.value);
@@ -20302,7 +20315,6 @@ function _openGenericMapPicker({ title, initLat, initLng, onSave, showAddressSea
     // Pasting is the whole point of this box — apply immediately so the
     // admin doesn't even need to press the button.
     coordInput.addEventListener('paste', () => setTimeout(applyCoords, 50));
-    } // end if (showAddressSearch)
 
     // ── Reference layers: registered customers' saved locations +
     // unregistered guestCustomers/ callers' last known address, plus
