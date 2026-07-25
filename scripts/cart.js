@@ -30,7 +30,26 @@ function _showToast(msg, type = 'success') {
     _covToastTimer = setTimeout(() => { toast.classList.remove('visible'); _covToastTimer = null; }, 4000);
 }
 
-/* ── Prefetch admin phone for the warning link in cart footer ────────── */
+// Order-confirmation popup — deliberately its OWN element (not the shared
+// #cart-toast used by _showToast elsewhere), and removed from the DOM
+// entirely after a few seconds rather than just having a class toggled
+// off. The previous version reused #cart-toast and relied on a class
+// timer that could get stepped on by another _showToast call firing
+// around the same moment (e.g. reward toast, coverage warnings) —
+// whichever call's timer lost the race left the element sitting there
+// indefinitely. A dedicated element with its own lifecycle avoids that
+// entirely.
+function _showOrderSuccessPopup(msg) {
+    const el = document.createElement('div');
+    el.className = 'cart-toast cart-toast--success';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('visible')));
+    setTimeout(() => {
+        el.classList.remove('visible');
+        setTimeout(() => el.remove(), 350); // let the fade-out transition finish first
+    }, 3200);
+}
 function _applyAdminPhoneLink(phone) {
     const clean = String(phone).replace(/[^0-9]/g, '');
     if (!clean || clean.length < 7) return;
@@ -1568,7 +1587,7 @@ function initCart() {
             } else {
                 successMsg = `✅ تم إرسال ${stores.length > 1 ? stores.length + ' طلبات' : 'طلبك'} بنجاح!`;
             }
-            _showToast(successMsg, 'success');
+            _showOrderSuccessPopup(successMsg);
             // Request notification permission after first order placed
             if (typeof window._onOrderPlaced === 'function') window._onOrderPlaced();
 
