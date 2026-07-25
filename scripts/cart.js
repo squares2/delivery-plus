@@ -119,6 +119,43 @@ function _clearLocBtnFlash() {
     if (_locBtnFlashTimer) { clearTimeout(_locBtnFlashTimer); _locBtnFlashTimer = null; }
 }
 
+// Big, explicit popup shown when the location obligation is OFF (admin
+// setting) and the customer tries to send an order with no location set.
+// Replaces the old pattern of a small inline red warning that only
+// registered on a *second* press of "إرسال الطلب" — easy to miss and gave
+// no clear moment of "yes, I understand and I still want this". Resolves
+// true if the customer presses the confirm button (order proceeds without
+// a location), false if they close/cancel it (order is not sent; they go
+// back to set a location).
+function _confirmSendWithoutLocation() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay active';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div class="modal-box" style="max-width:380px;text-align:center;">
+                <div style="font-size:2.6rem;line-height:1;margin-bottom:6px;">⚠️</div>
+                <h2 class="modal-title" style="margin-bottom:8px;">لم يتم تحديد موقعك</h2>
+                <p class="modal-subtitle" style="margin-bottom:22px;">
+                    إذا تابعت الآن سيصل طلبك إلى فريق ديليفو <b>بدون موقع توصيل دقيق</b>، وقد يتأخر وصول السائق إليك.
+                    تأكد من رغبتك بالمتابعة على هذا الأساس.
+                </p>
+                <button type="button" id="nl-confirm-ok" class="cart-checkout-btn" style="margin-bottom:10px;">
+                    <span>حسناً، إرسال الطلب بدون موقع</span>
+                </button>
+                <button type="button" id="nl-confirm-back"
+                        style="width:100%;padding:10px;background:none;border:none;color:var(--clr-gray-500);font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;">
+                    🔙 الرجوع لتحديد الموقع
+                </button>
+            </div>`;
+        document.body.appendChild(overlay);
+        const close = (result) => { overlay.remove(); resolve(result); };
+        overlay.querySelector('#nl-confirm-ok').addEventListener('click', () => close(true));
+        overlay.querySelector('#nl-confirm-back').addEventListener('click', () => close(false));
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+    });
+}
+
 /* ══════════════════════════════════════════════════════════════
    NIGHT DELIVERY SURGE
    Reads settings/nightDelivery = { enabled, startHour, endHour, flatFee, perKm }.
@@ -1035,14 +1072,6 @@ function initCart() {
             <div class="cart-store-group__subtotal">
                 المجموع: <strong>${'$' + _storeUSD(items).toFixed(2)}</strong>
             </div>
-            <!-- Per-store delivery fee is intentionally NOT shown as a number
-                 anymore — it depends on the customer's distance from this
-                 store, which isn't finalized until Delivo staff review the
-                 order, so a computed estimate here just confused people.
-                 A plain explanatory remark replaces it instead. -->
-            <div class="cart-store-group__delivery-hint cart-store-group__delivery-hint--remark" id="fee-hint-${_cslug(storeName)}">
-                🛵 رسم التوصيل سيُضاف حسب المسافة — سيحدده موظف ديليفو لاحقاً
-            </div>
         </div>`;
     }
 
@@ -1316,11 +1345,8 @@ function initCart() {
                 _showToast('📍 يجب تحديد موقعك أولاً (موقعي الحالي أو تحديد يدوي) لإرسال الطلب', 'error');
                 return;
             }
-            if (!window._delivoLocNudged) {
-                window._delivoLocNudged = true; // one warning only — next press sends anyway
-                _showToast('⚠️ لم تحدد موقعك — سيصل طلبك بدون موقع دقيق. اضغط «إرسال الطلب» مجدداً للمتابعة', 'error');
-                return;
-            }
+            const proceedWithoutLoc = await _confirmSendWithoutLocation();
+            if (!proceedWithoutLoc) return;
         }
 
         const btn = document.getElementById('cart-checkout-btn');
@@ -2111,11 +2137,8 @@ function _initGuestCheckout() {
                 _guestCoErr('📍 يجب تحديد موقعك (موقعي الحالي أو تحديد يدوي) لإرسال الطلب');
                 return;
             }
-            if (!window._delivoGuestLocNudged) {
-                window._delivoGuestLocNudged = true;
-                _guestCoErr('⚠️ لم تحدد موقعك — سيصل طلبك بدون موقع دقيق. اضغط الزر مجدداً للمتابعة');
-                return;
-            }
+            const proceedWithoutLoc = await _confirmSendWithoutLocation();
+            if (!proceedWithoutLoc) return;
         }
         _guestCoErr('');
 
