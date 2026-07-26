@@ -2461,6 +2461,13 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                     <button class="filter-pill" data-driver-filter="online">🟢 نشط</button>
                     <button class="filter-pill" data-driver-filter="offline">⚫ غير نشط</button>
                     <button class="filter-pill" data-driver-filter="pending" style="color:var(--orange);">🆕 قيد المراجعة</button>
+                    <label style="display:flex;align-items:center;gap:7px;margin-inline-start:auto;font-size:0.76rem;color:var(--gray-light);font-weight:700;white-space:nowrap;cursor:pointer;">
+                        <span>إظهار السائقين غير المفعّلين</span>
+                        <span class="toggle" style="margin:0;">
+                            <input type="checkbox" id="toggle-show-inactive-drivers">
+                            <span class="toggle-slider"></span>
+                        </span>
+                    </label>
                 </div>
                 <div class="drivers-grid" id="drivers-grid"></div>
             </div>
@@ -2740,6 +2747,22 @@ tr.vis-row-online:hover { background: rgba(34,197,94,.07); }
                     <button class="filter-pill" data-or-filter="delivered">✅ مُوصَّلة</button>
                     <button class="filter-pill" data-or-filter="cancelled">✕ ملغاة</button>
                     <button class="filter-pill active" data-or-filter="all">الكل</button>
+                    <div class="orders-date-filter">
+                        <select class="orders-date-select" id="or-date-select">
+                            <option value="all">📅 كل التواريخ</option>
+                            <option value="today">اليوم</option>
+                            <option value="yesterday">أمس</option>
+                            <option value="7d">آخر 7 أيام</option>
+                            <option value="30d">آخر 30 يوم</option>
+                            <option value="month">هذا الشهر</option>
+                            <option value="custom">نطاق مخصص…</option>
+                        </select>
+                        <div class="orders-date-custom" id="or-date-custom">
+                            <input type="date" id="or-date-from" title="من تاريخ">
+                            <span style="color:var(--gray);font-size:0.8rem;">إلى</span>
+                            <input type="date" id="or-date-to" title="إلى تاريخ">
+                        </div>
+                    </div>
                     <input type="text" class="search-box" id="or-search" placeholder="بحث برقم الشحنة أو العميل أو المتجر…" style="margin-right:auto;max-width:240px;">
                 </div>
                 <!-- Table -->
@@ -3825,9 +3848,15 @@ let _lastOrderSort  = null;     // tracks the previous orderSort so a mode switc
 let orderDateFilter = localStorage.getItem('delivo_admin_order_date_filter') || 'all'; // 'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'
 let orderDateFrom   = localStorage.getItem('delivo_admin_order_date_from') || '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
 let orderDateTo     = localStorage.getItem('delivo_admin_order_date_to') || '';    // yyyy-mm-dd, used when orderDateFilter === 'custom'
+// Same shape as above, independent state for the "طلبات أونلاين" panel —
+// defaults to "اليوم" (today) rather than "all" per admin request.
+let onlineOrderDateFilter = localStorage.getItem('delivo_admin_online_date_filter') || 'today';
+let onlineOrderDateFrom   = localStorage.getItem('delivo_admin_online_date_from') || '';
+let onlineOrderDateTo     = localStorage.getItem('delivo_admin_online_date_to') || '';
 let orderChartRange = parseInt(localStorage.getItem('delivo_admin_order_chart_range')) || 14; // 7 | 14 | 30 — days shown in the delivered-orders daily "candle" chart
 let orderChartCollapsed = localStorage.getItem('delivo_admin_order_chart_collapsed') !== '0'; // shrunk by default; '0' means the admin explicitly expanded it before
 let driverFilter   = 'all';
+let showInactiveDrivers = false;
 let driverSearch   = '';
 let customerFilter = 'all';
 let customerSearch = '';
@@ -5555,7 +5584,7 @@ function updateNavBadge() {
     _setNavBadge('online-req', Object.values(allOrders).filter(o => (o.state||'0') === '0').length);
     _setNavBadge('drivers',    (allDrivers || []).filter(d => d).length);
     _setNavBadge('customers',  Object.keys(allUsers || {}).length);
-    _setNavBadge('visitors',   Object.values(allVisitors || {}).filter(v => !v.converted).length);
+    _setNavBadge('visitors',   Object.values(allVisitors || {}).filter(v => !_isVisitorConverted(v)).length);
     _setNavBadge('stores',     Object.keys(allStores || {}).length);
     _setNavBadge('employees',  Object.keys(adminUsers || {}).length + 1); // +1 for seed super-admin
 }
@@ -6146,11 +6175,12 @@ function orderPopupHTML(key, o) {
     const idNum   = key.replace('id_','');
     const state   = o.state || '0';
     const clr     = STATE_CLR[state] || STATE_CLR['0'];
-    const drvOpts = allDrivers.filter(d=>d).map(d => {
+    const drvOpts = allDrivers.filter(d => d && (d.active === true || (o.driver && (d.owner||d.username) === o.driver))).map(d => {
         const name = d.owner || d.username || '';
         const sel  = o.driver === name ? 'selected' : '';
         const dot  = d.status === 'online' ? '🟢' : '⚫';
-        return `<option value="${name}" ${sel}>${dot} ${name}</option>`;
+        const inactiveTag = d.active !== true ? ' (غير مفعّل)' : '';
+        return `<option value="${name}" ${sel}>${dot} ${name}${inactiveTag}</option>`;
     }).join('');
     return `
     <div data-order-popup-id="${key}" style="font-family:Almarai;min-width:200px;direction:rtl;">
@@ -6887,18 +6917,20 @@ function _parseOrderDate(order) {
     return isNaN(dt.getTime()) ? null : dt;
 }
 
-// Does this order's date fall inside the currently selected date filter?
+// Does this order's date fall inside a given date-filter selection?
 // Ranges are day-based (local time) so "اليوم"/"أمس"/etc. match what the
-// admin sees on the clock, not a rolling 24h window.
-function _orderMatchesDateFilter(order) {
-    if (orderDateFilter === 'all') return true;
+// admin sees on the clock, not a rolling 24h window. Shared by both the
+// main "الطلبات" panel and the "طلبات أونلاين" panel, each with its own
+// independent filter/from/to state.
+function _dateFilterMatches(order, filterVal, fromVal, toVal) {
+    if (filterVal === 'all') return true;
     const od = _parseOrderDate(order);
     if (!od) return false;
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    switch (orderDateFilter) {
+    switch (filterVal) {
         case 'today':
             return od >= startOfToday;
         case 'yesterday': {
@@ -6916,12 +6948,12 @@ function _orderMatchesDateFilter(order) {
         case 'month':
             return od >= new Date(now.getFullYear(), now.getMonth(), 1);
         case 'custom': {
-            if (orderDateFrom) {
-                const from = new Date(orderDateFrom + 'T00:00:00');
+            if (fromVal) {
+                const from = new Date(fromVal + 'T00:00:00');
                 if (od < from) return false;
             }
-            if (orderDateTo) {
-                const to = new Date(orderDateTo + 'T23:59:59');
+            if (toVal) {
+                const to = new Date(toVal + 'T23:59:59');
                 if (od > to) return false;
             }
             return true;
@@ -6929,6 +6961,14 @@ function _orderMatchesDateFilter(order) {
         default:
             return true;
     }
+}
+
+function _orderMatchesDateFilter(order) {
+    return _dateFilterMatches(order, orderDateFilter, orderDateFrom, orderDateTo);
+}
+
+function _onlineOrderMatchesDateFilter(order) {
+    return _dateFilterMatches(order, onlineOrderDateFilter, onlineOrderDateFrom, onlineOrderDateTo);
 }
 
 function renderOrders() {
@@ -7264,7 +7304,7 @@ function buildOrderCard(key, order) {
                 ${(hasPerm('orders') && _assignmentMode !== 'driver_only') ? `
                 <select class="driver-select" data-order="${key}">
                     <option value="">— تعيين سائق —</option>
-                    ${allDrivers.filter(d => d).map((d,i) => `<option value="${d.owner||d.username}" ${order.driver === (d.owner||d.username) ? 'selected' : ''}>${d.owner || d.username} ${d.status==='online'?'🟢':'⚫'}</option>`).join('')}
+                    ${allDrivers.filter(d => d && (d.active === true || (d.owner||d.username) === order.driver)).map((d,i) => `<option value="${d.owner||d.username}" ${order.driver === (d.owner||d.username) ? 'selected' : ''}>${d.owner || d.username} ${d.status==='online'?'🟢':'⚫'}${d.active !== true ? ' (غير مفعّل)' : ''}</option>`).join('')}
                 </select>
                 <button class="oc-action-btn primary" data-assign="${key}">✔ تعيين</button>
                 ` : ''}
@@ -7935,8 +7975,17 @@ function renderDrivers() {
     // Filter by status
     if (driverFilter === 'pending') {
         drivers = drivers.filter(d => d.active !== true);
-    } else if (driverFilter !== 'all') {
-        drivers = drivers.filter(d => (d.status || 'offline') === driverFilter);
+    } else {
+        if (driverFilter !== 'all') {
+            drivers = drivers.filter(d => (d.status || 'offline') === driverFilter);
+        }
+        // Inactive (not-yet-approved or deactivated) drivers are hidden
+        // from the main list by default — the "قيد المراجعة" pill above
+        // is the dedicated place to review them — unless the admin
+        // flips the "إظهار السائقين غير المفعّلين" switch on.
+        if (!showInactiveDrivers) {
+            drivers = drivers.filter(d => d.active === true);
+        }
     }
     // Search by name/username
     if (driverSearch) {
@@ -8940,14 +8989,33 @@ function _visitorDeviceLabel(v) {
     return `${icon} ${label}`;
 }
 
+// A visitor's `converted` flag only ever gets set by registerByPhone()
+// writing back to the SAME device UUID that recorded their original
+// visit. If that UUID changed between visiting and signing up (cleared
+// storage, a different browser/device, iOS Safari's storage clearing,
+// etc.), the original lead is left behind forever showing "زائر فقط"
+// even though that phone number now belongs to a real registered
+// account. This cross-checks the visitor's phone against allUsers so
+// the admin panel reflects reality regardless of which device/session
+// they eventually registered from.
+function _visitorMatchedPhone(v) {
+    if (!v || !v.phone) return false;
+    const digits = String(v.phone).replace(/\D/g, '');
+    if (!digits) return false;
+    return Object.values(allUsers || {}).some(u => u && String(u.phone || '').replace(/\D/g, '').endsWith(digits));
+}
+function _isVisitorConverted(v) {
+    return !!(v && (v.converted || _visitorMatchedPhone(v)));
+}
+
 // Shared by renderVisitors() and exportVisitorsToExcel() so the exported
 // file always matches exactly what's on screen — same active filter pill
 // and search box, same sort order.
 function _getFilteredVisitorEntries() {
     let entries = Object.entries(allVisitors || {});
 
-    if (visitorFilter === 'pending')   entries = entries.filter(([, v]) => !v.converted);
-    if (visitorFilter === 'converted') entries = entries.filter(([, v]) => v.converted);
+    if (visitorFilter === 'pending')   entries = entries.filter(([, v]) => !_isVisitorConverted(v));
+    if (visitorFilter === 'converted') entries = entries.filter(([, v]) => _isVisitorConverted(v));
 
     if (visitorSearch) {
         const q = visitorSearch.toLowerCase();
@@ -9000,7 +9068,7 @@ function renderVisitors() {
 
     // Summary bar — always reflects the FULL set, regardless of active filter/search
     const total     = allEntries.length;
-    const converted = allEntries.filter(([, v]) => v.converted).length;
+    const converted = allEntries.filter(([, v]) => _isVisitorConverted(v)).length;
     const pending   = total - converted;
     const online    = allEntries.filter(([uuid]) => _isVisitorOnline(uuid)).length;
     const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -9047,7 +9115,7 @@ function renderVisitors() {
             <td>
                 <div style="display:flex;flex-wrap:wrap;gap:5px;">
                     ${isOnline ? `<span class="or-state-badge vis-online-badge">🟢 متصل الآن</span>` : ''}
-                    ${v.converted
+                    ${_isVisitorConverted(v)
                         ? `<span class="or-state-badge" style="background:var(--green-glow);color:var(--green);">✅ عميل مسجّل</span>`
                         : `<span class="or-state-badge" style="background:rgba(245,158,11,0.15);color:var(--yellow);">⏳ زائر فقط</span>`}
                 </div>
@@ -9174,7 +9242,7 @@ async function exportVisitorsToExcel() {
                 _visitorDeviceLabel(v),
                 uuid,
                 dateStr,
-                v.converted ? '✅ عميل مسجّل' : '⏳ زائر فقط',
+                _isVisitorConverted(v) ? '✅ عميل مسجّل' : '⏳ زائر فقط',
                 '',
             ]);
 
@@ -9190,7 +9258,7 @@ async function exportVisitorsToExcel() {
                 if (col === 4) cell.font = { name: 'Consolas', size: 9, color: { argb: 'FF888888' } };
             });
 
-            row.getCell(6).font = v.converted
+            row.getCell(6).font = _isVisitorConverted(v)
                 ? { bold: true, color: { argb: 'FF16A34A' } }
                 : { bold: true, color: { argb: 'FFD97706' } };
 
@@ -17078,6 +17146,12 @@ document.querySelectorAll('[data-driver-filter]').forEach(btn => {
     });
 });
 
+// Show/hide inactive drivers switch
+document.getElementById('toggle-show-inactive-drivers')?.addEventListener('change', (e) => {
+    showInactiveDrivers = e.target.checked;
+    renderDrivers();
+});
+
 // Driver search
 document.getElementById('drivers-search').addEventListener('input', e => {
     driverSearch = e.target.value.trim();
@@ -17252,6 +17326,29 @@ document.getElementById('orders-date-to').addEventListener('change', e => {
     orderDateTo = e.target.value;
     localStorage.setItem('delivo_admin_order_date_to', orderDateTo);
     if (orderDateFilter === 'custom') renderOrders();
+});
+
+// Online-orders date filter — same pattern, own state, defaults to "اليوم"
+document.getElementById('or-date-select').value = onlineOrderDateFilter;
+document.getElementById('or-date-from').value = onlineOrderDateFrom;
+document.getElementById('or-date-to').value = onlineOrderDateTo;
+document.getElementById('or-date-custom').classList.toggle('active', onlineOrderDateFilter === 'custom');
+
+document.getElementById('or-date-select').addEventListener('change', e => {
+    onlineOrderDateFilter = e.target.value;
+    localStorage.setItem('delivo_admin_online_date_filter', onlineOrderDateFilter);
+    document.getElementById('or-date-custom').classList.toggle('active', onlineOrderDateFilter === 'custom');
+    if (onlineOrderDateFilter !== 'custom') renderOnlineRequests();
+});
+document.getElementById('or-date-from').addEventListener('change', e => {
+    onlineOrderDateFrom = e.target.value;
+    localStorage.setItem('delivo_admin_online_date_from', onlineOrderDateFrom);
+    if (onlineOrderDateFilter === 'custom') renderOnlineRequests();
+});
+document.getElementById('or-date-to').addEventListener('change', e => {
+    onlineOrderDateTo = e.target.value;
+    localStorage.setItem('delivo_admin_online_date_to', onlineOrderDateTo);
+    if (onlineOrderDateFilter === 'custom') renderOnlineRequests();
 });
 
 // Map layer toggles
@@ -18767,6 +18864,9 @@ async function renderOnlineRequests() {
         return !archived; // 'all'
     });
 
+    // Filter by date range
+    entries = entries.filter(([,o]) => _onlineOrderMatchesDateFilter(o));
+
     // Search filter
     if (orSearch) {
         const q = orSearch.toLowerCase();
@@ -19658,7 +19758,7 @@ function _aoPopulateDriverSelect() {
     if (!sel) return;
     const current = sel.value;
     sel.innerHTML = '<option value="">— بدون تعيين (يظهر كطلب جديد) —</option>' +
-        (allDrivers || []).filter(d => d).map(d =>
+        (allDrivers || []).filter(d => d && d.active === true).map(d =>
             `<option value="${(d.owner || d.username || '').replace(/"/g,'&quot;')}">${d.owner || d.username} ${d.status==='online'?'🟢':'⚫'}</option>`
         ).join('');
     if (current) sel.value = current;

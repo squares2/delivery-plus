@@ -683,52 +683,26 @@
     border: 1.5px solid var(--clr-gray-200, #e8e8e8);
     border-radius: var(--radius-md, 10px);
     padding: 9px 12px;
-    cursor: pointer;
     font-family: inherit;
     font-size: clamp(0.76rem, 2vw, 0.83rem);
     font-weight: 700;
-    color: var(--clr-gray-600, #555);
+    color: var(--clr-orange, #FF5C00);
+    background: #fff4ef;
+    border-color: var(--clr-orange, #FF5C00);
     text-align: right;
-    transition: border-color 0.18s, background 0.18s;
-}
-.cart-extras-toggle:hover {
-    border-color: var(--clr-orange, #FF5C00);
-    background: #fff4ef;
-    color: var(--clr-orange, #FF5C00);
-}
-.cart-extras-toggle.open {
-    border-color: var(--clr-orange, #FF5C00);
-    background: #fff4ef;
-    color: var(--clr-orange, #FF5C00);
 }
 .cart-extras-toggle__icons { display: flex; gap: 3px; flex-shrink: 0; }
 .cart-extras-dot { font-size: 0.85rem; }
 .cart-extras-toggle__label { flex: 1; }
-.cart-extras-toggle__arrow {
-    flex-shrink: 0;
-    transition: transform 0.22s;
-}
-.cart-extras-toggle.open .cart-extras-toggle__arrow {
-    transform: rotate(180deg);
-}
 
-/* Panel — hidden by default, slides open */
+/* Panel — always fully visible, no collapse/animation */
 .cart-extras-panel {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.28s ease;
-    overflow: hidden;
-}
-.cart-extras-panel.open {
-    grid-template-rows: 1fr;
+    display: block;
+    overflow: visible;
 }
 .cart-extras-panel > * {
-    /* needed for grid row animation */
-    min-height: 0;
-    overflow: hidden;
+    overflow: visible;
 }
-/* Give the inner children proper spacing when open */
-.cart-extras-panel.open > * { overflow: visible; }
 .cart-extras-panel .cart-location {
     margin-top: 6px;
 }

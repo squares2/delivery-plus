@@ -1647,15 +1647,9 @@ function initCart() {
     const checkoutBtn = document.getElementById('cart-checkout-btn');
     if (checkoutBtn)  checkoutBtn.addEventListener('click', cartCheckout);
 
-    /* ── Extras toggle (note + location) ───────────────────── */
-    const extrasToggle = document.getElementById('cart-extras-toggle');
-    const extrasPanel  = document.getElementById('cart-extras-panel');
-    if (extrasToggle && extrasPanel) {
-        extrasToggle.addEventListener('click', () => {
-            const open = extrasPanel.classList.toggle('open');
-            extrasToggle.classList.toggle('open', open);
-        });
-    }
+    /* ── Extras panel (location) — always visible, no toggle ── */
+    const extrasPanelAlways = document.getElementById('cart-extras-panel');
+    if (extrasPanelAlways) extrasPanelAlways.classList.add('open');
 
     /* ── Cart location picker ───────────────────────────────── */
     _initCartLocation();
