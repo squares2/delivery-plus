@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Delivo — لوحة الإدارة</title>
+<title>Delivo — بوابة المتجر</title>
 <link rel="icon" href="assets/favicon-32.png">
-<link rel="manifest" href="manifest-admin.json">
+<link rel="manifest" href="manifest-store.json">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 <link rel="apple-touch-icon" sizes="152x152" href="assets/icon-152.png">
 <link rel="apple-touch-icon" sizes="144x144" href="assets/icon-144.png">
@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Delivo Admin">
+<meta name="apple-mobile-web-app-title" content="Delivo Store">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -31,10 +31,10 @@
             <div class="login-logo-text">Deli<span>vo</span></div>
         </div>
         <div class="login-role-badge">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
-            Admin Panel
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            Store Panel
         </div>
-        <div class="login-subtitle">تسجيل الدخول للوحة الإدارة</div>
+        <div class="login-subtitle">تسجيل الدخول لبوابة المتجر</div>
         <div class="login-field">
             <label>اسم المستخدم</label>
             <input type="text" id="adm-user" placeholder="username" autocomplete="off" spellcheck="false">
@@ -45,6 +45,9 @@
         </div>
         <button class="login-btn" id="adm-login-btn">دخول</button>
         <div class="login-error" id="adm-login-error"></div>
+        <div style="margin-top:10px;font-size:0.68rem;color:var(--gray);text-align:center;">
+            هذه الصفحة مخصصة لحسابات المتاجر فقط
+        </div>
     </div>
 </div>
 
@@ -195,9 +198,8 @@
                         <span>💰 الطلبات: <b id="orders-total-orders">$0.00</b></span>
                         <span class="ot-delivery">🚗 التوصيل: <b id="orders-total-delivery">$0.00</b></span>
                         <span class="ot-extra">➕ ربح إضافي: <b id="orders-total-extra">$0.00</b></span>
-                        <span title="مصاريف نفس الفترة المختارة (من صفحة المصاريف اليومية)" style="color:var(--red);">💸 مصاريف: <b id="orders-total-expenses">$0.00</b></span>
-                        <span class="ot-net" title="نصف رسوم التوصيل (لأن النصف الآخر للسائق) + الربح الإضافي − مصاريف نفس الفترة المختارة">
-                            💚 صافي ربحك (بعد المصاريف): <b id="orders-total-net">$0.00</b>
+                        <span class="ot-net" title="نصف رسوم التوصيل (لأن النصف الآخر للسائق) + كل الربح الإضافي">
+                            💚 صافي ربحك (نصف التوصيل + الإضافي): <b id="orders-total-net">$0.00</b>
                         </span>
                     </div>
                     <div class="orders-date-filter">
@@ -883,67 +885,6 @@
                 </div>
             </div>
 
-            <!-- EXPENSES panel — "المصاريف اليومية": lets staff log day-to-day
-                 business costs (rent, salaries, fuel, maintenance…) so the
-                 orders panel's "صافي ربحك" figure can subtract them and show
-                 real bottom-line profit, not just delivery+extra income. -->
-            <div class="panel" id="panel-expenses">
-                <div class="panel-header">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h-4a2 2 0 0 1 0-4h4z"/><circle cx="16.5" cy="12" r="1" fill="var(--orange)" stroke="none"/></svg>
-                    <h2>المصاريف اليومية</h2>
-                    <span class="panel-header-sub" id="exp-count-label">0 مصروف</span>
-                    <button class="ph-btn ph-btn--primary" id="exp-add-btn">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        إضافة مصروف
-                    </button>
-                    <button class="ph-btn" id="exp-refresh-btn">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                        تحديث
-                    </button>
-                </div>
-                <div class="orders-toolbar">
-                    <div class="orders-date-filter">
-                        <select class="orders-date-select" id="exp-date-select">
-                            <option value="all">📅 كل التواريخ</option>
-                            <option value="today">اليوم</option>
-                            <option value="yesterday">أمس</option>
-                            <option value="7d">آخر 7 أيام</option>
-                            <option value="30d">آخر 30 يوم</option>
-                            <option value="month">هذا الشهر</option>
-                            <option value="custom">نطاق مخصص…</option>
-                        </select>
-                        <div class="orders-date-custom" id="exp-date-custom">
-                            <input type="date" id="exp-date-from" title="من تاريخ">
-                            <span style="color:var(--gray);font-size:0.8rem;">إلى</span>
-                            <input type="date" id="exp-date-to" title="إلى تاريخ">
-                        </div>
-                    </div>
-                    <input type="text" class="search-box" id="exp-search" placeholder="🔍 بحث في البيان…" style="max-width:200px;">
-                    <div class="orders-totals-mini" style="margin-right:auto;">
-                        <span>💸 إجمالي المصاريف: <b id="exp-total-amount" style="color:var(--red);">$0.00</b></span>
-                    </div>
-                </div>
-                <div class="or-table-wrap" id="exp-table-wrap">
-                    <div class="or-empty" id="exp-empty" style="display:none;">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h-4a2 2 0 0 1 0-4h4z"/></svg>
-                        <p>لا توجد مصاريف مسجّلة لهذه الفترة</p>
-                    </div>
-                    <table class="or-table" id="exp-table" style="min-width:0;">
-                        <thead>
-                            <tr>
-                                <th>التاريخ</th>
-                                <th>البيان</th>
-                                <th>الفئة</th>
-                                <th>المبلغ</th>
-                                <th>أُضيف بواسطة</th>
-                                <th>إجراء</th>
-                            </tr>
-                        </thead>
-                        <tbody id="exp-tbody"></tbody>
-                    </table>
-                </div>
-            </div>
-
         </div><!-- /content -->
     </div><!-- /main -->
 </div><!-- /app -->
@@ -1201,7 +1142,6 @@
                 <label class="perm-check"><input type="checkbox" value="catalog"> <span>📦 المنتجات</span></label>
                 <label class="perm-check"><input type="checkbox" value="employees"> <span>🔐 الموظفون</span></label>
                 <label class="perm-check"><input type="checkbox" value="settings"> <span>⚙️ الإعدادات</span></label>
-                <label class="perm-check"><input type="checkbox" value="expenses"> <span>💸 المصاريف</span></label>
             </div>
         </div>
         <div class="modal-field" id="emp-notify-row" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
@@ -1322,49 +1262,6 @@
     </div>
 </div>
 
-<!-- Add/edit expense modal -->
-<div class="modal-overlay" id="modal-expense">
-    <div class="modal-box" style="max-width:380px;">
-        <div class="modal-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h-4a2 2 0 0 1 0-4h4z"/></svg>
-            <span id="exp-modal-title">إضافة مصروف جديد</span>
-        </div>
-        <input type="hidden" id="exp-edit-key">
-        <div class="modal-field">
-            <label>التاريخ</label>
-            <input type="date" id="exp-date">
-        </div>
-        <div class="modal-field">
-            <label>البيان</label>
-            <input type="text" id="exp-desc" placeholder="مثال: فاتورة كهرباء، صيانة دراجة…" autocomplete="off">
-        </div>
-        <div class="modal-field">
-            <label>الفئة</label>
-            <select id="exp-category">
-                <option value="عام">عام</option>
-                <option value="رواتب">رواتب</option>
-                <option value="إيجار">إيجار</option>
-                <option value="صيانة">صيانة</option>
-                <option value="فواتير">فواتير</option>
-                <option value="وقود">وقود</option>
-                <option value="تسويق">تسويق</option>
-                <option value="Whish Money">📲 Whish Money</option>
-                <option value="أخرى">أخرى</option>
-            </select>
-        </div>
-        <div class="modal-field">
-            <label>المبلغ <span id="exp-amount-cur" style="color:var(--gray);font-weight:400;">($)</span></label>
-            <input type="number" id="exp-amount" placeholder="0" step="any" dir="ltr">
-            <small style="color:var(--gray);font-size:0.68rem;">أدخل بالدولار، أو بالليرة اللبنانية (سيتم تحويلها تلقائياً)</small>
-        </div>
-        <p id="exp-modal-error" style="color:var(--red);font-size:0.78rem;margin-bottom:6px;display:none;"></p>
-        <div class="modal-actions">
-            <button class="modal-btn" id="exp-cancel-btn">إلغاء</button>
-            <button class="modal-btn primary" id="exp-save-btn">💾 حفظ</button>
-        </div>
-    </div>
-</div>
-
 <!-- Toast -->
 <div id="admin-toast"></div>
 
@@ -1411,13 +1308,13 @@
 
     <!-- Presence UI injected dynamically by admin-presence.js -->
 <script src="scripts/admin-04-core-auth-data.js?v=1"></script>
+<script src="scripts/store-guard.js?v=1"></script>
 <script src="scripts/admin-05-map-tracking-orders.js?v=1"></script>
 <script src="scripts/admin-06-drivers-customers-stores.js?v=1"></script>
 <script src="scripts/admin-07-stores-employees-herobg.js?v=1"></script>
 <script src="scripts/admin-08-settings-sales-worldcup.js?v=1"></script>
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
 <script src="scripts/admin-10-company-portal-requests.js?v=1"></script>
-<script src="scripts/admin-12-expenses.js?v=1"></script>
 </body>
 </html>
     <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->
