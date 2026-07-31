@@ -1117,7 +1117,7 @@ function renderOrders() {
     const totDeliveryEl = document.getElementById('orders-total-delivery');
     const totExtraEl    = document.getElementById('orders-total-extra');
     if (totOrdersEl)   totOrdersEl.textContent   = '$' + totalOrdersUSD.toFixed(2);
-    if (totDeliveryEl) totDeliveryEl.textContent = '$' + totalDeliveryUSD.toFixed(2);
+    if (totDeliveryEl) totDeliveryEl.textContent = '$' + (totalDeliveryUSD / 2).toFixed(2);
     if (totExtraEl)    totExtraEl.textContent    = '$' + totalExtraUSD.toFixed(2);
 
     // Daily expenses (see scripts/admin-12-expenses.js / "المصاريف اليومية")
