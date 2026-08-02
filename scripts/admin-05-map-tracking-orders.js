@@ -1800,7 +1800,23 @@ async function changeState(orderId, newState) {
         const _prevState = allOrders[orderId]?.state || '0'; // capture BEFORE mutation
         updates[`/requests/${orderId}/state`] = newState;
         if (uid) updates[`/historyRequests/${uid}/${orderId}/state`] = newState;
+
+        // Auto-disable tracking on final states (delivered/cancelled) — same
+        // rule already applied by the driver app and the archive button, so
+        // an order marked وُصِّل/ملغي from the admin side also stops showing
+        // "📡 تتبع نشط" and drops the live-tracking driverid reference.
+        const _stopTracking = ['1','2'].includes(newState) && (allOrders[orderId]?.trackorder == 1);
+        if (_stopTracking) {
+            updates[`/requests/${orderId}/trackorder`] = '0';
+            updates[`/requests/${orderId}/driverid`]   = null;
+            if (uid) {
+                updates[`/historyRequests/${uid}/${orderId}/trackorder`] = '0';
+                updates[`/historyRequests/${uid}/${orderId}/driverid`]   = null;
+            }
+        }
+
         allOrders[orderId].state = newState; // update local BEFORE await so any re-render is correct
+        if (_stopTracking) allOrders[orderId].trackorder = '0';
         await fbUpdate('', updates);
 
         // Store order counter: keep storeOrderCounts/{store} in sync.
@@ -2058,6 +2074,47 @@ async function changeState(orderId, newState) {
         updateNavBadge();
     } catch(e) { toast('خطأ في تحديث الحالة', true); }
 }
+
+// Stop live tracking for every currently-delivered order in one shot —
+// same auto-stop rule as changeState()/archive/driver-app, but as a manual
+// sweep for orders that were already delivered before this fix existed
+// (or any edge case where trackorder got left on).
+async function stopAllDeliveredTracking() {
+    const targets = Object.keys(allOrders).filter(id => {
+        const o = allOrders[id];
+        return o && (o.state === '1') && (o.trackorder == 1);
+    });
+    if (!targets.length) { toast('لا توجد طلبات موصّلة قيد التتبع'); return; }
+    try {
+        const updates = {};
+        targets.forEach(id => {
+            const uid = allOrders[id]?.delivryplusid;
+            updates[`/requests/${id}/trackorder`] = '0';
+            updates[`/requests/${id}/driverid`]   = null;
+            if (uid) {
+                updates[`/historyRequests/${uid}/${id}/trackorder`] = '0';
+                updates[`/historyRequests/${uid}/${id}/driverid`]   = null;
+            }
+            allOrders[id].trackorder = '0';
+        });
+        await fbUpdate('', updates);
+        toast(`🔴 تم إيقاف التتبع لـ ${targets.length} طلب موصّل`);
+        targets.forEach(id => {
+            const card = document.querySelector(`.order-card[data-id="${id}"]`);
+            if (card) {
+                const expanded = card.classList.contains('expanded');
+                card.replaceWith(buildOrderCard(id, allOrders[id]));
+                if (expanded) document.querySelector(`.order-card[data-id="${id}"]`)?.classList.add('expanded');
+            }
+        });
+        renderMap();
+    } catch (e) {
+        console.error('[Admin] stopAllDeliveredTracking failed:', e);
+        toast('خطأ في إيقاف التتبع الجماعي', true);
+    }
+}
+const _stopAllTrackBtn = document.getElementById('stop-all-delivered-track-btn');
+if (_stopAllTrackBtn) _stopAllTrackBtn.addEventListener('click', stopAllDeliveredTracking);
 
 async function markRead(orderId) {
     try {

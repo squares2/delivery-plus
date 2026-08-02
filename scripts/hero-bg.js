@@ -142,8 +142,8 @@ async function initHeroBg() {
         // ("بدون رابط / زخرفة فقط") — that choice is respected as-is and
         // never falls back to the WhatsApp button.
         const isConfigured = !!bg.linkType;
-        const hasExplicitLink = bg.linkType === 'stores' || ((bg.linkType === 'custom' || bg.linkType === 'whatsapp') && bg.linkValue);
-        const isWhatsApp = bg.linkType === 'whatsapp' ? !!bg.linkValue : (!isConfigured && !hasExplicitLink);
+        const hasExplicitLink = bg.linkType === 'stores' || (bg.linkType === 'custom' && bg.linkValue);
+        const isWhatsApp = bg.linkType === 'whatsapp' ? true : (!isConfigured && !hasExplicitLink);
         const isLink = hasExplicitLink || isWhatsApp;
 
         let hrefAttrs = '';
@@ -152,12 +152,19 @@ async function initHeroBg() {
         } else if (bg.linkType === 'custom' && bg.linkValue) {
             hrefAttrs = ' href="' + _heroEscapeHtml(bg.linkValue) + '" target="_blank" rel="noopener"';
         } else if (isWhatsApp) {
-            const waMsg = bg.title
-                ? 'مرحباً 👋، حابب اطلب "' + bg.title + '"'
-                : 'مرحباً 👋، بدي اطلب من هالعرض';
-            const waHref = (bg.linkType === 'whatsapp' && bg.linkValue)
-                ? bg.linkValue
-                : 'https://wa.me/' + _heroBgAdminPhoneDigits + '?text=' + encodeURIComponent(waMsg);
+            // Always rebuilt from the LIVE settings/adminPhone value (never
+            // from a previously-saved bg.linkValue) so that if the admin
+            // number is changed later in ⚙️ الإعدادات, every slide's "اطلب"
+            // button — old or new — picks it up automatically instead of
+            // staying frozen on whatever number was current when the slide
+            // was saved. The admin-authored message (bg.whatsappMsg) is
+            // still respected when present.
+            const waMsg = (bg.linkType === 'whatsapp' && bg.whatsappMsg)
+                ? bg.whatsappMsg
+                : (bg.title
+                    ? 'مرحباً 👋، حابب اطلب "' + bg.title + '"'
+                    : 'مرحباً 👋، بدي اطلب من هالعرض');
+            const waHref = 'https://wa.me/' + _heroBgAdminPhoneDigits + '?text=' + encodeURIComponent(waMsg);
             hrefAttrs = ' href="' + _heroEscapeHtml(waHref) + '" target="_blank" rel="noopener"';
         }
 

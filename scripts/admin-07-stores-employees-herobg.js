@@ -2154,12 +2154,12 @@ async function saveHeroBg() {
         let linkValue = '';
         if (linkType === 'custom') {
             linkValue = document.getElementById('hb-linkvalue').value.trim();
-        } else if (linkType === 'whatsapp') {
-            const adminPhoneRaw = (await fbGet('settings/adminPhone').catch(() => '')) || '';
-            const ph   = adminPhoneRaw.replace(/[^0-9]/g, '');
-            const waPh = ph.indexOf('961') === 0 ? ph : '961' + ph.replace(/^0/, '');
-            linkValue  = `https://wa.me/${waPh}?text=${encodeURIComponent(waMsg)}`;
         }
+        // Note: linkType 'whatsapp' no longer bakes a wa.me/<number> link
+        // here — that froze the slide onto whatever number was set at save
+        // time. hero-bg.js now builds the wa.me link itself at render time
+        // from the LIVE settings/adminPhone, using whatsappMsg (below) as
+        // the message. So linkValue stays empty for this type.
 
         const payload = {
             order: existingOrder ?? (maxOrder + 1),
