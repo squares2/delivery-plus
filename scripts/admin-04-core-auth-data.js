@@ -204,8 +204,14 @@ let orderDateTo     = localStorage.getItem('delivo_admin_order_date_to') || ''; 
 let onlineOrderDateFilter = localStorage.getItem('delivo_admin_online_date_filter') || 'today';
 let onlineOrderDateFrom   = localStorage.getItem('delivo_admin_online_date_from') || '';
 let onlineOrderDateTo     = localStorage.getItem('delivo_admin_online_date_to') || '';
-let orderChartRange = parseInt(localStorage.getItem('delivo_admin_order_chart_range')) || 14; // 7 | 14 | 30 — days shown in the delivered-orders daily "candle" chart
+let orderChartRange = (() => { // 7 | 14 | 30 | 90 | 365 | 'all' — range shown in the delivered-orders daily "candle" chart
+    const raw = localStorage.getItem('delivo_admin_order_chart_range');
+    if (raw === 'all') return 'all';
+    const n = parseInt(raw);
+    return [7, 14, 30, 90, 365].includes(n) ? n : 14;
+})();
 let orderChartCollapsed = localStorage.getItem('delivo_admin_order_chart_collapsed') !== '0'; // shrunk by default; '0' means the admin explicitly expanded it before
+let topCustomersCollapsed = localStorage.getItem('delivo_admin_top_customers_collapsed') !== '0'; // shrunk by default, same pattern as the daily chart card
 let driverFilter   = 'all';
 let showInactiveDrivers = false;
 let driverSearch   = '';
@@ -222,6 +228,17 @@ let hideDisabledStores = localStorage.getItem('delivo_hide_disabled_stores') ===
 // else (unset, or '0') keeps inactive cards out of the grid.
 let hideInactiveHeroBg = localStorage.getItem('delivo_show_inactive_herobg') !== '1';
 let mapLayers    = { stores: true, drivers: true, customers: true, orders: true, center: true, extStores: true, priceTiers: false };
+// Restore the admin's last-chosen visibility for each live-map layer
+// toggle ("المركز/متاجر/سائقين/عملاء/طلبات/متاجر خارجية") so a page
+// refresh or relaunch doesn't silently re-show everything they'd
+// hidden — the buttons themselves are re-synced to this in admin-10's
+// click-wiring, right before their listeners are attached.
+try {
+    const _savedMapLayers = JSON.parse(localStorage.getItem('delivo_admin_map_layers') || 'null');
+    if (_savedMapLayers && typeof _savedMapLayers === 'object') {
+        Object.assign(mapLayers, _savedMapLayers);
+    }
+} catch (_) { /* malformed/blocked storage — keep the defaults above */ }
 let adminMap     = null;
 let _adminMapStandardLayer  = null;
 let _adminMapSatelliteLayer = null;
