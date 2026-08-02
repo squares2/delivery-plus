@@ -351,3 +351,17 @@
 /* The backdrop is always full-bleed cover (texture, safe to crop);
    the card image is always fully visible (contain, never cropped) —
    both apply at every breakpoint, mobile included. */
+
+/* ── Lighter blur on small screens ────────────────────────────
+   filter:blur() on a full-bleed, continuously Ken-Burns-animated
+   image is one of the most GPU-expensive things on this page —
+   it re-renders the blur pass every animation frame. Phones are
+   both the most common viewport here and the ones most likely to
+   have weak GPUs, so trim the radius (still reads as an ambient
+   blur, just cheaper to composite) instead of the full desktop
+   strength. */
+@media (max-width: 640px) {
+    .hero__bg-backdrop {
+        filter: blur(14px) brightness(0.55) saturate(1.15);
+    }
+}

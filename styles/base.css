@@ -958,3 +958,17 @@ body.tmb-active .oh-sheet-overlay {
     opacity: 0.92;
     filter: drop-shadow(0 2px 12px rgba(255,92,0,0.35));
 }
+/* ── Reduced motion: splash + maintenance loops ──────────────
+   These infinite animations (ember pulse, sparks, tagline dot,
+   maintenance spinner) keep running the whole time the splash or
+   maintenance overlay is on screen — respect the OS-level setting
+   for anyone who's opted out of motion. One-shot entrance/pop-in
+   animations are left alone since they finish quickly and don't loop. */
+@media (prefers-reduced-motion: reduce) {
+    .splash__flag-wrap::before,
+    .splash__flag-wrap::after,
+    .splash__tagline-dot,
+    .mnt__icon {
+        animation: none !important;
+    }
+}

@@ -173,6 +173,14 @@ body {
         animation: none;
     }
 }
+/* When a modal/sidebar is open (cart sidebar, guest checkout, login, etc.)
+   its own call-to-action is already pulsing (checkout button, store cart
+   bar) — pause the bottom-nav cart flash so only one attention animation
+   competes for the eye at a time. */
+body.modal-open #bb-cart-btn.bb-tab--has-items .bb-tab__icon svg,
+body.modal-open #bb-cart-btn.bb-tab--has-items #bb-cart-badge {
+    animation: none;
+}
 
 /* ══════════════════════════════════════════════════════════
    CENTER LOGO BUTTON — elevated circle (like ArabSeed)

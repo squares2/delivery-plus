@@ -431,3 +431,13 @@
     0%,  100% { transform: translateY(0px);  }
     50%        { transform: translateY(-14px); }
 }
+/* ── Reduced motion: hero float/ping loops ───────────────────
+   .hero__slide's desktop floating animation and the live "online"
+   status dot's ping both loop indefinitely — respect the OS-level
+   reduced-motion preference instead of running them forever. */
+@media (prefers-reduced-motion: reduce) {
+    .hero__slide,
+    .online-dot {
+        animation: none !important;
+    }
+}
