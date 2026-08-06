@@ -15,8 +15,18 @@ const _isPWA = window.matchMedia('(display-mode: standalone)').matches ||
                window.matchMedia('(display-mode: fullscreen)').matches ||
                window.navigator.standalone === true;
 
+/* ── Adaptive splash hold ─────────────────────────────────────
+   First-ever visit: keep the full cinematic splash so the brand
+   intro actually lands. Every visit after that, the customer has
+   already seen it — holding the same 2-2.8s again just delays
+   getting to the store list, so cut it down to a quick beat. */
+const _SPLASH_SEEN_KEY = 'delivo_seen_splash';
+const _isReturningVisitor = !!localStorage.getItem(_SPLASH_SEEN_KEY);
+
 /* How long to keep the HD splash visible after everything is ready */
-const SPLASH_HOLD_MS = _isPWA ? 2800 : 2000;
+const SPLASH_HOLD_MS = _isReturningVisitor
+    ? (_isPWA ? 900  : 600)
+    : (_isPWA ? 2800 : 2000);
 
 /* ── Ensure the splash is visible from the very first paint ──
    body starts as visibility:hidden (base.css).
@@ -33,7 +43,12 @@ const SPLASH_HOLD_MS = _isPWA ? 2800 : 2000;
 /* ── Component loader ────────────────────────────────────────*/
 async function loadComponent(slotId, file) {
     try {
-        const res = await fetch(`components/${file}?v=${Date.now()}`);
+        // Was `?v=${Date.now()}` — that busted the cache on EVERY
+        // visit (browser cache AND the service worker's precache),
+        // forcing 5 uncacheable round-trips before the page could
+        // even reveal. window.APP_VERSION only changes on real
+        // deploys, so returning visitors now get these from cache.
+        const res = await fetch(`components/${file}?v=${window.APP_VERSION || '1'}`);
         if (!res.ok) throw new Error(`Failed: ${file} (${res.status})`);
         const html = await res.text();
         const slot = document.getElementById(slotId);
@@ -58,11 +73,25 @@ function _formatFooterPhone(raw) {
 
 /* ── Splash hide ─────────────────────────────────────────────*/
 function hideSplash() {
+    try { localStorage.setItem(_SPLASH_SEEN_KEY, '1'); } catch (_) {}
     const splash = document.getElementById('delivo-splash');
     if (!splash) return;
     splash.classList.add('hiding');
     setTimeout(() => splash.classList.add('hidden'), 520);
 }
+
+/* ── Item 4: hard reveal failsafe ─────────────────────────────
+   Independent of loadAll()'s own control flow — if a bug in any
+   feature script throws before the normal reveal at the end of
+   loadAll(), or a component fetch hangs on a bad connection, the
+   customer must never be stuck staring at a blank/splash screen
+   forever. This fires on its own clock no matter what else does
+   or doesn't complete, and is cleared once the normal path wins. */
+const _hardRevealTimer = setTimeout(() => {
+    console.warn('[Delivo Loader] Hard reveal failsafe fired — boot took too long or errored.');
+    document.body.classList.add('loaded');
+    hideSplash();
+}, 8000);
 
 /* ── Main boot sequence ──────────────────────────────────────*/
 async function loadAll() {
@@ -71,8 +100,15 @@ async function loadAll() {
        regardless of how fast or slow the network is.          */
     const bootStart = Date.now();
 
-    /* Safety net: never leave user on a blank screen > 7s */
-    const slowNetTimer = setTimeout(hideSplash, 7000);
+    /* Item 5: one settings.json fetch instead of two separate
+       settings-key round trips (adminPhone + introEnabled used to
+       each open their own connection). Kicked off alongside the
+       component fetches below so it doesn't add any extra time —
+       whichever finishes last is what determines this section's
+       total wait, not their sum. */
+    const settingsFetch = fetch('https://deliveryonline-300f7-default-rtdb.firebaseio.com/settings.json')
+        .then(r => r.ok ? r.json() : {})
+        .catch(() => ({}));
 
     /* Fetch all components in parallel */
     await Promise.all([
@@ -83,37 +119,44 @@ async function loadAll() {
         loadComponent('footer',       'footer.html'),
     ]);
 
+    const settings = await settingsFetch;
+
     /* Footer phone number — always the live admin-configured number
        (settings/adminPhone, digits only e.g. "96170714152") rather
        than a hardcoded fallback, so it stays correct if the admin
        ever changes it from the dashboard without a code deploy.
        Drives both the "tel:" link and the WhatsApp ("wa.me") link. */
-    fetch('https://deliveryonline-300f7-default-rtdb.firebaseio.com/settings/adminPhone.json')
-        .then(r => r.ok ? r.json() : null)
-        .then(raw => {
-            if (!raw) return; // keep the static fallbacks already in the markup
-            const digits = String(raw).replace(/\D/g, '');
-            if (!digits) return;
+    try {
+        const raw = settings?.adminPhone;
+        const digits = String(raw || '').replace(/\D/g, '');
+        if (digits) {
             const phoneLink = document.getElementById('footer-phone-link');
             const phoneText = document.getElementById('footer-phone-number');
             const waLink    = document.getElementById('footer-whatsapp-link');
             if (phoneLink) phoneLink.href = `tel:+${digits}`;
             if (phoneText) phoneText.textContent = _formatFooterPhone(digits);
             if (waLink)    waLink.href = `https://wa.me/${digits}`;
-        })
-        .catch(() => {});
+        }
+    } catch (_) { /* keep the static fallbacks already in the markup */ }
 
-    /* Init scripts — DOM is fully ready */
-    if (typeof initNavbar     === 'function') initNavbar();
-    if (typeof initModals     === 'function') initModals();
-    if (typeof initCart       === 'function') initCart();
-    if (typeof initModalAuth  === 'function') initModalAuth();
-    if (typeof initStores     === 'function') initStores();
-    if (typeof initCategories === 'function') initCategories();
-    if (typeof initStorePanel === 'function') initStorePanel();
-    if (typeof window.initMealtime === 'function') window.initMealtime();
-    if (typeof initPromoFlip === 'function') initPromoFlip();
-    if (typeof initHeroBg === 'function') initHeroBg();
+    /* Item 4: init scripts wrapped so one feature throwing doesn't
+       stop the rest from running or block the page reveal right
+       after this block — previously a single bad script here could
+       leave the customer staring at the splash/a blank page forever. */
+    try {
+        if (typeof initNavbar     === 'function') initNavbar();
+        if (typeof initModals     === 'function') initModals();
+        if (typeof initCart       === 'function') initCart();
+        if (typeof initModalAuth  === 'function') initModalAuth();
+        if (typeof initStores     === 'function') initStores();
+        if (typeof initCategories === 'function') initCategories();
+        if (typeof initStorePanel === 'function') initStorePanel();
+        if (typeof window.initMealtime === 'function') window.initMealtime();
+        if (typeof initPromoFlip === 'function') initPromoFlip();
+        if (typeof initHeroBg === 'function') initHeroBg();
+    } catch (err) {
+        console.error('[Delivo Loader] A feature failed to init:', err);
+    }
 
     /* Reveal the page content UNDER the splash (no flash —
        splash is still covering everything at this point)     */
@@ -121,16 +164,13 @@ async function loadAll() {
     if (typeof initOnboarding === 'function') {
         /* Check admin-controlled toggle before showing the first-launch
            onboarding walkthrough. Defaults to enabled (fail-open) if the
-           setting is missing or the request fails, so a network hiccup
-           never silently hides the intro for real first-time visitors. */
-        fetch('https://deliveryonline-300f7-default-rtdb.firebaseio.com/settings/introEnabled.json')
-            .then(r => r.ok ? r.json() : null)
-            .then(val => {
-                const introOn = (val === null || val === undefined || val === true || val === 'true');
-                window._introEnabled = introOn;
-                if (introOn) initOnboarding();
-            })
-            .catch(() => initOnboarding());
+           setting is missing, so a network hiccup never silently hides
+           the intro for real first-time visitors. Reuses the settings
+           fetch above instead of opening its own connection. */
+        const val = settings?.introEnabled;
+        const introOn = (val === null || val === undefined || val === true || val === 'true');
+        window._introEnabled = introOn;
+        if (introOn) initOnboarding();
     }
     console.log('[Delivo] All components loaded ✓');
 
@@ -185,7 +225,7 @@ async function loadAll() {
     _startSettingsStream();
     /* ─────────────────────────────────────────────────────── */
 
-    clearTimeout(slowNetTimer);
+    clearTimeout(_hardRevealTimer);
 
     /* Wait at least SPLASH_HOLD_MS from boot start before hiding */
     const elapsed   = Date.now() - bootStart;

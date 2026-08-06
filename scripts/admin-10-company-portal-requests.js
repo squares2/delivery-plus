@@ -41,12 +41,13 @@ document.getElementById('orders-search').addEventListener('input', e => {
     renderOrders();
 });
 
-// Daily delivered-orders chart — range pills (7 / 14 / 30 days)
+// Daily delivered-orders chart — range pills (7 / 14 / 30 / 90 / 365 days, or 'all')
 document.querySelectorAll('#orders-chart-card .chart-range-pill').forEach(btn => {
-    btn.classList.toggle('active', parseInt(btn.dataset.chartRange) === orderChartRange);
+    const val = btn.dataset.chartRange === 'all' ? 'all' : parseInt(btn.dataset.chartRange);
+    btn.classList.toggle('active', val === orderChartRange);
     btn.addEventListener('click', e => {
         e.stopPropagation(); // don't let this bubble up to the header's collapse toggle
-        orderChartRange = parseInt(btn.dataset.chartRange);
+        orderChartRange = val;
         localStorage.setItem('delivo_admin_order_chart_range', orderChartRange);
         document.querySelectorAll('#orders-chart-card .chart-range-pill').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -65,6 +66,16 @@ document.getElementById('orders-chart-header').addEventListener('click', () => {
     if (!orderChartCollapsed) renderOrdersDailyChart(); // draw lazily on first expand
 });
 
+// Top-customers-by-delivered-orders leaderboard — same collapsed-by-
+// default, click-header-to-toggle pattern as the chart card above.
+document.getElementById('top-customers-card').classList.toggle('collapsed', topCustomersCollapsed);
+document.getElementById('top-customers-header').addEventListener('click', () => {
+    topCustomersCollapsed = !topCustomersCollapsed;
+    localStorage.setItem('delivo_admin_top_customers_collapsed', topCustomersCollapsed ? '1' : '0');
+    document.getElementById('top-customers-card').classList.toggle('collapsed', topCustomersCollapsed);
+    if (!topCustomersCollapsed) renderTopCustomers(); // draw lazily on first expand
+});
+
 // Order date filter
 // Reflect the current (default or previously-saved) state on load, since
 // the <select>/inputs don't know about localStorage on their own.
@@ -78,6 +89,7 @@ document.getElementById('orders-date-select').addEventListener('change', e => {
     localStorage.setItem('delivo_admin_order_date_filter', orderDateFilter);
     document.getElementById('orders-date-custom').classList.toggle('active', orderDateFilter === 'custom');
     if (orderDateFilter !== 'custom') renderOrders();
+    else renderTopCustomers(); // hides itself immediately — the rest of the panel waits for from/to
 });
 document.getElementById('orders-date-from').addEventListener('change', e => {
     orderDateFrom = e.target.value;
@@ -89,6 +101,45 @@ document.getElementById('orders-date-to').addEventListener('change', e => {
     localStorage.setItem('delivo_admin_order_date_to', orderDateTo);
     if (orderDateFilter === 'custom') renderOrders();
 });
+
+// ── Prev/next-day nav arrows ─────────────────────────────────────
+// Quick single-day stepping without having to open the custom range
+// pickers — figures out whichever day the current filter is
+// effectively centered on, then moves it ±1 day and switches the
+// filter into "custom" mode with from===to (a single-day range).
+// A multi-day preset (all/7d/30d/month) or an open-ended custom range
+// has no single obvious "current day", so those start stepping from
+// today. "Next day" is capped at today — no reason to browse into
+// orders that can't exist yet.
+function _orderDateNavReferenceDay() {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (orderDateFilter === 'today') return startOfToday;
+    if (orderDateFilter === 'yesterday') { const d = new Date(startOfToday); d.setDate(d.getDate() - 1); return d; }
+    if (orderDateFilter === 'custom' && orderDateFrom) return new Date(orderDateFrom + 'T00:00:00');
+    return startOfToday; // 'all' / '7d' / '30d' / 'month' — no single day to anchor on
+}
+function _orderDateNavStep(deltaDays) {
+    const ref = _orderDateNavReferenceDay();
+    ref.setDate(ref.getDate() + deltaDays);
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (ref > startOfToday) return; // don't navigate into the future
+    const key = _ordChartLocalKey(ref);
+    orderDateFilter = 'custom';
+    orderDateFrom = key;
+    orderDateTo   = key;
+    localStorage.setItem('delivo_admin_order_date_filter', orderDateFilter);
+    localStorage.setItem('delivo_admin_order_date_from', orderDateFrom);
+    localStorage.setItem('delivo_admin_order_date_to', orderDateTo);
+    document.getElementById('orders-date-select').value = orderDateFilter;
+    document.getElementById('orders-date-from').value = orderDateFrom;
+    document.getElementById('orders-date-to').value = orderDateTo;
+    document.getElementById('orders-date-custom').classList.add('active');
+    renderOrders();
+}
+document.getElementById('orders-date-prev-btn').addEventListener('click', () => _orderDateNavStep(-1));
+document.getElementById('orders-date-next-btn').addEventListener('click', () => _orderDateNavStep(1));
 
 // Online-orders date filter — same pattern, own state, defaults to "اليوم"
 document.getElementById('or-date-select').value = onlineOrderDateFilter;
@@ -113,11 +164,17 @@ document.getElementById('or-date-to').addEventListener('change', e => {
     if (onlineOrderDateFilter === 'custom') renderOnlineRequests();
 });
 
-// Map layer toggles
+// Map layer toggles — first sync each button's on/off look to the
+// already-restored mapLayers (see admin-04) so a layer the admin
+// hid before refreshing/relaunching starts hidden again, then wire
+// clicks to keep saving whatever the admin picks from here on.
 document.querySelectorAll('.map-filter-btn').forEach(btn => {
+    const layer = btn.dataset.layer;
+    if (layer in mapLayers) btn.classList.toggle('active', !!mapLayers[layer]);
     btn.addEventListener('click', () => {
         btn.classList.toggle('active');
         mapLayers[btn.dataset.layer] = btn.classList.contains('active');
+        try { localStorage.setItem('delivo_admin_map_layers', JSON.stringify(mapLayers)); } catch (_) {}
         renderMap();
     });
 });
@@ -1419,6 +1476,25 @@ function getOrderDeliveryProfit(order, cv) {
     }
     const orderPrice = parseFloat(order?.orderprice || order?.total || 0);
     return calcDeliveryProfit(orderPrice, cv);
+}
+
+// The driver's cut of an order's delivery fee — half the effective
+// delivery fee by default, in the SAME raw currency/unit as that fee
+// (so e.g. a 100000 ل.ل delivery fee defaults to a 50000 ل.ل driver
+// cut), or the admin's own per-order override once order.driverFee has
+// been set. This is the other half of the split that used to be a
+// silent, fixed 50/50 assumption baked into every totals calculation —
+// now it's an explicit, editable number per order.
+function _getOrderDriverFeeRaw(order, effectiveDeliveryRaw) {
+    if (order && order.driverFee !== undefined && order.driverFee !== null && order.driverFee !== '') {
+        return order.driverFee;
+    }
+    const n = parseFloat(effectiveDeliveryRaw);
+    if (isNaN(n) || n <= 0) return '';
+    const half = n / 2;
+    // Same rounding convention as _normalizeMoneyValue: whole-lira
+    // amounts round to the nearest 1000, USD amounts to the nearest cent.
+    return n > 1000 ? String(Math.round(half / 1000) * 1000) : (Math.round(half * 100) / 100).toFixed(2);
 }
 
 function calcDriverCost(driverName, cv) {

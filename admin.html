@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="styles/admin.css?v=1">
+<link rel="stylesheet" href="styles/admin.css?v=5">
 </head>
 <body>
 
@@ -184,6 +184,10 @@
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         تحديث
                     </button>
+                    <button class="ph-btn" id="stop-all-delivered-track-btn" title="إيقاف التتبع الفعّال لكل الطلبات الموصّلة دفعة واحدة" style="border-color:rgba(239,68,68,0.4);color:#ef4444;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                        إيقاف تتبع الطلبات الموصّلة
+                    </button>
                 </div>
                 <div class="orders-toolbar">
                     <button class="filter-pill active" data-filter="all">الكل</button>
@@ -191,16 +195,22 @@
                     <button class="filter-pill" data-filter="1">🟢 وُصِّل</button>
                     <button class="filter-pill" data-filter="2">🔴 ملغي</button>
                     <button class="filter-pill" data-filter="archived" style="border-color:rgba(156,163,175,0.4);color:#9ca3af;">📦 مؤرشف</button>
+                    <button id="archive-all-orders-btn" class="filter-pill" title="يؤرشف كل الطلبات المطابقة للفلتر المحدد حالياً (الحالة/التاريخ/البحث) دفعة واحدة" style="border-color:rgba(156,163,175,0.4);color:#9ca3af;">
+                        📦 أرشفة الكل (حسب الفلتر)
+                    </button>
                     <div class="orders-totals-mini">
                         <span>💰 الطلبات: <b id="orders-total-orders">$0.00</b></span>
-                        <span class="ot-delivery" title="نصف رسوم التوصيل فقط — النصف الآخر للسائق">🚗 ربح التوصيل: <b id="orders-total-delivery">$0.00</b></span>
+                        <span class="ot-fee-total" title="إجمالي رسوم التوصيل المحصّلة من العملاء لكل الطلبات ضمن الفلتر الحالي">🚚 إجمالي رسوم التوصيل: <b id="orders-total-fee">$0.00</b></span>
+                        <span class="ot-driver" title="إجمالي ما يأخذه السائقون من رسوم التوصيل — النصف افتراضياً، أو حسب ما تم تعديله لكل طلب">🏍️ أجرة السائقين: <b id="orders-total-driverfee">$0.00</b></span>
+                        <span class="ot-delivery" title="ربح ديليفو من رسوم التوصيل = إجمالي رسوم التوصيل − أجرة السائقين (يختلف إذا عدّلت أجرة السائق لأي طلب)">🚗 ربح التوصيل: <b id="orders-total-delivery">$0.00</b></span>
                         <span class="ot-extra">➕ ربح إضافي: <b id="orders-total-extra">$0.00</b></span>
                         <span title="مصاريف نفس الفترة المختارة (من صفحة المصاريف اليومية)" style="color:var(--red);">💸 مصاريف: <b id="orders-total-expenses">$0.00</b></span>
-                        <span class="ot-net" title="نصف رسوم التوصيل (لأن النصف الآخر للسائق) + الربح الإضافي − مصاريف نفس الفترة المختارة">
+                        <span class="ot-net" title="ربح التوصيل (رسوم التوصيل − أجرة السائقين) + الربح الإضافي − مصاريف نفس الفترة المختارة">
                             💚 صافي ربحك (بعد المصاريف): <b id="orders-total-net">$0.00</b>
                         </span>
                     </div>
                     <div class="orders-date-filter">
+                        <button type="button" class="orders-date-nav-btn" id="orders-date-prev-btn" title="اليوم السابق">‹</button>
                         <select class="orders-date-select" id="orders-date-select">
                             <option value="all">📅 كل التواريخ</option>
                             <option value="today">اليوم</option>
@@ -210,6 +220,7 @@
                             <option value="month">هذا الشهر</option>
                             <option value="custom">نطاق مخصص…</option>
                         </select>
+                        <button type="button" class="orders-date-nav-btn" id="orders-date-next-btn" title="اليوم التالي">›</button>
                         <div class="orders-date-custom" id="orders-date-custom">
                             <input type="date" id="orders-date-from" title="من تاريخ">
                             <span style="color:var(--gray);font-size:0.8rem;">إلى</span>
@@ -237,9 +248,23 @@
                             <button class="chart-range-pill" data-chart-range="7">7 أيام</button>
                             <button class="chart-range-pill active" data-chart-range="14">14 يوم</button>
                             <button class="chart-range-pill" data-chart-range="30">30 يوم</button>
+                            <button class="chart-range-pill" data-chart-range="90">3 أشهر</button>
+                            <button class="chart-range-pill" data-chart-range="365">سنة</button>
+                            <button class="chart-range-pill" data-chart-range="all">📜 الكل</button>
                         </div>
                     </div>
                     <div class="orders-chart-body" id="orders-chart-body"></div>
+                    <div class="orders-chart-hint" id="orders-chart-hint">💡 اضغط على أي عمود لعرض تفاصيل عملاء ذلك اليوم</div>
+                </div>
+                <div class="orders-chart-card collapsed" id="top-customers-card">
+                    <div class="orders-chart-header" id="top-customers-header">
+                        <button class="orders-chart-toggle" id="top-customers-toggle-btn" aria-label="توسيع/طي أفضل العملاء">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <h3>🏆 أكثر العملاء طلبات</h3>
+                        <span class="orders-chart-total" id="top-customers-total"></span>
+                    </div>
+                    <div class="top-customers-body" id="top-customers-body"></div>
                 </div>
 
                 <div class="orders-list" id="orders-list">
@@ -1410,13 +1435,13 @@
 <script src="scripts/admin-03-firebase-config.js?v=1"></script>
 
     <!-- Presence UI injected dynamically by admin-presence.js -->
-<script src="scripts/admin-04-core-auth-data.js?v=2"></script>
-<script src="scripts/admin-05-map-tracking-orders.js?v=3"></script>
+<script src="scripts/admin-04-core-auth-data.js?v=5"></script>
+<script src="scripts/admin-05-map-tracking-orders.js?v=13"></script>
 <script src="scripts/admin-06-drivers-customers-stores.js?v=1"></script>
 <script src="scripts/admin-07-stores-employees-herobg.js?v=1"></script>
 <script src="scripts/admin-08-settings-sales-worldcup.js?v=1"></script>
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
-<script src="scripts/admin-10-company-portal-requests.js?v=1"></script>
+<script src="scripts/admin-10-company-portal-requests.js?v=7"></script>
 <script src="scripts/admin-12-expenses.js?v=1"></script>
 </body>
 </html>
