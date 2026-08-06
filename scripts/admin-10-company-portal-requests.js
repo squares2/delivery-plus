@@ -649,7 +649,11 @@ async function notifyDriverAssigned(orderId, driverName, driverObj, order) {
         if (method === 'whatsapp') {
             const phone = driverObj?.phone;
             if (!phone) { console.warn('[Delivo] notifyDriverAssigned: no phone on record for', driverName); return; }
-            const msg = `🛵 طلب جديد مُعيَّن لك — #${idNum}\n🏪 ${order?.store || '—'}\n💰 $${order?.total || '0'}\n\nافتح تطبيق السائق للتفاصيل الكاملة.`;
+            // Link goes to driver.html (the PWA driver app), not any
+            // marketing/info site — this is what the driver should open
+            // to see and act on the assigned order.
+            const driverAppLink = 'https://delivolb.com/driver.html';
+            const msg = `🛵 طلب جديد مُعيَّن لك — #${idNum}\n🏪 ${order?.store || '—'}\n💰 $${order?.total || '0'}\n\nافتح تطبيق السائق للتفاصيل الكاملة:\n${driverAppLink}`;
             await _sendWhatsappMessage(phone, msg);
         } else {
             const payload = {
@@ -2289,13 +2293,29 @@ function _ocEditOrderStore(key, order) {
 async function orAssignDriver(orderId, driverName) {
     try {
         const uid = allOrders[orderId]?.delivryplusid;
+        // Same driverObj lookup admin-05's assignDriver() uses — needed so
+        // notifyDriverAssigned() below has a phone number (WhatsApp mode)
+        // and a driver key (push notification) to send to.
+        const driverObj = (typeof allDrivers !== 'undefined' ? allDrivers : []).find(d => d && (d.owner === driverName || d.username === driverName));
+        const driverId  = driverObj?._key || driverObj?.id || null;
         const updates = {};
         updates['/requests/' + orderId + '/driver'] = driverName;
-        if (uid) updates['/historyRequests/' + uid + '/' + orderId + '/driver'] = driverName;
+        if (driverId) updates['/requests/' + orderId + '/driverid'] = driverId;
+        if (uid) {
+            updates['/historyRequests/' + uid + '/' + orderId + '/driver'] = driverName;
+            if (driverId) updates['/historyRequests/' + uid + '/' + orderId + '/driverid'] = driverId;
+        }
         await fbUpdate('', updates);
         allOrders[orderId].driver = driverName;
+        if (driverId) allOrders[orderId].driverid = driverId;
         toast('✅ تم تعيين ' + driverName + ' للشحنة');
         renderOnlineRequests();
+        // This is the fix: the otlob/"طلبات أونلاين" panel used to skip this
+        // call entirely — only the Talabat/map section's assignDriver() sent
+        // it — so drivers assigned from here never got a WhatsApp/push alert.
+        if (typeof notifyDriverAssigned === 'function') {
+            notifyDriverAssigned(orderId, driverName, driverObj, allOrders[orderId]); // fire-and-forget
+        }
     } catch(e) { toast('خطأ في التعيين', true); }
 }
 

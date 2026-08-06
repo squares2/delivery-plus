@@ -1,4 +1,4 @@
-    var _waNotifCache={}, _waNotifWired=false;
+var _waNotifCache={}, _waNotifWired=false;
     function _initWaNotifListener(){
         if(_waNotifWired)return; _waNotifWired=true;
         // Poll via REST every 8s (avoids SDK db reference)
@@ -1431,6 +1431,18 @@ async function _aoSubmit() {
 
         await fbSet(`requests/${requestKey}`, requestObj);
         if (uid) await fbSet(`historyRequests/${uid}/${requestKey}`, { ...requestObj, trackorder: '0' });
+
+        // This is the actual gap for this page: when a driver is picked
+        // directly in this "اطلب" form (ao-driver-select), the order is
+        // created already-assigned — there's no separate "assign driver"
+        // click afterwards, so notifyDriverAssigned() (defined in
+        // admin-10-company-portal-requests.js) never used to fire for
+        // this path at all. Only orders assigned a driver AFTER creation,
+        // from the online-requests/Talabat panels, ever got a message.
+        if (driver && driver !== '0' && typeof notifyDriverAssigned === 'function') {
+            const driverObj = (allDrivers || []).find(d => d && (d.owner === driver || d.username === driver));
+            notifyDriverAssigned(requestKey, driver, driverObj, requestObj); // fire-and-forget
+        }
 
         // Guest (no account): upsert their entry in guestCustomers/ so a
         // future search by this same phone number finds them again.
