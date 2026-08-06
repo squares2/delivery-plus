@@ -19,17 +19,23 @@ let _fastDriverPollTimer = null;
 
 function _startFastDriverPoll() {
     if (_fastDriverPollTimer) return;
+    // Was 1000ms — a full re-download of the whole `drivers` node every
+    // single second is the single biggest RTDB bandwidth line item on
+    // the bill (Outgoing Bandwidth from Firebase Realtime Database).
+    // 3s still reads as "live" on a delivery map (GPS fixes themselves
+    // don't arrive faster than a few seconds anyway) but cuts this
+    // poll's bandwidth by ~66%.
     _fastDriverPollTimer = setInterval(async () => {
         // Skip the fetch entirely when nobody's looking at the map —
         // no point polling for marker positions that aren't rendered.
         if (!document.getElementById('panel-map')?.classList.contains('active')) return;
-        if (_refreshPaused || _fsSignInFails >= _FS_MAX_FAILS) return;
+        if (_refreshPaused || (typeof _tabHidden !== 'undefined' && _tabHidden) || _fsSignInFails >= _FS_MAX_FAILS) return;
         try {
             const drivers = await fbGet('drivers');
             allDrivers = _parseDriversRaw(drivers);
             _refreshDriverMarkers();
         } catch (e) { /* silent — next tick retries */ }
-    }, 1000);
+    }, 3000);
 }
 
 // Shared marker-icon builder — was previously defined only inside
@@ -1062,70 +1068,6 @@ function _onlineOrderMatchesDateFilter(order) {
     return _dateFilterMatches(order, onlineOrderDateFilter, onlineOrderDateFrom, onlineOrderDateTo);
 }
 
-// Bulk archive — archives every order currently matching the active
-// filters (state pill, date range, search box) in one shot, so the
-// admin doesn't have to press "📦 أرشفة" on each order individually.
-// Deliberately scoped to whatever's currently filtered/visible rather
-// than literally every order in the database — that lets the admin
-// narrow to e.g. "🟢 وُصِّل" + a date range first, so new/pending
-// orders are never swept up by accident. Already-archived orders are
-// always excluded regardless of filter. Archiving is non-destructive
-// (see renderOrdersDailyChart's note above) — the daily stats chart
-// keeps counting these normally afterward.
-async function archiveAllFilteredOrders() {
-    if (orderFilter === 'archived') {
-        toast('هذه القائمة تعرض الطلبات المؤرشفة فعلاً');
-        return;
-    }
-
-    const targets = Object.entries(allOrders).filter(([, o]) => {
-        if (o.vault == 1) return false; // already archived
-        if (orderFilter !== 'all' && (o.state||'0') !== orderFilter) return false;
-        if (!_orderMatchesDateFilter(o)) return false;
-        if (orderSearch) {
-            const q = orderSearch.toLowerCase();
-            if (!(o.fullname||'').toLowerCase().includes(q) &&
-                !(o.store||'').toLowerCase().includes(q) &&
-                !(o.username||'').toLowerCase().includes(q)) return false;
-        }
-        return true;
-    });
-
-    if (!targets.length) {
-        toast('لا توجد طلبات لأرشفتها ضمن الفلتر الحالي');
-        return;
-    }
-
-    const ok = await showConfirm({
-        title: 'أرشفة جماعية',
-        msg: `سيتم أرشفة <b>${targets.length}</b> طلب ضمن الفلتر الحالي (${orderFilter === 'all' ? 'كل الحالات' : 'الحالة المحددة'}). هذا لا يحذف أي بيانات ويمكن استعادة كل طلب لاحقاً من قائمة "📦 مؤرشف". متابعة؟`,
-        type: 'danger',
-        icon: '📦',
-        okLabel: 'أرشفة الكل',
-        cancelLabel: 'إلغاء',
-    });
-    if (!ok) return;
-
-    try {
-        const updates = {};
-        targets.forEach(([key, order]) => {
-            const uid = order?.delivryplusid;
-            updates[`/requests/${key}/vault`] = '1';
-            if (uid) updates[`/historyRequests/${uid}/${key}/vault`] = '1';
-            order.vault = '1';
-        });
-        await fbUpdate('', updates);
-        toast(`📦 تم أرشفة ${targets.length} طلب`);
-        renderOrders();
-        renderMap();
-    } catch (e) {
-        console.error('[Admin] archiveAllFilteredOrders failed:', e);
-        toast('خطأ في الأرشفة الجماعية', true);
-    }
-}
-const _archiveAllBtn = document.getElementById('archive-all-orders-btn');
-if (_archiveAllBtn) _archiveAllBtn.addEventListener('click', archiveAllFilteredOrders);
-
 function renderOrders() {
     fetchCompanyVars(); // fire-and-forget — populates the cached companyVars used below
     const list    = document.getElementById('orders-list');
@@ -1165,35 +1107,24 @@ function renderOrders() {
     if (resultsCountEl) resultsCountEl.textContent = entries.length;
     emptyEl.style.display = entries.length === 0 ? 'flex' : 'none';
 
-    // ── Totals for the currently filtered set — order-only, delivery-fee,
-    // and driver-fee sums, all in USD, mirroring the same split shown on
-    // each order card (manual deliveryFee/driverFee overrides if set,
-    // else the estimated/default halves).
-    let totalOrdersUSD = 0, totalDeliveryUSD = 0, totalDriverFeeUSD = 0, totalExtraUSD = 0;
+    // ── Totals for the currently filtered set — order-only sum and
+    // delivery-fee sum, both in USD, mirroring the same split shown on
+    // each order card (manual deliveryFee override if set, else estimate).
+    let totalOrdersUSD = 0, totalDeliveryUSD = 0, totalExtraUSD = 0;
     entries.forEach(([, o]) => {
         const deliveryProfit = getOrderDeliveryProfit(o, companyVars);
         const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : deliveryProfit;
         const deliveryUSD = _deliveryFeeToUSD(effectiveDeliveryRaw);
-        const driverFeeUSD = _deliveryFeeToUSD(_getOrderDriverFeeRaw(o, effectiveDeliveryRaw));
-        totalOrdersUSD    += _getOrderOnlyPrice(o, effectiveDeliveryRaw);
-        totalDeliveryUSD  += deliveryUSD;
-        totalDriverFeeUSD += driverFeeUSD;
+        totalOrdersUSD   += _getOrderOnlyPrice(o, effectiveDeliveryRaw);
+        totalDeliveryUSD += deliveryUSD;
         if (o.extraProfit != null && o.extraProfit !== '') totalExtraUSD += _toUSD(o.extraProfit);
     });
-    // Delivo's own profit on delivery fees — the full total minus
-    // whatever's going to drivers. Only a fixed half as long as nobody's
-    // edited any order's driver-fee split; varies from there.
-    const totalDeliveryProfitUSD = totalDeliveryUSD - totalDriverFeeUSD;
-    const totOrdersEl    = document.getElementById('orders-total-orders');
-    const totFeeEl       = document.getElementById('orders-total-fee');
-    const totDriverFeeEl = document.getElementById('orders-total-driverfee');
-    const totDeliveryEl  = document.getElementById('orders-total-delivery');
-    const totExtraEl     = document.getElementById('orders-total-extra');
-    if (totOrdersEl)    totOrdersEl.textContent    = '$' + totalOrdersUSD.toFixed(2);
-    if (totFeeEl)        totFeeEl.textContent       = '$' + totalDeliveryUSD.toFixed(2);
-    if (totDriverFeeEl)  totDriverFeeEl.textContent = '$' + totalDriverFeeUSD.toFixed(2);
-    if (totDeliveryEl)   totDeliveryEl.textContent  = '$' + totalDeliveryProfitUSD.toFixed(2);
-    if (totExtraEl)       totExtraEl.textContent     = '$' + totalExtraUSD.toFixed(2);
+    const totOrdersEl   = document.getElementById('orders-total-orders');
+    const totDeliveryEl = document.getElementById('orders-total-delivery');
+    const totExtraEl    = document.getElementById('orders-total-extra');
+    if (totOrdersEl)   totOrdersEl.textContent   = '$' + totalOrdersUSD.toFixed(2);
+    if (totDeliveryEl) totDeliveryEl.textContent = '$' + (totalDeliveryUSD / 2).toFixed(2);
+    if (totExtraEl)    totExtraEl.textContent    = '$' + totalExtraUSD.toFixed(2);
 
     // Daily expenses (see scripts/admin-12-expenses.js / "المصاريف اليومية")
     // that fall within this SAME date filter — matched by date only, not by
@@ -1210,14 +1141,14 @@ function renderOrders() {
     const totExpensesEl = document.getElementById('orders-total-expenses');
     if (totExpensesEl) totExpensesEl.textContent = '$' + totalExpensesUSD.toFixed(2);
 
-    // Net profit — Delivo's actual delivery-fee profit (total fee minus
-    // whatever went to drivers, no longer a blind fixed half) plus the
-    // full extra-profit total, minus daily expenses for the same period.
-    // Simple on purpose: this is the one number meant to answer "how much
-    // did I actually make?" without the admin having to do the math.
+    // Net profit — half the delivery total (the other half goes to the
+    // driver) plus the full extra-profit total, minus daily expenses for
+    // the same period. Simple on purpose: this is the one number meant to
+    // answer "how much did I actually make?" without the admin having to
+    // do the math themselves.
     const totNetEl = document.getElementById('orders-total-net');
     if (totNetEl) {
-        const netProfit = totalDeliveryProfitUSD + totalExtraUSD - totalExpensesUSD;
+        const netProfit = (totalDeliveryUSD / 2) + totalExtraUSD - totalExpensesUSD;
         totNetEl.textContent = '$' + netProfit.toFixed(2);
         totNetEl.style.color = netProfit < 0 ? 'var(--red)' : '';
     }
@@ -1275,7 +1206,6 @@ function renderOrders() {
     });
 
     renderOrdersDailyChart();
-    renderTopCustomers();
 }
 
 // ── Daily delivered-orders "candle" chart ───────────────────────────
@@ -1303,65 +1233,32 @@ function _ordChartNiceMax(v) {
     return step * p;
 }
 
-// Populated fresh on every renderOrdersDailyChart() call — maps each
-// bar's day-key to the actual delivered orders that landed on it, so
-// the click handler below can look them up without re-scanning
-// allOrders. Module-level (not local to the render function) since the
-// click listeners are wired after the function returns.
-let _ordChartDayOrders = {};
-
-// Resolves orderChartRange === 'all' into an actual day-count, spanning
-// from the earliest delivered order on record up through today — so
-// "📜 الكل" always starts the chart at the true beginning of delivery
-// history instead of an arbitrary fixed window.
-function _ordChartAllTimeDays() {
-    let earliest = null;
-    Object.values(allOrders).forEach(o => {
-        if ((o.state || '0') !== '1') return; // only delivered orders
-        const od = _parseOrderDate(o);
-        if (!od) return;
-        if (!earliest || od < earliest) earliest = od;
-    });
-    if (!earliest) return 30; // no delivered orders yet — sane fallback
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const earliestDay = new Date(earliest.getFullYear(), earliest.getMonth(), earliest.getDate());
-    return Math.max(1, Math.round((today - earliestDay) / 86400000) + 1);
-}
-
-const _ORD_CHART_RANGE_LABELS = { 7: 'آخر 7 أيام', 14: 'آخر 14 يوم', 30: 'آخر 30 يوم', 90: 'آخر 3 أشهر', 365: 'آخر سنة' };
-
 function renderOrdersDailyChart() {
     const body  = document.getElementById('orders-chart-body');
     const totEl = document.getElementById('orders-chart-total');
     if (!body) return;
 
-    const rangeDays = orderChartRange === 'all' ? _ordChartAllTimeDays() : orderChartRange;
-
-    // Build the last `rangeDays` calendar days (local time), oldest first
+    // Build the last `orderChartRange` calendar days (local time), oldest first
     const days = [];
-    for (let i = rangeDays - 1; i >= 0; i--) {
+    for (let i = orderChartRange - 1; i >= 0; i--) {
         const d = new Date();
         d.setHours(0, 0, 0, 0);
         d.setDate(d.getDate() - i);
-        days.push({ date: d, key: _ordChartLocalKey(d), count: 0, orders: [] });
+        days.push({ date: d, key: _ordChartLocalKey(d), count: 0 });
     }
     const byKey = {};
     days.forEach(row => { byKey[row.key] = row; });
 
-    Object.entries(allOrders).forEach(([key, o]) => {
+    Object.values(allOrders).forEach(o => {
         if ((o.state || '0') !== '1') return; // only delivered orders ("وُصِّل")
         const od = _parseOrderDate(o);
         if (!od) return;
         const row = byKey[_ordChartLocalKey(od)];
-        if (row) { row.count++; row.orders.push([key, o]); }
+        if (row) row.count++;
     });
 
-    _ordChartDayOrders = {};
-    days.forEach(row => { _ordChartDayOrders[row.key] = { label: _ordChartDayLabel(row.date), orders: row.orders }; });
-
     const total = days.reduce((a, r) => a + r.count, 0);
-    const rangeLabel = orderChartRange === 'all' ? 'منذ بداية السجل' : (_ORD_CHART_RANGE_LABELS[orderChartRange] || `آخر ${orderChartRange} يوم`);
-    if (totEl) totEl.innerHTML = `${rangeLabel} — <b>${total}</b> طلب مُسلَّم`;
+    if (totEl) totEl.innerHTML = `آخر ${orderChartRange} يوم — <b>${total}</b> طلب مُسلَّم`;
 
     if (total === 0) {
         body.innerHTML = `<div class="orders-chart-empty">لا توجد طلبات مُسلَّمة في هذه الفترة</div>`;
@@ -1373,11 +1270,8 @@ function renderOrdersDailyChart() {
     const innerW  = _ORD_CHART_VB_W - _ORD_CHART_PAD.l - _ORD_CHART_PAD.r;
     const n       = days.length;
     const gap     = innerW / n;
-    const barW    = Math.max(1.5, Math.min(30, gap * 0.55));
-    // Label density scales down as the range grows — daily labels stop
-    // being legible well before 90/365-day or all-time ranges get there,
-    // so long ranges thin out to roughly weekly/monthly tick marks.
-    const every   = n <= 10 ? 1 : n <= 20 ? 2 : n <= 40 ? 4 : n <= 100 ? 7 : n <= 250 ? 14 : 30;
+    const barW    = Math.max(4, Math.min(30, gap * 0.55));
+    const every   = n <= 10 ? 1 : n <= 20 ? 2 : 3;
 
     let grid = '';
     for (let i = 0; i <= 4; i++) {
@@ -1393,21 +1287,12 @@ function renderOrdersDailyChart() {
         const yTop  = _ORD_CHART_PAD.t + innerH - h;
         const showLabel = i % every === 0 || i === n - 1;
         const isToday = i === n - 1;
-        // Per-bar count numbers only render for daily-ish views — past
-        // ~40 bars they'd overlap into an illegible smear, so longer
-        // ranges (90/365/all) show clean bars only; the exact count is
-        // still available via the hover tooltip and the click-through
-        // day-details popup.
-        const showCount = r.count > 0 && n <= 40;
-        // A wider, invisible hit-area sits behind the visible bar so thin
-        // low-count columns are still easy to click/tap accurately.
         return `
-            ${showCount ? `<text x="${cx.toFixed(1)}" y="${(yTop - 6).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="800" fill="${isToday ? 'var(--orange)' : 'var(--green)'}" style="pointer-events:none;">${r.count}</text>` : ''}
-            <rect class="ord-chart-hit" data-day-key="${r.key}" x="${(cx - gap / 2).toFixed(1)}" y="${_ORD_CHART_PAD.t}" width="${gap.toFixed(1)}" height="${innerH.toFixed(1)}" fill="transparent" style="cursor:${r.count > 0 ? 'pointer' : 'default'};"></rect>
-            <rect class="ord-chart-bar" data-day-key="${r.key}" x="${(cx - barW / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" rx="3" fill="${isToday ? 'var(--orange)' : 'var(--green)'}" opacity="${isToday ? '1' : '0.85'}" style="pointer-events:none;">
-                <title>${_ordChartDayLabel(r.date)} — ${r.count} طلب مُسلَّم${r.count > 0 ? ' — اضغط للتفاصيل' : ''}</title>
+            ${r.count > 0 ? `<text x="${cx.toFixed(1)}" y="${(yTop - 6).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="800" fill="${isToday ? 'var(--orange)' : 'var(--green)'}">${r.count}</text>` : ''}
+            <rect x="${(cx - barW / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" rx="3" fill="${isToday ? 'var(--orange)' : 'var(--green)'}" opacity="${isToday ? '1' : '0.85'}">
+                <title>${_ordChartDayLabel(r.date)} — ${r.count} طلب مُسلَّم</title>
             </rect>
-            ${showLabel ? `<text x="${cx.toFixed(1)}" y="${_ORD_CHART_VB_H - 8}" text-anchor="middle" font-size="9.5" fill="var(--gray)" style="pointer-events:none;">${_ordChartDayLabel(r.date)}</text>` : ''}`;
+            ${showLabel ? `<text x="${cx.toFixed(1)}" y="${_ORD_CHART_VB_H - 8}" text-anchor="middle" font-size="9.5" fill="var(--gray)">${_ordChartDayLabel(r.date)}</text>` : ''}`;
     }).join('');
 
     body.innerHTML = `
@@ -1415,138 +1300,6 @@ function renderOrdersDailyChart() {
             ${grid}
             ${bars}
         </svg>`;
-
-    body.querySelectorAll('.ord-chart-hit').forEach(hit => {
-        hit.addEventListener('click', () => {
-            const info = _ordChartDayOrders[hit.dataset.dayKey];
-            if (!info || !info.orders.length) return;
-            _openDayOrdersModal(info.label, info.orders);
-        });
-    });
-}
-
-// Day-details modal — opened by clicking a bar in the daily delivered-
-// orders chart. Lists every delivered order that landed on that day:
-// customer, phone, store, and price, so the admin can see who ordered
-// without leaving the chart to hunt through the full orders list.
-function _openDayOrdersModal(dayLabel, dayOrders) {
-    const overlay = document.createElement('div');
-    overlay.id = 'day-orders-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-
-    // Newest order first within the day
-    const sorted = [...dayOrders].sort(([a], [b]) => (parseInt(b.replace('id_',''))||0) - (parseInt(a.replace('id_',''))||0));
-
-    const rows = sorted.map(([key, o]) => {
-        const idNum = key.replace('id_', '');
-        const name  = (o.fullname || o.username || 'زبون').replace(/</g, '&lt;');
-        const phone = o.phone ? formatPhone(o.phone) : '—';
-        const store = (o.store || '—').replace(/</g, '&lt;');
-        const deliveryProfit = getOrderDeliveryProfit(o, companyVars);
-        const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : deliveryProfit;
-        const priceUSD = _getOrderOnlyPrice(o, effectiveDeliveryRaw) + _deliveryFeeToUSD(effectiveDeliveryRaw);
-        return `
-            <div class="do-row">
-                <span class="do-row__id">#${idNum}</span>
-                <span class="do-row__name">${name}</span>
-                <span class="do-row__phone" dir="ltr">${phone}</span>
-                <span class="do-row__store">${store}</span>
-                <span class="do-row__price">$${priceUSD.toFixed(2)}</span>
-            </div>`;
-    }).join('');
-
-    overlay.innerHTML = `
-        <div style="background:var(--surface2);border-radius:16px;width:min(700px,95vw);max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
-                <div style="font-weight:800;color:var(--white);">📅 طلبات يوم ${dayLabel} — <span style="color:var(--green);">${dayOrders.length}</span> طلب مُسلَّم</div>
-                <button id="do-close" style="background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer;">✕</button>
-            </div>
-            <div class="do-list">
-                <div class="do-row do-row--head">
-                    <span class="do-row__id">#</span>
-                    <span class="do-row__name">الزبون</span>
-                    <span class="do-row__phone">الهاتف</span>
-                    <span class="do-row__store">المتجر</span>
-                    <span class="do-row__price">السعر</span>
-                </div>
-                ${rows}
-            </div>
-        </div>`;
-    document.body.appendChild(overlay);
-
-    const close = () => overlay.remove();
-    overlay.querySelector('#do-close').addEventListener('click', close);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-}
-
-// ── Top customers by delivered-order count ──────────────────────────
-// Ranks customers (matched by phone when available, falling back to
-// username/name) by how many delivered orders they have. Only
-// meaningful — and only shown at all — when looking at the full,
-// unfiltered order history ("الكل"); any narrower date range makes
-// "top customers" a near-meaningless one-off list, so the whole card
-// is hidden rather than shown with misleading data, saving vertical
-// space in the panel the rest of the time.
-function renderTopCustomers() {
-    const card  = document.getElementById('top-customers-card');
-    const body  = document.getElementById('top-customers-body');
-    const totEl = document.getElementById('top-customers-total');
-    if (!card || !body) return;
-
-    if (orderDateFilter !== 'all') {
-        card.style.display = 'none';
-        return;
-    }
-    card.style.display = '';
-
-    const byCustomer = {};
-    Object.values(allOrders).forEach(o => {
-        if ((o.state || '0') !== '1') return; // only delivered orders
-        if (!_orderMatchesDateFilter(o)) return;
-        // Prefer phone as the identity key (most reliable across
-        // guest/registered orders); fall back to username, then name.
-        const idKey = (o.phone && o.phone.trim()) || (o.username && '@'+o.username) || (o.fullname && o.fullname.trim());
-        if (!idKey) return;
-        if (!byCustomer[idKey]) {
-            byCustomer[idKey] = { name: o.fullname || o.username || 'زبون', phone: o.phone || '', count: 0, totalUSD: 0 };
-        }
-        byCustomer[idKey].count++;
-        // Keep the most complete name/phone seen across this customer's orders
-        if (o.fullname && !byCustomer[idKey].name) byCustomer[idKey].name = o.fullname;
-        if (o.phone && !byCustomer[idKey].phone) byCustomer[idKey].phone = o.phone;
-        const deliveryProfit = getOrderDeliveryProfit(o, companyVars);
-        const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : deliveryProfit;
-        byCustomer[idKey].totalUSD += _getOrderOnlyPrice(o, effectiveDeliveryRaw) + _deliveryFeeToUSD(effectiveDeliveryRaw);
-    });
-
-    const totalCustomerCount = Object.keys(byCustomer).length;
-    const ranked = Object.values(byCustomer).sort((a, b) => b.count - a.count).slice(0, 10);
-
-    // Spells out "shown / total" explicitly — if fewer than 10 unique
-    // customers have ever had a delivered order, that's shown as e.g.
-    // "أعلى 9 من 9 عملاء" rather than implying a 10th is missing.
-    if (totEl) {
-        totEl.innerHTML = ranked.length
-            ? (totalCustomerCount > ranked.length
-                ? `أعلى <b>${ranked.length}</b> من <b>${totalCustomerCount}</b> عميل`
-                : `<b>${totalCustomerCount}</b> عميل (كل من لديهم طلبات مُسلَّمة)`)
-            : '';
-    }
-
-    if (!ranked.length) {
-        body.innerHTML = `<div class="orders-chart-empty">لا توجد طلبات مُسلَّمة ضمن الفترة الحالية</div>`;
-        return;
-    }
-
-    const medals = ['🥇', '🥈', '🥉'];
-    body.innerHTML = ranked.map((c, i) => `
-        <div class="tc-row">
-            <span class="tc-rank">${medals[i] || (i + 1)}</span>
-            <span class="tc-name">${(c.name || 'زبون').replace(/</g, '&lt;')}</span>
-            <span class="tc-phone" dir="ltr">${c.phone ? formatPhone(c.phone) : '—'}</span>
-            <span class="tc-count">${c.count} <small>طلب</small></span>
-            <span class="tc-total">$${c.totalUSD.toFixed(2)}</span>
-        </div>`).join('');
 }
 
 function buildOrderCard(key, order) {
@@ -1570,13 +1323,6 @@ function buildOrderCard(key, order) {
     // Effective delivery value shown in the fee chip below — the admin's
     // manual override if set, otherwise the estimated profit.
     const effectiveDeliveryRaw = (order.deliveryFee != null && order.deliveryFee !== '') ? order.deliveryFee : deliveryProfit;
-    // Driver's cut of that delivery fee — half by default (same
-    // currency/unit as the fee itself), or the admin's per-order override
-    // once one exists (order.driverFee). Delivo's own profit on the
-    // delivery fee is whatever's left over once the driver's cut is
-    // subtracted — a fixed half only as long as nobody's edited it.
-    const driverFeeRaw     = _getOrderDriverFeeRaw(order, effectiveDeliveryRaw);
-    const deliveryProfitUSD = _deliveryFeeToUSD(effectiveDeliveryRaw) - _deliveryFeeToUSD(driverFeeRaw);
     // Order-only price shown in the header — reads the independent
     // order.orderprice field when present, only falling back to
     // splitting the old merged order.total for orders never edited yet.
@@ -1618,18 +1364,6 @@ function buildOrderCard(key, order) {
                     💵<span class="oc-fee-cur">${_currencySymbol(order.deliveryFee)}</span><input type="number" class="oc-fee-input" data-oid="${key}" value="${order.deliveryFee != null && order.deliveryFee !== '' ? order.deliveryFee : (deliveryProfit !== null ? deliveryProfit.toFixed(2) : '')}" placeholder="—" step="0.01">
                 </span>
                 <button type="button" class="oc-fee-auto-btn" data-fee-auto="${key}" title="احسب رسم التوصيل تلقائياً حسب المسافة (يتطلب تحديد موقع التوصيل)">🧮 تلقائي</button>
-            </div>
-            <div class="oc-field-group oc-field-group--split" title="تقسيم رسم التوصيل بين السائق وديليفو — نصف المبلغ للسائق افتراضياً">
-                <span class="oc-field-label">أجرة السائق 🏍️ / 💰</span>
-                <span class="oc-split-row">
-                    <span class="oc-split-driver" title="أجرة السائق من رسم التوصيل — نصف المبلغ افتراضياً، قابل للتعديل">
-                        🏍️<input type="number" class="oc-driverfee-input" data-oid="${key}" value="${driverFeeRaw}" placeholder="0" step="0.01">
-                        <span class="oc-driverfee-cur">${_currencySymbol(driverFeeRaw)}</span>
-                    </span>
-                    <span class="oc-split-profit${deliveryProfitUSD < 0 ? ' oc-split-profit--neg' : ''}" title="ربح ديليفو من هذا الطلب = رسم التوصيل − أجرة السائق">
-                        💰 <b class="oc-split-profit-val">$${deliveryProfitUSD.toFixed(2)}</b>
-                    </span>
-                </span>
             </div>
             <div class="oc-field-group">
                 <span class="oc-field-label">ربح إضافي</span>
@@ -1766,23 +1500,6 @@ function buildOrderCard(key, order) {
     // Editable delivery fee — admin override of the auto ("smart")
     // calculated fee, when the distance-based estimate needs adjusting.
     const feeInput = card.querySelector('.oc-fee-input');
-    const driverFeeInput = card.querySelector('.oc-driverfee-input');
-
-    // Shared by both the delivery-fee and driver-fee inputs — keeps the
-    // little "💰 $X" profit readout beside the driver-fee box in sync
-    // with whatever's currently typed in either field, live, before
-    // either one is even saved.
-    function _refreshOcSplitProfit() {
-        const profitValEl  = card.querySelector('.oc-split-profit-val');
-        const profitWrapEl = card.querySelector('.oc-split-profit');
-        if (!profitValEl) return;
-        const feeRawNow    = feeInput ? feeInput.value : effectiveDeliveryRaw;
-        const driverRawNow = driverFeeInput ? driverFeeInput.value : driverFeeRaw;
-        const profitNow    = _deliveryFeeToUSD(feeRawNow) - _deliveryFeeToUSD(driverRawNow);
-        profitValEl.textContent = '$' + profitNow.toFixed(2);
-        if (profitWrapEl) profitWrapEl.classList.toggle('oc-split-profit--neg', profitNow < 0);
-    }
-
     if (feeInput) {
         feeInput.addEventListener('click', e => e.stopPropagation());
         const feeCur = card.querySelector('.oc-fee-cur');
@@ -1790,7 +1507,6 @@ function buildOrderCard(key, order) {
             const sym = _currencySymbol(feeInput.value);
             if (feeCur) feeCur.textContent = sym;
             feeInput.step = sym === 'ل.ل' ? '1000' : '0.01';
-            _refreshOcSplitProfit();
         });
         feeInput.addEventListener('change', async () => {
             const val = _normalizeMoneyValue(feeInput.value.trim());
@@ -1807,34 +1523,7 @@ function buildOrderCard(key, order) {
                 orderprice: orderOnlyPrice.toFixed(2),
                 total: (orderOnlyPrice + newDeliveryUSD).toFixed(2)
             });
-            _refreshOcSplitProfit();
-            renderOrders(); // refresh toolbar totals too
             toast('✅ تم تحديث رسم التوصيل');
-        });
-    }
-
-    // Editable driver's cut of the delivery fee — defaults to half (see
-    // _getOrderDriverFeeRaw), stored independently as order.driverFee
-    // once the admin actually edits it for this order. Delivo's own
-    // profit on the delivery fee (the little "💰 $X" beside it) is
-    // recalculated live as either this or the delivery-fee input changes.
-    if (driverFeeInput) {
-        driverFeeInput.addEventListener('click', e => e.stopPropagation());
-        const driverFeeCur = card.querySelector('.oc-driverfee-cur');
-        driverFeeInput.addEventListener('input', () => {
-            const sym = _currencySymbol(driverFeeInput.value);
-            if (driverFeeCur) driverFeeCur.textContent = sym;
-            driverFeeInput.step = sym === 'ل.ل' ? '1000' : '0.01';
-            _refreshOcSplitProfit();
-        });
-        driverFeeInput.addEventListener('change', async () => {
-            const val = _normalizeMoneyValue(driverFeeInput.value.trim());
-            driverFeeInput.value = val;
-            if (driverFeeCur) driverFeeCur.textContent = _currencySymbol(val);
-            await updateOrderFields(key, { driverFee: val });
-            _refreshOcSplitProfit();
-            renderOrders(); // refresh toolbar totals too
-            toast('✅ تم تحديث أجرة السائق');
         });
     }
 
@@ -2117,23 +1806,7 @@ async function changeState(orderId, newState) {
         const _prevState = allOrders[orderId]?.state || '0'; // capture BEFORE mutation
         updates[`/requests/${orderId}/state`] = newState;
         if (uid) updates[`/historyRequests/${uid}/${orderId}/state`] = newState;
-
-        // Auto-disable tracking on final states (delivered/cancelled) — same
-        // rule already applied by the driver app and the archive button, so
-        // an order marked وُصِّل/ملغي from the admin side also stops showing
-        // "📡 تتبع نشط" and drops the live-tracking driverid reference.
-        const _stopTracking = ['1','2'].includes(newState) && (allOrders[orderId]?.trackorder == 1);
-        if (_stopTracking) {
-            updates[`/requests/${orderId}/trackorder`] = '0';
-            updates[`/requests/${orderId}/driverid`]   = null;
-            if (uid) {
-                updates[`/historyRequests/${uid}/${orderId}/trackorder`] = '0';
-                updates[`/historyRequests/${uid}/${orderId}/driverid`]   = null;
-            }
-        }
-
         allOrders[orderId].state = newState; // update local BEFORE await so any re-render is correct
-        if (_stopTracking) allOrders[orderId].trackorder = '0';
         await fbUpdate('', updates);
 
         // Store order counter: keep storeOrderCounts/{store} in sync.
@@ -2391,47 +2064,6 @@ async function changeState(orderId, newState) {
         updateNavBadge();
     } catch(e) { toast('خطأ في تحديث الحالة', true); }
 }
-
-// Stop live tracking for every currently-delivered order in one shot —
-// same auto-stop rule as changeState()/archive/driver-app, but as a manual
-// sweep for orders that were already delivered before this fix existed
-// (or any edge case where trackorder got left on).
-async function stopAllDeliveredTracking() {
-    const targets = Object.keys(allOrders).filter(id => {
-        const o = allOrders[id];
-        return o && (o.state === '1') && (o.trackorder == 1);
-    });
-    if (!targets.length) { toast('لا توجد طلبات موصّلة قيد التتبع'); return; }
-    try {
-        const updates = {};
-        targets.forEach(id => {
-            const uid = allOrders[id]?.delivryplusid;
-            updates[`/requests/${id}/trackorder`] = '0';
-            updates[`/requests/${id}/driverid`]   = null;
-            if (uid) {
-                updates[`/historyRequests/${uid}/${id}/trackorder`] = '0';
-                updates[`/historyRequests/${uid}/${id}/driverid`]   = null;
-            }
-            allOrders[id].trackorder = '0';
-        });
-        await fbUpdate('', updates);
-        toast(`🔴 تم إيقاف التتبع لـ ${targets.length} طلب موصّل`);
-        targets.forEach(id => {
-            const card = document.querySelector(`.order-card[data-id="${id}"]`);
-            if (card) {
-                const expanded = card.classList.contains('expanded');
-                card.replaceWith(buildOrderCard(id, allOrders[id]));
-                if (expanded) document.querySelector(`.order-card[data-id="${id}"]`)?.classList.add('expanded');
-            }
-        });
-        renderMap();
-    } catch (e) {
-        console.error('[Admin] stopAllDeliveredTracking failed:', e);
-        toast('خطأ في إيقاف التتبع الجماعي', true);
-    }
-}
-const _stopAllTrackBtn = document.getElementById('stop-all-delivered-track-btn');
-if (_stopAllTrackBtn) _stopAllTrackBtn.addEventListener('click', stopAllDeliveredTracking);
 
 async function markRead(orderId) {
     try {
