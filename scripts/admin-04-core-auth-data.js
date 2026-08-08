@@ -10,6 +10,8 @@ const RTDB        = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 // whenever the live-map/auth-state code fired first, throwing
 // "allExtStores is not defined" (see renderMap's forEach over it).
 let allExtStores = {};    // cached from Firebase externalStores/
+let _lastDriversRaw = null; // raw fbGet('drivers') result from the last successful loadAllData() cycle — fallback if a future fetch fails (see loadAllData)
+let _lastPatternRaw = null; // raw fbGet('pattern') result from the last successful loadAllData() cycle — same purpose, for allStores
 
 /* ── Business-day boundary (4:00 AM) ───────────────────────────────
    Delivo stays open past midnight (last orders/closing routine often
@@ -1567,12 +1569,29 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
+        // Each fetch below now falls back to its OWN last-known-good value on
+        // failure (instead of having none of them, since the previous version
+        // of this Promise.all had several unprotected fetches — most notably
+        // 'requests' itself, plus 'drivers'/'pattern'/the Firestore 'users'
+        // read). A single Promise.all rejects the instant ANY one promise in
+        // it rejects, which meant one transient hiccup on an unrelated fetch
+        // (a Firestore auth token hiccup on 'users' was the most likely
+        // culprit — every admin session shares one static Firestore login,
+        // so simultaneous sessions can occasionally trip Google's own
+        // sign-in rate limiting) silently aborted the ENTIRE refresh cycle
+        // — including new orders that 'requests' itself had already fetched
+        // successfully in that same batch. That's almost certainly what was
+        // behind orders intermittently failing to show up for some admins:
+        // not a per-user bug, but a per-refresh-cycle race that any admin
+        // could hit depending on their connection/session timing at that
+        // moment. Falling back per-fetch means one bad slice of data just
+        // skips updating for a cycle instead of freezing the whole panel.
         const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw, customerActivity, guestCustomersRaw, expensesRaw, cashboxRaw, cashboxWhishRaw] = await Promise.all([
-            fbGet('requests'),
-            fbGet('drivers'),
-            fsGetCollection('users'),
+            fbGet('requests').catch(e => { console.warn('[Admin] orders (requests) fetch failed — keeping last known orders:', e.message); return allOrders; }),
+            fbGet('drivers').catch(e => { console.warn('[Admin] drivers fetch failed — keeping last known drivers:', e.message); return _lastDriversRaw; }),
+            fsGetCollection('users').catch(e => { console.warn('[Admin] users fetch failed (Firestore) — keeping last known users:', e.message); return allUsers; }),
             fsGetCollection('devices').catch(() => ({})),
-            fbGet('pattern'),
+            fbGet('pattern').catch(e => { console.warn('[Admin] pattern fetch failed — keeping last known stores:', e.message); return _lastPatternRaw; }),
             fbGet('adminUsers').catch(()  => null),
             fbGet('blacklist').catch(()   => null),
             fbGet('storeStatus').catch(() => null),
@@ -1585,6 +1604,8 @@ async function loadAllData() {
             fbGet('cashbox').catch(() => null),
             fbGet('cashboxWhish').catch(() => null),
         ]);
+        _lastDriversRaw = drivers; // cache the raw (pre-parse) value for the next cycle's fallback above
+        _lastPatternRaw = pattern; // same, for the stores-pattern fallback above
 
         allExpenses = expensesRaw || {};
         window.allExpenses = allExpenses; // exposed for admin-05's net-profit calc (see renderOrders)
