@@ -112,18 +112,16 @@ document.getElementById('orders-date-to').addEventListener('change', e => {
 // today. "Next day" is capped at today — no reason to browse into
 // orders that can't exist yet.
 function _orderDateNavReferenceDay() {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = bizDayStart();
     if (orderDateFilter === 'today') return startOfToday;
     if (orderDateFilter === 'yesterday') { const d = new Date(startOfToday); d.setDate(d.getDate() - 1); return d; }
-    if (orderDateFilter === 'custom' && orderDateFrom) return new Date(orderDateFrom + 'T00:00:00');
+    if (orderDateFilter === 'custom' && orderDateFrom) return new Date(orderDateFrom + 'T04:00:00');
     return startOfToday; // 'all' / '7d' / '30d' / 'month' — no single day to anchor on
 }
 function _orderDateNavStep(deltaDays) {
     const ref = _orderDateNavReferenceDay();
     ref.setDate(ref.getDate() + deltaDays);
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = bizDayStart();
     if (ref > startOfToday) return; // don't navigate into the future
     const key = _ordChartLocalKey(ref);
     orderDateFilter = 'custom';

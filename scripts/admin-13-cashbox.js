@@ -23,7 +23,12 @@
 // more than once per admin session.
 let _cbAutoPromptShown = false;
 
-function _cbDateKey(dt) {
+// Pure calendar-date formatter — NOT business-day-aware. Only for
+// dates that already represent a specific chosen calendar day with no
+// meaningful time-of-day (e.g. _cbShiftDate's day-nav arithmetic
+// below). For bucketing a real order/expense TIMESTAMP by day, use
+// bizDateKey() from admin-04 instead, which applies the 4 AM cutover.
+function _cbPlainDateKey(dt) {
     return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
 
@@ -31,12 +36,13 @@ function _cbShiftDate(dateStr, delta) {
     const [y, m, d] = (dateStr || _todayStr()).split('-').map(Number);
     const dt = new Date(y, (m || 1) - 1, d || 1);
     dt.setDate(dt.getDate() + delta);
-    return _cbDateKey(dt);
+    return _cbPlainDateKey(dt);
 }
 
-// Replays orders + expenses for a single day against that day's opening
-// balance (if any) and returns the full picture: the opening amount, the
-// sorted transaction list (each with a running balanceAfter), and the
+// Replays orders + expenses for a single BUSINESS day (4 AM cutover —
+// see bizDateKey() in admin-04) against that day's opening balance (if
+// any) and returns the full picture: the opening amount, the sorted
+// transaction list (each with a running balanceAfter), and the
 // income/expense/closing totals. Used both to render the ledger and to
 // suggest the previous day's closing balance when prompting for a new
 // day's opening.
@@ -49,7 +55,7 @@ function _cbComputeDayTotals(dateStr) {
     Object.entries(allOrders || {}).forEach(([key, o]) => {
         if (!o || (o.state || '0') !== '1') return; // only delivered orders are realized cash
         const od = _parseOrderDate(o);
-        if (!od || _cbDateKey(od) !== dateStr) return;
+        if (!od || bizDateKey(od) !== dateStr) return;
 
         const deliveryProfit = getOrderDeliveryProfit(o, companyVars);
         const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : deliveryProfit;
@@ -287,6 +293,51 @@ document.getElementById('cb-refresh-btn').addEventListener('click', async () => 
    via _toUSD (same >1000-is-LBP convention as everywhere else). ── */
 
 let _cbWhishType = 'in'; // currently selected type in the add-transaction modal
+
+const _CB_WHISH_EXPANDED_KEY = 'delivo_admin_whish_expanded';
+
+// Collapsed by default (matches the static HTML above) so the day ledger
+// gets most of the room; expanding it hands the day ledger back down to
+// a fixed 320px and lets this section take the freed space instead.
+function _cbWhishSetExpanded(expanded, persist = true) {
+    const body    = document.getElementById('cb-whish-body');
+    const chevron = document.getElementById('cb-whish-toggle-chevron');
+    const section = document.getElementById('cb-whish-section');
+    const dayWrap = document.getElementById('cb-table-wrap');
+    if (!body || !section || !dayWrap) return;
+
+    if (expanded) {
+        body.style.display = 'flex';
+        section.style.flex = '1 1 auto';
+        section.style.minHeight = '220px';
+        dayWrap.style.flex = '0 1 320px';
+        dayWrap.style.maxHeight = '320px';
+        if (chevron) chevron.style.transform = 'rotate(90deg)';
+    } else {
+        body.style.display = 'none';
+        section.style.flex = '0 0 auto';
+        section.style.minHeight = '';
+        dayWrap.style.flex = '1';
+        dayWrap.style.maxHeight = '';
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+    if (persist) {
+        try { localStorage.setItem(_CB_WHISH_EXPANDED_KEY, expanded ? '1' : '0'); } catch (_) {}
+    }
+}
+
+document.getElementById('cb-whish-toggle-btn').addEventListener('click', () => {
+    const body = document.getElementById('cb-whish-body');
+    _cbWhishSetExpanded(body.style.display === 'none');
+});
+
+// Restore the admin's last choice (falls back to the collapsed default
+// already baked into the static HTML, so nothing to do if never expanded).
+(() => {
+    let saved = '0';
+    try { saved = localStorage.getItem(_CB_WHISH_EXPANDED_KEY) || '0'; } catch (_) {}
+    if (saved === '1') _cbWhishSetExpanded(true, false);
+})();
 
 function _cbWhishTotals() {
     const entries = Object.entries(window.allCashboxWhish || {}).filter(([, t]) => t);

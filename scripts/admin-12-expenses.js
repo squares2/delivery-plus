@@ -56,9 +56,12 @@ function _expEscHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
+// "Today" for every date-scoped feature in the admin panel (expenses'
+// default date, حركة الصندوق's default day, etc.) — resolves through
+// the shared 4 AM business-day cutover in admin-04 (bizDateKey), so a
+// 2 AM shift still counts as "yesterday" everywhere consistently.
 function _todayStr() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return bizDateKey();
 }
 
 // The orders panel's own net-profit figure depends on allExpenses — refresh

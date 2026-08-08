@@ -1015,17 +1015,19 @@ function _parseOrderDate(order) {
 }
 
 // Does this order's date fall inside a given date-filter selection?
-// Ranges are day-based (local time) so "اليوم"/"أمس"/etc. match what the
-// admin sees on the clock, not a rolling 24h window. Shared by both the
-// main "الطلبات" panel and the "طلبات أونلاين" panel, each with its own
-// independent filter/from/to state.
+// Ranges are day-based (local time), anchored to Delivo's 4 AM
+// business-day cutover (see bizDayStart() in admin-04) rather than
+// midnight — so "اليوم" at 2 AM still means "yesterday's business
+// day" the way the company itself would count it, not the literal
+// calendar date. Shared by both the main "الطلبات" panel and the
+// "طلبات أونلاين" panel, each with its own independent filter/from/to
+// state.
 function _dateFilterMatches(order, filterVal, fromVal, toVal) {
     if (filterVal === 'all') return true;
     const od = _parseOrderDate(order);
     if (!od) return false;
 
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = bizDayStart();
 
     switch (filterVal) {
         case 'today':
@@ -1043,7 +1045,7 @@ function _dateFilterMatches(order, filterVal, fromVal, toVal) {
             return od >= start;
         }
         case 'month':
-            return od >= new Date(now.getFullYear(), now.getMonth(), 1);
+            return od >= new Date(startOfToday.getFullYear(), startOfToday.getMonth(), 1, BIZ_DAY_START_HOUR);
         case 'custom': {
             if (fromVal) {
                 const from = new Date(fromVal + 'T00:00:00');
@@ -1296,7 +1298,8 @@ const _ORD_CHART_VB_W = 1000, _ORD_CHART_VB_H = 220;
 const _ORD_CHART_PAD  = { l: 34, r: 10, t: 16, b: 26 };
 
 function _ordChartLocalKey(d) {
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    // Business-day key (4 AM cutover) — see bizDateKey() in admin-04.
+    return bizDateKey(d);
 }
 function _ordChartDayLabel(d) {
     return d.toLocaleDateString('ar-LB', { day: 'numeric', month: 'short' });
@@ -1329,8 +1332,8 @@ function _ordChartAllTimeDays() {
         if (!earliest || od < earliest) earliest = od;
     });
     if (!earliest) return 30; // no delivered orders yet — sane fallback
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const earliestDay = new Date(earliest.getFullYear(), earliest.getMonth(), earliest.getDate());
+    const today = bizDayStart();
+    const earliestDay = bizDayStart(earliest);
     return Math.max(1, Math.round((today - earliestDay) / 86400000) + 1);
 }
 
@@ -1343,11 +1346,11 @@ function renderOrdersDailyChart() {
 
     const rangeDays = orderChartRange === 'all' ? _ordChartAllTimeDays() : orderChartRange;
 
-    // Build the last `rangeDays` calendar days (local time), oldest first
+    // Build the last `rangeDays` business days (4 AM cutover, local
+    // time), oldest first — see bizDayStart() in admin-04.
     const days = [];
     for (let i = rangeDays - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
+        const d = bizDayStart();
         d.setDate(d.getDate() - i);
         days.push({ date: d, key: _ordChartLocalKey(d), count: 0, orders: [] });
     }

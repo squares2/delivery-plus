@@ -11,6 +11,44 @@ const RTDB        = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 // "allExtStores is not defined" (see renderMap's forEach over it).
 let allExtStores = {};    // cached from Firebase externalStores/
 
+/* ── Business-day boundary (4:00 AM) ───────────────────────────────
+   Delivo stays open past midnight (last orders/closing routine often
+   run into the small hours), so the operational "day" doesn't roll
+   over at 00:00 — it rolls over at 4:00 AM. Anything that happens
+   between midnight and 3:59 AM still belongs to the PREVIOUS calendar
+   day's business day (e.g. an order placed at 01:30 AM on the 9th is
+   still "the 8th" for every report/filter/ledger in this panel).
+
+   These two functions are the single source of truth for that cutover
+   — every "اليوم/أمس" order & expense filter, the daily orders chart,
+   and حركة الصندوق's per-day ledger all resolve "what day is this"
+   through bizDateKey()/bizDayStart() rather than each computing their
+   own midnight boundary, so the 4 AM rule stays consistent everywhere
+   it matters instead of drifting between features over time. ── */
+const BIZ_DAY_START_HOUR = 4;
+
+// The real moment this business day began — the most recent 4:00 AM
+// at or before `ref`. Use this wherever code needs an actual Date to
+// compare against (range filters, "is this today" checks).
+function bizDayStart(ref) {
+    const d = new Date(ref || new Date());
+    if (d.getHours() < BIZ_DAY_START_HOUR) d.setDate(d.getDate() - 1);
+    d.setHours(BIZ_DAY_START_HOUR, 0, 0, 0);
+    return d;
+}
+
+// "YYYY-MM-DD" label of the business day `ref` falls into. Use this
+// wherever code needs to bucket/group/label a real timestamp by day
+// (chart bars, ledger rows, "which day did this order happen on").
+// NOT for formatting an already-known calendar date picked by a human
+// (e.g. an expense's admin-chosen date, or date-nav arithmetic on a
+// plain Y-M-D string) — those have no time-of-day to weigh against
+// the 4 AM cutover and should format directly instead.
+function bizDateKey(ref) {
+    const d = bizDayStart(ref);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // Some historical orders (at least order #42, likely others created the
 // same way) ended up with lat/lng saved backwards — the real longitude
 // sitting in the "lat" field and the real latitude in "lng". Lebanon's

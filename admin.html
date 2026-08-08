@@ -211,7 +211,7 @@
                     </div>
                     <div class="orders-date-filter">
                         <button type="button" class="orders-date-nav-btn" id="orders-date-prev-btn" title="اليوم السابق">‹</button>
-                        <select class="orders-date-select" id="orders-date-select">
+                        <select class="orders-date-select" id="orders-date-select" title="يبدأ يوم العمل الساعة 4:00 صباحاً — أي وقت قبل ذلك يُحتسب ضمن اليوم السابق">
                             <option value="all">📅 كل التواريخ</option>
                             <option value="today">اليوم</option>
                             <option value="yesterday">أمس</option>
@@ -583,7 +583,7 @@
                     <button class="filter-pill" data-or-filter="cancelled">✕ ملغاة</button>
                     <button class="filter-pill active" data-or-filter="all">الكل</button>
                     <div class="orders-date-filter">
-                        <select class="orders-date-select" id="or-date-select">
+                        <select class="orders-date-select" id="or-date-select" title="يبدأ يوم العمل الساعة 4:00 صباحاً — أي وقت قبل ذلك يُحتسب ضمن اليوم السابق">
                             <option value="all">📅 كل التواريخ</option>
                             <option value="today">اليوم</option>
                             <option value="yesterday">أمس</option>
@@ -950,7 +950,7 @@
                 </div>
                 <div class="orders-toolbar">
                     <div class="orders-date-filter">
-                        <select class="orders-date-select" id="exp-date-select">
+                        <select class="orders-date-select" id="exp-date-select" title="يبدأ يوم العمل الساعة 4:00 صباحاً — أي وقت قبل ذلك يُحتسب ضمن اليوم السابق">
                             <option value="all">📅 كل التواريخ</option>
                             <option value="today">اليوم</option>
                             <option value="yesterday">أمس</option>
@@ -1019,7 +1019,7 @@
                 <div class="orders-toolbar">
                     <div class="orders-date-filter" style="gap:4px;">
                         <button class="ph-btn" id="cb-prev-day-btn" title="اليوم السابق" style="padding:6px 9px;">‹</button>
-                        <input type="date" id="cb-date" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font);font-size:0.8rem;padding:6px 8px;">
+                        <input type="date" id="cb-date" title="يبدأ يوم العمل الساعة 4:00 صباحاً — أي وقت قبل ذلك يُحتسب ضمن اليوم السابق" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font);font-size:0.8rem;padding:6px 8px;">
                         <button class="ph-btn" id="cb-next-day-btn" title="اليوم التالي" style="padding:6px 9px;">›</button>
                         <button class="ph-btn" id="cb-today-btn" style="padding:6px 10px;">اليوم</button>
                     </div>
@@ -1043,7 +1043,7 @@
                      scroll wrapper needed — each manages its own internal
                      scroll via min-height:0 + overflow:auto. -->
                 <div style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
-                    <div class="or-table-wrap" id="cb-table-wrap" style="flex:0 1 320px;max-height:320px;">
+                    <div class="or-table-wrap" id="cb-table-wrap" style="flex:1;min-height:0;">
                         <div class="or-empty" id="cb-empty" style="display:none;">
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/></svg>
                             <p>لا توجد حركات مسجّلة لهذا اليوم</p>
@@ -1065,37 +1065,44 @@
                     <!-- WHISH balance — Delivo's Whish Money e-wallet. A separate,
                          always-current running balance (not tied to any single
                          day/date filter above), built purely from manual
-                         deposit/withdraw transactions logged here. Pinned to
-                         the bottom of the panel, filling whatever height is
-                         left under the day ledger. See scripts/admin-13-cashbox.js's
+                         deposit/withdraw transactions logged here. Collapsed
+                         to just its title+totals bar by default to save room
+                         for the day ledger above — click the chevron to expand
+                         the full transaction log. State persists in
+                         localStorage. See scripts/admin-13-cashbox.js's
                          _cbWhish* functions. -->
-                    <div class="settings-section" style="margin:4px 16px 16px;flex:1;min-height:180px;display:flex;flex-direction:column;overflow:hidden;">
-                        <div class="settings-section-title" style="display:flex;align-items:center;justify-content:space-between;text-transform:none;letter-spacing:normal;flex-shrink:0;">
-                            <span>📲 سجل حركات Whish</span>
-                            <span id="cb-whish-count-label" style="color:var(--gray);font-weight:400;">0 حركة</span>
-                        </div>
-                        <div style="padding:12px 16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-bottom:1px solid var(--border);flex-shrink:0;">
-                            <span style="font-size:0.78rem;color:var(--gray-light);">⬇️ إجمالي الإيداعات: <b id="cb-whish-total-in" style="color:var(--green);">$0.00</b></span>
-                            <span style="font-size:0.78rem;color:var(--gray-light);">⬆️ إجمالي السحوبات: <b id="cb-whish-total-out" style="color:var(--red);">$0.00</b></span>
-                            <span style="font-size:0.78rem;color:var(--gray-light);margin-right:auto;">📲 الرصيد الحالي: <b id="cb-whish-balance" style="color:#a78bfa;">$0.00</b></span>
-                        </div>
-                        <div class="or-table-wrap" id="cb-whish-table-wrap" style="flex:1;min-height:0;">
-                            <div class="or-empty" id="cb-whish-empty" style="display:none;padding:24px 0;">
-                                <p style="font-size:0.78rem;">لا توجد حركات Whish مسجّلة بعد</p>
+                    <div class="settings-section" id="cb-whish-section" style="margin:4px 16px 16px;flex:0 0 auto;display:flex;flex-direction:column;overflow:hidden;">
+                        <button type="button" id="cb-whish-toggle-btn" class="settings-section-title" style="all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:space-between;text-transform:none;letter-spacing:normal;flex-shrink:0;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;font-size:0.72rem;font-weight:800;color:var(--gray);">
+                            <span style="display:flex;align-items:center;gap:8px;">
+                                <span id="cb-whish-toggle-chevron" style="display:inline-block;transition:transform 0.15s;">▸</span>
+                                📲 سجل حركات Whish
+                                <span id="cb-whish-count-label" style="color:var(--gray);font-weight:400;">0 حركة</span>
+                            </span>
+                            <span style="font-size:0.78rem;color:var(--gray-light);font-weight:700;text-transform:none;">📲 الرصيد الحالي: <b id="cb-whish-balance" style="color:#a78bfa;">$0.00</b></span>
+                        </button>
+                        <div id="cb-whish-body" style="display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden;">
+                            <div style="padding:12px 16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-bottom:1px solid var(--border);flex-shrink:0;">
+                                <span style="font-size:0.78rem;color:var(--gray-light);">⬇️ إجمالي الإيداعات: <b id="cb-whish-total-in" style="color:var(--green);">$0.00</b></span>
+                                <span style="font-size:0.78rem;color:var(--gray-light);">⬆️ إجمالي السحوبات: <b id="cb-whish-total-out" style="color:var(--red);">$0.00</b></span>
                             </div>
-                            <table class="or-table" id="cb-whish-table" style="min-width:0;">
-                                <thead>
-                                    <tr>
-                                        <th>التاريخ والوقت</th>
-                                        <th>البيان</th>
-                                        <th>النوع</th>
-                                        <th>المبلغ</th>
-                                        <th>أُضيف بواسطة</th>
-                                        <th>إجراء</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="cb-whish-tbody"></tbody>
-                            </table>
+                            <div class="or-table-wrap" id="cb-whish-table-wrap" style="flex:1;min-height:0;">
+                                <div class="or-empty" id="cb-whish-empty" style="display:none;padding:24px 0;">
+                                    <p style="font-size:0.78rem;">لا توجد حركات Whish مسجّلة بعد</p>
+                                </div>
+                                <table class="or-table" id="cb-whish-table" style="min-width:0;">
+                                    <thead>
+                                        <tr>
+                                            <th>التاريخ والوقت</th>
+                                            <th>البيان</th>
+                                            <th>النوع</th>
+                                            <th>المبلغ</th>
+                                            <th>أُضيف بواسطة</th>
+                                            <th>إجراء</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cb-whish-tbody"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div><!-- /day-ledger + whish column -->
@@ -1622,15 +1629,15 @@
 <script src="scripts/admin-03-firebase-config.js?v=1"></script>
 
     <!-- Presence UI injected dynamically by admin-presence.js -->
-<script src="scripts/admin-04-core-auth-data.js?v=5"></script>
-<script src="scripts/admin-05-map-tracking-orders.js?v=13"></script>
+<script src="scripts/admin-04-core-auth-data.js?v=6"></script>
+<script src="scripts/admin-05-map-tracking-orders.js?v=14"></script>
 <script src="scripts/admin-06-drivers-customers-stores.js?v=1"></script>
 <script src="scripts/admin-07-stores-employees-herobg.js?v=1"></script>
 <script src="scripts/admin-08-settings-sales-worldcup.js?v=1"></script>
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
-<script src="scripts/admin-10-company-portal-requests.js?v=8"></script>
-<script src="scripts/admin-12-expenses.js?v=1"></script>
-<script src="scripts/admin-13-cashbox.js?v=3"></script>
+<script src="scripts/admin-10-company-portal-requests.js?v=9"></script>
+<script src="scripts/admin-12-expenses.js?v=2"></script>
+<script src="scripts/admin-13-cashbox.js?v=5"></script>
 </body>
 </html>
     <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->
