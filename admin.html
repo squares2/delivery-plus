@@ -769,7 +769,46 @@
                                           style="width:100%;resize:vertical;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;"></textarea>
                                 <div id="ao-cat-chips" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;"></div>
                                 <div id="ao-cat-items" style="display:none;flex-wrap:wrap;gap:6px;margin-top:8px;padding:10px;background:var(--surface2);border-radius:8px;"></div>
+
+                                <!-- Store-catalog item picker — appears once a store on Delivo
+                                     is chosen in section 3 above. Builds "وصف الطلب" from that
+                                     store's real menu/catalog instead of free typing, with an
+                                     optional free-text line for anything not in the catalog.
+                                     See _aoLoadStoreCatalogAndTogglePicker() / _aoRenderOrderLines(). -->
+                                <div id="ao-item-picker" style="display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);">
+                                    <label class="setting-label" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                        <span>🛒 أضف عناصر من قائمة <b id="ao-item-picker-store-name" style="color:var(--orange);">المتجر</b></span>
+                                        <span id="ao-item-picker-count" style="font-size:0.68rem;color:var(--gray);font-weight:400;"></span>
+                                    </label>
+                                    <div style="position:relative;">
+                                        <input type="text" id="ao-item-search" autocomplete="off" placeholder="🔍 اكتب اسم الصنف…"
+                                               style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
+                                        <div id="ao-item-search-results" style="display:none;position:absolute;z-index:20;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1.5px solid var(--border-bright);border-radius:var(--radius-md);max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);"></div>
+                                    </div>
+                                    <div id="ao-order-lines" style="display:flex;flex-direction:column;gap:6px;margin-top:10px;"></div>
+                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:10px;flex-wrap:wrap;">
+                                        <button type="button" id="ao-add-free-line-btn"
+                                                style="background:rgba(255,92,0,0.1);color:var(--orange);border:1px dashed rgba(255,92,0,0.4);border-radius:var(--radius-md);padding:7px 12px;font-family:inherit;font-size:0.76rem;font-weight:700;cursor:pointer;">➕ سطر وصف حر</button>
+                                        <div id="ao-items-subtotal" style="display:none;font-size:0.78rem;color:var(--gray-light);">🧮 مجموع العناصر: <b style="color:var(--green);">$0.00</b></div>
+                                    </div>
+                                    <div id="ao-price-sync-hint" style="display:none;margin-top:6px;font-size:0.68rem;color:var(--gray);">
+                                        💡 تم تحديث سعر الطلب تلقائياً حسب العناصر أعلاه — يمكنك تعديله يدوياً في أي وقت.
+                                        <button type="button" id="ao-resync-price-btn" style="display:none;background:none;border:none;color:var(--orange);font-size:0.68rem;font-weight:700;cursor:pointer;text-decoration:underline;">↺ إعادة الاحتساب من العناصر</button>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- Opt-in: send this order's full details straight to the store's
+                                 own WhatsApp (separate from the automatic generic "new order"
+                                 ping every order already gets) so the store can arrange its own
+                                 driver instead of waiting on a Delivo one. Off by default. -->
+                            <label id="ao-notify-store-row" style="display:none;align-items:flex-start;gap:10px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;cursor:pointer;">
+                                <input type="checkbox" id="ao-notify-store-check" style="width:16px;height:16px;margin-top:2px;accent-color:var(--orange);flex-shrink:0;">
+                                <span style="font-size:0.8rem;color:var(--gray-light);line-height:1.5;">
+                                    📣 <b style="color:var(--white);">إرسال تفاصيل هذا الطلب إلى المتجر عبر واتساب</b><br>
+                                    <span style="font-size:0.72rem;color:var(--gray);">لإعلامه بالطلب ليقوم بترتيب سائق خاص به للتوصيل</span>
+                                </span>
+                            </label>
 
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                                 <div>
@@ -786,23 +825,6 @@
                                                 style="flex-shrink:0;background:rgba(255,92,0,0.12);color:var(--orange);border:1px solid rgba(255,92,0,0.3);border-radius:var(--radius-md);padding:8px 12px;font-family:inherit;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">🧮 تلقائي</button>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div>
-                                <label class="setting-label" style="display:block;margin-bottom:5px;">ملاحظة (اختياري)</label>
-                                <input type="text" id="ao-note" placeholder="أي تفاصيل إضافية للسائق أو المتجر"
-                                       style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.85rem;outline:none;box-sizing:border-box;">
-                            </div>
-
-                            <div>
-                                <label class="setting-label" style="display:block;margin-bottom:5px;">تاريخ ووقت الطلب (اختياري)</label>
-                                <div style="display:flex;gap:10px;">
-                                    <input type="date" id="ao-order-date"
-                                           style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;">
-                                    <input type="time" id="ao-order-time" step="1"
-                                           style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;color:var(--white);font-family:var(--mono);font-size:0.85rem;outline:none;box-sizing:border-box;">
-                                </div>
-                                <div style="font-size:0.7rem;color:var(--gray);margin-top:5px;">اتركهما فارغين ليُسجَّل الطلب بالوقت الحالي — أو حدّد تاريخاً سابقاً لتسجيل طلب قديم في قاعدة البيانات</div>
                             </div>
                         </div>
                     </div>
@@ -981,11 +1003,17 @@
                     <h2>حركة الصندوق</h2>
                     <span class="panel-header-sub" id="cb-count-label">0 حركة</span>
                     <button class="ph-btn ph-btn--primary" id="cb-set-opening-btn">
-                        💰 تعيين الرصيد الافتتاحي
+                        <span id="cb-set-opening-btn-label">💰 تعيين الرصيد الافتتاحي</span>
                     </button>
                     <button class="ph-btn" id="cb-refresh-btn">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         تحديث
+                    </button>
+                    <span id="cb-whish-balance-badge" style="background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.35);border-radius:20px;padding:5px 12px;font-weight:800;font-size:0.8rem;white-space:nowrap;">
+                        📲 رصيد Whish: <b id="cb-whish-balance-inline">$0.00</b>
+                    </span>
+                    <button class="ph-btn" id="cb-whish-add-btn" style="background:#8b5cf6;border-color:#8b5cf6;color:#fff;">
+                        ➕ حركة Whish
                     </button>
                 </div>
                 <div class="orders-toolbar">
@@ -1005,24 +1033,72 @@
                 <p id="cb-no-opening-banner" style="display:none;margin:0 16px 10px;padding:8px 12px;background:rgba(255,92,0,0.12);border:1px solid rgba(255,92,0,0.35);border-radius:var(--radius-sm);color:var(--orange);font-size:0.78rem;">
                     ⚠️ لم يُحدَّد الرصيد الافتتاحي لهذا اليوم بعد — اضغط «تعيين الرصيد الافتتاحي» أعلاه.
                 </p>
-                <div class="or-table-wrap" id="cb-table-wrap">
-                    <div class="or-empty" id="cb-empty" style="display:none;">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/></svg>
-                        <p>لا توجد حركات مسجّلة لهذا اليوم</p>
+
+                <!-- Day ledger (bounded — scrolls internally past ~320px) sits on
+                     top; the always-current Whish log below it takes up all
+                     remaining panel height and stretches/shrinks with it, so it
+                     always reaches down to the bottom of the screen regardless
+                     of window height, instead of being squeezed under a fixed
+                     size. Both are true flex children of one column, no outer
+                     scroll wrapper needed — each manages its own internal
+                     scroll via min-height:0 + overflow:auto. -->
+                <div style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
+                    <div class="or-table-wrap" id="cb-table-wrap" style="flex:0 1 320px;max-height:320px;">
+                        <div class="or-empty" id="cb-empty" style="display:none;">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/></svg>
+                            <p>لا توجد حركات مسجّلة لهذا اليوم</p>
+                        </div>
+                        <table class="or-table" id="cb-table" style="min-width:0;">
+                            <thead>
+                                <tr>
+                                    <th>الوقت</th>
+                                    <th>البيان</th>
+                                    <th>النوع</th>
+                                    <th>المبلغ</th>
+                                    <th>الرصيد بعد العملية</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cb-tbody"></tbody>
+                        </table>
                     </div>
-                    <table class="or-table" id="cb-table" style="min-width:0;">
-                        <thead>
-                            <tr>
-                                <th>الوقت</th>
-                                <th>البيان</th>
-                                <th>النوع</th>
-                                <th>المبلغ</th>
-                                <th>الرصيد بعد العملية</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cb-tbody"></tbody>
-                    </table>
-                </div>
+
+                    <!-- WHISH balance — Delivo's Whish Money e-wallet. A separate,
+                         always-current running balance (not tied to any single
+                         day/date filter above), built purely from manual
+                         deposit/withdraw transactions logged here. Pinned to
+                         the bottom of the panel, filling whatever height is
+                         left under the day ledger. See scripts/admin-13-cashbox.js's
+                         _cbWhish* functions. -->
+                    <div class="settings-section" style="margin:4px 16px 16px;flex:1;min-height:180px;display:flex;flex-direction:column;overflow:hidden;">
+                        <div class="settings-section-title" style="display:flex;align-items:center;justify-content:space-between;text-transform:none;letter-spacing:normal;flex-shrink:0;">
+                            <span>📲 سجل حركات Whish</span>
+                            <span id="cb-whish-count-label" style="color:var(--gray);font-weight:400;">0 حركة</span>
+                        </div>
+                        <div style="padding:12px 16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-bottom:1px solid var(--border);flex-shrink:0;">
+                            <span style="font-size:0.78rem;color:var(--gray-light);">⬇️ إجمالي الإيداعات: <b id="cb-whish-total-in" style="color:var(--green);">$0.00</b></span>
+                            <span style="font-size:0.78rem;color:var(--gray-light);">⬆️ إجمالي السحوبات: <b id="cb-whish-total-out" style="color:var(--red);">$0.00</b></span>
+                            <span style="font-size:0.78rem;color:var(--gray-light);margin-right:auto;">📲 الرصيد الحالي: <b id="cb-whish-balance" style="color:#a78bfa;">$0.00</b></span>
+                        </div>
+                        <div class="or-table-wrap" id="cb-whish-table-wrap" style="flex:1;min-height:0;">
+                            <div class="or-empty" id="cb-whish-empty" style="display:none;padding:24px 0;">
+                                <p style="font-size:0.78rem;">لا توجد حركات Whish مسجّلة بعد</p>
+                            </div>
+                            <table class="or-table" id="cb-whish-table" style="min-width:0;">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ والوقت</th>
+                                        <th>البيان</th>
+                                        <th>النوع</th>
+                                        <th>المبلغ</th>
+                                        <th>أُضيف بواسطة</th>
+                                        <th>إجراء</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cb-whish-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div><!-- /day-ledger + whish column -->
             </div>
 
         </div><!-- /content -->
@@ -1457,12 +1533,46 @@
         <div class="modal-field">
             <label>الرصيد الافتتاحي <span id="cb-opening-amount-cur" style="color:var(--gray);font-weight:400;">($)</span></label>
             <input type="number" id="cb-opening-input" placeholder="0" step="any" dir="ltr">
-            <small style="color:var(--gray);font-size:0.68rem;">أدخل بالدولار، أو بالليرة اللبنانية (سيتم تحويلها تلقائياً)</small>
+            <small style="color:var(--gray);font-size:0.68rem;">أدخل بالدولار، أو بالليرة اللبنانية (سيتم تحويلها تلقائياً) — أخطأت بالإدخال؟ عدّل الرقم واحفظ من جديد في أي وقت</small>
         </div>
         <p id="cb-opening-modal-error" style="color:var(--red);font-size:0.78rem;margin-bottom:6px;display:none;"></p>
+        <button type="button" id="cb-opening-delete-btn" style="display:none;width:100%;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius-md);color:var(--red);font-family:inherit;font-size:0.76rem;font-weight:700;padding:8px;cursor:pointer;margin-bottom:10px;">
+            🗑 حذف الرصيد الافتتاحي لهذا اليوم
+        </button>
         <div class="modal-actions">
             <button class="modal-btn" id="cb-opening-cancel-btn">إلغاء</button>
             <button class="modal-btn primary" id="cb-opening-save-btn">💾 حفظ</button>
+        </div>
+    </div>
+</div>
+
+<!-- Whish in/out transaction modal -->
+<div class="modal-overlay" id="modal-cashbox-whish">
+    <div class="modal-box" style="max-width:380px;">
+        <div class="modal-title">
+            <span style="font-size:1.1rem;">📲</span>
+            <span>حركة رصيد Whish</span>
+        </div>
+        <div class="modal-field">
+            <label>نوع الحركة</label>
+            <div style="display:flex;gap:8px;">
+                <button type="button" class="filter-pill active" data-whish-type="in" id="cb-whish-type-in" style="flex:1;justify-content:center;">⬇️ إيداع (دخول)</button>
+                <button type="button" class="filter-pill" data-whish-type="out" id="cb-whish-type-out" style="flex:1;justify-content:center;">⬆️ سحب (خروج)</button>
+            </div>
+        </div>
+        <div class="modal-field">
+            <label>البيان</label>
+            <input type="text" id="cb-whish-desc" placeholder="مثال: تحويل من الصندوق النقدي، دفعة من زبون…" autocomplete="off">
+        </div>
+        <div class="modal-field">
+            <label>المبلغ <span id="cb-whish-amount-cur" style="color:var(--gray);font-weight:400;">($)</span></label>
+            <input type="number" id="cb-whish-amount" placeholder="0" step="any" dir="ltr">
+            <small style="color:var(--gray);font-size:0.68rem;">أدخل بالدولار، أو بالليرة اللبنانية (سيتم تحويلها تلقائياً)</small>
+        </div>
+        <p id="cb-whish-modal-error" style="color:var(--red);font-size:0.78rem;margin-bottom:6px;display:none;"></p>
+        <div class="modal-actions">
+            <button class="modal-btn" id="cb-whish-cancel-btn">إلغاء</button>
+            <button class="modal-btn primary" id="cb-whish-save-btn">💾 حفظ</button>
         </div>
     </div>
 </div>
@@ -1520,7 +1630,7 @@
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
 <script src="scripts/admin-10-company-portal-requests.js?v=8"></script>
 <script src="scripts/admin-12-expenses.js?v=1"></script>
-<script src="scripts/admin-13-cashbox.js?v=1"></script>
+<script src="scripts/admin-13-cashbox.js?v=3"></script>
 </body>
 </html>
     <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->
@@ -1540,4 +1650,4 @@
         <div id="wa-notif-list" style="padding:4px 0;min-height:60px;"></div>
     </div>
 
-<script src="scripts/admin-11-whatsapp-notif-otlob.js?v=2"></script>
+<script src="scripts/admin-11-whatsapp-notif-otlob.js?v=3"></script>

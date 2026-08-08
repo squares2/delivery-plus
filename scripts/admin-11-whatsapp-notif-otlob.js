@@ -106,12 +106,19 @@ let _aoQuickCategories = {};
 let _aoSmartCfgCache = undefined; // undefined = not fetched yet, null = fetched but absent
 let _aoNightCfgCache  = undefined; // undefined = not fetched yet, null = fetched but absent
 
+// ── Store-catalog item picker (see _aoLoadStoreCatalogAndTogglePicker) ──
+let _aoStoreCatalog    = {};    // items/{companyname} for the currently selected internal store
+let _aoOrderLines      = [];    // [{ id, type:'item', itemId, name, qty, unitUSD } | { id, type:'free', text }]
+let _aoPriceAutoSynced = true;  // true until the admin manually edits ao-order-price
+let _aoLineSeq         = 0;     // incrementing id generator for line rows
+
 function renderAdminOrderPanel() {
     _aoInitOnce();
     _aoPopulateStoreSelect();
     _aoPopulateDriverSelect();
     _aoBackfillGuestCustomersFromOrders();
     _aoUpdateMissingWarnings();
+    _aoUpdateNotifyStoreVisibility();
 }
 
 function _aoInitOnce() {
@@ -141,6 +148,26 @@ function _aoInitOnce() {
     document.getElementById('ao-ext-quickselect')?.addEventListener('change', e => _aoOnExtQuickSelect(e.target.value));
     document.getElementById('ao-submit-btn')?.addEventListener('click', _aoSubmit);
 
+    // ── Store-catalog item picker ──
+    document.getElementById('ao-item-search')?.addEventListener('input', e => _aoSearchStoreItems(e.target.value));
+    document.getElementById('ao-item-search')?.addEventListener('focus', e => _aoSearchStoreItems(e.target.value));
+    document.getElementById('ao-add-free-line-btn')?.addEventListener('click', () => _aoAddFreeLine());
+    document.getElementById('ao-order-price')?.addEventListener('input', () => {
+        _aoPriceAutoSynced = false;
+        _aoUpdateResyncHintVisibility();
+    });
+    document.getElementById('ao-resync-price-btn')?.addEventListener('click', () => {
+        _aoPriceAutoSynced = true;
+        _aoSyncPriceFromLines(true);
+    });
+    document.addEventListener('click', e => {
+        const box = document.getElementById('ao-item-search-results');
+        const inp = document.getElementById('ao-item-search');
+        if (box && inp && box.style.display !== 'none' && !box.contains(e.target) && e.target !== inp) {
+            box.style.display = 'none';
+        }
+    });
+
     _aoLoadQuickCategories();
 }
 
@@ -151,7 +178,15 @@ function _aoSetStoreMode(mode) {
     const extBody = document.getElementById('ao-store-external-body');
     if (intBody) intBody.style.display = mode === 'internal' ? '' : 'none';
     if (extBody) extBody.style.display = mode === 'external' ? 'flex' : 'none';
-    if (mode === 'external') _aoPopulateExtQuickSelect();
+    if (mode === 'external') {
+        _aoPopulateExtQuickSelect();
+        _aoResetOrderLines();
+        const picker = document.getElementById('ao-item-picker');
+        if (picker) picker.style.display = 'none';
+    } else {
+        _aoLoadStoreCatalogAndTogglePicker();
+    }
+    _aoUpdateNotifyStoreVisibility();
     _aoUpdateMissingWarnings();
 }
 
@@ -230,6 +265,9 @@ function _aoOnInternalStoreChange() {
     _aoStoreLat = (store && store.lat) ? parseFloat(store.lat) : null;
     _aoStoreLng = (store && store.lng) ? parseFloat(store.lng) : null;
     _aoUpdateCoordBadge('store'); // internal store has no visible badge element, no-op guard inside handles it
+    _aoResetOrderLines(); // a different store's items no longer apply
+    _aoLoadStoreCatalogAndTogglePicker();
+    _aoUpdateNotifyStoreVisibility();
     _aoUpdateMissingWarnings();
 }
 
@@ -1174,6 +1212,254 @@ function _aoAppendItem(item) {
     ta.value = cur ? `${cur}، ${item}` : item;
 }
 
+/* ── Store-catalog item picker ───────────────────────────────────
+   Once an internal Delivo store is chosen above, this loads that
+   store's real catalog (items/{companyname} — same data the "المنتجات"
+   panel manages) and lets the admin build "وصف الطلب" by picking
+   real items with quantities instead of typing blind, with an
+   auto-computed subtotal that keeps "سعر الطلب" in sync (until the
+   admin edits it manually). A "سطر وصف حر" button still allows a
+   plain free-text line for anything not on the store's catalog. ── */
+
+async function _aoLoadStoreCatalogAndTogglePicker() {
+    const picker = document.getElementById('ao-item-picker');
+    const sel = document.getElementById('ao-store-select');
+    const storeName = sel?.value || '';
+
+    if (_aoStoreMode !== 'internal' || !storeName) {
+        if (picker) picker.style.display = 'none';
+        _aoStoreCatalog = {};
+        return;
+    }
+
+    if (picker) picker.style.display = '';
+    const nameEl = document.getElementById('ao-item-picker-store-name');
+    if (nameEl) nameEl.textContent = storeName;
+    const searchInp = document.getElementById('ao-item-search');
+    if (searchInp) searchInp.value = '';
+    const resultsBox = document.getElementById('ao-item-search-results');
+    if (resultsBox) resultsBox.style.display = 'none';
+    const countEl = document.getElementById('ao-item-picker-count');
+    if (countEl) countEl.textContent = '⏳ جارِ التحميل…';
+
+    try {
+        const raw = await fbGet(`items/${storeName}`);
+        _aoStoreCatalog = raw || {};
+    } catch (_) {
+        _aoStoreCatalog = {};
+    }
+
+    const n = Object.values(_aoStoreCatalog).filter(Boolean).length;
+    if (countEl) countEl.textContent = n
+        ? `${n} صنف متاح`
+        : 'لا توجد أصناف مسجّلة لهذا المتجر — استخدم «سطر وصف حر»';
+}
+
+function _aoSearchStoreItems(q) {
+    const box = document.getElementById('ao-item-search-results');
+    if (!box) return;
+    q = (q || '').trim().toLowerCase();
+    const items = Object.entries(_aoStoreCatalog || {}).filter(([, it]) => it && it.name);
+
+    if (!items.length) { box.style.display = 'none'; return; }
+
+    const matches = q ? items.filter(([, it]) => (it.name || '').toLowerCase().includes(q)) : items;
+
+    if (!matches.length) {
+        box.innerHTML = `<div style="padding:12px;text-align:center;color:var(--gray);font-size:0.78rem;">لا توجد أصناف مطابقة لـ «${_expEscHtml(q)}»</div>`;
+        box.style.display = 'block';
+        return;
+    }
+
+    box.innerHTML = matches.slice(0, 30).map(([id, it]) => {
+        const price = it.price;
+        const sale  = it.sale;
+        const hasSale = parseFloat(sale) > 0 && parseFloat(sale) < parseFloat(price);
+        const shown = hasSale ? sale : price;
+        return `<div class="ao-item-result" data-id="${id}"
+                     style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--surface3);">
+            <div style="min-width:0;">
+                <div style="font-size:0.8rem;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_expEscHtml(it.name)}</div>
+                <div style="font-size:0.65rem;color:var(--gray);">${_expEscHtml(it.catmain || '')}</div>
+            </div>
+            <div style="flex-shrink:0;font-size:0.76rem;font-weight:800;color:var(--orange);white-space:nowrap;">
+                ${_catFmtPrice(shown)}${hasSale ? ` <span style="color:var(--gray);text-decoration:line-through;font-weight:400;">${_catFmtPrice(price)}</span>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+    box.style.display = 'block';
+
+    box.querySelectorAll('.ao-item-result').forEach(el => {
+        el.addEventListener('mouseenter', () => el.style.background = 'var(--surface2)');
+        el.addEventListener('mouseleave', () => el.style.background = '');
+        el.addEventListener('click', () => {
+            _aoAddItemLine(el.dataset.id);
+            const inp = document.getElementById('ao-item-search');
+            if (inp) inp.value = '';
+            box.style.display = 'none';
+        });
+    });
+}
+
+function _aoAddItemLine(itemId) {
+    const it = _aoStoreCatalog[itemId];
+    if (!it) return;
+    const existing = _aoOrderLines.find(l => l.type === 'item' && l.itemId === itemId);
+    if (existing) {
+        existing.qty += 1;
+    } else {
+        const hasSale = parseFloat(it.sale) > 0 && parseFloat(it.sale) < parseFloat(it.price);
+        _aoOrderLines.push({
+            id: ++_aoLineSeq, type: 'item', itemId,
+            name: it.name, qty: 1,
+            unitUSD: _toUSD(hasSale ? it.sale : it.price),
+        });
+    }
+    _aoRenderOrderLines();
+}
+
+function _aoAddFreeLine() {
+    _aoOrderLines.push({ id: ++_aoLineSeq, type: 'free', text: '' });
+    _aoRenderOrderLines();
+    const seq = _aoLineSeq;
+    setTimeout(() => document.querySelector(`[data-free-input="${seq}"]`)?.focus(), 30);
+}
+
+function _aoRemoveLine(id) {
+    _aoOrderLines = _aoOrderLines.filter(l => l.id !== id);
+    _aoRenderOrderLines();
+}
+
+function _aoChangeQty(id, delta) {
+    const l = _aoOrderLines.find(x => x.id === id);
+    if (!l) return;
+    l.qty = Math.max(1, (l.qty || 1) + delta);
+    _aoRenderOrderLines();
+}
+
+function _aoUpdateFreeLineText(id, text) {
+    const l = _aoOrderLines.find(x => x.id === id);
+    if (!l) return;
+    l.text = text;
+    _aoRebuildDescFromLines(); // rebuild the description text only — a full row re-render would drop focus mid-typing
+}
+
+function _aoRenderOrderLines() {
+    const wrap = document.getElementById('ao-order-lines');
+    if (!wrap) return;
+
+    if (!_aoOrderLines.length) {
+        wrap.innerHTML = '';
+    } else {
+        wrap.innerHTML = _aoOrderLines.map(l => {
+            if (l.type === 'item') {
+                const lineTotal = l.unitUSD * l.qty;
+                return `<div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px 10px;">
+                    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+                        <button type="button" data-qty-btn="${l.id}" data-delta="-1" style="width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface3);color:var(--white);cursor:pointer;font-weight:800;">－</button>
+                        <span style="min-width:18px;text-align:center;font-family:var(--mono);font-size:0.8rem;">${l.qty}</span>
+                        <button type="button" data-qty-btn="${l.id}" data-delta="1" style="width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface3);color:var(--white);cursor:pointer;font-weight:800;">＋</button>
+                    </div>
+                    <div style="flex:1;min-width:0;font-size:0.8rem;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_expEscHtml(l.name)}</div>
+                    <div style="flex-shrink:0;font-size:0.76rem;font-family:var(--mono);color:var(--green);">$${lineTotal.toFixed(2)}</div>
+                    <button type="button" data-remove-line="${l.id}" title="إزالة" style="flex-shrink:0;background:none;border:none;color:var(--red);cursor:pointer;font-size:0.9rem;">🗑</button>
+                </div>`;
+            }
+            return `<div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px dashed var(--border);border-radius:var(--radius-md);padding:6px 10px;">
+                <span style="flex-shrink:0;font-size:0.9rem;">📝</span>
+                <input type="text" data-free-input="${l.id}" value="${(l.text || '').replace(/"/g,'&quot;')}" placeholder="اكتب وصفاً حراً…"
+                       style="flex:1;min-width:0;background:transparent;border:none;color:var(--white);font-family:'Almarai',sans-serif;font-size:0.8rem;outline:none;">
+                <button type="button" data-remove-line="${l.id}" title="إزالة" style="flex-shrink:0;background:none;border:none;color:var(--red);cursor:pointer;font-size:0.9rem;">🗑</button>
+            </div>`;
+        }).join('');
+
+        wrap.querySelectorAll('[data-qty-btn]').forEach(btn => {
+            btn.addEventListener('click', () => _aoChangeQty(parseInt(btn.dataset.qtyBtn), parseInt(btn.dataset.delta)));
+        });
+        wrap.querySelectorAll('[data-remove-line]').forEach(btn => {
+            btn.addEventListener('click', () => _aoRemoveLine(parseInt(btn.dataset.removeLine)));
+        });
+        wrap.querySelectorAll('[data-free-input]').forEach(inp => {
+            inp.addEventListener('input', () => _aoUpdateFreeLineText(parseInt(inp.dataset.freeInput), inp.value));
+        });
+    }
+
+    _aoRebuildDescFromLines();
+    _aoSyncPriceFromLines(false);
+}
+
+// Rebuilds "وصف الطلب" from the current line list — only once at least
+// one line exists, so a store with no picked items still leaves the
+// textarea fully free-typed exactly as before this feature existed.
+function _aoRebuildDescFromLines() {
+    const ta = document.getElementById('ao-order-desc');
+    if (!ta || !_aoOrderLines.length) return;
+    const parts = _aoOrderLines
+        .map(l => l.type === 'item' ? `${l.qty}× ${l.name}` : (l.text || '').trim())
+        .filter(Boolean);
+    ta.value = parts.join('، ');
+    _aoUpdateMissingWarnings();
+}
+
+function _aoSyncPriceFromLines(forced) {
+    const hasItemLines = _aoOrderLines.some(l => l.type === 'item');
+    const subtotal = _aoOrderLines.filter(l => l.type === 'item').reduce((s, l) => s + l.unitUSD * l.qty, 0);
+
+    const subtotalEl = document.getElementById('ao-items-subtotal');
+    if (subtotalEl) {
+        if (hasItemLines) {
+            subtotalEl.style.display = '';
+            const b = subtotalEl.querySelector('b');
+            if (b) b.textContent = '$' + subtotal.toFixed(2);
+        } else {
+            subtotalEl.style.display = 'none';
+        }
+    }
+
+    if (hasItemLines && (_aoPriceAutoSynced || forced)) {
+        const priceInp = document.getElementById('ao-order-price');
+        if (priceInp) priceInp.value = subtotal > 0 ? subtotal.toFixed(2) : '';
+        _aoPriceAutoSynced = true;
+        _aoUpdateMissingWarnings();
+    }
+    _aoUpdateResyncHintVisibility();
+}
+
+function _aoUpdateResyncHintVisibility() {
+    const hint = document.getElementById('ao-price-sync-hint');
+    const btn  = document.getElementById('ao-resync-price-btn');
+    const hasItemLines = _aoOrderLines.some(l => l.type === 'item');
+    if (hint) hint.style.display = hasItemLines ? '' : 'none';
+    if (btn)  btn.style.display  = (hasItemLines && !_aoPriceAutoSynced) ? '' : 'none';
+}
+
+function _aoResetOrderLines() {
+    _aoOrderLines = [];
+    _aoPriceAutoSynced = true;
+    const wrap = document.getElementById('ao-order-lines');
+    if (wrap) wrap.innerHTML = '';
+    const subtotalEl = document.getElementById('ao-items-subtotal');
+    if (subtotalEl) subtotalEl.style.display = 'none';
+    const box = document.getElementById('ao-item-search-results');
+    if (box) box.style.display = 'none';
+    _aoUpdateResyncHintVisibility();
+}
+
+// ── "Notify store to arrange a driver" checkbox — only meaningful for
+// an internal Delivo store once one is picked (see _aoSubmit for the
+// actual WhatsApp send). ─────────────────────────────────────────
+function _aoUpdateNotifyStoreVisibility() {
+    const row = document.getElementById('ao-notify-store-row');
+    if (!row) return;
+    const sel = document.getElementById('ao-store-select');
+    const show = _aoStoreMode === 'internal' && !!sel?.value;
+    row.style.display = show ? 'flex' : 'none';
+    if (!show) {
+        const cb = document.getElementById('ao-notify-store-check');
+        if (cb) cb.checked = false;
+    }
+}
+
 // ── Delivery-fee auto-calculator — same formula & config
 // (settings/smartDelivery) as regular checkout in cart.js, applied
 // to this order's own store/destination pins, plus the same static
@@ -1454,6 +1740,29 @@ async function _aoSubmit() {
             if (result) fbUpdate(`guestCustomers/${result.key}`, result.rec).catch(() => {});
         }
 
+        // Opt-in: ping the store directly with the full order details so it
+        // can arrange its own driver — separate from (and more detailed
+        // than) the automatic generic "new order" WhatsApp every order
+        // already triggers server-side (functions/notifyneworders.js),
+        // which only links back to the dashboard with no specifics in it.
+        if (!isExternal && document.getElementById('ao-notify-store-check')?.checked) {
+            const storeRec = allStores?.[storeName];
+            if (storeRec && storeRec.whatsapp) {
+                const notifyMsg =
+                    `🔔 طلب جديد رقم #${nextId} على Delivo\n` +
+                    `👤 العميل: ${fullname} — ${phone}\n` +
+                    `📍 العنوان: ${city}${street ? '، ' + street : ''}\n` +
+                    `🧾 تفاصيل الطلب:\n${orderDesc}\n` +
+                    `💵 سعر الطلب: $${orderPriceUSD.toFixed(2)}\n\n` +
+                    `🙏 الرجاء ترتيب سائق خاص بكم لتوصيل هذا الطلب.`;
+                _sendWhatsappMessage(storeRec.whatsapp, notifyMsg)
+                    .then(() => toast('📣 تم إرسال تفاصيل الطلب إلى المتجر عبر واتساب'))
+                    .catch(e => toast('⚠️ تعذّر إرسال الطلب إلى المتجر: ' + e.message, true));
+            } else {
+                toast('⚠️ لا يوجد رقم واتساب مفعّل لهذا المتجر — لم يتم إرسال تفاصيل الطلب', true);
+            }
+        }
+
         toast(`✅ تم إنشاء الطلب #${nextId}`);
         if (okEl) { okEl.style.display = 'block'; okEl.textContent = `✅ تم إنشاء الطلب #${nextId} بنجاح`; }
         _aoResetForm();
@@ -1468,7 +1777,7 @@ async function _aoSubmit() {
 
 function _aoResetForm() {
     ['ao-cust-phone','ao-cust-name','ao-ext-store-name','ao-ext-store-phone','ao-ext-store-addr',
-     'ao-order-desc','ao-order-price','ao-delivery-fee','ao-note','ao-order-date','ao-order-time'].forEach(id => {
+     'ao-order-desc','ao-order-price','ao-delivery-fee'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -1487,6 +1796,14 @@ function _aoResetForm() {
     if (cityInp) cityInp.value = 'Baalbeck';
     const quickSel = document.getElementById('ao-ext-quickselect');
     if (quickSel) quickSel.value = '';
+    // Store-catalog item picker + notify-store checkbox
+    _aoStoreCatalog = {};
+    _aoResetOrderLines();
+    const picker = document.getElementById('ao-item-picker');
+    if (picker) picker.style.display = 'none';
+    const notifyCb = document.getElementById('ao-notify-store-check');
+    if (notifyCb) notifyCb.checked = false;
+    _aoUpdateNotifyStoreVisibility();
     _aoUpdateMissingWarnings();
 }
 

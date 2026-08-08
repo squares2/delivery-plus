@@ -1529,7 +1529,7 @@ function doLogout() {
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
     try {
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw, customerActivity, guestCustomersRaw, expensesRaw, cashboxRaw] = await Promise.all([
+        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw, customerActivity, guestCustomersRaw, expensesRaw, cashboxRaw, cashboxWhishRaw] = await Promise.all([
             fbGet('requests'),
             fbGet('drivers'),
             fsGetCollection('users'),
@@ -1545,12 +1545,14 @@ async function loadAllData() {
             fbGet('guestCustomers').catch(() => null),
             fbGet('expenses').catch(() => null),
             fbGet('cashbox').catch(() => null),
+            fbGet('cashboxWhish').catch(() => null),
         ]);
 
         allExpenses = expensesRaw || {};
         window.allExpenses = allExpenses; // exposed for admin-05's net-profit calc (see renderOrders)
 
         window.allCashbox = cashboxRaw || {}; // cashbox/{YYYY-MM-DD} → { opening, openingSetBy, openingSetByName, openingSetAt } — see admin-13-cashbox.js
+        window.allCashboxWhish = cashboxWhishRaw || {}; // cashboxWhish/{key} → { type:'in'|'out', desc, amount, addedBy, addedByName, createdAt } — see admin-13-cashbox.js
 
         allExtStores = extStoresRaw || {};
 
