@@ -969,6 +969,62 @@
                 </div>
             </div>
 
+            <!-- CASHBOX panel — "حركة الصندوق": sits under المصاريف اليومية.
+                 Per-day cash-drawer ledger — opens each day with a manually
+                 entered starting balance, then lists every realized order
+                 profit (delivery profit + extra) and every logged expense
+                 for that day as +/- rows with a running balance, ending in
+                 the drawer's current on-hand total. See scripts/admin-13-cashbox.js -->
+            <div class="panel" id="panel-cashbox">
+                <div class="panel-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/><circle cx="12" cy="13.5" r="2.75"/></svg>
+                    <h2>حركة الصندوق</h2>
+                    <span class="panel-header-sub" id="cb-count-label">0 حركة</span>
+                    <button class="ph-btn ph-btn--primary" id="cb-set-opening-btn">
+                        💰 تعيين الرصيد الافتتاحي
+                    </button>
+                    <button class="ph-btn" id="cb-refresh-btn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        تحديث
+                    </button>
+                </div>
+                <div class="orders-toolbar">
+                    <div class="orders-date-filter" style="gap:4px;">
+                        <button class="ph-btn" id="cb-prev-day-btn" title="اليوم السابق" style="padding:6px 9px;">‹</button>
+                        <input type="date" id="cb-date" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font);font-size:0.8rem;padding:6px 8px;">
+                        <button class="ph-btn" id="cb-next-day-btn" title="اليوم التالي" style="padding:6px 9px;">›</button>
+                        <button class="ph-btn" id="cb-today-btn" style="padding:6px 10px;">اليوم</button>
+                    </div>
+                    <div class="orders-totals-mini" style="margin-right:auto;">
+                        <span>🌅 الرصيد الافتتاحي: <b id="cb-opening-amount">$0.00</b></span>
+                        <span>📈 الدخل: <b id="cb-income-amount" style="color:var(--green);">$0.00</b></span>
+                        <span>📉 المصاريف: <b id="cb-expense-amount" style="color:var(--red);">$0.00</b></span>
+                        <span>🏦 الرصيد الحالي: <b id="cb-current-amount">$0.00</b></span>
+                    </div>
+                </div>
+                <p id="cb-no-opening-banner" style="display:none;margin:0 16px 10px;padding:8px 12px;background:rgba(255,92,0,0.12);border:1px solid rgba(255,92,0,0.35);border-radius:var(--radius-sm);color:var(--orange);font-size:0.78rem;">
+                    ⚠️ لم يُحدَّد الرصيد الافتتاحي لهذا اليوم بعد — اضغط «تعيين الرصيد الافتتاحي» أعلاه.
+                </p>
+                <div class="or-table-wrap" id="cb-table-wrap">
+                    <div class="or-empty" id="cb-empty" style="display:none;">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/></svg>
+                        <p>لا توجد حركات مسجّلة لهذا اليوم</p>
+                    </div>
+                    <table class="or-table" id="cb-table" style="min-width:0;">
+                        <thead>
+                            <tr>
+                                <th>الوقت</th>
+                                <th>البيان</th>
+                                <th>النوع</th>
+                                <th>المبلغ</th>
+                                <th>الرصيد بعد العملية</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cb-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
         </div><!-- /content -->
     </div><!-- /main -->
 </div><!-- /app -->
@@ -1390,6 +1446,27 @@
     </div>
 </div>
 
+<!-- Cashbox opening-balance modal -->
+<div class="modal-overlay" id="modal-cashbox-opening">
+    <div class="modal-box" style="max-width:380px;">
+        <div class="modal-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/></svg>
+            <span id="cb-opening-modal-title">تعيين الرصيد الافتتاحي</span>
+        </div>
+        <p id="cb-opening-modal-sub" style="color:var(--gray);font-size:0.78rem;margin:-4px 0 12px;"></p>
+        <div class="modal-field">
+            <label>الرصيد الافتتاحي <span id="cb-opening-amount-cur" style="color:var(--gray);font-weight:400;">($)</span></label>
+            <input type="number" id="cb-opening-input" placeholder="0" step="any" dir="ltr">
+            <small style="color:var(--gray);font-size:0.68rem;">أدخل بالدولار، أو بالليرة اللبنانية (سيتم تحويلها تلقائياً)</small>
+        </div>
+        <p id="cb-opening-modal-error" style="color:var(--red);font-size:0.78rem;margin-bottom:6px;display:none;"></p>
+        <div class="modal-actions">
+            <button class="modal-btn" id="cb-opening-cancel-btn">إلغاء</button>
+            <button class="modal-btn primary" id="cb-opening-save-btn">💾 حفظ</button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
 <div id="admin-toast"></div>
 
@@ -1443,6 +1520,7 @@
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
 <script src="scripts/admin-10-company-portal-requests.js?v=8"></script>
 <script src="scripts/admin-12-expenses.js?v=1"></script>
+<script src="scripts/admin-13-cashbox.js?v=1"></script>
 </body>
 </html>
     <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->
