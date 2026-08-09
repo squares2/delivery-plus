@@ -68,13 +68,20 @@ document.getElementById('orders-chart-header').addEventListener('click', () => {
 
 // Top-customers-by-delivered-orders leaderboard — same collapsed-by-
 // default, click-header-to-toggle pattern as the chart card above.
-document.getElementById('top-customers-card').classList.toggle('collapsed', topCustomersCollapsed);
-document.getElementById('top-customers-header').addEventListener('click', () => {
-    topCustomersCollapsed = !topCustomersCollapsed;
-    localStorage.setItem('delivo_admin_top_customers_collapsed', topCustomersCollapsed ? '1' : '0');
-    document.getElementById('top-customers-card').classList.toggle('collapsed', topCustomersCollapsed);
-    if (!topCustomersCollapsed) renderTopCustomers(); // draw lazily on first expand
-});
+// Guarded: this card only exists in admin.html — this same script file is
+// also loaded on store.html (store-owner login/portal), which has no such
+// element, so skip wiring it up there instead of throwing on load.
+const _topCustomersCard   = document.getElementById('top-customers-card');
+const _topCustomersHeader = document.getElementById('top-customers-header');
+if (_topCustomersCard) _topCustomersCard.classList.toggle('collapsed', topCustomersCollapsed);
+if (_topCustomersHeader) {
+    _topCustomersHeader.addEventListener('click', () => {
+        topCustomersCollapsed = !topCustomersCollapsed;
+        localStorage.setItem('delivo_admin_top_customers_collapsed', topCustomersCollapsed ? '1' : '0');
+        _topCustomersCard?.classList.toggle('collapsed', topCustomersCollapsed);
+        if (!topCustomersCollapsed) renderTopCustomers(); // draw lazily on first expand
+    });
+}
 
 // Order date filter
 // Reflect the current (default or previously-saved) state on load, since
@@ -136,8 +143,8 @@ function _orderDateNavStep(deltaDays) {
     document.getElementById('orders-date-custom').classList.add('active');
     renderOrders();
 }
-document.getElementById('orders-date-prev-btn').addEventListener('click', () => _orderDateNavStep(-1));
-document.getElementById('orders-date-next-btn').addEventListener('click', () => _orderDateNavStep(1));
+document.getElementById('orders-date-prev-btn')?.addEventListener('click', () => _orderDateNavStep(-1));
+document.getElementById('orders-date-next-btn')?.addEventListener('click', () => _orderDateNavStep(1));
 
 // Online-orders date filter — same pattern, own state, defaults to "اليوم"
 document.getElementById('or-date-select').value = onlineOrderDateFilter;
@@ -1205,6 +1212,150 @@ async function cpiDeleteItem(itemId) {
         showNotif('تم الحذف', name, 'success');
         cpiRender();
     } catch(e) { showNotif('خطأ', e.message, 'error'); }
+}
+
+/* ── Bulk extra price (add a fixed amount to ALL this store's items) ──
+   Always adds the amount on top of each item's true original price
+   (basePrice), never on top of the currently-displayed price — so
+   re-opening this and entering a different amount (or fixing a wrong
+   one) never compounds on top of a previous run. ── */
+function cpiOpenExtraPriceModal() {
+    document.getElementById('cpi-extra-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'cpi-extra-modal';
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;`;
+    modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:400px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--surface3);display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:16px 16px 0 0;">
+            <span style="font-size:1rem;">💲</span>
+            <span style="font-size:0.9rem;font-weight:800;color:var(--white);">سعر إضافي لكل المنتجات</span>
+            <button onclick="document.getElementById('cpi-extra-modal').remove()"
+                    style="margin-right:auto;background:var(--surface3);border:none;cursor:pointer;color:var(--gray-light);
+                           width:28px;height:28px;border-radius:50%;font-size:1rem;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:0.72rem;color:var(--gray-light);line-height:1.6;background:var(--surface3);padding:10px 12px;border-radius:8px;">
+                سيُضاف هذا المبلغ إلى <b>السعر الأصلي</b> لكل منتج (وليس إلى السعر المعروض حالياً)، لذلك يمكنك تصحيح المبلغ أو تغييره لاحقاً دون أن تتراكم الزيادات فوق بعضها. استخدم رقماً سالباً لخصم مبلغ بدل إضافته.
+            </div>
+            <div class="modal-field">
+                <label>المبلغ الإضافي (ل.ل أو $)</label>
+                <input type="number" id="cpi-extra-amount" placeholder="مثال: 5000" step="any" style="width:100%;">
+            </div>
+            <div id="cpi-extra-err" style="display:none;color:var(--red);font-size:0.74rem;"></div>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid var(--surface3);display:flex;gap:8px;">
+            <button onclick="cpiApplyExtraPrice()" id="cpi-extra-apply-btn"
+                    style="flex:1;padding:11px;background:var(--orange);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.84rem;font-weight:800;">
+                ✅ تطبيق على كل المنتجات
+            </button>
+            <button onclick="document.getElementById('cpi-extra-modal').remove()"
+                    style="padding:11px 18px;background:var(--surface3);color:var(--gray-light);border:none;border-radius:10px;cursor:pointer;font-size:0.84rem;">
+                إلغاء
+            </button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.getElementById('cpi-extra-amount').focus();
+}
+
+async function cpiApplyExtraPrice() {
+    const storeName = currentAdmin?.linkedStore || '';
+    if (!storeName) return;
+    const errEl = document.getElementById('cpi-extra-err');
+    errEl.style.display = 'none';
+
+    const raw    = document.getElementById('cpi-extra-amount').value.trim();
+    const amount = parseFloat(raw);
+    if (raw === '' || isNaN(amount) || amount === 0) {
+        errEl.textContent = 'أدخل مبلغاً صحيحاً (يمكن أن يكون سالباً، لكن ليس صفراً)';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    const items = Object.entries(_cpiAllItems).filter(([, it]) => it);
+    if (!items.length) { showNotif('لا توجد منتجات', '', 'error'); return; }
+
+    const confirmed = await showConfirm({
+        title: 'تأكيد السعر الإضافي',
+        msg: `سيتم إضافة <b>${amount}</b> إلى السعر الأصلي لكل المنتجات (${items.length} منتج) في متجرك. هل تريد المتابعة؟`,
+        type: 'warning', okLabel: 'تطبيق', icon: '💲'
+    });
+    if (!confirmed) return;
+
+    const btn = document.getElementById('cpi-extra-apply-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري التطبيق…'; }
+
+    try {
+        const updates = {};
+        for (const [id, item] of items) {
+            // Capture the item's true original price the FIRST time this runs.
+            // Once basePrice exists, always add the new amount on top of it —
+            // never on top of the already-inflated `price` — so applying a
+            // corrected amount later replaces, rather than stacks on, the old one.
+            const basePrice = (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== '')
+                ? (parseFloat(item.basePrice) || 0)
+                : (parseFloat(item.price) || 0);
+            const newPrice = basePrice + amount;
+
+            updates[`${id}/basePrice`]  = basePrice;
+            updates[`${id}/extraPrice`] = amount;
+            updates[`${id}/price`]      = newPrice;
+
+            item.basePrice  = basePrice;
+            item.extraPrice = amount;
+            item.price      = newPrice;
+        }
+        await fbUpdate(`items/${storeName}`, updates);
+        showNotif('✅ تم التطبيق', `تمت إضافة ${amount} إلى ${items.length} منتج`, 'success');
+        document.getElementById('cpi-extra-modal')?.remove();
+        cpiRender();
+    } catch(e) {
+        errEl.textContent = e.message;
+        errEl.style.display = 'block';
+        if (btn) { btn.disabled = false; btn.textContent = '✅ تطبيق على كل المنتجات'; }
+    }
+}
+
+/* ── Reset ALL this store's items back to their original (default) price,
+   undoing whatever extra amount was added via cpiApplyExtraPrice — use this
+   if a wrong general extra price was applied. ── */
+async function cpiResetDefaultPrices() {
+    const storeName = currentAdmin?.linkedStore || '';
+    if (!storeName) return;
+
+    const items = Object.entries(_cpiAllItems)
+        .filter(([, it]) => it && it.basePrice !== undefined && it.basePrice !== null && it.basePrice !== '');
+    if (!items.length) {
+        showNotif('لا يوجد سعر إضافي', 'لم يتم تطبيق أي سعر إضافي على منتجات هذا المتجر بعد', 'error');
+        return;
+    }
+
+    const confirmed = await showConfirm({
+        title: 'استعادة الأسعار الافتراضية',
+        msg: `سيتم إرجاع سعر ${items.length} منتج إلى سعره الأصلي قبل أي مبلغ إضافي. هل تريد المتابعة؟`,
+        type: 'danger', okLabel: 'استعادة', icon: '↺'
+    });
+    if (!confirmed) return;
+
+    try {
+        const updates = {};
+        for (const [id, item] of items) {
+            const basePrice = parseFloat(item.basePrice) || 0;
+            updates[`${id}/price`]      = basePrice;
+            updates[`${id}/basePrice`]  = null;
+            updates[`${id}/extraPrice`] = null;
+
+            item.price = basePrice;
+            delete item.basePrice;
+            delete item.extraPrice;
+        }
+        await fbUpdate(`items/${storeName}`, updates);
+        showNotif('↺ تمت الاستعادة', `تمت استعادة السعر الأصلي لـ ${items.length} منتج`, 'success');
+        cpiRender();
+    } catch(e) {
+        showNotif('خطأ', e.message, 'error');
+    }
 }
 
 /* ── Skeleton loader ───────────────────────────────────────── */

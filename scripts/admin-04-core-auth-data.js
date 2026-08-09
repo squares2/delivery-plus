@@ -1122,6 +1122,8 @@ async function catalogOpenStore(storeName, storeType) {
     const itemsView = document.getElementById('catalog-items-view');
     itemsView.style.display = 'flex';
     document.getElementById('cat-add-item-btn').style.display = '';
+    document.getElementById('cat-extra-price-btn').style.display = '';
+    document.getElementById('cat-reset-price-btn').style.display = '';
     document.getElementById('cat-back-btn').style.display = '';
     const searchInp = document.getElementById('catalog-search');
     if (searchInp) { searchInp.style.display = ''; searchInp.value = ''; }
@@ -1145,6 +1147,8 @@ function catalogBackToStores() {
     document.getElementById('catalog-stores-view').style.display = '';
     document.getElementById('catalog-items-view').style.display = 'none';
     document.getElementById('cat-add-item-btn').style.display = 'none';
+    document.getElementById('cat-extra-price-btn').style.display = 'none';
+    document.getElementById('cat-reset-price-btn').style.display = 'none';
     document.getElementById('cat-back-btn').style.display = 'none';
     const searchInp = document.getElementById('catalog-search');
     if (searchInp) { searchInp.style.display = 'none'; searchInp.value = ''; }
@@ -1526,6 +1530,148 @@ async function deleteCatalogItem(itemId) {
 }
 
 // ── Catalog helpers ───────────────────────────────────────────
+/* ── Bulk extra price (add a fixed amount to ALL of this store's items) ──
+   Same behavior as the Company Portal's "منتجاتي" version (scripts/admin-10):
+   always adds on top of each item's true original price (basePrice),
+   never on top of the currently-displayed price, so correcting a wrong
+   amount later never compounds on top of a previous run. Both screens
+   read/write the same items/{storeName} node, so a store's items stay
+   in sync whether an admin uses this catalog view or the store owner
+   uses their own portal. ── */
+function catOpenExtraPriceModal() {
+    if (!_catCurrentStore) return;
+    document.getElementById('cat-extra-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'cat-extra-modal';
+    modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;`;
+    modal.innerHTML = `
+    <div style="background:var(--surface);border-radius:16px;width:100%;max-width:400px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.6);">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--surface3);display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:16px 16px 0 0;">
+            <span style="font-size:1rem;">💲</span>
+            <span style="font-size:0.9rem;font-weight:800;color:var(--white);">سعر إضافي لكل منتجات ${_catCurrentStore.name}</span>
+            <button onclick="document.getElementById('cat-extra-modal').remove()"
+                    style="margin-right:auto;background:var(--surface3);border:none;cursor:pointer;color:var(--gray-light);
+                           width:28px;height:28px;border-radius:50%;font-size:1rem;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:0.72rem;color:var(--gray-light);line-height:1.6;background:var(--surface3);padding:10px 12px;border-radius:8px;">
+                سيُضاف هذا المبلغ إلى <b>السعر الأصلي</b> لكل منتج (وليس إلى السعر المعروض حالياً)، لذلك يمكنك تصحيح المبلغ أو تغييره لاحقاً دون أن تتراكم الزيادات فوق بعضها. استخدم رقماً سالباً لخصم مبلغ بدل إضافته.
+            </div>
+            <div class="modal-field">
+                <label>المبلغ الإضافي (ل.ل أو $)</label>
+                <input type="number" id="cat-extra-amount" placeholder="مثال: 5000" step="any" style="width:100%;">
+            </div>
+            <div id="cat-extra-err" style="display:none;color:var(--red);font-size:0.74rem;"></div>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid var(--surface3);display:flex;gap:8px;">
+            <button onclick="catApplyExtraPrice()" id="cat-extra-apply-btn"
+                    style="flex:1;padding:11px;background:var(--orange);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:0.84rem;font-weight:800;">
+                ✅ تطبيق على كل المنتجات
+            </button>
+            <button onclick="document.getElementById('cat-extra-modal').remove()"
+                    style="padding:11px 18px;background:var(--surface3);color:var(--gray-light);border:none;border-radius:10px;cursor:pointer;font-size:0.84rem;">
+                إلغاء
+            </button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.getElementById('cat-extra-amount').focus();
+}
+
+async function catApplyExtraPrice() {
+    if (!_catCurrentStore) return;
+    const storeName = _catCurrentStore.name;
+    const errEl = document.getElementById('cat-extra-err');
+    errEl.style.display = 'none';
+
+    const raw    = document.getElementById('cat-extra-amount').value.trim();
+    const amount = parseFloat(raw);
+    if (raw === '' || isNaN(amount) || amount === 0) {
+        errEl.textContent = 'أدخل مبلغاً صحيحاً (يمكن أن يكون سالباً، لكن ليس صفراً)';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    const items = Object.entries(_catAllItems).filter(([, it]) => it);
+    if (!items.length) { showNotif('لا توجد منتجات', '', 'error'); return; }
+
+    const confirmed = await showConfirm({
+        title: 'تأكيد السعر الإضافي',
+        msg: `سيتم إضافة <b>${amount}</b> إلى السعر الأصلي لكل المنتجات (${items.length} منتج) في ${storeName}. هل تريد المتابعة؟`,
+        type: 'warning', okLabel: 'تطبيق', icon: '💲'
+    });
+    if (!confirmed) return;
+
+    const btn = document.getElementById('cat-extra-apply-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري التطبيق…'; }
+
+    try {
+        const updates = {};
+        for (const [id, item] of items) {
+            const basePrice = (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== '')
+                ? (parseFloat(item.basePrice) || 0)
+                : (parseFloat(item.price) || 0);
+            const newPrice = basePrice + amount;
+
+            updates[`${id}/basePrice`]  = basePrice;
+            updates[`${id}/extraPrice`] = amount;
+            updates[`${id}/price`]      = newPrice;
+
+            item.basePrice  = basePrice;
+            item.extraPrice = amount;
+            item.price      = newPrice;
+        }
+        await fbUpdate(`items/${storeName}`, updates);
+        showNotif('✅ تم التطبيق', `تمت إضافة ${amount} إلى ${items.length} منتج`, 'success');
+        document.getElementById('cat-extra-modal')?.remove();
+        _renderCatalogItems();
+    } catch(e) {
+        errEl.textContent = e.message;
+        errEl.style.display = 'block';
+        if (btn) { btn.disabled = false; btn.textContent = '✅ تطبيق على كل المنتجات'; }
+    }
+}
+
+/* ── Reset ALL this store's items back to their original (default) price ── */
+async function catResetDefaultPrices() {
+    if (!_catCurrentStore) return;
+    const storeName = _catCurrentStore.name;
+
+    const items = Object.entries(_catAllItems)
+        .filter(([, it]) => it && it.basePrice !== undefined && it.basePrice !== null && it.basePrice !== '');
+    if (!items.length) {
+        showNotif('لا يوجد سعر إضافي', 'لم يتم تطبيق أي سعر إضافي على منتجات هذا المتجر بعد', 'error');
+        return;
+    }
+
+    const confirmed = await showConfirm({
+        title: 'استعادة الأسعار الافتراضية',
+        msg: `سيتم إرجاع سعر ${items.length} منتج إلى سعره الأصلي قبل أي مبلغ إضافي. هل تريد المتابعة؟`,
+        type: 'danger', okLabel: 'استعادة', icon: '↺'
+    });
+    if (!confirmed) return;
+
+    try {
+        const updates = {};
+        for (const [id, item] of items) {
+            const basePrice = parseFloat(item.basePrice) || 0;
+            updates[`${id}/price`]      = basePrice;
+            updates[`${id}/basePrice`]  = null;
+            updates[`${id}/extraPrice`] = null;
+
+            item.price = basePrice;
+            delete item.basePrice;
+            delete item.extraPrice;
+        }
+        await fbUpdate(`items/${storeName}`, updates);
+        showNotif('↺ تمت الاستعادة', `تمت استعادة السعر الأصلي لـ ${items.length} منتج`, 'success');
+        _renderCatalogItems();
+    } catch(e) {
+        showNotif('خطأ', e.message, 'error');
+    }
+}
+
 function _catFmtPrice(p) {
     const n = parseFloat(p);
     if (isNaN(n) || n === 0) return '—';

@@ -911,6 +911,12 @@
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         إضافة منتج
                     </button>
+                    <button class="action-btn" id="cat-extra-price-btn" onclick="catOpenExtraPriceModal()" style="display:none;background:var(--surface3);color:var(--gray-light);" title="إضافة مبلغ إلى سعر كل منتجات هذا المتجر دفعة واحدة">
+                        💲 سعر إضافي للكل
+                    </button>
+                    <button class="action-btn" id="cat-reset-price-btn" onclick="catResetDefaultPrices()" style="display:none;background:var(--surface3);color:var(--gray-light);" title="استعادة السعر الأصلي لكل منتجات هذا المتجر قبل أي سعر إضافي">
+                        ↺ استعادة الأسعار
+                    </button>
                     <button class="action-btn" id="cat-back-btn" onclick="catalogBackToStores()" style="display:none;background:var(--surface3);color:var(--gray-light);">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
                         رجوع
@@ -1181,6 +1187,12 @@
                 <button class="ph-btn ph-btn--primary" onclick="cpOpenItemModal(null)">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     إضافة منتج
+                </button>
+                <button class="ph-btn" onclick="cpiOpenExtraPriceModal()" title="إضافة مبلغ إلى سعر كل المنتجات دفعة واحدة">
+                    💲 سعر إضافي للكل
+                </button>
+                <button class="ph-btn" onclick="cpiResetDefaultPrices()" title="استعادة السعر الأصلي لكل المنتجات قبل أي سعر إضافي">
+                    ↺ استعادة الأسعار
                 </button>
                 <button class="cp-refresh" onclick="cpLoadItems()">🔄</button>
                 <span class="cp-count" id="cpi-count-label"></span>
@@ -1629,13 +1641,13 @@
 <script src="scripts/admin-03-firebase-config.js?v=1"></script>
 
     <!-- Presence UI injected dynamically by admin-presence.js -->
-<script src="scripts/admin-04-core-auth-data.js?v=7"></script>
+<script src="scripts/admin-04-core-auth-data.js?v=8"></script>
 <script src="scripts/admin-05-map-tracking-orders.js?v=14"></script>
 <script src="scripts/admin-06-drivers-customers-stores.js?v=1"></script>
 <script src="scripts/admin-07-stores-employees-herobg.js?v=1"></script>
 <script src="scripts/admin-08-settings-sales-worldcup.js?v=1"></script>
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
-<script src="scripts/admin-10-company-portal-requests.js?v=9"></script>
+<script src="scripts/admin-10-company-portal-requests.js?v=11"></script>
 <script src="scripts/admin-12-expenses.js?v=2"></script>
 <script src="scripts/admin-13-cashbox.js?v=5"></script>
 </body>
