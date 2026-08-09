@@ -1724,7 +1724,7 @@ function _getOrderOnlyPrice(order, effectiveDeliveryRaw) {
 function _currencySymbol(val) {
     const n = parseFloat(val);
     if (isNaN(n)) return '$';
-    return n > 1000 ? 'ل.ل' : '$';
+    return Math.abs(n) > 1000 ? 'ل.ل' : '$';
 }
 
 // Lebanese Lira is never dealt with in fractions of a lira in practice,

@@ -945,10 +945,6 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h-4a2 2 0 0 1 0-4h4z"/><circle cx="16.5" cy="12" r="1" fill="var(--orange)" stroke="none"/></svg>
                     <h2>المصاريف اليومية</h2>
                     <span class="panel-header-sub" id="exp-count-label">0 مصروف</span>
-                    <button class="ph-btn ph-btn--primary" id="exp-add-btn">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        إضافة مصروف
-                    </button>
                     <button class="ph-btn" id="exp-refresh-btn">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         تحديث
@@ -1015,6 +1011,10 @@
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         تحديث
                     </button>
+                    <button class="ph-btn ph-btn--primary" id="exp-add-btn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        إضافة مصروف
+                    </button>
                     <span id="cb-whish-balance-badge" style="background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.35);border-radius:20px;padding:5px 12px;font-weight:800;font-size:0.8rem;white-space:nowrap;">
                         📲 رصيد Whish: <b id="cb-whish-balance-inline">$0.00</b>
                     </span>
@@ -1062,6 +1062,7 @@
                                     <th>النوع</th>
                                     <th>المبلغ</th>
                                     <th>الرصيد بعد العملية</th>
+                                    <th>إجراء</th>
                                 </tr>
                             </thead>
                             <tbody id="cb-tbody"></tbody>
@@ -1507,8 +1508,8 @@
         </div>
         <input type="hidden" id="exp-edit-key">
         <div class="modal-field">
-            <label>التاريخ</label>
-            <input type="date" id="exp-date">
+            <label>التاريخ والوقت</label>
+            <input type="datetime-local" id="exp-date">
         </div>
         <div class="modal-field">
             <label>البيان</label>
@@ -1524,7 +1525,6 @@
                 <option value="فواتير">فواتير</option>
                 <option value="وقود">وقود</option>
                 <option value="تسويق">تسويق</option>
-                <option value="Whish Money">📲 Whish Money</option>
                 <option value="أخرى">أخرى</option>
             </select>
         </div>
@@ -1570,23 +1570,30 @@
     <div class="modal-box" style="max-width:380px;">
         <div class="modal-title">
             <span style="font-size:1.1rem;">📲</span>
-            <span>حركة رصيد Whish</span>
+            <span id="cb-whish-modal-title">حركة رصيد Whish جديدة</span>
         </div>
+        <input type="hidden" id="cb-whish-edit-key">
         <div class="modal-field">
             <label>نوع الحركة</label>
             <div style="display:flex;gap:8px;">
                 <button type="button" class="filter-pill active" data-whish-type="in" id="cb-whish-type-in" style="flex:1;justify-content:center;">⬇️ إيداع (دخول)</button>
                 <button type="button" class="filter-pill" data-whish-type="out" id="cb-whish-type-out" style="flex:1;justify-content:center;">⬆️ سحب (خروج)</button>
+                <button type="button" class="filter-pill" data-whish-type="open" id="cb-whish-type-open" style="flex:1;justify-content:center;">🌅 افتتاح</button>
             </div>
+            <small id="cb-whish-type-hint" style="color:var(--gray);font-size:0.68rem;display:none;">يُستخدم لتعيين رصيد Whish الحالي مباشرةً على رقم محدد (مثلاً عند بدء استخدام الميزة) — لا يؤثر على رصيد الصندوق النقدي إطلاقاً.</small>
+        </div>
+        <div class="modal-field">
+            <label>التاريخ والوقت</label>
+            <input type="datetime-local" id="cb-whish-datetime">
         </div>
         <div class="modal-field">
             <label>البيان</label>
             <input type="text" id="cb-whish-desc" placeholder="مثال: تحويل من الصندوق النقدي، دفعة من زبون…" autocomplete="off">
         </div>
         <div class="modal-field">
-            <label>المبلغ <span id="cb-whish-amount-cur" style="color:var(--gray);font-weight:400;">($)</span></label>
+            <label id="cb-whish-amount-label">المبلغ <span id="cb-whish-amount-cur" style="color:var(--gray);font-weight:400;">($)</span></label>
             <input type="number" id="cb-whish-amount" placeholder="0" step="any" dir="ltr">
-            <small style="color:var(--gray);font-size:0.68rem;">أدخل بالدولار، أو بالليرة اللبنانية (سيتم تحويلها تلقائياً)</small>
+            <small id="cb-whish-amount-hint" style="color:var(--gray);font-size:0.68rem;">أدخل بالدولار، أو بالليرة اللبنانية (سيتم تحويلها تلقائياً)</small>
         </div>
         <p id="cb-whish-modal-error" style="color:var(--red);font-size:0.78rem;margin-bottom:6px;display:none;"></p>
         <div class="modal-actions">
@@ -1641,15 +1648,15 @@
 <script src="scripts/admin-03-firebase-config.js?v=1"></script>
 
     <!-- Presence UI injected dynamically by admin-presence.js -->
-<script src="scripts/admin-04-core-auth-data.js?v=8"></script>
-<script src="scripts/admin-05-map-tracking-orders.js?v=14"></script>
+<script src="scripts/admin-04-core-auth-data.js?v=9"></script>
+<script src="scripts/admin-05-map-tracking-orders.js?v=15"></script>
 <script src="scripts/admin-06-drivers-customers-stores.js?v=1"></script>
 <script src="scripts/admin-07-stores-employees-herobg.js?v=1"></script>
 <script src="scripts/admin-08-settings-sales-worldcup.js?v=1"></script>
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
-<script src="scripts/admin-10-company-portal-requests.js?v=11"></script>
-<script src="scripts/admin-12-expenses.js?v=2"></script>
-<script src="scripts/admin-13-cashbox.js?v=5"></script>
+<script src="scripts/admin-10-company-portal-requests.js?v=12"></script>
+<script src="scripts/admin-12-expenses.js?v=5"></script>
+<script src="scripts/admin-13-cashbox.js?v=10"></script>
 </body>
 </html>
     <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->

@@ -340,7 +340,6 @@ const NAV_ITEMS = [
     { id: 'map',       label: 'الخريطة المباشرة',  icon: mapIcon(),    perm: 'map'       },
     { id: 'orders',    label: 'الطلبات',            icon: ordersIcon(), perm: 'orders'    },
     { id: 'online-req', label: 'طلبات أونلاين',      icon: onlineReqIcon(), perm: 'orders'    },
-    { id: 'expenses',  label: 'المصاريف اليومية',    icon: expensesIcon(), perm: 'expenses' },
     { id: 'cashbox',   label: 'حركة الصندوق',        icon: cashboxIcon(), perm: 'expenses' },
     { id: 'admin-order', label: 'اطلب',             icon: adminOrderIcon(), perm: 'orders'  },
     { id: 'drivers',   label: 'السائقون',           icon: driverIcon(), perm: 'drivers'   },

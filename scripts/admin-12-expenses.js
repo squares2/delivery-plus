@@ -56,6 +56,26 @@ function _expEscHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
+// "YYYY-MM-DDTHH:MM" in LOCAL time, for pre-filling/reading <input type=
+// "datetime-local"> fields (expense date/time, Whish transaction date/time).
+// Deliberately local-time formatting (not toISOString, which is UTC) so the
+// picker shows/accepts the same wall-clock time the admin expects.
+function _dtLocalStr(d) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Expense amounts can be negative (a refund/credit that reduces total
+// spend), unlike _toUSD (aliased from _deliveryFeeToUSD in admin-10 —
+// used for fees/order totals, which can never legitimately go negative
+// and are zeroed out if they do). This keeps the sign while applying the
+// same magnitude-based currency detection (>1000 = LBP) as everywhere else.
+function _expToUSD(n) {
+    const v = parseFloat(n);
+    if (isNaN(v)) return 0;
+    return Math.abs(v) < 1000 ? v : v / (window._dollarRate || 90000);
+}
+
 // "Today" for every date-scoped feature in the admin panel (expenses'
 // default date, حركة الصندوق's default day, etc.) — resolves through
 // the shared 4 AM business-day cutover in admin-04 (bizDateKey), so a
@@ -66,10 +86,16 @@ function _todayStr() {
 
 // The orders panel's own net-profit figure depends on allExpenses — refresh
 // it immediately if that panel happens to already be open, rather than
-// waiting for its next periodic auto-refresh.
+// waiting for its next periodic auto-refresh. Also refreshes حركة الصندوق
+// (cashbox) if that's the active panel — its own "إضافة مصروف" button
+// (admin.html) lives there now, so a newly added/edited/deleted expense
+// should show up in the day ledger right away too.
 function _expRefreshOrdersNetIfActive() {
-    const p = document.getElementById('panel-orders');
-    if (p && p.classList.contains('active') && typeof renderOrders === 'function') renderOrders();
+    const po = document.getElementById('panel-orders');
+    if (po && po.classList.contains('active') && typeof renderOrders === 'function') renderOrders();
+
+    const pc = document.getElementById('panel-cashbox');
+    if (pc && pc.classList.contains('active') && typeof renderCashbox === 'function') renderCashbox();
 }
 
 // ── Render ────────────────────────────────────────────────────
@@ -89,8 +115,8 @@ function renderExpenses() {
     countEl.textContent = `${entries.length} مصروف`;
 
     let totalUSD = 0;
-    entries.forEach(([, e]) => { totalUSD += _toUSD(e.amount); });
-    totalEl.textContent = '$' + totalUSD.toFixed(2);
+    entries.forEach(([, e]) => { totalUSD += _expToUSD(e.amount); });
+    totalEl.textContent = (totalUSD < 0 ? '-$' : '$') + Math.abs(totalUSD).toFixed(2);
 
     if (!entries.length) {
         table.style.display = 'none';
@@ -101,19 +127,23 @@ function renderExpenses() {
     table.style.display = '';
     empty.style.display = 'none';
 
-    tbody.innerHTML = entries.map(([key, e]) => `
+    tbody.innerHTML = entries.map(([key, e]) => {
+        const amtUSD = _expToUSD(e.amount);
+        const isCredit = amtUSD < 0; // negative amount = refund/credit that reduces total spend
+        return `
         <tr data-key="${key}">
             <td style="white-space:nowrap;">${e.date || '—'}</td>
             <td>${_expEscHtml(e.desc || '—')}</td>
-            <td style="color:var(--gray-light);">${_expEscHtml(e.category || 'عام')}</td>
-            <td style="font-family:var(--mono);color:var(--red);white-space:nowrap;">$${_toUSD(e.amount).toFixed(2)}</td>
+            <td style="color:var(--gray-light);">${_expEscHtml(e.category || 'عام')}${isCredit ? ' — استرداد' : ''}</td>
+            <td style="font-family:var(--mono);color:${isCredit ? 'var(--green)' : 'var(--red)'};white-space:nowrap;">${isCredit ? '+' : ''}$${Math.abs(amtUSD).toFixed(2)}</td>
             <td style="color:var(--gray-light);font-size:var(--fs-xs);">${_expEscHtml(e.addedByName || e.addedBy || '—')}</td>
             <td style="white-space:nowrap;">
                 <button class="or-remove-btn" data-exp-edit="${key}" style="border-color:rgba(255,92,0,0.35);color:var(--orange);margin-left:4px;">✏️</button>
                 <button class="or-remove-btn" data-exp-del="${key}">🗑</button>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 
     tbody.querySelectorAll('[data-exp-edit]').forEach(btn => {
         btn.addEventListener('click', () => expOpenModal(allExpenses[btn.dataset.expEdit], btn.dataset.expEdit));
@@ -130,7 +160,7 @@ function expOpenModal(exp, key) {
     document.getElementById('exp-save-btn').textContent = exp ? '💾 حفظ التغييرات' : '💾 حفظ';
     document.getElementById('exp-modal-error').style.display = 'none';
 
-    document.getElementById('exp-date').value = exp?.date || _todayStr();
+    document.getElementById('exp-date').value = _dtLocalStr(exp?.createdAt ? new Date(exp.createdAt) : new Date());
     document.getElementById('exp-desc').value = exp?.desc || '';
     document.getElementById('exp-category').value = exp?.category || 'عام';
     document.getElementById('exp-amount').value = exp?.amount ?? '';
@@ -156,7 +186,7 @@ document.getElementById('exp-amount').addEventListener('input', e => {
 document.getElementById('exp-save-btn').addEventListener('click', async () => {
     const key       = document.getElementById('exp-edit-key').value.trim();
     const isNew     = !key;
-    const date      = document.getElementById('exp-date').value;
+    const dtRaw     = document.getElementById('exp-date').value;
     const desc      = document.getElementById('exp-desc').value.trim();
     const category  = document.getElementById('exp-category').value;
     const amountRaw = document.getElementById('exp-amount').value.trim();
@@ -164,26 +194,32 @@ document.getElementById('exp-save-btn').addEventListener('click', async () => {
     const btn       = document.getElementById('exp-save-btn');
 
     errEl.style.display = 'none';
-    if (!date) { errEl.textContent = '⚠️ التاريخ مطلوب'; errEl.style.display = 'block'; return; }
+    if (!dtRaw) { errEl.textContent = '⚠️ التاريخ والوقت مطلوب'; errEl.style.display = 'block'; return; }
     if (!desc) { errEl.textContent = '⚠️ البيان مطلوب';  errEl.style.display = 'block'; return; }
     const amount = parseFloat(amountRaw);
-    if (!amountRaw || isNaN(amount) || amount <= 0) {
-        errEl.textContent = '⚠️ أدخل مبلغاً صحيحاً'; errEl.style.display = 'block'; return;
+    if (!amountRaw || isNaN(amount) || amount === 0) {
+        errEl.textContent = '⚠️ أدخل مبلغاً صحيحاً (سالباً لتسجيل استرداد/تخفيض)'; errEl.style.display = 'block'; return;
     }
+
+    // The admin-chosen date/time is the real timestamp of the transaction —
+    // `date` (the YYYY-MM-DD bucket used by every day-filter/ledger) is
+    // derived from it through the same 4 AM business-day cutover as
+    // everything else, so a 2 AM entry still lands in "yesterday" everywhere.
+    const createdAtDate = new Date(dtRaw);
+    const createdAt = createdAtDate.getTime();
+    const date = bizDateKey(createdAtDate);
 
     btn.disabled = true; btn.textContent = '⏳ جاري الحفظ…';
     try {
         const payload = {
-            date, desc, category, amount,
+            date, desc, category, amount, createdAt,
             addedBy:     currentAdmin?.username || '',
             addedByName: currentAdmin?.fullname || currentAdmin?.username || '',
         };
         if (isNew) {
-            payload.createdAt = Date.now();
             const res = await fbPush('expenses', payload);
             if (res && res.name) allExpenses[res.name] = payload;
         } else {
-            payload.createdAt = allExpenses[key]?.createdAt || Date.now();
             await fbUpdate(`expenses/${key}`, payload);
             allExpenses[key] = { ...allExpenses[key], ...payload };
         }

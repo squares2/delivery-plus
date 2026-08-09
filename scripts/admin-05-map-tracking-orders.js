@@ -1212,7 +1212,7 @@ function renderOrders() {
     let totalExpensesUSD = 0;
     Object.values(window.allExpenses || {}).forEach(exp => {
         if (exp && _dateFilterMatches({ date: exp.date }, orderDateFilter, orderDateFrom, orderDateTo)) {
-            totalExpensesUSD += _toUSD(exp.amount);
+            totalExpensesUSD += _expToUSD(exp.amount);
         }
     });
     const totExpensesEl = document.getElementById('orders-total-expenses');

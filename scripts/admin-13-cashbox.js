@@ -77,9 +77,30 @@ function _cbComputeDayTotals(dateStr) {
         if (!e || e.date !== dateStr) return;
         const ts = e.createdAt || new Date(`${dateStr}T12:00:00`).getTime();
         transactions.push({
-            ts, type: 'expense', key, category: e.category,
+            ts, type: 'expense', key, category: e.category, isExpenseRow: true,
             label: e.desc || 'مصروف',
-            amountUSD: -_toUSD(e.amount),
+            amountUSD: -_expToUSD(e.amount), // negative e.amount (a credit/refund) flips this positive
+        });
+    });
+
+    // Whish transactions (📲 حركة Whish button/modal) move physical cash
+    // between the drawer and the Whish e-wallet, so they belong in the cash
+    // ledger too — with the OPPOSITE sign from the Whish sub-ledger's own
+    // balance: depositing INTO Whish takes cash OUT of the drawer (expense
+    // here), withdrawing FROM Whish puts cash BACK IN the drawer (income
+    // here). Bucketed by business day like everything else. افتتاح
+    // (balance-set) entries are excluded entirely — they only initialize/
+    // correct the Whish-side balance and never touch real cash, so they
+    // have no row here at all.
+    Object.entries(window.allCashboxWhish || {}).forEach(([key, t]) => {
+        if (!t || t.type === 'open') return;
+        const ts = t.createdAt || Date.now();
+        if (bizDateKey(new Date(ts)) !== dateStr) return;
+        const isDeposit = t.type !== 'out'; // deposit into Whish vs withdraw from Whish
+        transactions.push({
+            ts, type: isDeposit ? 'expense' : 'income', key, whish: true,
+            label: `📲 ${isDeposit ? 'إيداع Whish' : 'سحب من Whish'}${t.desc ? ' — ' + t.desc : ''}`,
+            amountUSD: isDeposit ? -_toUSD(t.amount) : _toUSD(t.amount),
         });
     });
 
@@ -138,30 +159,60 @@ function renderCashbox() {
             <td><b>🌅 رصيد افتتاحي</b></td>
             <td style="color:var(--gray-light);">افتتاحي</td>
             <td style="font-family:var(--mono);">${entry ? '$' + openingUSD.toFixed(2) : '<span style="color:var(--gray);">لم يُحدَّد</span>'}</td>
-            <td style="font-family:var(--mono);white-space:nowrap;">
-                ${entry ? '$' + openingUSD.toFixed(2) : '—'}
-                <button type="button" id="cb-opening-row-edit-btn" title="تعديل الرصيد الافتتاحي" style="background:none;border:none;color:var(--orange);cursor:pointer;font-size:0.8rem;margin-right:6px;">✏️</button>
+            <td style="font-family:var(--mono);white-space:nowrap;">${entry ? '$' + openingUSD.toFixed(2) : '—'}</td>
+            <td style="white-space:nowrap;">
+                <button type="button" id="cb-opening-row-edit-btn" title="تعديل الرصيد الافتتاحي" style="background:none;border:none;color:var(--orange);cursor:pointer;font-size:0.8rem;">✏️</button>
             </td>
         </tr>`;
 
         rowsHtml += transactions.map(t => {
             const timeStr = new Date(t.ts).toLocaleTimeString('ar-LB', { hour: '2-digit', minute: '2-digit' });
-            const isIncome = t.type === 'income';
-            const typeLabel = isIncome ? '📦 دخل طلب' : ('💸 مصروف' + (t.category ? ` (${_expEscHtml(t.category)})` : ''));
+            // For a plain logged expense, direction follows the actual sign of
+            // amountUSD (a negative entered amount is a refund/credit and
+            // flips it positive) rather than the fixed 'expense' type — orders
+            // and Whish rows keep using type, since their sign is already set
+            // to match at push time.
+            const isIncome = t.isExpenseRow ? (t.amountUSD >= 0) : (t.type === 'income');
+            const typeLabel = t.whish
+                ? (isIncome ? '📲 سحب Whish' : '📲 إيداع Whish')
+                : t.isExpenseRow
+                    ? ((isIncome ? '↩️ استرداد مصروف' : '💸 مصروف') + (t.category ? ` (${_expEscHtml(t.category)})` : ''))
+                    : '📦 دخل طلب';
             const amountColor = isIncome ? 'var(--green)' : 'var(--red)';
             const sign = isIncome ? '+' : '−';
             const balColor = t.balanceAfter < 0 ? 'color:var(--red);' : '';
+            let actionsHtml = '';
+            if (t.whish) {
+                actionsHtml = `<button class="or-remove-btn" data-cb-whish-edit="${t.key}" style="border-color:rgba(139,92,246,0.35);color:#a78bfa;margin-left:4px;">✏️</button>
+                <button class="or-remove-btn" data-cb-whish-del="${t.key}">🗑</button>`;
+            } else if (t.isExpenseRow) {
+                actionsHtml = `<button class="or-remove-btn" data-cb-exp-edit="${t.key}" style="border-color:rgba(255,92,0,0.35);color:var(--orange);margin-left:4px;">✏️</button>
+                <button class="or-remove-btn" data-cb-exp-del="${t.key}">🗑</button>`;
+            }
             return `<tr data-key="${t.key}">
                 <td style="white-space:nowrap;">${timeStr}</td>
                 <td>${_expEscHtml(t.label)}</td>
                 <td style="color:var(--gray-light);">${typeLabel}</td>
                 <td style="font-family:var(--mono);color:${amountColor};white-space:nowrap;">${sign}$${Math.abs(t.amountUSD).toFixed(2)}</td>
                 <td style="font-family:var(--mono);white-space:nowrap;${balColor}">$${t.balanceAfter.toFixed(2)}</td>
+                <td style="white-space:nowrap;">${actionsHtml}</td>
             </tr>`;
         }).join('');
 
         tbody.innerHTML = rowsHtml;
         document.getElementById('cb-opening-row-edit-btn')?.addEventListener('click', () => cbOpenOpeningModal());
+        tbody.querySelectorAll('[data-cb-exp-edit]').forEach(btn => {
+            btn.addEventListener('click', () => expOpenModal(allExpenses[btn.dataset.cbExpEdit], btn.dataset.cbExpEdit));
+        });
+        tbody.querySelectorAll('[data-cb-exp-del]').forEach(btn => {
+            btn.addEventListener('click', () => expDeleteExpense(btn.dataset.cbExpDel));
+        });
+        tbody.querySelectorAll('[data-cb-whish-edit]').forEach(btn => {
+            btn.addEventListener('click', () => _cbWhishOpenModal(window.allCashboxWhish[btn.dataset.cbWhishEdit], btn.dataset.cbWhishEdit));
+        });
+        tbody.querySelectorAll('[data-cb-whish-del]').forEach(btn => {
+            btn.addEventListener('click', () => _cbWhishDelete(btn.dataset.cbWhishDel));
+        });
     }
 
     // A brand-new day with no opening balance yet — ask for it once per
@@ -339,14 +390,31 @@ document.getElementById('cb-whish-toggle-btn').addEventListener('click', () => {
     if (saved === '1') _cbWhishSetExpanded(true, false);
 })();
 
+// Replays every Whish transaction in chronological order to get the
+// current balance — needed (rather than a simple net sum) because a
+// 'open' (افتتاح) transaction directly SETS the balance at that point in
+// time rather than adding/subtracting, so anything after it must build on
+// that set value, not on the raw total of everything before it. totalIn/
+// totalOut stay pure "real money movement" figures — an افتتاح entry
+// doesn't add to either, since it's a correction/initialization, not an
+// actual deposit or withdrawal.
 function _cbWhishTotals() {
     const entries = Object.entries(window.allCashboxWhish || {}).filter(([, t]) => t);
-    let totalIn = 0, totalOut = 0;
-    entries.forEach(([, t]) => {
+    const chronological = entries.slice().sort(([, a], [, b]) => (a.createdAt || 0) - (b.createdAt || 0));
+    let balance = 0, totalIn = 0, totalOut = 0;
+    chronological.forEach(([, t]) => {
         const amt = _toUSD(t.amount);
-        if (t.type === 'out') totalOut += amt; else totalIn += amt;
+        if (t.type === 'open') {
+            balance = amt;
+        } else if (t.type === 'out') {
+            totalOut += amt;
+            balance -= amt;
+        } else {
+            totalIn += amt;
+            balance += amt;
+        }
     });
-    return { entries, totalIn, totalOut, balance: totalIn - totalOut };
+    return { entries, totalIn, totalOut, balance };
 }
 
 function renderCashboxWhish() {
@@ -383,20 +451,28 @@ function renderCashboxWhish() {
     empty.style.display = 'none';
 
     tbody.innerHTML = sorted.map(([key, t]) => {
-        const isIn = t.type !== 'out';
+        const isOpen = t.type === 'open';
+        const isIn = t.type !== 'out'; // 'in' and 'open' both read as non-'out' for color grouping below, but labels differ
         const dateStr = t.createdAt ? new Date(t.createdAt).toLocaleString('ar-LB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+        const typeLabel = isOpen ? '🌅 افتتاح (تعيين الرصيد)' : (isIn ? '⬇️ إيداع' : '⬆️ سحب');
+        const typeColor = isOpen ? '#a78bfa' : (isIn ? 'var(--green)' : 'var(--red)');
+        const amountStr = isOpen ? `=$${_toUSD(t.amount).toFixed(2)}` : `${isIn ? '+' : '−'}$${_toUSD(t.amount).toFixed(2)}`;
         return `<tr data-key="${key}">
             <td style="white-space:nowrap;">${dateStr}</td>
             <td>${_expEscHtml(t.desc || '—')}</td>
-            <td style="color:${isIn ? 'var(--green)' : 'var(--red)'};white-space:nowrap;">${isIn ? '⬇️ إيداع' : '⬆️ سحب'}</td>
-            <td style="font-family:var(--mono);color:${isIn ? 'var(--green)' : 'var(--red)'};white-space:nowrap;">${isIn ? '+' : '−'}$${_toUSD(t.amount).toFixed(2)}</td>
+            <td style="color:${typeColor};white-space:nowrap;">${typeLabel}</td>
+            <td style="font-family:var(--mono);color:${typeColor};white-space:nowrap;">${amountStr}</td>
             <td style="color:var(--gray-light);font-size:var(--fs-xs);">${_expEscHtml(t.addedByName || t.addedBy || '—')}</td>
             <td style="white-space:nowrap;">
+                <button class="or-remove-btn" data-whish-edit="${key}" style="border-color:rgba(139,92,246,0.35);color:#a78bfa;margin-left:4px;">✏️</button>
                 <button class="or-remove-btn" data-whish-del="${key}">🗑</button>
             </td>
         </tr>`;
     }).join('');
 
+    tbody.querySelectorAll('[data-whish-edit]').forEach(btn => {
+        btn.addEventListener('click', () => _cbWhishOpenModal(window.allCashboxWhish[btn.dataset.whishEdit], btn.dataset.whishEdit));
+    });
     tbody.querySelectorAll('[data-whish-del]').forEach(btn => {
         btn.addEventListener('click', () => _cbWhishDelete(btn.dataset.whishDel));
     });
@@ -406,21 +482,37 @@ function _cbWhishSetType(type) {
     _cbWhishType = type;
     document.getElementById('cb-whish-type-in')?.classList.toggle('active', type === 'in');
     document.getElementById('cb-whish-type-out')?.classList.toggle('active', type === 'out');
+    document.getElementById('cb-whish-type-open')?.classList.toggle('active', type === 'open');
+    // افتتاح sets the balance to an absolute number rather than adding a
+    // delta, and doesn't touch the cash-drawer ledger at all — swap the
+    // amount field's label/hint and surface the explanatory note for it.
+    const isOpen = type === 'open';
+    const amountLabelEl = document.getElementById('cb-whish-amount-label');
+    if (amountLabelEl) amountLabelEl.childNodes[0].textContent = isOpen ? 'الرصيد المستهدف ' : 'المبلغ ';
+    const amountHintEl = document.getElementById('cb-whish-amount-hint');
+    if (amountHintEl) amountHintEl.style.display = isOpen ? 'none' : '';
+    const typeHintEl = document.getElementById('cb-whish-type-hint');
+    if (typeHintEl) typeHintEl.style.display = isOpen ? '' : 'none';
 }
 
-function _cbWhishOpenModal() {
-    _cbWhishSetType('in');
-    document.getElementById('cb-whish-desc').value = '';
-    document.getElementById('cb-whish-amount').value = '';
-    document.getElementById('cb-whish-amount-cur').textContent = '($)';
+function _cbWhishOpenModal(t, key) {
+    document.getElementById('cb-whish-edit-key').value = key || '';
+    document.getElementById('cb-whish-modal-title').textContent = t ? 'تعديل حركة Whish' : 'حركة رصيد Whish جديدة';
+    document.getElementById('cb-whish-save-btn').textContent = t ? '💾 حفظ التغييرات' : '💾 حفظ';
+    _cbWhishSetType(t?.type === 'out' ? 'out' : (t?.type === 'open' ? 'open' : 'in'));
+    document.getElementById('cb-whish-datetime').value = _dtLocalStr(t?.createdAt ? new Date(t.createdAt) : new Date());
+    document.getElementById('cb-whish-desc').value = t?.desc || '';
+    document.getElementById('cb-whish-amount').value = t?.amount ?? '';
+    document.getElementById('cb-whish-amount-cur').textContent = t?.amount ? `(${_currencySymbol(t.amount)})` : '($)';
     document.getElementById('cb-whish-modal-error').style.display = 'none';
     document.getElementById('modal-cashbox-whish').classList.add('open');
     setTimeout(() => document.getElementById('cb-whish-desc').focus(), 50);
 }
 
-document.getElementById('cb-whish-add-btn').addEventListener('click', _cbWhishOpenModal);
+document.getElementById('cb-whish-add-btn').addEventListener('click', () => _cbWhishOpenModal(null, null));
 document.getElementById('cb-whish-type-in').addEventListener('click', () => _cbWhishSetType('in'));
 document.getElementById('cb-whish-type-out').addEventListener('click', () => _cbWhishSetType('out'));
+document.getElementById('cb-whish-type-open').addEventListener('click', () => _cbWhishSetType('open'));
 document.getElementById('cb-whish-cancel-btn').addEventListener('click', () => document.getElementById('modal-cashbox-whish').classList.remove('open'));
 
 document.getElementById('cb-whish-amount').addEventListener('input', e => {
@@ -428,40 +520,55 @@ document.getElementById('cb-whish-amount').addEventListener('input', e => {
 });
 
 document.getElementById('cb-whish-save-btn').addEventListener('click', async () => {
+    const key       = document.getElementById('cb-whish-edit-key').value.trim();
+    const isNew     = !key;
     const desc      = document.getElementById('cb-whish-desc').value.trim();
     const amountRaw = document.getElementById('cb-whish-amount').value.trim();
+    const dtRaw     = document.getElementById('cb-whish-datetime').value;
     const errEl     = document.getElementById('cb-whish-modal-error');
     const btn       = document.getElementById('cb-whish-save-btn');
 
     errEl.style.display = 'none';
     const amount = parseFloat(amountRaw);
-    if (!amountRaw || isNaN(amount) || amount <= 0) {
+    const isOpenType = _cbWhishType === 'open';
+    // افتتاح sets an absolute target balance, so 0 is a valid value (e.g.
+    // resetting the wallet to empty) — إيداع/سحب are real money movements
+    // and must stay strictly positive.
+    if (!amountRaw || isNaN(amount) || (isOpenType ? amount < 0 : amount <= 0)) {
         errEl.textContent = '⚠️ أدخل مبلغاً صحيحاً'; errEl.style.display = 'block'; return;
+    }
+    if (!dtRaw) {
+        errEl.textContent = '⚠️ التاريخ والوقت مطلوب'; errEl.style.display = 'block'; return;
     }
 
     btn.disabled = true; btn.textContent = '⏳ جاري الحفظ…';
     try {
         const payload = {
             type: _cbWhishType,
-            desc: desc || (_cbWhishType === 'in' ? 'إيداع' : 'سحب'),
+            desc: desc || (_cbWhishType === 'in' ? 'إيداع' : _cbWhishType === 'out' ? 'سحب' : 'افتتاح رصيد Whish'),
             amount: amountRaw,
             addedBy:     currentAdmin?.username || '',
             addedByName: currentAdmin?.fullname || currentAdmin?.username || '',
-            createdAt: Date.now(),
+            createdAt: new Date(dtRaw).getTime(),
         };
-        const res = await fbPush('cashboxWhish', payload);
-        if (res && res.name) {
-            window.allCashboxWhish = window.allCashboxWhish || {};
-            window.allCashboxWhish[res.name] = payload;
+        if (isNew) {
+            const res = await fbPush('cashboxWhish', payload);
+            if (res && res.name) {
+                window.allCashboxWhish = window.allCashboxWhish || {};
+                window.allCashboxWhish[res.name] = payload;
+            }
+        } else {
+            await fbUpdate(`cashboxWhish/${key}`, payload);
+            window.allCashboxWhish[key] = { ...window.allCashboxWhish[key], ...payload };
         }
         document.getElementById('modal-cashbox-whish').classList.remove('open');
-        toast(_cbWhishType === 'in' ? '✅ تم تسجيل الإيداع' : '✅ تم تسجيل السحب');
-        renderCashboxWhish();
+        toast(isNew ? (_cbWhishType === 'in' ? '✅ تم تسجيل الإيداع' : _cbWhishType === 'out' ? '✅ تم تسجيل السحب' : '✅ تم تعيين رصيد Whish') : '💾 تم حفظ التعديلات');
+        renderCashbox(); // also refreshes the day ledger — Whish moves now show up there too
     } catch (e) {
         errEl.textContent = '⚠️ خطأ: ' + e.message;
         errEl.style.display = 'block';
     } finally {
-        btn.disabled = false; btn.textContent = '💾 حفظ';
+        btn.disabled = false; btn.textContent = isNew ? '💾 حفظ' : '💾 حفظ التغييرات';
     }
 });
 
@@ -478,7 +585,7 @@ async function _cbWhishDelete(key) {
         await fbSet(`cashboxWhish/${key}`, null);
         if (window.allCashboxWhish) delete window.allCashboxWhish[key];
         toast('✅ تم حذف الحركة');
-        renderCashboxWhish();
+        renderCashbox(); // also refreshes the day ledger — Whish moves now show up there too
     } catch (e) {
         toast('⚠️ فشل الحذف: ' + e.message, true);
     }
