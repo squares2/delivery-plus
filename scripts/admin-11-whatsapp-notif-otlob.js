@@ -1750,11 +1750,8 @@ async function _aoSubmit() {
             if (storeRec && storeRec.whatsapp) {
                 const notifyMsg =
                     `🔔 طلب جديد رقم #${nextId} على Delivo\n` +
-                    `👤 العميل: ${fullname} — ${phone}\n` +
-                    `📍 العنوان: ${city}${street ? '، ' + street : ''}\n` +
                     `🧾 تفاصيل الطلب:\n${orderDesc}\n` +
-                    `💵 سعر الطلب: $${orderPriceUSD.toFixed(2)}\n\n` +
-                    `🙏 الرجاء ترتيب سائق خاص بكم لتوصيل هذا الطلب.`;
+                    `💵 سعر الطلب: $${orderPriceUSD.toFixed(2)}`;
                 _sendWhatsappMessage(storeRec.whatsapp, notifyMsg)
                     .then(() => toast('📣 تم إرسال تفاصيل الطلب إلى المتجر عبر واتساب'))
                     .catch(e => toast('⚠️ تعذّر إرسال الطلب إلى المتجر: ' + e.message, true));
