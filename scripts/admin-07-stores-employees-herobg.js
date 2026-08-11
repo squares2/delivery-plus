@@ -1039,6 +1039,8 @@ const AVATAR_COLORS = ['#FF5C00','#3b82f6','#22c55e','#a855f7','#f59e0b','#ef444
 const ALL_PERMS = ['map','orders','drivers','customers','stores','employees','settings','expenses'];
 const PERM_LABELS = { map:'🗺 خريطة', orders:'📦 طلبات', drivers:'🛵 سائقون', customers:'👤 عملاء', stores:'🏪 متاجر', employees:'🔐 موظفون', settings:'⚙️ إعدادات', expenses:'💸 مصاريف' };
 
+let empFilter = localStorage.getItem('delivo_admin_emp_filter') || 'all';
+
 function renderEmployees() {
     if (!hasPerm('employees')) return;
     const grid = document.getElementById('emp-grid');
@@ -1048,7 +1050,11 @@ function renderEmployees() {
     const allEmps = [
         { _key: '__seed', ...SEED_SUPERADMIN, ...(adminUsers.__seed || {}) },
         ...Object.entries(adminUsers).filter(([k]) => k !== '__seed').map(([k,v]) => ({ ...v, _key: k })),
-    ];
+    ].filter(emp => {
+        if (empFilter === 'all') return true;
+        const isStoreUser = STORE_ONLY_ROLES.includes(emp.role);
+        return empFilter === 'store' ? isStoreUser : !isStoreUser;
+    });
 
     allEmps.forEach((emp, idx) => {
         const color     = AVATAR_COLORS[idx % AVATAR_COLORS.length];
@@ -1216,6 +1222,17 @@ function _updateEmpNotifyLabel(role, linkedStore) {
 // ── Add button ────────────────────────────────────────────────
 document.getElementById('add-emp-btn').addEventListener('click', () => openEmpModal(null));
 document.getElementById('emp-cancel-btn').addEventListener('click', () => document.getElementById('modal-emp').classList.remove('open'));
+
+// ── Store-user / staff filter ────────────────────────────────
+document.querySelectorAll('[data-emp-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        empFilter = btn.dataset.empFilter;
+        localStorage.setItem('delivo_admin_emp_filter', empFilter);
+        document.querySelectorAll('[data-emp-filter]').forEach(b => b.classList.toggle('active', b.dataset.empFilter === empFilter));
+        renderEmployees();
+    });
+});
+document.querySelectorAll('[data-emp-filter]').forEach(b => b.classList.toggle('active', b.dataset.empFilter === empFilter));
 
 // ── Password toggle ───────────────────────────────────────────
 document.getElementById('emp-pwd-toggle').addEventListener('click', () => {

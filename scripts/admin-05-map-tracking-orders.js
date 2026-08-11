@@ -1488,14 +1488,31 @@ function _openDayOrdersModal(dayLabel, dayOrders) {
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 }
 
+// Normalizes a stored phone value down to bare local-format digits so the
+// same real customer's orders merge under one key regardless of how the
+// phone happened to be saved on any given order — with/without a "+961"
+// or "961" country code, with/without a leading "0", or with spacer
+// characters. Returns '' when there's nothing usable. This is what makes
+// registered-account orders and guest/unregistered orders from the same
+// person count as one customer in renderTopCustomers() below.
+function _normalizePhoneKey(raw) {
+    let digits = String(raw || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.startsWith('961') && digits.length > 8) digits = digits.slice(3);
+    digits = digits.replace(/^0+/, '');
+    return digits;
+}
+
 // ── Top customers by delivered-order count ──────────────────────────
-// Ranks customers (matched by phone when available, falling back to
-// username/name) by how many delivered orders they have. Only
-// meaningful — and only shown at all — when looking at the full,
-// unfiltered order history ("الكل"); any narrower date range makes
-// "top customers" a near-meaningless one-off list, so the whole card
-// is hidden rather than shown with misleading data, saving vertical
-// space in the panel the rest of the time.
+// Ranks customers strictly by normalized phone number, merging
+// registered-account orders and guest/unregistered orders placed under
+// the same real phone into a single customer — a name or username is
+// never used to group, only to display. Only meaningful — and only shown
+// at all — when looking at the full, unfiltered order history ("الكل");
+// any narrower date range makes "top customers" a near-meaningless
+// one-off list, so the whole card is hidden rather than shown with
+// misleading data, saving vertical space in the panel the rest of the
+// time.
 function renderTopCustomers() {
     const card  = document.getElementById('top-customers-card');
     const body  = document.getElementById('top-customers-body');
@@ -1509,19 +1526,27 @@ function renderTopCustomers() {
     card.style.display = '';
 
     const byCustomer = {};
+    let noPhoneCount = 0;
     Object.values(allOrders).forEach(o => {
         if ((o.state || '0') !== '1') return; // only delivered orders
         if (!_orderMatchesDateFilter(o)) return;
-        // Prefer phone as the identity key (most reliable across
-        // guest/registered orders); fall back to username, then name.
-        const idKey = (o.phone && o.phone.trim()) || (o.username && '@'+o.username) || (o.fullname && o.fullname.trim());
-        if (!idKey) return;
+        // Phone is the ONLY grouping key — this is what merges a
+        // registered customer's account orders with any guest/unregistered
+        // orders placed under the same real phone number. Orders with no
+        // usable phone at all are counted in the totals but can't be
+        // attributed to a specific customer, so they're excluded from the
+        // ranked list (not silently merged into one fake "no phone" row).
+        const idKey = _normalizePhoneKey(o.phone);
+        if (!idKey) { noPhoneCount++; return; }
         if (!byCustomer[idKey]) {
-            byCustomer[idKey] = { name: o.fullname || o.username || 'زبون', phone: o.phone || '', count: 0, totalUSD: 0 };
+            byCustomer[idKey] = { name: o.fullname || (o.username ? '@'+o.username : '') || 'زبون', phone: o.phone || '', count: 0, totalUSD: 0 };
         }
         byCustomer[idKey].count++;
-        // Keep the most complete name/phone seen across this customer's orders
-        if (o.fullname && !byCustomer[idKey].name) byCustomer[idKey].name = o.fullname;
+        // Prefer a real name over a username over the generic fallback,
+        // and keep the most complete raw phone seen for display.
+        if (o.fullname && (!byCustomer[idKey].name || byCustomer[idKey].name === 'زبون' || byCustomer[idKey].name.startsWith('@'))) {
+            byCustomer[idKey].name = o.fullname;
+        }
         if (o.phone && !byCustomer[idKey].phone) byCustomer[idKey].phone = o.phone;
         const deliveryProfit = getOrderDeliveryProfit(o, companyVars);
         const effectiveDeliveryRaw = (o.deliveryFee != null && o.deliveryFee !== '') ? o.deliveryFee : deliveryProfit;
@@ -1535,10 +1560,11 @@ function renderTopCustomers() {
     // customers have ever had a delivered order, that's shown as e.g.
     // "أعلى 9 من 9 عملاء" rather than implying a 10th is missing.
     if (totEl) {
+        const noPhoneNote = noPhoneCount ? ` <span style="opacity:.65">· ${noPhoneCount} طلب بلا رقم هاتف مستبعد</span>` : '';
         totEl.innerHTML = ranked.length
-            ? (totalCustomerCount > ranked.length
+            ? ((totalCustomerCount > ranked.length
                 ? `أعلى <b>${ranked.length}</b> من <b>${totalCustomerCount}</b> عميل`
-                : `<b>${totalCustomerCount}</b> عميل (كل من لديهم طلبات مُسلَّمة)`)
+                : `<b>${totalCustomerCount}</b> عميل (كل من لديهم طلبات مُسلَّمة)`) + noPhoneNote)
             : '';
     }
 
