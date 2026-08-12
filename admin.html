@@ -237,25 +237,6 @@
                         <span>📋 النتائج: <b id="orders-results-count">0</b></span>
                     </div>
                 </div>
-                <div class="orders-chart-card collapsed" id="orders-chart-card">
-                    <div class="orders-chart-header" id="orders-chart-header">
-                        <button class="orders-chart-toggle" id="orders-chart-toggle-btn" aria-label="توسيع/طي الرسم البياني">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
-                        <h3>📊 الطلبات المسلَّمة يومياً</h3>
-                        <span class="orders-chart-total" id="orders-chart-total"></span>
-                        <div class="orders-chart-range">
-                            <button class="chart-range-pill" data-chart-range="7">7 أيام</button>
-                            <button class="chart-range-pill active" data-chart-range="14">14 يوم</button>
-                            <button class="chart-range-pill" data-chart-range="30">30 يوم</button>
-                            <button class="chart-range-pill" data-chart-range="90">3 أشهر</button>
-                            <button class="chart-range-pill" data-chart-range="365">سنة</button>
-                            <button class="chart-range-pill" data-chart-range="all">📜 الكل</button>
-                        </div>
-                    </div>
-                    <div class="orders-chart-body" id="orders-chart-body"></div>
-                    <div class="orders-chart-hint" id="orders-chart-hint">💡 اضغط على أي عمود لعرض تفاصيل عملاء ذلك اليوم</div>
-                </div>
                 <div class="orders-chart-card collapsed" id="top-customers-card">
                     <div class="orders-chart-header" id="top-customers-header">
                         <button class="orders-chart-toggle" id="top-customers-toggle-btn" aria-label="توسيع/طي أفضل العملاء">
@@ -1120,6 +1101,69 @@
                 </div><!-- /day-ledger + whish column -->
             </div>
 
+            <!-- PROFIT ANALYTICS panel — "تحليل الأرباح": delivered-order
+                 count + gross orders-profit per candle (day/week/month),
+                 with an exact value labeled on top of every candle so
+                 nothing is hidden behind a single blended average, and a
+                 predicted-monthly-profit figure per candle. See
+                 scripts/admin-14-profit-analytics.js for the formula. -->
+            <div class="panel" id="panel-profit-analytics">
+                <div class="panel-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-3 3"/></svg>
+                    <h2>تحليل الأرباح</h2>
+                    <button class="ph-btn" id="pa-refresh-btn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                        تحديث
+                    </button>
+                </div>
+
+                <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;">
+                <div class="orders-toolbar">
+                    <div class="orders-sort-toggle" style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:0.68rem;color:var(--gray);font-weight:700;">تجميع حسب:</span>
+                        <button class="chart-range-pill" data-pa-gran="day">📅 يوم</button>
+                        <button class="chart-range-pill" data-pa-gran="week">🗓️ أسبوع</button>
+                        <button class="chart-range-pill" data-pa-gran="month">🈷️ شهر</button>
+                        <button class="chart-range-pill" id="pa-showall-btn" title="عرض كل الفترات منذ أول طلب مُسلَّم، بدل آخر نافذة ثابتة">📜 الكل</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;" title="يُستخدم في حساب الربح الشهري المتوقع لكل عمود — تُحفظ لكل الأجهزة">
+                        <span style="font-size:0.68rem;color:var(--gray);font-weight:700;">💸 المصاريف الشهرية المتوقعة:</span>
+                        <input type="number" id="pa-expected-expenses" placeholder="0" step="1" style="width:90px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font);font-size:0.8rem;padding:5px 8px;">
+                        <span style="font-size:0.75rem;color:var(--gray);">$</span>
+                        <button class="ph-btn" id="pa-expected-expenses-save" style="padding:5px 10px;">💾 حفظ</button>
+                    </div>
+                    <div class="orders-totals-mini" id="pa-summary" style="margin-right:auto;"></div>
+                </div>
+
+                <div class="orders-chart-card" id="pa-count-card" style="margin:0 16px 12px;">
+                    <div class="orders-chart-header" style="cursor:default;">
+                        <h3>📦 عدد الطلبات المُسلَّمة</h3>
+                        <span class="orders-chart-total" id="pa-count-total"></span>
+                    </div>
+                    <div class="orders-chart-body" id="pa-count-body"></div>
+                    <div class="orders-chart-hint">💡 اضغط على أي عمود لعرض تفاصيل الطلبات</div>
+                </div>
+
+                <div class="orders-chart-card" id="pa-profit-card" style="margin:0 16px 12px;">
+                    <div class="orders-chart-header" style="cursor:default;">
+                        <h3>💰 ربح الطلبات (قبل المصاريف)</h3>
+                        <span class="orders-chart-total" id="pa-profit-total"></span>
+                    </div>
+                    <div class="orders-chart-body" id="pa-profit-body"></div>
+                    <div class="orders-chart-hint">🔮 اضغط على أي عمود لعرض الربح الشهري المتوقع بناءً على ربح هذه الفترة والمصاريف الشهرية المتوقعة المُدخَلة أعلاه</div>
+                </div>
+
+                <div class="orders-chart-card" id="pa-perorder-card" style="margin:0 16px 16px;">
+                    <div class="orders-chart-header" style="cursor:default;">
+                        <h3>🎯 متوسط الربح لكل طلب</h3>
+                        <span class="orders-chart-total" id="pa-perorder-total"></span>
+                    </div>
+                    <div class="orders-chart-body" id="pa-perorder-body"></div>
+                    <div class="orders-chart-hint">💡 ربح هذه الفترة ÷ عدد طلباتها — اضغط على أي عمود لعرض تفاصيل الطلبات</div>
+                </div>
+                </div>
+            </div>
+
         </div><!-- /content -->
     </div><!-- /main -->
 </div><!-- /app -->
@@ -1653,15 +1697,16 @@
 <script src="scripts/admin-03-firebase-config.js?v=1"></script>
 
     <!-- Presence UI injected dynamically by admin-presence.js -->
-<script src="scripts/admin-04-core-auth-data.js?v=9"></script>
-<script src="scripts/admin-05-map-tracking-orders.js?v=16"></script>
+<script src="scripts/admin-04-core-auth-data.js?v=12"></script>
+<script src="scripts/admin-05-map-tracking-orders.js?v=18"></script>
 <script src="scripts/admin-06-drivers-customers-stores.js?v=1"></script>
 <script src="scripts/admin-07-stores-employees-herobg.js?v=2"></script>
 <script src="scripts/admin-08-settings-sales-worldcup.js?v=1"></script>
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
-<script src="scripts/admin-10-company-portal-requests.js?v=12"></script>
-<script src="scripts/admin-12-expenses.js?v=5"></script>
+<script src="scripts/admin-10-company-portal-requests.js?v=13"></script>
+<script src="scripts/admin-12-expenses.js?v=6"></script>
 <script src="scripts/admin-13-cashbox.js?v=10"></script>
+<script src="scripts/admin-14-profit-analytics.js?v=7"></script>
 </body>
 </html>
     <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->

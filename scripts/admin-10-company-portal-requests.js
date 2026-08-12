@@ -41,30 +41,13 @@ document.getElementById('orders-search').addEventListener('input', e => {
     renderOrders();
 });
 
-// Daily delivered-orders chart — range pills (7 / 14 / 30 / 90 / 365 days, or 'all')
-document.querySelectorAll('#orders-chart-card .chart-range-pill').forEach(btn => {
-    const val = btn.dataset.chartRange === 'all' ? 'all' : parseInt(btn.dataset.chartRange);
-    btn.classList.toggle('active', val === orderChartRange);
-    btn.addEventListener('click', e => {
-        e.stopPropagation(); // don't let this bubble up to the header's collapse toggle
-        orderChartRange = val;
-        localStorage.setItem('delivo_admin_order_chart_range', orderChartRange);
-        document.querySelectorAll('#orders-chart-card .chart-range-pill').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderOrdersDailyChart();
-    });
-});
-
-// Daily delivered-orders chart — collapse/expand (shrunk by default).
-// Clicking anywhere on the header toggles it; the chevron button is just
-// a visual affordance sitting inside that same header.
-document.getElementById('orders-chart-card').classList.toggle('collapsed', orderChartCollapsed);
-document.getElementById('orders-chart-header').addEventListener('click', () => {
-    orderChartCollapsed = !orderChartCollapsed;
-    localStorage.setItem('delivo_admin_order_chart_collapsed', orderChartCollapsed ? '1' : '0');
-    document.getElementById('orders-chart-card').classList.toggle('collapsed', orderChartCollapsed);
-    if (!orderChartCollapsed) renderOrdersDailyChart(); // draw lazily on first expand
-});
+// Daily delivered-orders chart, range pills, and collapse/expand wiring
+// were removed — this whole feature was superseded by the "تحليل
+// الأرباح" panel (scripts/admin-14-profit-analytics.js), which shows
+// the same delivered-order-count chart plus profit breakdowns the old
+// card never had. orderChartRange/orderChartCollapsed (admin-04) and
+// renderOrdersDailyChart's helpers are gone too — see delivo.md history
+// if any of this needs resurrecting.
 
 // Top-customers-by-delivered-orders leaderboard — same collapsed-by-
 // default, click-header-to-toggle pattern as the chart card above.

@@ -98,6 +98,24 @@ function _expRefreshOrdersNetIfActive() {
     if (pc && pc.classList.contains('active') && typeof renderCashbox === 'function') renderCashbox();
 }
 
+// _dateFilterMatches (shared with the orders panel) expects order.date as
+// a real "Y-M-D H:MM:SS" timestamp so it can correctly apply the 4 AM
+// business-day cutover. An expense's own `date` field is just the
+// already-bucketed "YYYY-MM-DD" label (from bizDateKey at save time), with
+// no time component — passing that straight through made _dateFilterMatches
+// parse it as literal midnight, which is BEFORE the 4 AM cutover, so it got
+// bucketed into the PREVIOUS business day a second time (double-applying
+// the cutover) — e.g. an expense correctly dated "2026-08-12" showing up
+// under "أمس" instead of "اليوم". Rebuilding the real date+time string from
+// createdAt (the actual moment it was saved) gives _dateFilterMatches the
+// real wall-clock time it expects, matching how orders behave.
+function _expDateTimeStr(e) {
+    if (!e.createdAt) return e.date; // legacy records with no createdAt — best effort
+    const d = new Date(e.createdAt);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 // ── Render ────────────────────────────────────────────────────
 function renderExpenses() {
     const tbody   = document.getElementById('exp-tbody');
@@ -108,7 +126,7 @@ function renderExpenses() {
     if (!tbody) return;
 
     const entries = Object.entries(allExpenses)
-        .filter(([, e]) => e && _dateFilterMatches({ date: e.date }, expDateFilter, expDateFrom, expDateTo))
+        .filter(([, e]) => e && _dateFilterMatches({ date: _expDateTimeStr(e) }, expDateFilter, expDateFrom, expDateTo))
         .filter(([, e]) => !expSearch || (e.desc || '').toLowerCase().includes(expSearch.toLowerCase()))
         .sort(([, a], [, b]) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
 

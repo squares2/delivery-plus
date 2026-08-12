@@ -1077,9 +1077,8 @@ function _onlineOrderMatchesDateFilter(order) {
 // than literally every order in the database — that lets the admin
 // narrow to e.g. "🟢 وُصِّل" + a date range first, so new/pending
 // orders are never swept up by accident. Already-archived orders are
-// always excluded regardless of filter. Archiving is non-destructive
-// (see renderOrdersDailyChart's note above) — the daily stats chart
-// keeps counting these normally afterward.
+// always excluded regardless of filter. Archiving is non-destructive —
+// archived orders still count normally everywhere else in the app.
 async function archiveAllFilteredOrders() {
     if (orderFilter === 'archived') {
         toast('هذه القائمة تعرض الطلبات المؤرشفة فعلاً');
@@ -1211,7 +1210,7 @@ function renderOrders() {
     // income.
     let totalExpensesUSD = 0;
     Object.values(window.allExpenses || {}).forEach(exp => {
-        if (exp && _dateFilterMatches({ date: exp.date }, orderDateFilter, orderDateFrom, orderDateTo)) {
+        if (exp && _dateFilterMatches({ date: _expDateTimeStr(exp) }, orderDateFilter, orderDateFrom, orderDateTo)) {
             totalExpensesUSD += _expToUSD(exp.amount);
         }
     });
@@ -1282,156 +1281,7 @@ function renderOrders() {
         }
     });
 
-    renderOrdersDailyChart();
     renderTopCustomers();
-}
-
-// ── Daily delivered-orders "candle" chart ───────────────────────────
-// Hand-built SVG bar chart (same visual language as the attendance
-// dashboard's charts) showing how many orders reached state '1'
-// ("وُصِّل") on each of the last N days. Reads straight from the
-// already-loaded `allOrders` (no extra fetch), so it stays in sync
-// with everything else on this panel and includes archived/vaulted
-// orders too — vault only hides an order from the list view, it
-// doesn't change whether it was actually delivered that day.
-const _ORD_CHART_VB_W = 1000, _ORD_CHART_VB_H = 220;
-const _ORD_CHART_PAD  = { l: 34, r: 10, t: 16, b: 26 };
-
-function _ordChartLocalKey(d) {
-    // Business-day key (4 AM cutover) — see bizDateKey() in admin-04.
-    return bizDateKey(d);
-}
-function _ordChartDayLabel(d) {
-    return d.toLocaleDateString('ar-LB', { day: 'numeric', month: 'short' });
-}
-function _ordChartNiceMax(v) {
-    if (v <= 0) return 4;
-    const p = Math.pow(10, Math.floor(Math.log10(v)));
-    const n = v / p;
-    const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
-    return step * p;
-}
-
-// Populated fresh on every renderOrdersDailyChart() call — maps each
-// bar's day-key to the actual delivered orders that landed on it, so
-// the click handler below can look them up without re-scanning
-// allOrders. Module-level (not local to the render function) since the
-// click listeners are wired after the function returns.
-let _ordChartDayOrders = {};
-
-// Resolves orderChartRange === 'all' into an actual day-count, spanning
-// from the earliest delivered order on record up through today — so
-// "📜 الكل" always starts the chart at the true beginning of delivery
-// history instead of an arbitrary fixed window.
-function _ordChartAllTimeDays() {
-    let earliest = null;
-    Object.values(allOrders).forEach(o => {
-        if ((o.state || '0') !== '1') return; // only delivered orders
-        const od = _parseOrderDate(o);
-        if (!od) return;
-        if (!earliest || od < earliest) earliest = od;
-    });
-    if (!earliest) return 30; // no delivered orders yet — sane fallback
-    const today = bizDayStart();
-    const earliestDay = bizDayStart(earliest);
-    return Math.max(1, Math.round((today - earliestDay) / 86400000) + 1);
-}
-
-const _ORD_CHART_RANGE_LABELS = { 7: 'آخر 7 أيام', 14: 'آخر 14 يوم', 30: 'آخر 30 يوم', 90: 'آخر 3 أشهر', 365: 'آخر سنة' };
-
-function renderOrdersDailyChart() {
-    const body  = document.getElementById('orders-chart-body');
-    const totEl = document.getElementById('orders-chart-total');
-    if (!body) return;
-
-    const rangeDays = orderChartRange === 'all' ? _ordChartAllTimeDays() : orderChartRange;
-
-    // Build the last `rangeDays` business days (4 AM cutover, local
-    // time), oldest first — see bizDayStart() in admin-04.
-    const days = [];
-    for (let i = rangeDays - 1; i >= 0; i--) {
-        const d = bizDayStart();
-        d.setDate(d.getDate() - i);
-        days.push({ date: d, key: _ordChartLocalKey(d), count: 0, orders: [] });
-    }
-    const byKey = {};
-    days.forEach(row => { byKey[row.key] = row; });
-
-    Object.entries(allOrders).forEach(([key, o]) => {
-        if ((o.state || '0') !== '1') return; // only delivered orders ("وُصِّل")
-        const od = _parseOrderDate(o);
-        if (!od) return;
-        const row = byKey[_ordChartLocalKey(od)];
-        if (row) { row.count++; row.orders.push([key, o]); }
-    });
-
-    _ordChartDayOrders = {};
-    days.forEach(row => { _ordChartDayOrders[row.key] = { label: _ordChartDayLabel(row.date), orders: row.orders }; });
-
-    const total = days.reduce((a, r) => a + r.count, 0);
-    const rangeLabel = orderChartRange === 'all' ? 'منذ بداية السجل' : (_ORD_CHART_RANGE_LABELS[orderChartRange] || `آخر ${orderChartRange} يوم`);
-    if (totEl) totEl.innerHTML = `${rangeLabel} — <b>${total}</b> طلب مُسلَّم`;
-
-    if (total === 0) {
-        body.innerHTML = `<div class="orders-chart-empty">لا توجد طلبات مُسلَّمة في هذه الفترة</div>`;
-        return;
-    }
-
-    const maxVal  = _ordChartNiceMax(Math.max(...days.map(r => r.count), 1) * 1.15);
-    const innerH  = _ORD_CHART_VB_H - _ORD_CHART_PAD.t - _ORD_CHART_PAD.b;
-    const innerW  = _ORD_CHART_VB_W - _ORD_CHART_PAD.l - _ORD_CHART_PAD.r;
-    const n       = days.length;
-    const gap     = innerW / n;
-    const barW    = Math.max(1.5, Math.min(30, gap * 0.55));
-    // Label density scales down as the range grows — daily labels stop
-    // being legible well before 90/365-day or all-time ranges get there,
-    // so long ranges thin out to roughly weekly/monthly tick marks.
-    const every   = n <= 10 ? 1 : n <= 20 ? 2 : n <= 40 ? 4 : n <= 100 ? 7 : n <= 250 ? 14 : 30;
-
-    let grid = '';
-    for (let i = 0; i <= 4; i++) {
-        const y   = _ORD_CHART_PAD.t + innerH - (innerH * i / 4);
-        const val = Math.round(maxVal * i / 4);
-        grid += `<line x1="${_ORD_CHART_PAD.l}" y1="${y}" x2="${_ORD_CHART_VB_W - _ORD_CHART_PAD.r}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
-        grid += `<text x="${_ORD_CHART_PAD.l - 8}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--gray)" font-family="var(--mono)">${val}</text>`;
-    }
-
-    const bars = days.map((r, i) => {
-        const cx    = _ORD_CHART_PAD.l + gap * i + gap / 2;
-        const h     = innerH * (r.count / maxVal);
-        const yTop  = _ORD_CHART_PAD.t + innerH - h;
-        const showLabel = i % every === 0 || i === n - 1;
-        const isToday = i === n - 1;
-        // Per-bar count numbers only render for daily-ish views — past
-        // ~40 bars they'd overlap into an illegible smear, so longer
-        // ranges (90/365/all) show clean bars only; the exact count is
-        // still available via the hover tooltip and the click-through
-        // day-details popup.
-        const showCount = r.count > 0 && n <= 40;
-        // A wider, invisible hit-area sits behind the visible bar so thin
-        // low-count columns are still easy to click/tap accurately.
-        return `
-            ${showCount ? `<text x="${cx.toFixed(1)}" y="${(yTop - 6).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="800" fill="${isToday ? 'var(--orange)' : 'var(--green)'}" style="pointer-events:none;">${r.count}</text>` : ''}
-            <rect class="ord-chart-hit" data-day-key="${r.key}" x="${(cx - gap / 2).toFixed(1)}" y="${_ORD_CHART_PAD.t}" width="${gap.toFixed(1)}" height="${innerH.toFixed(1)}" fill="transparent" style="cursor:${r.count > 0 ? 'pointer' : 'default'};"></rect>
-            <rect class="ord-chart-bar" data-day-key="${r.key}" x="${(cx - barW / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" rx="3" fill="${isToday ? 'var(--orange)' : 'var(--green)'}" opacity="${isToday ? '1' : '0.85'}" style="pointer-events:none;">
-                <title>${_ordChartDayLabel(r.date)} — ${r.count} طلب مُسلَّم${r.count > 0 ? ' — اضغط للتفاصيل' : ''}</title>
-            </rect>
-            ${showLabel ? `<text x="${cx.toFixed(1)}" y="${_ORD_CHART_VB_H - 8}" text-anchor="middle" font-size="9.5" fill="var(--gray)" style="pointer-events:none;">${_ordChartDayLabel(r.date)}</text>` : ''}`;
-    }).join('');
-
-    body.innerHTML = `
-        <svg viewBox="0 0 ${_ORD_CHART_VB_W} ${_ORD_CHART_VB_H}" preserveAspectRatio="none" style="width:100%;height:190px;overflow:visible;">
-            ${grid}
-            ${bars}
-        </svg>`;
-
-    body.querySelectorAll('.ord-chart-hit').forEach(hit => {
-        hit.addEventListener('click', () => {
-            const info = _ordChartDayOrders[hit.dataset.dayKey];
-            if (!info || !info.orders.length) return;
-            _openDayOrdersModal(info.label, info.orders);
-        });
-    });
 }
 
 // Day-details modal — opened by clicking a bar in the daily delivered-

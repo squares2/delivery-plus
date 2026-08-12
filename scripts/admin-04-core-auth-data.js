@@ -244,14 +244,7 @@ let orderDateTo     = localStorage.getItem('delivo_admin_order_date_to') || ''; 
 let onlineOrderDateFilter = localStorage.getItem('delivo_admin_online_date_filter') || 'today';
 let onlineOrderDateFrom   = localStorage.getItem('delivo_admin_online_date_from') || '';
 let onlineOrderDateTo     = localStorage.getItem('delivo_admin_online_date_to') || '';
-let orderChartRange = (() => { // 7 | 14 | 30 | 90 | 365 | 'all' — range shown in the delivered-orders daily "candle" chart
-    const raw = localStorage.getItem('delivo_admin_order_chart_range');
-    if (raw === 'all') return 'all';
-    const n = parseInt(raw);
-    return [7, 14, 30, 90, 365].includes(n) ? n : 14;
-})();
-let orderChartCollapsed = localStorage.getItem('delivo_admin_order_chart_collapsed') !== '0'; // shrunk by default; '0' means the admin explicitly expanded it before
-let topCustomersCollapsed = localStorage.getItem('delivo_admin_top_customers_collapsed') !== '0'; // shrunk by default, same pattern as the daily chart card
+let topCustomersCollapsed = localStorage.getItem('delivo_admin_top_customers_collapsed') !== '0'; // shrunk by default
 let driverFilter   = 'all';
 let showInactiveDrivers = false;
 let driverSearch   = '';
@@ -341,6 +334,8 @@ const NAV_ITEMS = [
     { id: 'orders',    label: 'الطلبات',            icon: ordersIcon(), perm: 'orders'    },
     { id: 'online-req', label: 'طلبات أونلاين',      icon: onlineReqIcon(), perm: 'orders'    },
     { id: 'cashbox',   label: 'حركة الصندوق',        icon: cashboxIcon(), perm: 'expenses' },
+    { id: 'expenses',  label: 'المصاريف اليومية',    icon: expensesIcon(), perm: 'expenses' },
+    { id: 'profit-analytics', label: 'تحليل الأرباح', icon: profitAnalyticsIcon(), perm: 'expenses' },
     { id: 'admin-order', label: 'اطلب',             icon: adminOrderIcon(), perm: 'orders'  },
     { id: 'drivers',   label: 'السائقون',           icon: driverIcon(), perm: 'drivers'   },
     { id: 'customers', label: 'العملاء',            icon: usersIcon(),  perm: 'customers' },
@@ -390,6 +385,7 @@ function catalogIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24"
 function rewardsIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`; }
 function expensesIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h-4a2 2 0 0 1 0-4h4z"/><circle cx="16.5" cy="12" r="1" fill="currentColor" stroke="none"/></svg>`; }
 function cashboxIcon()  { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z"/><circle cx="12" cy="13.5" r="2.75"/></svg>`; }
+function profitAnalyticsIcon() { return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-3 3"/></svg>`; }
 
 // ── Toast ─────────────────────────────────────────────────────
 /* ================================================================
@@ -972,6 +968,7 @@ function startApp() {
         if (id === 'herobg')    renderHeroBgAdmin();
         if (id === 'expenses')  renderExpenses();
         if (id === 'cashbox')   renderCashbox();
+        if (id === 'profit-analytics') renderProfitAnalytics();
     });
     startAutoRefresh();
     _startFastDriverPoll();
@@ -1035,7 +1032,7 @@ function switchPanel(id) {
     const btn = document.querySelector(`[data-panel="${id}"]`);
     if (btn) btn.classList.add('active');
 
-    const labels = { map:'الخريطة', orders:'الطلبات', 'online-req':'طلبات أونلاين', 'admin-order':'اطلب', drivers:'السائقون', customers:'العملاء', visitors:'الزوار', attendance:'الحضور', stores:'المتاجر', 'ext-stores':'متاجر خارجية', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط', sales:'عروض المتاجر', promoflip:'كروت العروض', herobg:'خلفيات الواجهة', expenses:'المصاريف اليومية', cashbox:'حركة الصندوق' };
+    const labels = { map:'الخريطة', orders:'الطلبات', 'online-req':'طلبات أونلاين', 'admin-order':'اطلب', drivers:'السائقون', customers:'العملاء', visitors:'الزوار', attendance:'الحضور', stores:'المتاجر', 'ext-stores':'متاجر خارجية', employees:'الموظفون', settings:'الإعدادات', catalog:'المنتجات', rewards:'نظام النقاط', sales:'عروض المتاجر', promoflip:'كروت العروض', herobg:'خلفيات الواجهة', expenses:'المصاريف اليومية', cashbox:'حركة الصندوق', 'profit-analytics':'تحليل الأرباح' };
     document.getElementById('topbar-panel-name').textContent = labels[id] || '';
 
     if (id === 'map' && adminMap) setTimeout(() => adminMap.invalidateSize(), 100);
@@ -1059,6 +1056,7 @@ function switchPanel(id) {
     if (id === 'herobg')    renderHeroBgAdmin();
     if (id === 'expenses')  renderExpenses();
     if (id === 'cashbox')   renderCashbox();
+    if (id === 'profit-analytics') renderProfitAnalytics();
 
 
 }
