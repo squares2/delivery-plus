@@ -15,12 +15,26 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
     const startLat = hasLoc ? initLat : DEFAULT_LAT;
     const startLng = hasLoc ? initLng : DEFAULT_LNG;
 
+    // Larger map on PC screens, but capped to what the actual window can
+    // fit — a bare fixed height here was pushing the whole box past its
+    // own max-height:90vh on shorter/unmaximized windows, and since the
+    // box clips overflow, the save/cancel/clear button row was getting
+    // pushed off the bottom with no scrollbar to reach it. Reserve room
+    // for the header + coordinate inputs + footer (all fixed-height)
+    // plus the overlay's own padding, and never let the map claim more
+    // than what's left over.
+    const _slDesktop      = window.innerWidth >= 900;
+    const _slBoxMaxWidth  = _slDesktop ? '920px' : '560px';
+    const _slReservedChrome = 260; // header + lat/lng row + footer + overlay padding
+    const _slMapTarget    = _slDesktop ? 560 : 280;
+    const _slMapMinHeight = Math.max(180, Math.min(_slMapTarget, window.innerHeight - _slReservedChrome));
+
     const overlay = document.createElement('div');
     overlay.id = 'sl-modal-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;padding:16px;';
 
     overlay.innerHTML = `
-    <div id="sl-box" style="background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:560px;font-family:var(--font);direction:rtl;display:flex;flex-direction:column;max-height:90vh;overflow:hidden;">
+    <div id="sl-box" style="background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:${_slBoxMaxWidth};font-family:var(--font);direction:rtl;display:flex;flex-direction:column;max-height:90vh;overflow-y:auto;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
             <div>
                 <h3 style="font-size:1rem;font-weight:800;color:var(--white);margin:0 0 2px;">📍 تحديد موقع المتجر</h3>
@@ -49,8 +63,8 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
             ${hasLoc ? `<div id="sl-current-loc" style="margin-top:8px;font-size:0.7rem;color:var(--gray);">الموقع الحالي: <span style="color:var(--orange);font-family:var(--mono);">${initLat.toFixed(6)}, ${initLng.toFixed(6)}</span></div>` : '<div id="sl-current-loc" style="margin-top:8px;font-size:0.7rem;color:rgba(239,68,68,0.8);">⚠ لا يوجد موقع محدد لهذا المتجر</div>'}
         </div>
 
-        <div id="sl-map-container" style="flex:1;min-height:280px;position:relative;">
-            <div id="sl-map" style="width:100%;height:100%;min-height:280px;"></div>
+        <div id="sl-map-container" style="flex:1;min-height:${_slMapMinHeight}px;position:relative;">
+            <div id="sl-map" style="width:100%;height:100%;min-height:${_slMapMinHeight}px;"></div>
             <div id="sl-pin-hint" style="position:absolute;bottom:10px;right:50%;transform:translateX(50%);background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:5px 12px;border-radius:50px;pointer-events:none;z-index:999;white-space:nowrap;">انقر لتحديد الموقع</div>
         </div>
 
@@ -65,10 +79,45 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
 
     // ── Init Leaflet map ───────────────────────────────────────
     const slMap = L.map('sl-map', { zoomControl: true }).setView([startLat, startLng], hasLoc ? 16 : 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+    // Same standard/satellite pair used everywhere else on the site (e.g.
+    // the customer address picker in cart.js) — satellite makes it much
+    // easier to line the pin up with the actual store building, with a
+    // one-tap toggle back to the street map for road/landmark names.
+    const SL_GOOGLE_KEY = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
+    const slStandardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
         maxZoom: 19,
-    }).addTo(slMap);
+    });
+    const slSatelliteLayer = L.tileLayer(
+        `https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${SL_GOOGLE_KEY}`,
+        { attribution: '© Google Maps', maxZoom: 20, subdomains: '0123' }
+    );
+    let _slCurrentLayer = 'satellite';
+    slSatelliteLayer.addTo(slMap);
+
+    const slToggleCtrl = L.control({ position: 'topright' });
+    slToggleCtrl.onAdd = function() {
+        const btn = L.DomUtil.create('button', '');
+        btn.innerHTML = '🗺 خريطة';
+        btn.style.cssText = 'background:#fff;border:2px solid #FF5C00;border-radius:6px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer;color:#FF5C00;box-shadow:0 1px 5px rgba(0,0,0,0.3);white-space:nowrap;';
+        L.DomEvent.on(btn, 'click', function(e) {
+            L.DomEvent.stopPropagation(e);
+            if (_slCurrentLayer === 'satellite') {
+                slMap.removeLayer(slSatelliteLayer);
+                slStandardLayer.addTo(slMap);
+                _slCurrentLayer = 'standard';
+                btn.innerHTML = '🛰 صورة جوية';
+            } else {
+                slMap.removeLayer(slStandardLayer);
+                slSatelliteLayer.addTo(slMap);
+                _slCurrentLayer = 'satellite';
+                btn.innerHTML = '🗺 خريطة';
+            }
+        });
+        return btn;
+    };
+    slToggleCtrl.addTo(slMap);
 
     // Custom orange pin icon
     const pinIcon = L.divIcon({
@@ -130,7 +179,21 @@ function openStoreLocationModal(storeName, storeType, initLat, initLng) {
     });
 
     // Close helpers
-    const close = () => { slMap.remove(); overlay.remove(); };
+    const _slOnResize = () => {
+        const box = document.getElementById('sl-box');
+        const container = document.getElementById('sl-map-container');
+        const mapDiv = document.getElementById('sl-map');
+        if (!box || !container || !mapDiv) return;
+        const desktop = window.innerWidth >= 900;
+        box.style.maxWidth = desktop ? '920px' : '560px';
+        const target = desktop ? 560 : 280;
+        const h = Math.max(180, Math.min(target, window.innerHeight - 260)) + 'px';
+        container.style.minHeight = h;
+        mapDiv.style.minHeight = h;
+        slMap.invalidateSize();
+    };
+    window.addEventListener('resize', _slOnResize);
+    const close = () => { window.removeEventListener('resize', _slOnResize); slMap.remove(); overlay.remove(); };
     document.getElementById('sl-close-x').addEventListener('click', close);
     document.getElementById('sl-cancel-btn').addEventListener('click', close);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });

@@ -113,7 +113,12 @@ function _orderDateNavStep(deltaDays) {
     ref.setDate(ref.getDate() + deltaDays);
     const startOfToday = bizDayStart();
     if (ref > startOfToday) return; // don't navigate into the future
-    const key = _ordChartLocalKey(ref);
+    // `ref` is already a plain calendar date (stepped ±1 day from a
+    // day the filter was already anchored on) — format it directly
+    // rather than through bizDateKey(), which re-applies the 4 AM
+    // cutover and would shift it a day off since there's no time-of-day
+    // left to weigh (see bizDateKey's own comment in admin-04).
+    const key = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}-${String(ref.getDate()).padStart(2, '0')}`;
     orderDateFilter = 'custom';
     orderDateFrom = key;
     orderDateTo   = key;
