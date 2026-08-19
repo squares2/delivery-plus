@@ -1082,30 +1082,44 @@ async function renderCatalog() {
     try {
         const patternAll = await fbGet('pattern');
         if (!patternAll) { grid.innerHTML = `<div style="color:var(--gray);grid-column:1/-1;">لا توجد بيانات</div>`; return; }
-        const stores = [];
+        // Group by companyname first — a store can be tagged under more than one
+        // type (see openStoreTypeModal), and items/{storeName} is keyed by name
+        // only, so it must render as ONE card here even if it has multiple types.
+        const storeMap = new Map();
         Object.entries(patternAll).forEach(([type, storesObj]) => {
             if (!storesObj || typeof storesObj !== 'object') return;
             Object.values(storesObj).forEach(s => {
-                if (s && s.companyname) stores.push({ name: s.companyname, type, rank: s.rank });
+                if (!s || !s.companyname) return;
+                if (storeMap.has(s.companyname)) {
+                    const existing = storeMap.get(s.companyname);
+                    if (!existing.types.includes(type)) existing.types.push(type);
+                    if (!existing.imgSlug && s.imgSlug) existing.imgSlug = s.imgSlug;
+                } else {
+                    storeMap.set(s.companyname, { name: s.companyname, types: [type], rank: s.rank, imgSlug: s.imgSlug || '' });
+                }
             });
         });
+        const stores = [...storeMap.values()];
         stores.sort((a,b) => a.name.localeCompare(b.name, 'ar'));
-        grid.innerHTML = stores.map(s => `
-            <div onclick="catalogOpenStore('${s.name.replace(/'/g,"\\'")}','${s.type}')"
+        grid.innerHTML = stores.map(s => {
+            const imgSlug = (s.imgSlug && s.imgSlug.trim()) ? s.imgSlug.trim().toLowerCase() : _catSafeSlug(s.name);
+            return `
+            <div onclick="catalogOpenStore('${s.name.replace(/'/g,"\\'")}','${s.types[0]}')"
                  style="background:var(--surface);border-radius:12px;padding:14px;cursor:pointer;
                         display:flex;flex-direction:column;align-items:center;gap:8px;
                         border:1.5px solid var(--surface3);transition:border-color .2s;"
                  onmouseover="this.style.borderColor='var(--orange)'"
                  onmouseout="this.style.borderColor='var(--surface3)'">
-                <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;background:var(--surface3);flex-shrink:0;">
-                    <img src="assets/${s.name.toLowerCase()}.png" alt="${s.name}"
+                <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;background:var(--surface3);flex-shrink:0;position:relative;">
+                    <img src="assets/${imgSlug}.webp" alt="${s.name}"
                          style="width:100%;height:100%;object-fit:cover;"
-                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+                         onerror="if(this.src.endsWith('.webp')){this.src='assets/${imgSlug}.png';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"
                     ><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:1.4rem;">🏪</div>
                 </div>
                 <div style="font-size:0.78rem;font-weight:700;color:var(--white);text-align:center;line-height:1.3;">${s.name}</div>
-                <div style="font-size:0.68rem;color:var(--gray);">${_catTypeLabel(s.type)}</div>
-            </div>`).join('');
+                <div style="font-size:0.68rem;color:var(--gray);">${s.types.map(_catTypeLabel).join(' / ')}</div>
+            </div>`;
+        }).join('');
     } catch(e) {
         grid.innerHTML = `<div style="color:var(--red,#ef4444);grid-column:1/-1;">⚠️ ${e.message}</div>`;
     }
@@ -1675,6 +1689,24 @@ function _catFmtPrice(p) {
     if (n < 1000) return '$' + n.toFixed(n%1===0?0:2);
     if (n >= 1000000) return (n/1000000).toFixed(n%1000000===0?0:2).replace(/\.?0+$/,'') + ' مليون ل.ل';
     return (n/1000).toFixed(n%1000===0?0:1) + ' ألف ل.ل';
+}
+// Store logo slug — mirrors scripts/stores.js's toSlug()/admin-06's
+// _scSafeSlug(): strip non-ASCII, collapse whitespace to a single hyphen.
+// Falls back to a hashed slug (never a shared literal) for Arabic-only
+// names with no imgSlug override, so it correctly shows the 🏪 placeholder
+// instead of guessing a wrong/shared logo file.
+function _catSlugHash(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return Math.abs(h).toString(36);
+}
+function _catSafeSlug(name) {
+    const cleaned = String(name).toLowerCase()
+        .replace(/[^\x00-\x7F]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    return cleaned || ('_noimg-' + _catSlugHash(name));
 }
 function _catTypeLabel(t) {
     return { Restaurants:'مطاعم', CoffeeShops:'قهوة', Markets:'سوبرماركت', SweetsShops:'حلويات',
