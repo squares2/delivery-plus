@@ -58,7 +58,6 @@
         if (_isShown(document.getElementById('coverage-warning-modal'))) return true;
         if (_isShown(document.getElementById('ext-map-modal')))        return true;
         if (_isShown(document.getElementById('ext-order-overlay')))    return true;
-        if (_isShown(document.getElementById('wc2026-modal')))         return true;
         return false;
     }
 
@@ -100,11 +99,6 @@
         if (_isShown(document.getElementById('coverage-warning-modal'))) {
             if (typeof window._closeCoverageWarning === 'function') window._closeCoverageWarning();
             else document.getElementById('coverage-warning-modal').style.display = 'none';
-            return true;
-        }
-        if (_isShown(document.getElementById('wc2026-modal'))) {
-            if (typeof window.closeWc2026Modal === 'function') window.closeWc2026Modal();
-            else document.getElementById('wc2026-modal').style.display = 'none';
             return true;
         }
         const overlay = document.querySelector('.modal-overlay.active');
