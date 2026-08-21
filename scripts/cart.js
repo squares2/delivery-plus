@@ -876,8 +876,13 @@ async function _processLoyaltyThresholds(uid, oldPts, newPts) {
 function initCart() {
 
     /* ── State ──────────────────────────────────────────────── */
+    // Cart lives in sessionStorage (not localStorage) on purpose: it must
+    // survive backgrounding/minimizing the app (same tab/process stays
+    // alive → sessionStorage stays), but auto-empty once the app is
+    // actually closed (tab/process ends → sessionStorage is cleared by
+    // the browser itself, no extra code needed on our end).
     window.DelivoCart = {
-        items: JSON.parse(localStorage.getItem('delivo_cart_v2') || '[]'),
+        items: JSON.parse(sessionStorage.getItem('delivo_cart_v2') || '[]'),
 
         /* All unique store names in cart */
         getStores() {
@@ -953,11 +958,11 @@ function initCart() {
         },
 
         save() {
-            localStorage.setItem('delivo_cart_v2', JSON.stringify(this.items));
+            sessionStorage.setItem('delivo_cart_v2', JSON.stringify(this.items));
             // Timestamp every cart mutation — the abandoned-cart reminder
             // engine (see _initCartReminders) uses this to know how long
             // items have been sitting un-ordered.
-            try { localStorage.setItem('delivo_cart_touched', String(Date.now())); } catch (_) {}
+            try { sessionStorage.setItem('delivo_cart_touched', String(Date.now())); } catch (_) {}
         },
 
         updateBadge() {
@@ -2271,7 +2276,7 @@ function _initCartReminders() {
     // 1. Return visit — a cart that survived from a previous visit is
     //    the clearest abandoned-cart signal there is. Small delay so it
     //    doesn't fight the page's own load-time UI.
-    const touched   = parseInt(localStorage.getItem('delivo_cart_touched') || '0', 10);
+    const touched   = parseInt(sessionStorage.getItem('delivo_cart_touched') || '0', 10);
     const fromPrior = touched && (Date.now() - touched > 10 * 60 * 1000); // >10 min old = earlier visit
     if (window.DelivoCart && window.DelivoCart.getCount() > 0 && fromPrior) {
         setTimeout(() => _showCartResumeBanner('return'), 3500);

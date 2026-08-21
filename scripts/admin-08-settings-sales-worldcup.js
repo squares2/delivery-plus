@@ -90,6 +90,24 @@ function renderSettings() {
                 </button>
             </div>
             <div id="max-accounts-device-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+            <div class="setting-row" style="margin-top:14px;">
+                <div>
+                    <div class="setting-label">الحد الأقصى لمحاولات إرسال كود التحقق يومياً</div>
+                    <div class="setting-sub">لكل جهاز ولكل رقم هاتف على حدة — يمنع إرسال عدد غير محدود من رسائل واتساب عبر نموذج التسجيل/الدخول (الافتراضي: 3)</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;">
+                <input type="number" id="otp-max-attempts-input" placeholder="3" min="1" max="20" step="1"
+                       style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                              font-family:var(--mono);font-size:0.85rem;direction:ltr;">
+                <button id="otp-max-attempts-save"
+                        style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ
+                </button>
+            </div>
+            <div id="otp-max-attempts-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
         </div>
 
         <div class="settings-section">
@@ -210,24 +228,24 @@ function renderSettings() {
             </div>
 
             <!-- GREEN-API credentials — shown only when OTP selected -->
-            <div id="ultramsg-section" style="display:none;border-top:1px solid var(--border);padding:14px 16px;">
+            <div id="greenapi-section" style="display:none;border-top:1px solid var(--border);padding:14px 16px;">
                 <div style="font-size:0.72rem;font-weight:800;color:var(--gray);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">⚙️ إعدادات GREEN-API</div>
                 <div style="display:flex;flex-direction:column;gap:10px;">
                     <div>
                         <label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:4px;">Instance ID</label>
-                        <input type="text" id="ultramsg-instance" placeholder="مثال: 7187016677771" dir="ltr"
+                        <input type="text" id="greenapi-instance" placeholder="مثال: 7187016677771" dir="ltr"
                                style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border-bright);border-radius:10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;">
                     </div>
                     <div>
                         <label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:4px;">Token</label>
-                        <input type="text" id="ultramsg-token" placeholder="الـ apiTokenInstance من لوحة GREEN-API" dir="ltr"
+                        <input type="text" id="greenapi-token" placeholder="الـ apiTokenInstance من لوحة GREEN-API" dir="ltr"
                                style="width:100%;padding:8px 12px;background:var(--surface);border:1px solid var(--border-bright);border-radius:10px;color:var(--white);font-family:var(--mono);font-size:0.82rem;outline:none;">
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button onclick="saveUltraMsgConfig()" style="flex:1;padding:9px;background:var(--orange);border:none;border-radius:10px;color:#fff;font-family:inherit;font-weight:800;font-size:0.82rem;cursor:pointer;">💾 حفظ الإعدادات</button>
-                        <button onclick="testUltraMsg()" style="flex:1;padding:9px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);border-radius:10px;color:#25d366;font-family:inherit;font-weight:800;font-size:0.82rem;cursor:pointer;">🧪 اختبار الإرسال</button>
+                        <button onclick="saveGreenApiConfig()" style="flex:1;padding:9px;background:var(--orange);border:none;border-radius:10px;color:#fff;font-family:inherit;font-weight:800;font-size:0.82rem;cursor:pointer;">💾 حفظ الإعدادات</button>
+                        <button onclick="testGreenApi()" style="flex:1;padding:9px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);border-radius:10px;color:#25d366;font-family:inherit;font-weight:800;font-size:0.82rem;cursor:pointer;">🧪 اختبار الإرسال</button>
                     </div>
-                    <div id="ultramsg-status" style="display:none;font-size:0.75rem;font-weight:700;padding:8px 12px;border-radius:8px;"></div>
+                    <div id="greenapi-status" style="display:none;font-size:0.75rem;font-weight:700;padding:8px 12px;border-radius:8px;"></div>
                     <div style="font-size:0.68rem;color:var(--gray);line-height:1.6;">
                         🔗 احصل على Instance ID و Token من <a href="https://app.green-api.com" target="_blank" style="color:var(--orange);">app.green-api.com</a>
                     </div>
@@ -853,8 +871,8 @@ function renderSettings() {
         fbGet('settings/driverAssignNotifyMethod'),
     ]).then(([regType, uInst, uToken, drvNotifyMethod]) => {
         _syncRegTypeUI(regType || 'direct');
-        const instEl = document.getElementById('ultramsg-instance');
-        const tokEl  = document.getElementById('ultramsg-token');
+        const instEl = document.getElementById('greenapi-instance');
+        const tokEl  = document.getElementById('greenapi-token');
         if (instEl && uInst) instEl.value = uInst;
         if (tokEl  && uToken) tokEl.value = uToken;
         // Make available to modal-auth.js for OTP sending
@@ -1020,6 +1038,30 @@ function renderSettings() {
         try {
             await fbSet('settings/maxAccountsPerDevice', val);
             if (status) { status.textContent = `✅ تم الحفظ — الحد: ${val} حساب لكل جهاز`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        }
+    });
+
+    // Load / save OTP daily send limit — read by functions/sendotpcode.js
+    // (settings/otpMaxAttemptsPerDay), enforced per-device AND per-phone.
+    fbGet('settings/otpMaxAttemptsPerDay').then(val => {
+        const inp = document.getElementById('otp-max-attempts-input');
+        if (inp) inp.value = (val !== null && val !== undefined && parseInt(val) > 0) ? parseInt(val) : 3;
+    }).catch(() => {});
+
+    document.getElementById('otp-max-attempts-save')?.addEventListener('click', async () => {
+        const inp    = document.getElementById('otp-max-attempts-input');
+        const status = document.getElementById('otp-max-attempts-status');
+        const val    = parseInt(inp?.value || '');
+        if (!val || val < 1 || val > 20) {
+            if (status) { status.textContent = '⚠️ أدخل رقماً بين 1 و 20'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        try {
+            await fbSet('settings/otpMaxAttemptsPerDay', val);
+            if (status) { status.textContent = `✅ تم الحفظ — الحد: ${val} محاولات إرسال يومياً`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
             setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
         } catch(e) {
             if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
@@ -1672,7 +1714,7 @@ async function setRequireLocation(val) {
 function _syncRegTypeUI(type) {
     const directLabel  = document.getElementById('reg-type-direct-label');
     const otpLabel     = document.getElementById('reg-type-otp-label');
-    const ultraSection = document.getElementById('ultramsg-section');
+    const ultraSection = document.getElementById('greenapi-section');
     const directRadio  = document.getElementById('reg-type-direct');
     const otpRadio     = document.getElementById('reg-type-otp');
     const isOtp = type === 'otp';
@@ -1719,10 +1761,10 @@ window.setDriverAssignNotifyMethod = async function(method) {
     } catch(e) { toast('❌ فشل الحفظ', true); }
 };
 
-window.saveUltraMsgConfig = async function() {
-    const instance = document.getElementById('ultramsg-instance')?.value.trim();
-    const token    = document.getElementById('ultramsg-token')?.value.trim();
-    const statusEl = document.getElementById('ultramsg-status');
+window.saveGreenApiConfig = async function() {
+    const instance = document.getElementById('greenapi-instance')?.value.trim();
+    const token    = document.getElementById('greenapi-token')?.value.trim();
+    const statusEl = document.getElementById('greenapi-status');
     if (!instance || !token) {
         if (statusEl) { statusEl.textContent = '⚠️ أدخل Instance ID والـ Token'; statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = 'var(--red)'; statusEl.style.display = 'block'; }
         return;
@@ -1737,12 +1779,12 @@ window.saveUltraMsgConfig = async function() {
     } catch(e) { toast('❌ فشل الحفظ', true); }
 };
 
-window.testUltraMsg = async function() {
-    const instance = document.getElementById('ultramsg-instance')?.value.trim() || await fbGet('settings/greenApiInstance');
-    const token    = document.getElementById('ultramsg-token')?.value.trim()    || await fbGet('settings/greenApiToken');
+window.testGreenApi = async function() {
+    const instance = document.getElementById('greenapi-instance')?.value.trim() || await fbGet('settings/greenApiInstance');
+    const token    = document.getElementById('greenapi-token')?.value.trim()    || await fbGet('settings/greenApiToken');
     const phone    = (document.getElementById('admin-phone-input')?.value.trim()
                    || await fbGet('settings/adminPhone').catch(() => '') || '').replace(/[^0-9]/g, '');
-    const statusEl = document.getElementById('ultramsg-status');
+    const statusEl = document.getElementById('greenapi-status');
     if (!instance || !token) {
         if (statusEl) { statusEl.textContent = '⚠️ أدخل الإعدادات أولاً'; statusEl.style.color='var(--red)'; statusEl.style.display = 'block'; }
         return;

@@ -2196,7 +2196,7 @@ async function saveHeroBg() {
 
     // WhatsApp-with-message needs the admin phone number saved under
     // ⚙️ الإعدادات first — build the wa.me link the same way the rest of
-    // the app does (see rewards-queue / testUltraMsg): normalize to a
+    // the app does (see rewards-queue / testGreenApi): normalize to a
     // 961-prefixed number, then attach the message as ?text=.
     let waMsg = '';
     if (linkType === 'whatsapp') {

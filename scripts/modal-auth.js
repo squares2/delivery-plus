@@ -175,42 +175,28 @@ function initModalAuth() {
     }
 
     async function _sendOtpWhatsapp(phone) {
-        // Try window vars first (set by firebase-init.js on load)
-        let idInstance = window._greenApiInstance || '';
-        let apiToken   = window._greenApiToken    || '';
-        // If not loaded yet, fetch directly from RTDB
-        if (!idInstance || !apiToken) {
-            try {
-                const RTDB = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-                const r = await fetch(`${RTDB}/settings.json`);
-                const s = r.ok ? await r.json() : null;
-                if (s?.greenApiInstance) idInstance = window._greenApiInstance = s.greenApiInstance;
-                if (s?.greenApiToken)    apiToken   = window._greenApiToken    = s.greenApiToken;
-            } catch(_) {}
-        }
-        if (!idInstance || !apiToken) throw new Error('GREEN-API غير مهيأ. تحقق من إعدادات الأدمن.');
-        const code    = _generateOtp();
-        const chatId  = '961' + _toIntlPhone(phone) + '@c.us';
-        const message = `🔐 كود تفعيل حسابك في Delivo:
+        // Sending happens server-side now (functions/sendotpcode.js) — the
+        // GREEN-API instance/token never touch this page. This call only
+        // relays the phone number, this device's UUID (for daily rate
+        // limiting), and the code this client already generated; the
+        // function builds the actual WhatsApp message itself and rejects
+        // anything past settings/otpMaxAttemptsPerDay per device/phone.
+        const deviceUUID = await window.DelivoAuth?.getDeviceUUID?.().catch(() => null);
+        if (!deviceUUID) throw new Error('تعذّر التعرّف على الجهاز. أعد تحميل الصفحة وحاول مجدداً.');
 
-*${code}*
-
-صالح لمدة 5 دقائق. لا تشاركه مع أحد.`;
-        // GREEN-API endpoint: server prefix = first 4 digits of instance ID
-        const _gaServer = String(idInstance).slice(0, 4);
-        const apiUrl  = `https://${_gaServer}.api.greenapi.com/waInstance${idInstance}/sendMessage/${apiToken}`;
+        const code = _generateOtp();
         const controller = new AbortController();
         const timeoutId  = setTimeout(() => controller.abort(), OTP_SEND_TIMEOUT);
         let resp;
         try {
-            resp = await fetch(apiUrl, {
+            resp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/sendOtpCode', {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ chatId, message }),
+                body:    JSON.stringify({ phone: _toIntlPhone(phone), deviceUUID, code }),
                 signal:  controller.signal,
             });
         } catch (err) {
-            // On a bad connection the request may still have reached Green-API even though we never got
+            // On a bad connection the request may still have reached the function even though we never got
             // a response — don't imply the user should just try again right away.
             if (err.name === 'AbortError') throw new Error('⏳ الاتصال بطيء جداً. قد يكون الكود قد أُرسل بالفعل — تحقق من واتساب قبل طلب كود جديد.');
             throw new Error('تعذر الاتصال بالخادم. تحقق من شبكتك — قد يكون الكود قد وصل، تحقق من واتساب أولاً.');

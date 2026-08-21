@@ -309,8 +309,6 @@ document.addEventListener('DOMContentLoaded', loadAll);
 
         /* regType — switch register modal between direct and OTP */
         window._regType          = settings.regType          || 'direct';
-        window._ultraMsgInstance = settings.ultraMsgInstance || '';
-        window._ultraMsgToken    = settings.ultraMsgToken    || '';
         _applyRegType(window._regType);
 
         /* loyaltyVisible — hide/show all reward UI; points still accumulate silently */
