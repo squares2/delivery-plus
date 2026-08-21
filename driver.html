@@ -1096,48 +1096,21 @@ db.ref('settings/dollarRate').get().then(snap => {
     if (n && n > 0) window._dollarRate = n;
 }).catch(() => {});
 
-// ── WhatsApp sender (GREEN-API) — same settings/greenApiInstance +
-// settings/greenApiToken admin.html already uses for its own WhatsApp
-// notifications. driver.html didn't need this for anything before now.
-async function _drvSendWhatsappMessage(phone, message) {
-    const [instSnap, tokSnap] = await Promise.all([
-        db.ref('settings/greenApiInstance').get(),
-        db.ref('settings/greenApiToken').get(),
-    ]);
-    const instance = instSnap.val();
-    const token    = tokSnap.val();
-    if (!instance || !token) throw new Error('GREEN-API غير مهيأ من إعدادات الأدمن');
-    const digits = String(phone || '').replace(/\D/g, '').replace(/^961/, '').replace(/^0/, '');
-    if (!digits) throw new Error('رقم هاتف غير صالح');
-    const chatId = '961' + digits + '@c.us';
-    const gaServer = String(instance).slice(0, 4);
-    const url = `https://${gaServer}.api.greenapi.com/waInstance${instance}/sendMessage/${token}`;
-    const resp = await fetch(url, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, message }),
-    });
-    const data = await resp.json();
-    if (!resp.ok || data.error) throw new Error(data.error || `فشل إرسال واتساب (${resp.status})`);
-    return true;
-}
-
-// Tells the customer via WhatsApp their order is now trackable, with a
-// direct deep link into the live tracking map (index.html's ?track=&uid=
-// handler opens it automatically — the customer doesn't need to be
-// logged in on that device). Silently does nothing if there's no phone
-// on the order or GREEN-API isn't configured — never blocks the actual
-// track-toggle button itself.
+// ── WhatsApp "order is trackable" notification ──────────────────
+// Routed through functions/notifytrackable.js (Cloud Function) so
+// the GREEN-API instance/token never touch this page. Only the
+// orderKey is sent — the function looks up the phone number and
+// builds the message itself server-side.
 async function _drvNotifyCustomerTracking(orderKey, order) {
     try {
         if (!order || !order.phone) return;
-        const orderNum = String(orderKey || '').replace(/^id_/, '');
-        const uid  = order.delivryplusid || '';
-        const link = `https://delivolb.com/index.html?track=${orderKey}${uid ? `&uid=${uid}` : ''}`;
-        const message =
-            `📡 طلبك رقم #${orderNum} أصبح قابلاً للتتبع الآن!\n` +
-            `تابع سائقك مباشرة على الخريطة من هنا:\n` +
-            link;
-        await _drvSendWhatsappMessage(order.phone, message);
+        const resp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/notifyOrderTrackable', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ orderKey }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || data.error) throw new Error(data.error || `فشل الإرسال (${resp.status})`);
     } catch (e) {
         console.warn('[Delivo] Track WhatsApp notify failed:', e.message);
     }
