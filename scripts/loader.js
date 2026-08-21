@@ -133,9 +133,11 @@ async function loadAll() {
             const phoneLink = document.getElementById('footer-phone-link');
             const phoneText = document.getElementById('footer-phone-number');
             const waLink    = document.getElementById('footer-whatsapp-link');
+            const heroWaLink = document.getElementById('hero-whatsapp-link');
             if (phoneLink) phoneLink.href = `tel:+${digits}`;
             if (phoneText) phoneText.textContent = _formatFooterPhone(digits);
             if (waLink)    waLink.href = `https://wa.me/${digits}`;
+            if (heroWaLink) heroWaLink.href = `https://wa.me/${digits}`;
         }
     } catch (_) { /* keep the static fallbacks already in the markup */ }
 
