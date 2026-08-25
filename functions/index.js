@@ -11,4 +11,6 @@ exports.customerPhoneLogin     = require('./customerphonelogin').customerPhoneLo
 exports.adminUploadImage       = require('./adminuploadimage').adminUploadImage;
 exports.notifyNewOrder         = require('./notifyneworders').notifyNewOrder;
 exports.allocateOrderId        = require('./allocateorderid').allocateOrderId;
-exports.sendOtpCode            = require('./sendotpcode').sendOtpCode;
+exports.createAdminAccount     = require('./adminaccounts').createAdminAccount;
+exports.updateAdminAccount     = require('./adminaccounts').updateAdminAccount;
+exports.deleteAdminAccount     = require('./adminaccounts').deleteAdminAccount;

@@ -148,76 +148,28 @@ async function _adminUploadImage(file, folder, filename, quality = 0.92) {
     }
     window.addEventListener('load', () => { _ensureAttendanceLoaded().catch(() => {}); });
 const FIRESTORE   = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
-const FB_API_KEY  = 'AIzaSyCSTThgge2nSFlEQXjS1ta2tZXvVgNAnZ0';
-const FB_AUTH_URL = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB_API_KEY}`;
 
-// ── Firestore Auth credentials ────────────────────────────────
-// Must match a real Firebase Auth user in your project
-// (Firebase Console → Authentication → Users → Add user)
-const FS_ADMIN_EMAIL = 'admin@delivo.app';  // ← your Firebase Auth email
-const FS_ADMIN_PASS  = 'delivo26';           // ← that user's password
+// Kept only because admin-05's auto-refresh pause check still reads these —
+// the Firebase SDK now handles its own sign-in/retry, so nothing increments
+// this counter anymore; it stays permanently at 0.
+let _fsSignInFails  = 0;
+const _FS_MAX_FAILS = 3;
 
-// ── Firebase Auth token (for Firestore reads) ─────────────────
-let _fsToken        = null;
-let _fsTokenExpiry  = 0;
-let _fsTokenPromise = null;   // in-flight sign-in promise — prevents parallel sign-in hammering
-let _fsSignInFails  = 0;      // consecutive failure counter
-const _FS_MAX_FAILS = 3;      // stop retrying after this many consecutive failures
-
-async function getFsToken() {
-    // Re-use cached token if still valid (refresh 60s before expiry)
-    if (_fsToken && Date.now() < _fsTokenExpiry) return _fsToken;
-
-    // If a sign-in is already in progress, wait for it instead of firing another one
-    if (_fsTokenPromise) return _fsTokenPromise;
-
-    // Hard stop after too many consecutive failures — prevents Firebase lockout
-    if (_fsSignInFails >= _FS_MAX_FAILS) {
-        throw new Error('Firebase Auth: too many failed attempts. Reload the page.');
-    }
-
-    _fsTokenPromise = (async () => {
-        try {
-            console.log('[Auth] Signing into Firebase Auth as:', FS_ADMIN_EMAIL);
-            const r = await fetch(FB_AUTH_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email:             FS_ADMIN_EMAIL,
-                    password:          FS_ADMIN_PASS,
-                    returnSecureToken: true,
-                }),
-            });
-            const d = await r.json();
-            if (!r.ok) {
-                _fsSignInFails++;
-                console.error('[Auth] Firebase sign-in failed:', d?.error?.message, '| email:', FS_ADMIN_EMAIL);
-                throw new Error('Firebase Auth: ' + (d?.error?.message || r.status));
-            }
-            _fsSignInFails  = 0;   // reset on success
-            _fsToken        = d.idToken;
-            _fsTokenExpiry  = Date.now() + (parseInt(d.expiresIn) - 60) * 1000;
-            console.log('[Auth] Got Firestore token, expires in', d.expiresIn, 's');
-            // Resume auto-refresh if it was paused due to auth failure
-            _resumeAutoRefresh();
-            return _fsToken;
-        } finally {
-            _fsTokenPromise = null;   // release lock regardless of success/failure
-        }
-    })();
-
-    return _fsTokenPromise;
+// Every admin/employee signs into their OWN real Firebase Auth account now
+// (see doLogin() below and the createAdminAccount Cloud Function). There is
+// no shared service-account credential anymore — Firestore reads just reuse
+// whichever real person is currently signed in.
+// Synthetic email used for employees who don't have a real email on file —
+// Firebase Auth just needs a validly-formatted address, not a deliverable one.
+function _adminEmailForUsername(username) {
+    return `${String(username).trim().toLowerCase()}@admin.delivo.internal`;
 }
 
-// ── Admin accounts stored in Firebase at /adminUsers ──────────
-// Super-admin is seeded here as fallback for first boot
-const SEED_SUPERADMIN = {
-    username:    'admin',
-    password:    'delivo26',
-    fullname:    'Super Admin',
-    role:        'superadmin',
-    permissions: ['map','orders','online-req','drivers','customers','stores','catalog','employees','settings','expenses'],
-};
+async function getFsToken() {
+    const user = window._adminAuth?.currentUser;
+    if (!user) throw new Error('Firebase Auth: لست مسجّل الدخول، أعد تحميل الصفحة وسجّل الدخول من جديد');
+    return user.getIdToken();
+}
 
 
 
@@ -732,13 +684,24 @@ async function renderAdminFilterBar() {
     });
 }
 
+// Every call here now runs through the currently signed-in admin's own
+// Firebase Auth token when one exists (it always does once doLogin()
+// succeeds). This is what makes it possible for the database rules to
+// actually require real authentication on admin-only paths like
+// adminUsers/settings, instead of leaving them open for anyone.
+async function _rtdbAuthQuery() {
+    const user = window._adminAuth?.currentUser;
+    if (!user) return '';
+    const token = await user.getIdToken().catch(() => null);
+    return token ? `?auth=${token}` : '';
+}
 async function fbGet(path) {
-    const r = await fetch(`${RTDB}/${path}.json`);
+    const r = await fetch(`${RTDB}/${path}.json${await _rtdbAuthQuery()}`);
     if (!r.ok) throw new Error(`RTDB ${r.status}: ${path}`);
     return r.json();
 }
 async function fbSet(path, data) {
-    const r = await fetch(`${RTDB}/${path}.json`, {
+    const r = await fetch(`${RTDB}/${path}.json${await _rtdbAuthQuery()}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
@@ -764,7 +727,7 @@ fbGet('settings/dollarRate').then(val => {
 }).catch(() => {});
 
 async function fbUpdate(path, data) {
-    const r = await fetch(`${RTDB}/${path}.json`, {
+    const r = await fetch(`${RTDB}/${path}.json${await _rtdbAuthQuery()}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
@@ -775,7 +738,7 @@ async function fbUpdate(path, data) {
     return r.json();
 }
 async function fbPush(path, data) {
-    const r = await fetch(`${RTDB}/${path}.json`, {
+    const r = await fetch(`${RTDB}/${path}.json${await _rtdbAuthQuery()}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
     });
@@ -837,41 +800,52 @@ async function doLogin() {
     errEl.textContent = '';
 
     try {
-        // Try /adminUsers in RTDB (includes a possible super-admin override at __seed)
-        const admins = await fbGet('adminUsers');
-        const seedOverride = admins && admins.__seed;
-        // If the super-admin changed their username/password from the app, that
-        // override takes precedence over the hardcoded fallback below.
-        const effectiveSeed = seedOverride ? { ...SEED_SUPERADMIN, ...seedOverride } : SEED_SUPERADMIN;
+        // Real Firebase Auth sign-in — no plaintext password ever touches
+        // our own database. Firebase hashes/verifies this on Google's
+        // servers; a stolen database dump can no longer hand out passwords
+        // because we never store one.
+        const email = _adminEmailForUsername(username);
+        const cred  = await window._adminAuth.signInWithEmailAndPassword(email, password);
 
-        if (username === effectiveSeed.username && password === effectiveSeed.password) {
-            currentAdmin = { ...effectiveSeed, _key: '__seed' };
-            startApp();
+        // Role/permissions live as custom claims on the token (set only by
+        // the createAdminAccount/updateAdminAccount Cloud Functions via the
+        // Admin SDK) — the client can read them but never write them.
+        const tokenResult = await cred.user.getIdTokenResult();
+        const claims = tokenResult.claims || {};
+
+        if (!claims.admin) {
+            await window._adminAuth.signOut();
+            errEl.textContent = 'هذا الحساب غير مخوّل بالدخول إلى لوحة الإدارة';
             return;
         }
-        if (admins && typeof admins === 'object') {
-            for (const [key, adm] of Object.entries(admins)) {
-                if (key === '__seed') continue; // already checked above as the super-admin
-                if (adm && adm.username === username && adm.password === password) {
-                    currentAdmin = { ...adm, _key: key };
-                    // Store-linked accounts (role 'company'/'store') used to be routed
-                    // straight into the company portal from here. They now belong on
-                    // store.html only — startApp() below rejects them with a message
-                    // instead of launching anything on this page.
-                    startApp();
-                    return;
-                }
-            }
+
+        currentAdmin = {
+            _key:        cred.user.uid,
+            username,
+            fullname:    claims.fullname || username,
+            role:        claims.role || 'admin',
+            permissions: claims.permissions || [],
+        };
+
+        // Store-linked accounts (role 'company'/'store') belong on
+        // store.html only — startApp() also re-checks this on session
+        // restore, this just avoids the sign-in succeeding pointlessly here.
+        if (STORE_ONLY_ROLES.includes(currentAdmin.role)) {
+            await window._adminAuth.signOut();
+            currentAdmin = null;
+            errEl.textContent = 'حسابات المتاجر يجب تسجيل الدخول من صفحة المتجر (store.html)';
+            return;
         }
-        errEl.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
-    } catch(e) {
-        // Network fail — allow seed admin offline (hardcoded credentials only,
-        // since we can't reach the DB to check for a saved override)
-        if (username === SEED_SUPERADMIN.username && password === SEED_SUPERADMIN.password) {
-            currentAdmin = { ...SEED_SUPERADMIN };
-            startApp();
-        } else {
+
+        startApp();
+    } catch (e) {
+        console.error('[Auth] login failed:', e.code, e.message);
+        if (e.code === 'auth/too-many-requests') {
+            errEl.textContent = 'محاولات كثيرة جداً، حاول لاحقاً';
+        } else if (e.code === 'auth/network-request-failed') {
             errEl.textContent = 'خطأ في الاتصال، تحقق من الإنترنت';
+        } else {
+            errEl.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
         }
     } finally {
         btn.disabled = false; btn.textContent = 'دخول';

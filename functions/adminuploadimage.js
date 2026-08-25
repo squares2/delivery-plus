@@ -15,10 +15,6 @@ const functions = require('firebase-functions');
 const admin      = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp();
 
-// Keep this in sync with the admin-email allowlist already used elsewhere
-// (see adminresetpassword.js's ADMIN_EMAILS).
-const ADMIN_EMAILS = ['admin@delivivo.app', 'admin@delivo.app'];
-
 const GH_OWNER  = 'squares2';
 const GH_REPO   = 'delivery-plus';
 const GH_BRANCH = 'main';
@@ -50,7 +46,7 @@ exports.adminUploadImage = functions.https.onRequest(async (req, res) => {
             res.status(401).json({ error: 'جلسة المدير غير صالحة، سجّل الدخول من جديد' }); return;
         }
 
-        if (!ADMIN_EMAILS.includes(decoded.email)) {
+        if (!decoded.admin) {
             res.status(403).json({ error: 'هذا الحساب غير مخوّل برفع الصور' }); return;
         }
 

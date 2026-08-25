@@ -15,31 +15,15 @@
         window._adminDb   = firebase.firestore(window._adminFbApp);
         window._adminAuth = firebase.auth(window._adminFbApp);
 
-        // Sign in with admin credentials so Firestore rules pass
-        // This uses the Firebase SDK sign-in (separate from the REST getFsToken flow)
-        // and does NOT count against the REST rate limit
-        window._adminAuth.signInWithEmailAndPassword(
-            'admin@delivo.app', 'delivo26'
-        ).then(() => {
-            console.log('[Admin] Firebase SDK signed in ✅');
-        }).catch(e => {
-            console.warn('[Admin] Firebase SDK sign-in failed:', e.message,
-                '— will retry when lockout clears');
-            // Retry once after 6 minutes (Firebase lockout is usually 5 min)
-            setTimeout(() => {
-                window._adminAuth.signInWithEmailAndPassword(
-                    'admin@delivo.app', 'delivo26'
-                ).then(() => {
-                    console.log('[Admin] Firebase SDK signed in after retry ✅');
-                    // Reload data now that SDK is authenticated
-                    if (typeof loadAllData === 'function') {
-                        _fsSignInFails = 0;
-                        _resumeAutoRefresh();
-                        loadAllData();
-                    }
-                }).catch(() => {});
-            }, 6 * 60 * 1000);
-        });
+        // No auto sign-in here anymore. Every employee now has their OWN
+        // Firebase Auth account (created via the createAdminAccount Cloud
+        // Function — see admin-07's employee panel) and signs in with their
+        // real username/password from the login screen itself (doLogin() in
+        // admin-04-core-auth-data.js calls signInWithEmailAndPassword there).
+        // A single shared hardcoded account used to sign in silently for
+        // EVERY visitor here — that meant anyone who merely loaded this page
+        // already held a valid admin token, whether or not they ever passed
+        // the login screen. Removed for that reason.
 
         // Watch SDK auth state — when signed in, resume everything
         window._adminAuth.onAuthStateChanged(user => {

@@ -1511,17 +1511,38 @@ document.getElementById('cp-logout-btn')?.addEventListener('click', () => {
     document.getElementById('login-screen').style.display = 'flex';
 });
 
-// Restore session — always through startApp(), which decides what a given
-// role is allowed to see on THIS page (admin.html's own startApp rejects
-// store-linked roles; store.html's store-guard.js override routes them to
-// startCompanyPortal() instead — see scripts/store-guard.js).
-const savedSession = localStorage.getItem('delivoAdmin');
-if (savedSession) {
+// Restore session — the cached localStorage blob is UI convenience only
+// (avoids a blank screen while Firebase Auth re-establishes itself after a
+// refresh); it is never trusted on its own. A raw localStorage value is
+// fully editable from the browser console, so anyone could previously set
+// {"role":"superadmin",...} by hand and reload straight into the dashboard
+// with zero credentials. Real identity/role now always comes from the
+// signed-in Firebase Auth user's own token claims, re-checked here.
+window._adminAuth?.onAuthStateChanged(async (user) => {
+    const savedSession = localStorage.getItem('delivoAdmin');
+    if (!savedSession) return; // never logged in on this device — show login screen
+    if (!user) { localStorage.removeItem('delivoAdmin'); return; } // stale cache, no real session
+
     try {
-        currentAdmin = JSON.parse(savedSession);
+        const cached = JSON.parse(savedSession);
+        const tokenResult = await user.getIdTokenResult();
+        const claims = tokenResult.claims || {};
+        if (!claims.admin) { localStorage.removeItem('delivoAdmin'); return; }
+
+        // Rebuild from the REAL token claims — cached fields are used only
+        // as a display fallback (e.g. username), never for role/permissions.
+        currentAdmin = {
+            _key:        user.uid,
+            username:    cached.username || user.email,
+            fullname:    claims.fullname || cached.fullname || cached.username,
+            role:        claims.role || 'admin',
+            permissions: claims.permissions || [],
+        };
         startApp();
-    } catch(e) { localStorage.removeItem('delivoAdmin'); }
-}
+    } catch (e) {
+        localStorage.removeItem('delivoAdmin');
+    }
+});
 
 // ── Online-requests countdown ticker (state 7) ───────────────
 (function startOrCountdown() {

@@ -1,0 +1,20 @@
+# Firebase service account keys — full admin access to the project, never commit
+serviceAccountKey.json
+*serviceAccountKey*.json
+
+# Environment/secret files
+.env
+.env.local
+.env.*.local
+
+# Firebase CLI local state / logs
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# Dependencies — reinstalled via npm install, not committed
+node_modules/
+
+# Editor/OS junk
+.DS_Store
+Thumbs.db

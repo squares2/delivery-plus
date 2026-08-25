@@ -1109,11 +1109,10 @@ function renderEmployees() {
     const grid = document.getElementById('emp-grid');
     grid.innerHTML = '';
 
-    // Always show seed super-admin (merged with any saved override — see adminUsers/__seed)
-    const allEmps = [
-        { _key: '__seed', ...SEED_SUPERADMIN, ...(adminUsers.__seed || {}) },
-        ...Object.entries(adminUsers).filter(([k]) => k !== '__seed').map(([k,v]) => ({ ...v, _key: k })),
-    ].filter(emp => {
+    // Every admin — including the super-admin — is now a real Firebase Auth
+    // account and appears here uniformly, keyed by its uid (no more special
+    // '__seed' entry merged with a hardcoded fallback).
+    const allEmps = Object.entries(adminUsers).map(([k, v]) => ({ ...v, _key: k })).filter(emp => {
         if (empFilter === 'all') return true;
         const isStoreUser = STORE_ONLY_ROLES.includes(emp.role);
         return empFilter === 'store' ? isStoreUser : !isStoreUser;
@@ -1149,13 +1148,14 @@ function renderEmployees() {
                 </span>
             </div>` : ''}
             ${(() => {
-                const isSeed    = emp._key === '__seed';
-                // The super-admin card can always be edited (that's how its password
-                // gets changed) but can never be deleted. Other employees can't edit
-                // or delete their own account, only someone else's.
-                const canEdit   = isSeed || !isSelf;
-                const canDelete = !isSeed && !isSelf;
-                const pushId    = isSeed ? emp.username : emp._key;
+                // No one can edit/delete their own account here — that's done
+                // through the profile/password-change flow instead — but any
+                // superadmin can manage everyone else's, including another
+                // superadmin's (the Cloud Function itself also blocks
+                // self-deletion server-side as a second guard).
+                const canEdit   = !isSelf;
+                const canDelete = !isSelf;
+                const pushId    = emp._key;
                 if (canEdit) {
                     return `
             <div class="ec-actions-row">
@@ -1186,8 +1186,19 @@ function renderEmployees() {
                     okLabel: 'حذف', cancelLabel: 'إلغاء'
                 });
                 if (!_confirmEmp) return;
-                await fbSet(`adminUsers/${btn.dataset.delete}`, null);
-                toast('✅ تم حذف الموظف');
+                try {
+                    const idToken = await window._adminAuth?.currentUser?.getIdToken();
+                    const res = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/deleteAdminAccount', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ uid: btn.dataset.delete }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || data.error) throw new Error(data.error || `فشل (${res.status})`);
+                    toast('✅ تم حذف الموظف');
+                } catch (e) {
+                    toast('⚠️ خطأ: ' + e.message, true);
+                }
                 await loadAllData();
                 renderEmployees();
             });
@@ -1199,48 +1210,40 @@ function renderEmployees() {
 // ── Employee modal open helper ────────────────────────────────
 function openEmpModal(emp) {
     const isNew  = !emp;
-    const isSeed = emp?._key === '__seed';
     document.getElementById('emp-edit-key').value  = emp?._key || '';
-    document.getElementById('emp-modal-title').lastChild.textContent = isSeed ? ' تغيير بيانات دخول المدير العام' : (isNew ? ' إضافة موظف جديد' : ' تعديل بيانات الموظف');
+    document.getElementById('emp-modal-title').lastChild.textContent = isNew ? ' إضافة موظف جديد' : ' تعديل بيانات الموظف';
     document.getElementById('emp-save-btn').textContent = isNew ? 'إضافة الموظف' : '💾 حفظ التغييرات';
     document.getElementById('emp-pass-hint').style.display = isNew ? 'none' : 'inline';
     document.getElementById('emp-modal-error').style.display = 'none';
 
     document.getElementById('emp-fullname').value = emp?.fullname || '';
     document.getElementById('emp-username').value = emp?.username || '';
+    document.getElementById('emp-username').disabled = !isNew; // username can't change after account creation (it's baked into the Auth email)
     document.getElementById('emp-password').value = '';
     document.getElementById('emp-password').type  = 'password';
 
-    // Show current password
+    // Passwords are never stored anywhere readable anymore — nothing to show
+    // here. Leaving the password field blank on edit just means "no change";
+    // typing a new one resets it via updateAdminAccount.
     const passLabel = document.getElementById('emp-password-label');
     const existingHint = passLabel.querySelector('.emp-existing-pwd');
     if (existingHint) existingHint.remove();
-    if (!isNew && emp?.password) {
-        const hint = document.createElement('span');
-        hint.className = 'emp-existing-pwd';
-        hint.style.cssText = 'display:block;margin-top:4px;font-size:0.68rem;color:var(--gray);font-weight:400;';
-        hint.innerHTML = `كلمة المرور الحالية: <code style="color:var(--orange);background:var(--surface3);padding:1px 5px;border-radius:4px;font-family:monospace;">${emp.password}</code>`;
-        passLabel.appendChild(hint);
-    }
 
     const role = emp?.role || 'dispatcher';
-    document.getElementById('emp-role').value    = isSeed ? 'superadmin' : role;
-    document.getElementById('emp-role').disabled = isSeed; // super-admin's role can't be changed away from here
+    document.getElementById('emp-role').value    = role;
+    document.getElementById('emp-role').disabled = false;
 
     // Permissions
     const perms = emp?.permissions || [];
     document.querySelectorAll('#perm-checks input').forEach(c => {
-        c.checked  = isSeed || role === 'superadmin' || perms.includes(c.value);
-        c.disabled = isSeed; // super-admin always has every permission
+        c.checked  = role === 'superadmin' || perms.includes(c.value);
+        c.disabled = false;
     });
 
     // Store row
     const storeRow = document.getElementById('emp-store-row');
     const permRow  = storeRow?.nextElementSibling;
-    if (isSeed) {
-        storeRow.style.display = 'none';
-        if (permRow) permRow.style.display = 'block';
-    } else if (role === 'company') {
+    if (role === 'company') {
         storeRow.style.display = 'block';
         if (permRow) permRow.style.display = 'none';
         const sel = document.getElementById('emp-linked-store');
@@ -1325,19 +1328,40 @@ document.getElementById('emp-save-btn').addEventListener('click', async () => {
     if (role === 'company' && !linkedStore) { errorEl.textContent = '⚠️ اختر متجراً لهذا المستخدم'; errorEl.style.display = 'block'; return; }
     if (notifyNewOrders && !notifyPhone) { errorEl.textContent = '⚠️ أدخل رقم واتساب لتفعيل الإشعار'; errorEl.style.display = 'block'; return; }
 
+    const FN_BASE = 'https://us-central1-deliveryonline-300f7.cloudfunctions.net';
+
     try {
+        const idToken = await window._adminAuth?.currentUser?.getIdToken();
+        if (!idToken) throw new Error('جلسة المدير غير صالحة، سجّل الدخول من جديد');
+
+        // notifyPhone/notifyNewOrders/linkedStore are non-secret metadata —
+        // still fine to write straight to RTDB (only real credentials moved
+        // server-side). Cloud Functions own the account itself (Auth user +
+        // custom claims + the adminUsers/{uid} mirror's core fields).
+        const extra = { notifyPhone: notifyPhone || null, notifyNewOrders };
+        if (linkedStore) extra.linkedStore = linkedStore;
+
         if (isNew) {
-            const payload = { fullname, username, password, role, permissions: perms, createdAt: Date.now(),
-                               notifyPhone: notifyPhone || null, notifyNewOrders };
-            if (linkedStore) payload.linkedStore = linkedStore;
-            await fbPush('adminUsers', payload);
+            const res = await fetch(`${FN_BASE}/createAdminAccount`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                body: JSON.stringify({ username, password, fullname, role, permissions: perms }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) throw new Error(data.error || `فشل (${res.status})`);
+            await fbUpdate(`adminUsers/${data.uid}`, extra);
             toast('✅ تم إضافة الموظف');
         } else {
-            const updates = { fullname, username, role, permissions: perms,
-                               notifyPhone: notifyPhone || null, notifyNewOrders };
-            if (password) updates.password = password;
-            if (linkedStore) updates.linkedStore = linkedStore;
-            await fbUpdate(`adminUsers/${key}`, updates);
+            const body = { uid: key, fullname, role, permissions: perms };
+            if (password) body.password = password;
+            const res = await fetch(`${FN_BASE}/updateAdminAccount`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) throw new Error(data.error || `فشل (${res.status})`);
+            await fbUpdate(`adminUsers/${key}`, extra);
             toast('✅ تم حفظ التغييرات');
         }
         document.getElementById('modal-emp').classList.remove('open');

@@ -53,8 +53,9 @@ window.startApp = function() {
     _storeRejectToLogin('هذه الصفحة مخصصة لحسابات المتاجر فقط — الرجاء الدخول من لوحة الإدارة');
 };
 
-// Full replacement for doLogin — same adminUsers/RTDB lookup as
-// admin.html's original, but gated to store-linked roles only.
+// Full replacement for doLogin — real Firebase Auth sign-in (same pattern as
+// admin.html's own doLogin in admin-04-core-auth-data.js), gated to
+// store-linked roles only via the account's custom claims.
 window.doLogin = async function() {
     const username = document.getElementById('adm-user').value.trim().toLowerCase();
     const password = document.getElementById('adm-pass').value.trim();
@@ -66,33 +67,30 @@ window.doLogin = async function() {
     errEl.textContent = '';
 
     try {
-        const admins = await fbGet('adminUsers');
-        const seedOverride  = admins && admins.__seed;
-        const effectiveSeed = seedOverride ? { ...SEED_SUPERADMIN, ...seedOverride } : SEED_SUPERADMIN;
+        const email = _adminEmailForUsername(username);
+        const cred  = await window._adminAuth.signInWithEmailAndPassword(email, password);
+        const tokenResult = await cred.user.getIdTokenResult();
+        const claims = tokenResult.claims || {};
 
-        // The super-admin account exists, but it never belongs on this page.
-        if (username === effectiveSeed.username && password === effectiveSeed.password) {
-            errEl.textContent = 'هذا الحساب مخصص للوحة الإدارة — الرجاء الدخول من admin.html';
+        if (!claims.admin || !STORE_PORTAL_ROLES.includes(claims.role)) {
+            await window._adminAuth.signOut();
+            errEl.textContent = 'هذا الحساب ليس حساب متجر — الرجاء التواصل مع الإدارة';
             return;
         }
 
-        if (admins && typeof admins === 'object') {
-            for (const [key, adm] of Object.entries(admins)) {
-                if (key === '__seed') continue;
-                if (adm && adm.username === username && adm.password === password) {
-                    if (!STORE_PORTAL_ROLES.includes(adm.role)) {
-                        errEl.textContent = 'هذا الحساب ليس حساب متجر — الرجاء التواصل مع الإدارة';
-                        return;
-                    }
-                    currentAdmin = { ...adm, _key: key };
-                    startCompanyPortal();
-                    return;
-                }
-            }
-        }
-        errEl.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة';
+        currentAdmin = {
+            _key:        cred.user.uid,
+            username,
+            fullname:    claims.fullname || username,
+            role:        claims.role,
+            permissions: claims.permissions || [],
+        };
+        startCompanyPortal();
     } catch (e) {
-        errEl.textContent = 'خطأ في الاتصال، تحقق من الإنترنت';
+        console.error('[Store login] failed:', e.code, e.message);
+        errEl.textContent = e.code === 'auth/network-request-failed'
+            ? 'خطأ في الاتصال، تحقق من الإنترنت'
+            : 'اسم المستخدم أو كلمة المرور غير صحيحة';
     } finally {
         btn.disabled = false; btn.textContent = 'دخول';
     }
