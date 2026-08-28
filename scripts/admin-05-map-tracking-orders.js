@@ -8,35 +8,15 @@ function _parseDriversRaw(raw) {
         .filter(Boolean);
 }
 
-// ── Fast driver-position poll (1s) ───────────────────────────────
-// Separate from the main 12s startAutoRefresh() loop on purpose: that
-// loop reloads ALL admin data (orders, stats, every map layer) and
-// would be far too expensive to run every second. This poll only
-// fetches the small `drivers` node and repositions driver markers via
-// _refreshDriverMarkers() (which already only touches that one layer),
-// so the map feels live without hammering Firebase for a full reload.
-let _fastDriverPollTimer = null;
-
-function _startFastDriverPoll() {
-    if (_fastDriverPollTimer) return;
-    // Was 1000ms — a full re-download of the whole `drivers` node every
-    // single second is the single biggest RTDB bandwidth line item on
-    // the bill (Outgoing Bandwidth from Firebase Realtime Database).
-    // 3s still reads as "live" on a delivery map (GPS fixes themselves
-    // don't arrive faster than a few seconds anyway) but cuts this
-    // poll's bandwidth by ~66%.
-    _fastDriverPollTimer = setInterval(async () => {
-        // Skip the fetch entirely when nobody's looking at the map —
-        // no point polling for marker positions that aren't rendered.
-        if (!document.getElementById('panel-map')?.classList.contains('active')) return;
-        if (_refreshPaused || (typeof _tabHidden !== 'undefined' && _tabHidden) || _fsSignInFails >= _FS_MAX_FAILS) return;
-        try {
-            const drivers = await fbGet('drivers');
-            allDrivers = _parseDriversRaw(drivers);
-            _refreshDriverMarkers();
-        } catch (e) { /* silent — next tick retries */ }
-    }, 3000);
-}
+// ── Driver positions ──────────────────────────────────────────────
+// Used to be a setInterval poll here re-downloading the entire `drivers`
+// node every 3 seconds (originally every 1s) — by far the single
+// biggest RTDB bandwidth line item on the bill, since it ran continuously
+// regardless of whether anything had actually moved. Replaced by an SSE
+// live-stream (_startDriversLiveStream, in admin-04-core-auth-data.js)
+// that keeps `allDrivers` in sync via push updates instead of polling,
+// and calls _refreshDriverMarkers() itself whenever the map panel is
+// active. Nothing to start from this file anymore.
 
 // Shared marker-icon builder — was previously defined only inside
 // renderMap(), which meant _refreshDriverMarkers() (a separate top-level

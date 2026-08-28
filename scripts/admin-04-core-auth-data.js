@@ -10,7 +10,6 @@ const RTDB        = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 // whenever the live-map/auth-state code fired first, throwing
 // "allExtStores is not defined" (see renderMap's forEach over it).
 let allExtStores = {};    // cached from Firebase externalStores/
-let _lastDriversRaw = null; // raw fbGet('drivers') result from the last successful loadAllData() cycle — fallback if a future fetch fails (see loadAllData)
 let _lastPatternRaw = null; // raw fbGet('pattern') result from the last successful loadAllData() cycle — same purpose, for allStores
 
 /* ── Business-day boundary (4:00 AM) ───────────────────────────────
@@ -246,6 +245,18 @@ const REFRESH_INTERVAL   = 12_000;   // 12 seconds
 let _tabHidden = document.hidden;
 document.addEventListener('visibilitychange', () => {
     _tabHidden = document.hidden;
+    // The orders/drivers SSE streams carry their own bandwidth cost while
+    // connected (small, but not zero) — fully close them in the background
+    // and reconnect (with a fresh baseline fetch) when the tab comes back,
+    // same "don't spend bandwidth on a tab nobody's looking at" policy as
+    // the rest of this file.
+    if (_tabHidden) {
+        _ordersStream?.pause();
+        _driversStream?.pause();
+    } else {
+        _ordersStream?.resume();
+        _driversStream?.resume();
+    }
     if (!_tabHidden && typeof currentAdmin !== 'undefined' && currentAdmin) {
         loadAllData().then(() => {
             updateTopbarStats();
@@ -737,6 +748,216 @@ async function fbUpdate(path, data) {
     }
     return r.json();
 }
+// ── RTDB live-stream helper (SSE) ─────────────────────────────────
+// Replaces "poll the whole node every N seconds" for the two nodes that
+// made that pattern expensive: /requests (grows forever, every order
+// ever placed) and /drivers (changes every few seconds while anyone's
+// on shift). Same technique store-status-listener.js already uses for
+// /storeStatus: one initial full fetch, then Firebase's own
+// text/event-stream push for every subsequent change — no more
+// re-downloading the entire node on a timer regardless of whether
+// anything in it changed.
+//
+// _rtdbApplyPathOp applies a single Firebase SSE event (put/patch, each
+// carrying a `path` + `data`) onto a plain JS object, returning a new
+// object (shallow-cloned along the touched path only — cheap, since
+// these paths are at most 2 segments deep for requests/drivers).
+function _rtdbApplyPathOp(root, evtPath, data, isPatch) {
+    const segs = (evtPath || '/').split('/').filter(Boolean);
+    if (!segs.length) {
+        // Root-level event — full replace (put) or shallow merge (patch)
+        return isPatch ? { ...(root || {}), ...(data || {}) } : (data || {});
+    }
+    const clone = { ...(root || {}) };
+    let cursor = clone;
+    for (let i = 0; i < segs.length - 1; i++) {
+        const seg = segs[i];
+        const existing = cursor[seg];
+        const next = (existing && typeof existing === 'object') ? { ...existing } : {};
+        cursor[seg] = next;
+        cursor = next;
+    }
+    const lastSeg = segs[segs.length - 1];
+    if (data === null) {
+        delete cursor[lastSeg];
+    } else if (isPatch && data && typeof data === 'object' && !Array.isArray(data)) {
+        cursor[lastSeg] = { ...(cursor[lastSeg] && typeof cursor[lastSeg] === 'object' ? cursor[lastSeg] : {}), ...data };
+    } else {
+        cursor[lastSeg] = data;
+    }
+    return clone;
+}
+
+// _rtdbLiveStream(path, { getRoot, setRoot, onUpdate }) keeps a plain
+// object in sync with an RTDB node via SSE. getRoot/setRoot read/write
+// the variable the caller wants kept live (e.g. allOrders); onUpdate
+// fires after every applied event (including the initial full load) so
+// the caller can re-render / run its own change-detection.
+// Returns { pause(), resume() } — pause() closes the connection
+// (no bandwidth at all while paused, e.g. tab hidden); resume()
+// reconnects and re-fetches a fresh baseline.
+function _rtdbLiveStream(path, { getRoot, setRoot, onUpdate }) {
+    let sse = null, retryTimer = null, refreshTimer = null, retryMs = 2000, paused = false;
+    let _readyResolve, _readyDone = false;
+    const ready = new Promise(res => { _readyResolve = res; });
+    function _markReady() {
+        if (_readyDone) return;
+        _readyDone = true;
+        _readyResolve();
+    }
+
+    async function connect() {
+        if (paused) return;
+        // Same auth-lockout guard as the 12s loop (_pauseAutoRefresh) — an
+        // RTDB auth token comes from the same Firebase Auth login, so don't
+        // hammer reconnects while that's locked out.
+        if (typeof _refreshPaused !== 'undefined' && _refreshPaused) {
+            clearTimeout(retryTimer);
+            retryTimer = setTimeout(connect, 15000);
+            _markReady(); // don't block initial render forever on a lockout
+            return;
+        }
+        let authQS = '';
+        try { authQS = await _rtdbAuthQuery(); } catch (_) {}
+        try {
+            const r = await fetch(`${RTDB}/${path}.json${authQS}`);
+            if (r.ok) { setRoot(await r.json() || {}); onUpdate && onUpdate('init'); }
+        } catch (_) { /* SSE below still tries; next poll-free retry on error */ }
+        _markReady(); // resolve once we've made a real attempt, success or not
+
+        if (paused) return; // visibility could've changed during the await above
+        if (sse) { try { sse.close(); } catch (_) {} }
+        const sep = authQS ? '&' : '?';
+        sse = new EventSource(`${RTDB}/${path}.json${authQS}${sep}accept=text/event-stream`);
+
+        sse.addEventListener('put', e => {
+            try {
+                const msg = JSON.parse(e.data);
+                setRoot(_rtdbApplyPathOp(getRoot(), msg.path, msg.data, false));
+                onUpdate && onUpdate('put');
+                retryMs = 2000;
+            } catch (_) {}
+        });
+        sse.addEventListener('patch', e => {
+            try {
+                const msg = JSON.parse(e.data);
+                setRoot(_rtdbApplyPathOp(getRoot(), msg.path, msg.data, true));
+                onUpdate && onUpdate('patch');
+            } catch (_) {}
+        });
+        sse.onerror = () => {
+            if (sse) { try { sse.close(); } catch (_) {} }
+            if (paused) return;
+            clearTimeout(retryTimer);
+            retryTimer = setTimeout(connect, retryMs);
+            retryMs = Math.min(retryMs * 2, 30000);
+        };
+    }
+
+    connect();
+    // Proactively reconnect every 45 min — an admin auth token is only
+    // valid ~1h, and EventSource can't be handed a fresh one in place,
+    // so a tab left open all day needs a periodic reconnect to keep
+    // receiving updates rather than silently going stale.
+    refreshTimer = setInterval(() => { if (!paused) connect(); }, 45 * 60 * 1000);
+
+    return {
+        ready, // resolves after the first init fetch attempt (success or failure)
+        pause() {
+            paused = true;
+            clearTimeout(retryTimer);
+            if (sse) { try { sse.close(); } catch (_) {} sse = null; }
+        },
+        resume() {
+            if (!paused) return;
+            paused = false;
+            retryMs = 2000;
+            connect();
+        },
+    };
+}
+
+// Re-renders whichever panel is currently active, if (and only if) it's
+// one of the panels driven by allOrders/allDrivers — shared by both live
+// streams below so an update pushes to screen immediately instead of
+// waiting for the next 12s tick.
+function _rerenderIfPanelActive(panelIds) {
+    const ap = document.querySelector('.panel.active');
+    if (!ap) return;
+    const id = ap.id.replace('panel-', '');
+    if (!panelIds.includes(id)) return;
+    if (id === 'map' && typeof renderMap === 'function') renderMap();
+    if (id === 'orders' && typeof renderOrders === 'function') renderOrders();
+    if (id === 'drivers' && typeof renderDrivers === 'function') renderDrivers();
+}
+
+// ── Orders live stream (replaces the old full re-fetch of /requests
+// every 12s inside loadAllData) ───────────────────────────────────
+let _ordersStream = null;
+let _ordersUpdateDebounce = null;
+function _startOrdersLiveStream() {
+    if (_ordersStream) return;
+    _ordersStream = _rtdbLiveStream('requests', {
+        getRoot: () => allOrders,
+        setRoot: (v) => { allOrders = v || {}; },
+        onUpdate: () => {
+            // Debounce — an admin bulk action (archive-all, etc.) can fire
+            // many small patch events back to back; only react once per
+            // short burst instead of re-rendering/re-checking per event.
+            clearTimeout(_ordersUpdateDebounce);
+            _ordersUpdateDebounce = setTimeout(() => {
+                _detectAndAlertNewOrders(allOrders, null);
+                if (typeof _refreshClosePlatformBtn === 'function') _refreshClosePlatformBtn();
+                updateTopbarStats();
+                updateNavBadge();
+                _rerenderIfPanelActive(['orders', 'map']);
+            }, 300);
+        },
+    });
+}
+
+// ── Drivers live stream (replaces the old 3s full re-fetch of /drivers) ──
+let _driversStream = null;
+let _driversRaw     = null; // raw RTDB shape (pre-parse) that the stream patches land on
+function _startDriversLiveStream() {
+    if (_driversStream) return;
+    _driversStream = _rtdbLiveStream('drivers', {
+        // getRoot/setRoot work on the raw RTDB shape; allDrivers itself
+        // (the parsed array the rest of the app reads) is derived below.
+        getRoot: () => _driversRaw,
+        setRoot: (v) => {
+            _driversRaw = v;
+            allDrivers  = _parseDriversRaw(v);
+        },
+        onUpdate: (kind) => {
+            // Self-heal ghost driver records (no owner/username/phone/
+            // deviceUUID — unusable junk, usually a stray legacy write).
+            // Only run this check right after the initial full load, not
+            // on every incremental patch, so a single field update on one
+            // driver doesn't re-scan/re-delete on every tick.
+            if (kind === 'init') {
+                const _ghosts = allDrivers.filter(d => !(d.owner || d.username || d.phone || d.deviceUUID));
+                if (_ghosts.length) {
+                    allDrivers = allDrivers.filter(d => d.owner || d.username || d.phone || d.deviceUUID);
+                    _ghosts.forEach(g => {
+                        fetch(`${RTDB}/drivers/${g._key}.json`, { method: 'DELETE' }).catch(() => {});
+                    });
+                    console.warn('[Delivo] Removed', _ghosts.length, 'empty ghost driver record(s).');
+                }
+            }
+            // Live-reposition markers immediately when the map panel is open
+            // — no need to wait for the 12s panel-refresh tick. renderDrivers()
+            // (the drivers-list panel, a plain table) is cheap enough to just
+            // re-run too rather than diffing.
+            if (document.getElementById('panel-map')?.classList.contains('active') &&
+                typeof _refreshDriverMarkers === 'function') {
+                _refreshDriverMarkers();
+            }
+            _rerenderIfPanelActive(['drivers']);
+        },
+    });
+}
+
 async function fbPush(path, data) {
     const r = await fetch(`${RTDB}/${path}.json${await _rtdbAuthQuery()}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -918,8 +1139,13 @@ function startApp() {
     }
 
     buildSidebar();
-    // Load data then do the initial render of the active panel
-    loadAllData().then(() => {
+    // Start the orders/drivers live streams before the initial render so
+    // their first snapshot lands in time — awaited together with
+    // loadAllData() below, so the active panel never renders from an
+    // empty allOrders/allDrivers just because that fetch hadn't landed yet.
+    _startOrdersLiveStream();
+    _startDriversLiveStream();
+    Promise.all([loadAllData(), _ordersStream.ready, _driversStream.ready]).then(() => {
         const ap = document.querySelector('.panel.active');
         if (!ap) return;
         const id = ap.id.replace('panel-', '');
@@ -945,7 +1171,6 @@ function startApp() {
         if (id === 'profit-analytics') renderProfitAnalytics();
     });
     startAutoRefresh();
-    _startFastDriverPoll();
 }
 
 function buildSidebar() {
@@ -1735,9 +1960,16 @@ async function loadAllData() {
         // could hit depending on their connection/session timing at that
         // moment. Falling back per-fetch means one bad slice of data just
         // skips updating for a cycle instead of freezing the whole panel.
-        const [orders, drivers, users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw, customerActivity, guestCustomersRaw, expensesRaw, cashboxRaw, cashboxWhishRaw] = await Promise.all([
-            fbGet('requests').catch(e => { console.warn('[Admin] orders (requests) fetch failed — keeping last known orders:', e.message); return allOrders; }),
-            fbGet('drivers').catch(e => { console.warn('[Admin] drivers fetch failed — keeping last known drivers:', e.message); return _lastDriversRaw; }),
+        //
+        // NOTE: 'requests' (orders) and 'drivers' used to be fetched here in
+        // full every 12s (drivers was also separately re-fetched every 3s by
+        // admin-05's old fast-poll). Both are now kept live via SSE streams
+        // (_startOrdersLiveStream / _startDriversLiveStream, started once at
+        // login) instead — see the RTDB live-stream helper above fbGet. That
+        // was by far the largest RTDB bandwidth cost on the project (an
+        // ever-growing full order history re-downloaded by every open admin
+        // tab every 12 seconds), so don't re-add a poll for either here.
+        const [users, devices, pattern, admins, blacklist, storeStatusAll, assignMode, deviceLeads, extStoresRaw, customerActivity, guestCustomersRaw, expensesRaw, cashboxRaw, cashboxWhishRaw] = await Promise.all([
             fsGetCollection('users').catch(e => { console.warn('[Admin] users fetch failed (Firestore) — keeping last known users:', e.message); return allUsers; }),
             fsGetCollection('devices').catch(() => ({})),
             fbGet('pattern').catch(e => { console.warn('[Admin] pattern fetch failed — keeping last known stores:', e.message); return _lastPatternRaw; }),
@@ -1753,8 +1985,7 @@ async function loadAllData() {
             fbGet('cashbox').catch(() => null),
             fbGet('cashboxWhish').catch(() => null),
         ]);
-        _lastDriversRaw = drivers; // cache the raw (pre-parse) value for the next cycle's fallback above
-        _lastPatternRaw = pattern; // same, for the stores-pattern fallback above
+        _lastPatternRaw = pattern; // cache the raw value for the next cycle's fallback above
 
         allExpenses = expensesRaw || {};
         window.allExpenses = allExpenses; // exposed for admin-05's net-profit calc (see renderOrders)
@@ -1772,29 +2003,10 @@ async function loadAllData() {
 
         _assignmentMode = assignMode || 'both';
 
-        allOrders    = orders    || {};
         allBlacklist = blacklist || {};
-        _detectAndAlertNewOrders(allOrders, null);
         if (typeof _refreshClosePlatformBtn === 'function') _refreshClosePlatformBtn();
-
-        if (drivers) {
-            allDrivers = _parseDriversRaw(drivers);
-            // Self-heal: a driver record with none of owner/username/phone/deviceUUID
-            // is unusable junk (can't log in, can't be identified) — most likely a
-            // leftover from a legacy array-rewrite. Drop it from the list and remove
-            // it from Firebase so it doesn't keep resurfacing as a blank card.
-            const _ghosts = allDrivers.filter(d => !(d.owner || d.username || d.phone || d.deviceUUID));
-            if (_ghosts.length) {
-                allDrivers = allDrivers.filter(d => d.owner || d.username || d.phone || d.deviceUUID);
-                _ghosts.forEach(g => {
-                    fetch(`${RTDB}/drivers/${g._key}.json`, { method: 'DELETE' }).catch(() => {});
-                });
-                console.warn('[Delivo] Removed', _ghosts.length, 'empty ghost driver record(s).');
-            }
-        } else {
-            allDrivers = [];
-        }
-
+        // allOrders/allDrivers are no longer touched here — see the SSE
+        // streams started in the login flow below.
 
         allUsers   = users   || {};
         // Merge in each account's persisted lastActive (see presence.js's
