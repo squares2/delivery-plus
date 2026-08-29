@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سياسة الخصوصية — Delivo | Privacy Policy</title>
+<meta name="description" content="سياسة الخصوصية الخاصة بتطبيق Delivo لطلب وتوصيل الطعام">
+<link rel="icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --clr-orange:       #FF5C00;
+        --clr-orange-dim:   #cc4a00;
+        --clr-orange-light: #fff3ed;
+        --clr-black:        #0f0f0f;
+        --clr-white:        #ffffff;
+        --clr-gray-50:      #f7f7f8;
+        --clr-gray-100:     #f0f0f2;
+        --clr-gray-200:     #e2e2e6;
+        --clr-gray-400:     #9898a6;
+        --clr-gray-500:     #65657a;
+        --radius-md:  12px;
+        --radius-lg:  16px;
+        --radius-pill: 50px;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: 'Almarai', 'Segoe UI', sans-serif;
+        background: var(--clr-gray-50);
+        color: var(--clr-black);
+        line-height: 1.8;
+    }
+    .pp-topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 20px; background: var(--clr-white);
+        border-bottom: 1px solid var(--clr-gray-200);
+        position: sticky; top: 0; z-index: 10;
+    }
+    .pp-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.05rem; color: var(--clr-black); text-decoration: none; }
+    .pp-brand img { width: 30px; height: 30px; border-radius: 8px; }
+    .pp-lang-toggle {
+        display: flex; background: var(--clr-gray-100); border-radius: var(--radius-pill); padding: 3px;
+    }
+    .pp-lang-toggle button {
+        border: none; background: transparent; font-family: inherit; font-size: 0.78rem; font-weight: 700;
+        padding: 6px 14px; border-radius: var(--radius-pill); cursor: pointer; color: var(--clr-gray-500);
+    }
+    .pp-lang-toggle button.active { background: var(--clr-orange); color: #fff; }
+
+    .pp-wrap { max-width: 780px; margin: 0 auto; padding: 28px 20px 70px; }
+    .pp-hero {
+        background: linear-gradient(135deg, var(--clr-orange) 0%, var(--clr-orange-dim) 100%);
+        color: #fff; border-radius: var(--radius-lg); padding: 26px 22px; margin-bottom: 22px;
+    }
+    .pp-hero h1 { margin: 0 0 6px; font-size: 1.35rem; font-weight: 800; }
+    .pp-hero p { margin: 0; font-size: 0.85rem; opacity: 0.92; }
+
+    .pp-card {
+        background: var(--clr-white); border: 1px solid var(--clr-gray-200);
+        border-radius: var(--radius-md); padding: 20px 20px; margin-bottom: 14px;
+    }
+    .pp-card h2 {
+        font-size: 1rem; font-weight: 800; margin: 0 0 10px; color: var(--clr-orange-dim);
+        display: flex; align-items: center; gap: 8px;
+    }
+    .pp-card p, .pp-card li { font-size: 0.88rem; color: #333; margin: 0 0 8px; }
+    .pp-card ul { margin: 0; padding-inline-start: 20px; }
+    .pp-card li { margin-bottom: 6px; }
+    .pp-card table { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-top: 6px; }
+    .pp-card th, .pp-card td { text-align: start; padding: 8px 6px; border-bottom: 1px solid var(--clr-gray-100); }
+    .pp-card th { color: var(--clr-gray-500); font-weight: 700; }
+
+    .pp-contact {
+        display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px;
+    }
+    .pp-contact a {
+        display: inline-flex; align-items: center; gap: 6px; background: var(--clr-orange-light);
+        color: var(--clr-orange-dim); font-weight: 700; font-size: 0.82rem; padding: 9px 16px;
+        border-radius: var(--radius-pill); text-decoration: none;
+    }
+    .pp-footer { text-align: center; color: var(--clr-gray-400); font-size: 0.75rem; margin-top: 24px; }
+
+    [dir="ltr"] .pp-card, [dir="ltr"] .pp-hero { text-align: left; }
+    .lang-en { display: none; }
+    body.show-en .lang-ar { display: none; }
+    body.show-en .lang-en { display: block; }
+    body.show-en { direction: ltr; }
+</style>
+</head>
+<body>
+
+<div class="pp-topbar">
+    <a href="index.html" class="pp-brand"><img src="assets/logo.png" alt="Delivo"><span>Delivo</span></a>
+    <div class="pp-lang-toggle">
+        <button id="btn-ar" class="active" onclick="setLang('ar')">العربية</button>
+        <button id="btn-en" onclick="setLang('en')">English</button>
+    </div>
+</div>
+
+<div class="pp-wrap">
+
+    <!-- ===================== ARABIC ===================== -->
+    <div class="lang-ar">
+        <div class="pp-hero">
+            <h1>سياسة الخصوصية</h1>
+            <p>آخر تحديث: 29 أغسطس 2026 — تطبيق ومنصة Delivo لطلب وتوصيل الطعام</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>📌 مقدمة</h2>
+            <p>نحن في Delivo نحترم خصوصيتك. توضح هذه الصفحة ما هي المعلومات التي نجمعها عند استخدامك لتطبيق أو موقع Delivo، وكيف نستخدمها، ومع من نشاركها، وكيف يمكنك التحكم بها أو حذفها.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>📋 المعلومات التي نجمعها</h2>
+            <table>
+                <tr><th>النوع</th><th>الغرض منه</th></tr>
+                <tr><td>الاسم ورقم الهاتف</td><td>إنشاء الحساب، تأكيد الطلبات، التواصل بخصوص التوصيل</td></tr>
+                <tr><td>رمز التحقق عبر واتساب (OTP)</td><td>تأكيد ملكية رقم الهاتف عند التسجيل أو تسجيل الدخول</td></tr>
+                <tr><td>عنوان التوصيل والموقع الجغرافي</td><td>توصيل الطلب وعرض حالة التتبع اللحظي على الخريطة</td></tr>
+                <tr><td>سجل الطلبات</td><td>عرض طلباتك السابقة، الدعم الفني، برنامج نقاط الولاء</td></tr>
+                <tr><td>معرّف الجهاز (Device ID)</td><td>منع إساءة الاستخدام (مثل إنشاء حسابات وهمية متكررة)</td></tr>
+                <tr><td>بيانات الاستخدام الأساسية</td><td>تحسين أداء التطبيق وتحديد الأعطال التقنية</td></tr>
+            </table>
+            <p style="margin-top:10px;">لا نجمع أي معلومات مالية أو بيانات بطاقات دفع — الدفع يتم نقدًا أو بطرق تُدار خارج التطبيق حاليًا.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>🚚 بيانات السائقين</h2>
+            <p>بالنسبة لسائقي التوصيل، نجمع الاسم ورقم الهاتف والموقع الجغرافي اللحظي أثناء تفعيل وضعية "على الخط"، وذلك فقط لغرض تنسيق التوصيل وعرض موقع السائق للزبون والإدارة أثناء تنفيذ الطلب.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>🔗 مشاركة المعلومات</h2>
+            <ul>
+                <li>لا نبيع بياناتك الشخصية لأي طرف ثالث.</li>
+                <li>تتم مشاركة اسم الزبون وعنوانه ورقم هاتفه مع المتجر/السائق المعنيّين فقط لتنفيذ طلب التوصيل.</li>
+                <li>نستخدم Google Firebase لتخزين البيانات بأمان، و WhatsApp Business API لإرسال رموز التحقق وتنبيهات الطلبات.</li>
+            </ul>
+        </div>
+
+        <div class="pp-card">
+            <h2>🔒 حماية البيانات</h2>
+            <p>نخزّن بياناتك على خوادم Google Firebase مع قواعد وصول تمنع أي جهة غير مخوّلة من قراءتها أو تعديلها. حسابات الإدارة والموظفين محمية بأنظمة تحقق مستقلة لكل حساب.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>🗑️ حذف الحساب والبيانات</h2>
+            <p>يمكنك في أي وقت طلب حذف حسابك وكل البيانات المرتبطة به (الاسم، الهاتف، العنوان، سجل الطلبات) بشكل كامل ونهائي، من دون الحاجة لإعادة فتح التطبيق، وذلك بالتواصل معنا مباشرة عبر القنوات أدناه. يتم تنفيذ الحذف خلال أيام قليلة من استلام الطلب.</p>
+            <div class="pp-contact">
+                <a href="https://wa.me/96170714152" target="_blank" rel="noopener">💬 واتساب: 70 714 152</a>
+                <a href="tel:+96170714152">📞 اتصال مباشر</a>
+            </div>
+        </div>
+
+        <div class="pp-card">
+            <h2>👶 خصوصية القاصرين</h2>
+            <p>تطبيق Delivo مخصص للاستخدام العام وغير موجّه للأطفال دون سن 13 عامًا، ولا نجمع عن قصد بيانات من هذه الفئة العمرية.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>♻️ التعديلات على هذه السياسة</h2>
+            <p>قد نقوم بتحديث هذه الصفحة من وقت لآخر لتعكس أي تغييرات في خدماتنا. سيظهر تاريخ آخر تحديث دائمًا أعلى الصفحة.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>📞 تواصل معنا</h2>
+            <p>لأي استفسار حول هذه السياسة أو بياناتك الشخصية:</p>
+            <div class="pp-contact">
+                <a href="https://wa.me/96170714152" target="_blank" rel="noopener">💬 واتساب</a>
+                <a href="tel:+96170714152">📞 هاتف: +961 70 714 152</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== ENGLISH ===================== -->
+    <div class="lang-en">
+        <div class="pp-hero">
+            <h1>Privacy Policy</h1>
+            <p>Last updated: August 29, 2026 — Delivo food ordering & delivery platform</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>📌 Introduction</h2>
+            <p>At Delivo, we respect your privacy. This page explains what information we collect when you use the Delivo app or website, how we use it, who we share it with, and how you can control or delete it.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>📋 Information We Collect</h2>
+            <table>
+                <tr><th>Type</th><th>Purpose</th></tr>
+                <tr><td>Name & phone number</td><td>Account creation, order confirmation, delivery-related communication</td></tr>
+                <tr><td>WhatsApp verification code (OTP)</td><td>Confirming phone number ownership at signup/login</td></tr>
+                <tr><td>Delivery address & location</td><td>Delivering your order and showing live tracking on the map</td></tr>
+                <tr><td>Order history</td><td>Showing your past orders, customer support, loyalty rewards</td></tr>
+                <tr><td>Device ID</td><td>Preventing abuse (e.g. repeated fake account creation)</td></tr>
+                <tr><td>Basic usage data</td><td>Improving app performance and diagnosing technical issues</td></tr>
+            </table>
+            <p style="margin-top:10px;">We do not collect financial or payment-card data — payment is currently handled in cash or via methods outside the app.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>🚚 Driver Data</h2>
+            <p>For delivery drivers, we collect name, phone number, and real-time location while "online" mode is active, solely to coordinate deliveries and show the driver's location to the customer and admin during an active order.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>🔗 Data Sharing</h2>
+            <ul>
+                <li>We do not sell your personal data to any third party.</li>
+                <li>A customer's name, address, and phone number are shared only with the relevant store/driver to fulfill a delivery order.</li>
+                <li>We use Google Firebase to store data securely, and the WhatsApp Business API to send verification codes and order alerts.</li>
+            </ul>
+        </div>
+
+        <div class="pp-card">
+            <h2>🔒 Data Security</h2>
+            <p>Your data is stored on Google Firebase servers with access rules that prevent unauthorized reading or modification. Admin and employee accounts are protected by independent per-account authentication.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>🗑️ Account & Data Deletion</h2>
+            <p>You can request full and permanent deletion of your account and all associated data (name, phone, address, order history) at any time, without needing to reopen the app, by contacting us directly through the channels below. Deletion is completed within a few days of your request.</p>
+            <div class="pp-contact">
+                <a href="https://wa.me/96170714152" target="_blank" rel="noopener">💬 WhatsApp: 70 714 152</a>
+                <a href="tel:+96170714152">📞 Call us</a>
+            </div>
+        </div>
+
+        <div class="pp-card">
+            <h2>👶 Children's Privacy</h2>
+            <p>Delivo is intended for general use and is not directed at children under 13. We do not knowingly collect data from this age group.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>♻️ Changes to This Policy</h2>
+            <p>We may update this page from time to time to reflect changes in our services. The "last updated" date at the top will always reflect the most recent version.</p>
+        </div>
+
+        <div class="pp-card">
+            <h2>📞 Contact Us</h2>
+            <p>For any question about this policy or your personal data:</p>
+            <div class="pp-contact">
+                <a href="https://wa.me/96170714152" target="_blank" rel="noopener">💬 WhatsApp</a>
+                <a href="tel:+96170714152">📞 Phone: +961 70 714 152</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="pp-footer">© Delivo 2026 — All rights reserved</div>
+</div>
+
+<script>
+    function setLang(lang) {
+        document.body.classList.toggle('show-en', lang === 'en');
+        document.getElementById('btn-ar').classList.toggle('active', lang === 'ar');
+        document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+        document.documentElement.lang = lang;
+        document.documentElement.dir  = lang === 'en' ? 'ltr' : 'rtl';
+        localStorage.setItem('delivo_pp_lang', lang);
+    }
+    // Remember the reviewer/user's language choice across visits
+    setLang(localStorage.getItem('delivo_pp_lang') || 'ar');
+</script>
+
+</body>
+</html>
