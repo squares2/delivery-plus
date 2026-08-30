@@ -765,8 +765,18 @@ async function fbUpdate(path, data) {
 function _rtdbApplyPathOp(root, evtPath, data, isPatch) {
     const segs = (evtPath || '/').split('/').filter(Boolean);
     if (!segs.length) {
-        // Root-level event — full replace (put) or shallow merge (patch)
-        return isPatch ? { ...(root || {}), ...(data || {}) } : (data || {});
+        // Root-level event — full replace (put), or merge (patch). A patch's
+        // data can include `null` for a sibling key to mean "this key was
+        // deleted" (e.g. one order removed the same moment another is
+        // created/updated lands as one combined root-level patch) — a plain
+        // {...root, ...data} spread would store that null instead of
+        // removing the key, so strip any null-valued keys after merging.
+        if (!isPatch) return (data || {});
+        const merged = { ...(root || {}), ...(data || {}) };
+        if (data && typeof data === 'object') {
+            for (const k in data) { if (data[k] === null) delete merged[k]; }
+        }
+        return merged;
     }
     const clone = { ...(root || {}) };
     let cursor = clone;
@@ -781,7 +791,12 @@ function _rtdbApplyPathOp(root, evtPath, data, isPatch) {
     if (data === null) {
         delete cursor[lastSeg];
     } else if (isPatch && data && typeof data === 'object' && !Array.isArray(data)) {
-        cursor[lastSeg] = { ...(cursor[lastSeg] && typeof cursor[lastSeg] === 'object' ? cursor[lastSeg] : {}), ...data };
+        // Same null-means-delete handling, one level down (e.g. a patch
+        // touching several fields of one order, where one of those fields
+        // was removed rather than just changed).
+        const merged = { ...(cursor[lastSeg] && typeof cursor[lastSeg] === 'object' ? cursor[lastSeg] : {}), ...data };
+        for (const k in data) { if (data[k] === null) delete merged[k]; }
+        cursor[lastSeg] = merged;
     } else {
         cursor[lastSeg] = data;
     }
@@ -2408,7 +2423,7 @@ function _secSilentRebaseline() {
 }
 
 function updateTopbarStats() {
-    const newOrders    = Object.values(allOrders).filter(o => (o.state || '0') === '0').length;
+    const newOrders    = Object.values(allOrders).filter(o => o && (o.state || '0') === '0').length;
     const onlineDrivers= allDrivers.filter(d => d && d.status === 'online').length;
     const userCount    = Object.keys(allUsers).length;
     document.getElementById('stat-orders').textContent  = newOrders;
@@ -2417,13 +2432,13 @@ function updateTopbarStats() {
 }
 
 function updateNavBadge() {
-    _setNavBadge('orders',     Object.values(allOrders).filter(o => (o.vault||'0') != 1).length);
+    _setNavBadge('orders',     Object.values(allOrders).filter(o => o && (o.vault||'0') != 1).length);
     // Same criteria as the "طلبات جديدة" topbar chip (state === new) — this
     // badge previously also required o.read !== '1', which made it drift
     // out of sync with that chip (and with every other nav badge, which
     // are all plain counts with no extra "seen" filter) the moment an
     // order got opened/viewed but hadn't moved past state 0 yet.
-    _setNavBadge('online-req', Object.values(allOrders).filter(o => (o.state||'0') === '0').length);
+    _setNavBadge('online-req', Object.values(allOrders).filter(o => o && (o.state||'0') === '0').length);
     _setNavBadge('drivers',    (allDrivers || []).filter(d => d).length);
     _setNavBadge('customers',  Object.keys(allUsers || {}).length);
     _setNavBadge('visitors',   Object.values(allVisitors || {}).filter(v => !_isVisitorConverted(v)).length);

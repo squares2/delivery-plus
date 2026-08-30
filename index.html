@@ -40,7 +40,7 @@
     <link rel="stylesheet" href="styles/navbar.css?v=13">
     <link rel="stylesheet" href="styles/hero.css?v=8">
     <link rel="stylesheet" href="styles/cards.css?v=9">
-    <link rel="stylesheet" href="styles/modals.css?v=23">
+    <link rel="stylesheet" href="styles/modals.css?v=24">
     <link rel="stylesheet" href="styles/store-panel.css?v=4">
     <link rel="stylesheet" href="styles/cart.css?v=10">
     <link rel="stylesheet" href="styles/footer.css?v=7">
@@ -932,6 +932,9 @@
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                         تسجيل الخروج
                     </button>
+                    <button class="acct-delete-account-link" id="acct-delete-account-btn">
+                        حذف الحساب نهائياً
+                    </button>
                 </div>
             </div>
             <p class="acct-version">Delivo v1.0</p>
@@ -1032,6 +1035,47 @@
                     تغيير كلمة المرور
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Delete Account modal (Play Store account-deletion requirement) -->
+    <div class="modal-overlay" id="modal-delete-account">
+        <div class="modal-box">
+            <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+            <h3 class="modal-title" style="color:#b91c1c;">🗑 حذف الحساب نهائياً</h3>
+            <p style="font-size:0.85rem;color:var(--clr-gray-500);line-height:1.7;margin:0 0 16px;">
+                سيتم حذف حسابك وكل بياناتك بشكل نهائي ولا يمكن التراجع عن ذلك، بما في ذلك:
+            </p>
+            <ul style="font-size:0.82rem;color:var(--clr-gray-500);line-height:1.9;margin:0 0 18px;padding-inline-start:20px;">
+                <li>الاسم ورقم الهاتف والعنوان المسجّلين</li>
+                <li>سجل طلباتك بالكامل</li>
+                <li>رصيد نقاطك وامتيازات الولاء</li>
+                <li>بيانات تسجيل الدخول (اسم المستخدم يصبح متاحاً فوراً لأي شخص آخر)</li>
+            </ul>
+
+            <div class="modal-field" id="delacct-password-field">
+                <label for="delacct-password">أدخل كلمة المرور لتأكيد الحذف</label>
+                <div class="password-input-row">
+                    <input type="password" id="delacct-password" placeholder="••••••••" autocomplete="current-password">
+                    <button type="button" class="password-toggle" data-target="delacct-password">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <p id="delacct-error"   class="modal-error"   style="display:none;"></p>
+            <p id="delacct-success" class="modal-success" style="display:none;"></p>
+
+            <button id="delacct-submit" class="btn-primary"
+                    style="width:100%;justify-content:center;padding:12px;background:#b91c1c;margin-top:4px;">
+                حذف حسابي نهائياً
+            </button>
+            <button data-close class="btn-secondary"
+                    style="width:100%;justify-content:center;padding:12px;margin-top:8px;">
+                إلغاء
+            </button>
         </div>
     </div>
 
@@ -1398,9 +1442,9 @@
     </div>
 
     <script src="scripts/navbar.js?v=14"></script>
-    <script src="scripts/firebase-init.js?v=12"></script>
+    <script src="scripts/firebase-init.js?v=13"></script>
     <script src="scripts/platform-status.js?v=1" defer></script>
-    <script src="scripts/modal-auth.js?v=30" defer></script>
+    <script src="scripts/modal-auth.js?v=32" defer></script>
     <script src="scripts/onboarding.js?v=1" defer></script>
 
     <script src="scripts/loader.js?v=17"></script>

@@ -1455,6 +1455,43 @@ function initModalAuth() {
             setTimeout(() => { if (typeof window.startFreshRegistration === 'function') window.startFreshRegistration(); }, 180);
             return;
         }
+        // Open the delete-account confirmation modal
+        if (e.target.closest('#acct-delete-account-btn')) {
+            closeModal('modal-account');
+            const pwField = document.getElementById('delacct-password-field');
+            if (pwField) pwField.style.display = (window.DelivoUser?.registrationMethod === 'phone-otp') ? 'none' : '';
+            hideError(document.getElementById('delacct-error'));
+            hideSuccess(document.getElementById('delacct-success'));
+            clearFields(['delacct-password']);
+            setTimeout(() => openModal('modal-delete-account'), 180);
+            return;
+        }
+        // Confirm & actually delete the account
+        if (e.target.closest('#delacct-submit')) {
+            const btn       = document.getElementById('delacct-submit');
+            const errorEl   = document.getElementById('delacct-error');
+            const successEl = document.getElementById('delacct-success');
+            const pwd       = document.getElementById('delacct-password')?.value || '';
+
+            hideError(errorEl);
+            hideSuccess(successEl);
+            setLoading(btn, true, 'جاري الحذف...');
+
+            const result = await window.DelivoAuth.deleteAccount({ currentPassword: pwd });
+
+            setLoading(btn, false, 'حذف حسابي نهائياً');
+
+            if (result.error) {
+                showError(errorEl, result.message);
+            } else {
+                showSuccess(successEl, '✓ تم حذف حسابك بالكامل');
+                setTimeout(() => {
+                    closeModal('modal-delete-account');
+                    location.reload();
+                }, 1200);
+            }
+            return;
+        }
     });
 
     // ── Enter key ────────────────────────────────────────────
@@ -1476,7 +1513,20 @@ function initModalAuth() {
 window.openAuthModal = async function() {
     if (typeof openModal !== 'function') return;
     let lead = null;
-    try { lead = await window.DelivoAuth.getDeviceLead(); } catch (_) {}
+    try {
+        // Race against a timeout — getDeviceLead() only had a try/catch
+        // before, which covers a network *error* but not a network
+        // *stall* (slow/flaky connection just never resolving). Since
+        // the caller has usually already closed the account modal by
+        // this point, a stuck fetch here meant nothing else could ever
+        // appear — the person was just left looking at nothing with no
+        // way to know it was still "loading". Fail open after 4s, same
+        // posture as the phone-limit checks elsewhere in this file.
+        lead = await Promise.race([
+            window.DelivoAuth.getDeviceLead(),
+            new Promise(resolve => setTimeout(() => resolve(null), 4000)),
+        ]);
+    } catch (_) {}
     openModal(lead ? 'modal-login' : 'modal-launch');
 };
 

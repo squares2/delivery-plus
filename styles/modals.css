@@ -520,6 +520,27 @@
 }
 .acct-signout-btn:hover { background: #fff1f1; }
 
+/* Deliberately lower-emphasis than sign-out — still clearly readable and
+   reachable in one tap (required for the Play Store account-deletion
+   policy), just not styled as a big button that invites accidental taps. */
+.acct-delete-account-link {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px;
+    background: transparent;
+    border: none;
+    color: var(--clr-gray-500);
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    text-align: center;
+}
+.acct-delete-account-link:hover { color: #b91c1c; }
+
 .acct-version {
     text-align: center;
     font-size: 10px;

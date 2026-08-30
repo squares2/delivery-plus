@@ -1241,6 +1241,105 @@ function onFirebaseReady() {
             }
         },
 
+        // ── Delete account (Play Store account-deletion requirement) ──
+        // Full self-service deletion: cleans up this account's own data
+        // (RTDB + Firestore), then deletes the Firebase Auth credential
+        // itself so the username/phone are immediately free again — the
+        // same end state as the admin panel's deleteUserAccount(), but
+        // done safely as a SELF-delete (user.delete() on the user's own
+        // still-active session) rather than the admin-side workaround
+        // that has to skip Auth deletion to avoid breaking the admin's
+        // own session.
+        //
+        // NOTE for whoever maintains Firebase security rules: this
+        // relies on the client being allowed to delete its own
+        // users/{uid} and usernames/{username} Firestore docs (the same
+        // rule that already lets register()/updateProfile() WRITE those
+        // docs from the client should normally also cover delete — but
+        // worth double-checking in the Firebase console if this ever
+        // silently fails to remove those two docs).
+        async deleteAccount({ currentPassword } = {}) {
+            const user = auth.currentUser;
+            if (!user) return { error: true, message: 'يجب تسجيل الدخول أولاً.' };
+
+            // Legacy/alternate accounts registered via phone-OTP have no
+            // real password to reauthenticate with — same condition
+            // populateEditForm() already uses to hide the password field.
+            const needsPassword = window.DelivoUser?.registrationMethod !== 'phone-otp';
+            if (needsPassword && !currentPassword)
+                return { error: true, message: 'أدخل كلمة المرور لتأكيد الحذف.' };
+
+            try {
+                // 1. Re-authenticate — Firebase requires a recent sign-in
+                //    before it will allow deleting the account.
+                if (needsPassword) {
+                    const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+                    await user.reauthenticateWithCredential(credential);
+                }
+
+                const uid        = user.uid;
+                const username   = window.DelivoUser?.username   || '';
+                const phone      = window.DelivoUser?.phone      || '';
+                const deviceUUID = window.DelivoUser?.deviceUUID || null;
+                const RTDB_B     = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+
+                // 2. Clean up this account's own data FIRST, while the
+                //    session is still valid — user.delete() below ends it.
+                const cleanups = [
+                    fetch(`${RTDB_B}/historyRequests/${uid}.json`, { method: 'DELETE' }),
+                ];
+                if (phone) {
+                    const digits = phone.replace(/\D/g, '').replace(/^961/, '');
+                    // Scoped to just this uid within phoneIndex/{digits} —
+                    // NOT a wholesale delete of the phone's whole index,
+                    // since other accounts may share the same number.
+                    if (digits) cleanups.push(fetch(`${RTDB_B}/phoneIndex/${digits}/${uid}.json`, { method: 'DELETE' }));
+                }
+                await Promise.allSettled(cleanups);
+
+                if (username) {
+                    try { await db.collection('usernames').doc(username).delete(); } catch (_) {}
+                }
+                try { await db.collection('users').doc(uid).delete(); } catch (_) {}
+
+                // Decrement this device's registered-account count —
+                // mirrors the admin panel's own cleanup step.
+                if (deviceUUID) {
+                    try {
+                        const devResp = await fetch(`${RTDB_B}/devices/${deviceUUID}.json`);
+                        if (devResp.ok) {
+                            const devData  = await devResp.json();
+                            const newCount = Math.max(0, (devData?.accountCount || 1) - 1);
+                            if (newCount === 0) {
+                                await fetch(`${RTDB_B}/devices/${deviceUUID}.json`, { method: 'DELETE' });
+                            } else {
+                                await fetch(`${RTDB_B}/devices/${deviceUUID}.json`, {
+                                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ accountCount: newCount }),
+                                });
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                // 3. Delete the Auth credential itself LAST — this is a
+                //    SELF-delete (Firebase's supported, safe case), unlike
+                //    deleting another user's account from an admin session.
+                await user.delete();
+
+                window.DelivoUser = null;
+                return { success: true };
+            } catch (e) {
+                console.error('[Delivo] deleteAccount:', e);
+                if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ||
+                    e.code === 'auth/invalid-login-credentials')
+                    return { error: true, message: 'كلمة المرور غير صحيحة.' };
+                if (e.code === 'auth/requires-recent-login')
+                    return { error: true, message: 'لأسباب أمنية، سجّل الخروج وأعد الدخول ثم حاول مجدداً.' };
+                return { error: true, message: authMsg(e.code) };
+            }
+        },
+
         // ── SMS methods (kept, ready to re-enable later) ───────
         // When SMS is fixed, just wire these back to the UI.
         async sendOTP({ name, phone }) {
