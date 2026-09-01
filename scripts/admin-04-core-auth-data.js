@@ -758,6 +758,34 @@ async function fbUpdate(path, data) {
 // re-downloading the entire node on a timer regardless of whether
 // anything in it changed.
 //
+// _rtdbSetDeepKey applies ONE (key, value) pair onto `target`, where `key`
+// may itself contain "/" — this happens when a Firebase multi-location
+// update() fans out across several depths under the streamed node in one
+// write (e.g. changeState() writing /requests/{id}/state AND
+// /requests/{id}/storeCounted, or a bulk action touching the same field
+// across many order ids at once). Firebase's SSE "patch" events do not
+// always collapse such fan-out into a clean nested object — the data
+// object can carry the remaining relative path as a single flat key
+// (e.g. "814/state"). Treating that key literally (as the old code did)
+// created bogus top-level siblings like allOrders["state/814"], which
+// then rendered as phantom rows with blank fields in every panel that
+// lists allOrders (most visibly "طلبات أونلاين"). Splitting the key and
+// drilling in — same as a real evtPath segment — fixes that at the root.
+function _rtdbSetDeepKey(target, key, value) {
+    const segs = String(key).split('/').filter(Boolean);
+    if (!segs.length) return;
+    let cursor = target;
+    for (let i = 0; i < segs.length - 1; i++) {
+        const seg = segs[i];
+        if (!cursor[seg] || typeof cursor[seg] !== 'object') cursor[seg] = {};
+        else cursor[seg] = { ...cursor[seg] };
+        cursor = cursor[seg];
+    }
+    const lastSeg = segs[segs.length - 1];
+    if (value === null) delete cursor[lastSeg];
+    else cursor[lastSeg] = value;
+}
+
 // _rtdbApplyPathOp applies a single Firebase SSE event (put/patch, each
 // carrying a `path` + `data`) onto a plain JS object, returning a new
 // object (shallow-cloned along the touched path only — cheap, since
@@ -772,9 +800,13 @@ function _rtdbApplyPathOp(root, evtPath, data, isPatch) {
         // {...root, ...data} spread would store that null instead of
         // removing the key, so strip any null-valued keys after merging.
         if (!isPatch) return (data || {});
-        const merged = { ...(root || {}), ...(data || {}) };
+        const merged = { ...(root || {}) };
         if (data && typeof data === 'object') {
-            for (const k in data) { if (data[k] === null) delete merged[k]; }
+            for (const k in data) {
+                if (k.includes('/')) _rtdbSetDeepKey(merged, k, data[k]);
+                else if (data[k] === null) delete merged[k];
+                else merged[k] = data[k];
+            }
         }
         return merged;
     }
@@ -793,9 +825,16 @@ function _rtdbApplyPathOp(root, evtPath, data, isPatch) {
     } else if (isPatch && data && typeof data === 'object' && !Array.isArray(data)) {
         // Same null-means-delete handling, one level down (e.g. a patch
         // touching several fields of one order, where one of those fields
-        // was removed rather than just changed).
-        const merged = { ...(cursor[lastSeg] && typeof cursor[lastSeg] === 'object' ? cursor[lastSeg] : {}), ...data };
-        for (const k in data) { if (data[k] === null) delete merged[k]; }
+        // was removed rather than just changed) — and the same flat
+        // "compound/key" fan-out handling as the root branch above, one
+        // level in (e.g. a patch landing on the order itself while one of
+        // its own field-updates couldn't collapse cleanly).
+        const merged = { ...(cursor[lastSeg] && typeof cursor[lastSeg] === 'object' ? cursor[lastSeg] : {}) };
+        for (const k in data) {
+            if (k.includes('/')) _rtdbSetDeepKey(merged, k, data[k]);
+            else if (data[k] === null) delete merged[k];
+            else merged[k] = data[k];
+        }
         cursor[lastSeg] = merged;
     } else {
         cursor[lastSeg] = data;
@@ -2423,7 +2462,7 @@ function _secSilentRebaseline() {
 }
 
 function updateTopbarStats() {
-    const newOrders    = Object.values(allOrders).filter(o => o && (o.state || '0') === '0').length;
+    const newOrders    = Object.values(allOrders).filter(o => o && typeof o === 'object' && (o.state || '0') === '0').length;
     const onlineDrivers= allDrivers.filter(d => d && d.status === 'online').length;
     const userCount    = Object.keys(allUsers).length;
     document.getElementById('stat-orders').textContent  = newOrders;
@@ -2432,13 +2471,13 @@ function updateTopbarStats() {
 }
 
 function updateNavBadge() {
-    _setNavBadge('orders',     Object.values(allOrders).filter(o => o && (o.vault||'0') != 1).length);
+    _setNavBadge('orders',     Object.values(allOrders).filter(o => o && typeof o === 'object' && (o.vault||'0') != 1).length);
     // Same criteria as the "طلبات جديدة" topbar chip (state === new) — this
     // badge previously also required o.read !== '1', which made it drift
     // out of sync with that chip (and with every other nav badge, which
     // are all plain counts with no extra "seen" filter) the moment an
     // order got opened/viewed but hadn't moved past state 0 yet.
-    _setNavBadge('online-req', Object.values(allOrders).filter(o => o && (o.state||'0') === '0').length);
+    _setNavBadge('online-req', Object.values(allOrders).filter(o => o && typeof o === 'object' && (o.state||'0') === '0').length);
     _setNavBadge('drivers',    (allDrivers || []).filter(d => d).length);
     _setNavBadge('customers',  Object.keys(allUsers || {}).length);
     _setNavBadge('visitors',   Object.values(allVisitors || {}).filter(v => !_isVisitorConverted(v)).length);

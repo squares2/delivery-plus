@@ -1850,8 +1850,13 @@ async function renderOnlineRequests() {
 
     const cv = await fetchCompanyVars();
 
-    // Build entries from allOrders
+    // Build entries from allOrders — guard against stray non-order entries
+    // (e.g. a key like "state/814" instead of a real order object) that a
+    // malformed realtime update can leave in the local mirror; a real
+    // order is always a plain object, so anything else is dropped here
+    // rather than rendered as a blank phantom row.
     let entries = Object.entries(allOrders)
+        .filter(([, o]) => o && typeof o === 'object')
         .sort(([a],[b]) => (parseInt(b.replace('id_',''))||0) - (parseInt(a.replace('id_',''))||0));
 
     // Filter by active tab
