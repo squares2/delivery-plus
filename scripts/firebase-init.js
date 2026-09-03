@@ -531,9 +531,21 @@ function onFirebaseReady() {
             // ── Check per-phone account limit ─────────────────────────
             // phoneIndex stores { uid1: true, uid2: true, ... } or just a uid string
             // for backwards compat. Count how many accounts already use this number.
-            if (_maxAccountsPerPhone > 0) {
-                try {
-                    const RTDB_BASE_PH = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+            //
+            // NOTE: we re-fetch settings/maxAccountsPerPhone fresh here instead of
+            // relying on the _maxAccountsPerPhone variable populated by
+            // _loadAccountLimits() at page load — that fetch runs in the background
+            // and may still be pending when the user submits the form, which was
+            // silently falling back to the hardcoded default of 1 and ignoring
+            // whatever value was saved in the admin settings.
+            try {
+                const RTDB_BASE_PH = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
+                const limitResp = await fetch(`${RTDB_BASE_PH}/settings/maxAccountsPerPhone.json`);
+                const limitVal  = await limitResp.json();
+                const parsedLimit = parseInt(limitVal);
+                const effectiveLimit = (parsedLimit > 0) ? parsedLimit : _maxAccountsPerPhone;
+
+                if (effectiveLimit > 0) {
                     const phResp  = await fetch(`${RTDB_BASE_PH}/phoneIndex/${phoneDigits}.json`);
                     const phData  = await phResp.json();
                     if (phData !== null) {
@@ -542,15 +554,15 @@ function onFirebaseReady() {
                         const phCount = (typeof phData === 'object' && !Array.isArray(phData))
                             ? Object.keys(phData).length
                             : 1;
-                        if (phCount >= _maxAccountsPerPhone) {
+                        if (phCount >= effectiveLimit) {
                             return {
                                 error: true,
-                                message: `لا يمكن إنشاء أكثر من ${_maxAccountsPerPhone} حساب بنفس رقم الهاتف.`,
+                                message: `لا يمكن إنشاء أكثر من ${effectiveLimit} حساب بنفس رقم الهاتف.`,
                             };
                         }
                     }
-                } catch (_) { /* fail open — don't block if check fails */ }
-            }
+                }
+            } catch (_) { /* fail open — don't block if check fails */ }
 
             // Device fingerprint/UUID is informational only from here on —
             // it's known to produce false positives: two different physical
