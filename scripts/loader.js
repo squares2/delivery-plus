@@ -141,6 +141,12 @@ async function loadAll() {
         }
     } catch (_) { /* keep the static fallbacks already in the markup */ }
 
+    /* Category icon shape — settings/categoryIconShape ('circle' default,
+       'square' opt-in). Applied before reveal so there's no visible
+       flash from one shape to the other; also kept live via the SSE
+       settings stream below (_applySettings → _applyCategoryIconShape). */
+    document.body.classList.toggle('icon-shape-square', settings?.categoryIconShape === 'square');
+
     /* Item 4: init scripts wrapped so one feature throwing doesn't
        stop the rest from running or block the page reveal right
        after this block — previously a single bad script here could
@@ -326,6 +332,11 @@ document.addEventListener('DOMContentLoaded', loadAll);
                           || settings.topStoresVisible === 'true';
         window._topStoresVisible = topStoresOn;
         _applyTopStoresVisibility(topStoresOn);
+
+        /* categoryIconShape — 'circle' (default) or 'square' icons for the
+           "تصفح الأقسام" bar. Toggled live so an admin change is reflected
+           immediately without the customer needing to refresh. */
+        document.body.classList.toggle('icon-shape-square', settings.categoryIconShape === 'square');
     }
 
     function _applyRegType(type) {

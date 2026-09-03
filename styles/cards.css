@@ -166,6 +166,25 @@
     pointer-events: none !important;
 }
 
+/* ── Square icon variant — admin setting: settings/categoryIconShape ──
+   Applied as a class on <body> (set in scripts/loader.js from the
+   settings fetch + live SSE stream) so the whole "تصفح الأقسام" bar
+   switches shape together. Overrides every border-radius:50% used by
+   the circle variant above, including its photo-fill and hover/active
+   tint overlays, plus the "قريباً" badge's rounded bottom corners. */
+.icon-shape-square .category-item__circle {
+    border-radius: 16px;
+}
+.icon-shape-square .category-item--photo .category-item__circle img {
+    border-radius: 16px;
+}
+.icon-shape-square .category-item--photo .category-item__circle::after {
+    border-radius: 16px;
+}
+.icon-shape-square .category-item--empty .category-item__circle::after {
+    border-radius: 0 0 16px 16px !important;
+}
+
 /* ══════════════════════════════════════════════════════════
    SECTION SPLITTER  (between mealtime & most-requested stores)
    ══════════════════════════════════════════════════════════ */

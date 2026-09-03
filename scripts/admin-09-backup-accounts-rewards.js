@@ -1263,6 +1263,14 @@ async function setTopStoresVisible(checked) {
     } catch(e) { toast('فشل تحديث الإعداد', true); }
 }
 
+async function setCategoryIconShape(checked) {
+    const shape = checked ? 'square' : 'circle';
+    try {
+        await fbSet('settings/categoryIconShape', shape);
+        toast(checked ? '🔲 أيقونات الأقسام أصبحت مربعة' : '⚪ أيقونات الأقسام أصبحت دائرية');
+    } catch(e) { toast('فشل تحديث شكل الأيقونات', true); }
+}
+
 async function setIntroEnabled(checked) {
     try {
         await fbSet('settings/introEnabled', checked);

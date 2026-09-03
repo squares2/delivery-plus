@@ -348,6 +348,16 @@ function renderSettings() {
                     <span class="toggle-slider"></span>
                 </label>
             </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">🔲 شكل أيقونات الأقسام (دائري / مربع)</div>
+                    <div class="setting-sub">يُحدد شكل أيقونات "تصفح الأقسام" في الصفحة الرئيسية للعملاء. عند التفعيل: مربع — عند إيقاف التفعيل (الافتراضي): دائري</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-category-square" onchange="setCategoryIconShape(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
         </div>
         <div class="settings-section">
             <div class="settings-section-title">📍 إلزامية تحديد موقع التوصيل</div>
@@ -892,6 +902,11 @@ function renderSettings() {
     fbGet('settings/topStoresVisible').then(val => {
         const toggle = document.getElementById('toggle-top-stores');
         if (toggle) toggle.checked = (val === null || val === undefined || val === true || val === 'true');
+    });
+    // Load current category icon shape (circle default, square opt-in)
+    fbGet('settings/categoryIconShape').then(val => {
+        const toggle = document.getElementById('toggle-category-square');
+        if (toggle) toggle.checked = (val === 'square');
     });
     // Load current onboarding-intro enabled state
     fbGet('settings/introEnabled').then(val => {
@@ -1675,6 +1690,8 @@ async function loadSettings() {
         if (loyTog) loyTog.checked = (s.loyaltyVisible === null || s.loyaltyVisible === undefined || s.loyaltyVisible === true || s.loyaltyVisible === 'true');
         const topStoresTog = document.getElementById('toggle-top-stores');
         if (topStoresTog) topStoresTog.checked = (s.topStoresVisible === null || s.topStoresVisible === undefined || s.topStoresVisible === true || s.topStoresVisible === 'true');
+        const catShapeTog = document.getElementById('toggle-category-square');
+        if (catShapeTog) catShapeTog.checked = (s.categoryIconShape === 'square');
         const introTog = document.getElementById('toggle-intro');
         if (introTog) introTog.checked = (s.introEnabled === null || s.introEnabled === undefined || s.introEnabled === true || s.introEnabled === 'true');
         const reqLocTog = document.getElementById('toggle-require-location');
