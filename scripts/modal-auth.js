@@ -68,6 +68,62 @@ function _ensureLeafletLoaded() {
     return _leafletLoadPromise;
 }
 
+// ── Shared OTP helpers ──────────────────────────────────────
+// These used to live inside initModalAuth() only, but the phone-login
+// flow further down this file (in its own separate DOMContentLoaded
+// handler, outside initModalAuth's closure) also calls _sendOtpWhatsapp/
+// _toIntlPhone/OTP_TIMEOUT — since those weren't visible from outside
+// initModalAuth, that call threw "ReferenceError: _sendOtpWhatsapp is
+// not defined" and login could never actually send/verify a WhatsApp
+// code whenever the instant device-match path didn't apply. Hoisted to
+// module scope so both the registration flow and the login flow share
+// the exact same implementation.
+const OTP_TIMEOUT      = 5 * 60 * 1000; // 5 minutes
+const OTP_SEND_TIMEOUT = 20000;         // ms — hard cap so a bad connection can't hang the request forever
+
+function _generateOtp() { return Math.floor(1000 + Math.random() * 9000).toString(); }
+
+// Lebanese local numbers starting with "03" carry a leading 0 that is NOT part
+// of the international number (e.g. local 03 123 456 -> intl 961 3 123 456).
+// Other prefixes (70/71/76/78/79/81/82/83/86) have no leading 0 to strip.
+function _toIntlPhone(phone) {
+    return String(phone || '').replace(/^0/, '');
+}
+
+async function _sendOtpWhatsapp(phone) {
+    // Sending happens server-side now (functions/sendotpcode.js) — the
+    // GREEN-API instance/token never touch this page. This call only
+    // relays the phone number, this device's UUID (for daily rate
+    // limiting), and the code this client already generated; the
+    // function builds the actual WhatsApp message itself and rejects
+    // anything past settings/otpMaxAttemptsPerDay per device/phone.
+    const deviceUUID = await window.DelivoAuth?.getDeviceUUID?.().catch(() => null);
+    if (!deviceUUID) throw new Error('تعذّر التعرّف على الجهاز. أعد تحميل الصفحة وحاول مجدداً.');
+
+    const code = _generateOtp();
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), OTP_SEND_TIMEOUT);
+    let resp;
+    try {
+        resp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/sendOtpCode', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ phone: _toIntlPhone(phone), deviceUUID, code }),
+            signal:  controller.signal,
+        });
+    } catch (err) {
+        // On a bad connection the request may still have reached the function even though we never got
+        // a response — don't imply the user should just try again right away.
+        if (err.name === 'AbortError') throw new Error('⏳ الاتصال بطيء جداً. قد يكون الكود قد أُرسل بالفعل — تحقق من واتساب قبل طلب كود جديد.');
+        throw new Error('تعذر الاتصال بالخادم. تحقق من شبكتك — قد يكون الكود قد وصل، تحقق من واتساب أولاً.');
+    } finally {
+        clearTimeout(timeoutId);
+    }
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || `فشل إرسال كود OTP (${resp.status})`);
+    return code;
+}
+
 function initModalAuth() {
     window.__renderAccountModal = renderAccountModal;
 
@@ -93,7 +149,6 @@ function initModalAuth() {
     // ── Register ────────────────────────────────────────────
     // OTP state — persisted in sessionStorage to survive page refreshes
     const OTP_SS_KEY  = 'delivo_otp_state';
-    const OTP_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
     function _saveOtpState(state) { sessionStorage.setItem(OTP_SS_KEY, JSON.stringify(state)); }
     function _loadOtpState()      { try { return JSON.parse(sessionStorage.getItem(OTP_SS_KEY)||'null'); } catch(_){ return null; } }
@@ -102,11 +157,8 @@ function initModalAuth() {
     let _otpResendTimer = null;
     let _otpExpireTimer = null;
     let _otpSendInFlight = false;      // guards against double-fire while a send request is still in the air
-    const OTP_SEND_TIMEOUT   = 20000;  // ms — hard cap so a bad connection can't hang the request forever
     const OTP_RETRY_COOLDOWN = 30;     // seconds — forced wait after ANY send attempt (success OR failure) so a
                                         // flaky connection can't be used to spam repeated real WhatsApp sends
-
-    function _generateOtp() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 
     // Disables a button and shows a countdown, regardless of whether the last attempt succeeded or failed.
     function _lockButtonWithCooldown(btn, seconds, restoreLabel) {
@@ -167,46 +219,9 @@ function initModalAuth() {
         showError(errorEl, '⌛ انتهت صلاحية كود التحقق. يمكنك إرسال كود جديد.');
     }
 
-    // Lebanese local numbers starting with "03" carry a leading 0 that is NOT part
-    // of the international number (e.g. local 03 123 456 -> intl 961 3 123 456).
-    // Other prefixes (70/71/76/78/79/81/82/83/86) have no leading 0 to strip.
-    function _toIntlPhone(phone) {
-        return String(phone || '').replace(/^0/, '');
-    }
-
-    async function _sendOtpWhatsapp(phone) {
-        // Sending happens server-side now (functions/sendotpcode.js) — the
-        // GREEN-API instance/token never touch this page. This call only
-        // relays the phone number, this device's UUID (for daily rate
-        // limiting), and the code this client already generated; the
-        // function builds the actual WhatsApp message itself and rejects
-        // anything past settings/otpMaxAttemptsPerDay per device/phone.
-        const deviceUUID = await window.DelivoAuth?.getDeviceUUID?.().catch(() => null);
-        if (!deviceUUID) throw new Error('تعذّر التعرّف على الجهاز. أعد تحميل الصفحة وحاول مجدداً.');
-
-        const code = _generateOtp();
-        const controller = new AbortController();
-        const timeoutId  = setTimeout(() => controller.abort(), OTP_SEND_TIMEOUT);
-        let resp;
-        try {
-            resp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/sendOtpCode', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ phone: _toIntlPhone(phone), deviceUUID, code }),
-                signal:  controller.signal,
-            });
-        } catch (err) {
-            // On a bad connection the request may still have reached the function even though we never got
-            // a response — don't imply the user should just try again right away.
-            if (err.name === 'AbortError') throw new Error('⏳ الاتصال بطيء جداً. قد يكون الكود قد أُرسل بالفعل — تحقق من واتساب قبل طلب كود جديد.');
-            throw new Error('تعذر الاتصال بالخادم. تحقق من شبكتك — قد يكون الكود قد وصل، تحقق من واتساب أولاً.');
-        } finally {
-            clearTimeout(timeoutId);
-        }
-        const data = await resp.json();
-        if (!resp.ok || data.error) throw new Error(data.error || `فشل إرسال كود OTP (${resp.status})`);
-        return code;
-    }
+    // _toIntlPhone / _sendOtpWhatsapp now live at module scope above
+    // initModalAuth() — see the "Shared OTP helpers" block near the top
+    // of this file — so the login flow further down can use them too.
 
     // ── Real-time username availability check ───────────────────
     const FS_BASE = 'https://firestore.googleapis.com/v1/projects/deliveryonline-300f7/databases/(default)/documents';
@@ -861,6 +876,17 @@ function initModalAuth() {
         _otpSendInFlight = false;
         setLoading(regBtnEl, false, isFresh ? 'تأكيد الكود وإنشاء الحساب' : 'تأكيد الكود وإرسال الطلب');
         if (result.error) {
+            if (result.alreadyRegistered) {
+                // Permanent condition — this phone genuinely already has an
+                // account, so telling the user to just press "confirm" again
+                // (the generic retry hint below) would trap them retrying a
+                // request that can never succeed. Stop the OTP flow here and
+                // route them straight to login instead.
+                _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
+                closeModal('modal-subscribe');
+                openModal('modal-login');
+                return;
+            }
             showError(errorEl, result.message + ' — الكود ما زال صالحاً، اضغط "تأكيد" مجدداً بدون طلب كود جديد.');
             return;
         }
