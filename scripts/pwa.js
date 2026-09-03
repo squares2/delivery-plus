@@ -99,6 +99,22 @@ const _isLocalDev = ['localhost', '127.0.0.1'].includes(location.hostname);
 if ('serviceWorker' in navigator && !_isLocalDev) {
     let _swReg = null;
 
+    // Record BEFORE register() whether this page already had a controller.
+    // clients.claim() in sw.js's activate handler fires 'controllerchange'
+    // in BOTH of these cases:
+    //   1. A real update — an already-installed SW is being replaced by a
+    //      newer one. The page above was served from the OLD cache, so it
+    //      genuinely needs the reload to pick up fresh files.
+    //   2. A brand new device/first-ever visit — there was no SW at all
+    //      yet, so this load already came straight from the network with
+    //      the latest files. clients.claim() still "claims" this
+    //      previously-uncontrolled page and still fires 'controllerchange',
+    //      but there's nothing stale to replace — reloading here was pure
+    //      noise, and is exactly the extra "launch, then relaunch" seen on
+    //      a fresh device.
+    // Only case 1 should ever trigger a reload.
+    const _hadControllerBeforeRegister = !!navigator.serviceWorker.controller;
+
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
             .then(reg => {
@@ -111,12 +127,12 @@ if ('serviceWorker' in navigator && !_isLocalDev) {
             .catch(err => console.warn('[PWA] SW registration failed:', err));
 
         // 'controllerchange' is the ONE actual reload trigger — it fires
-        // exactly once when clients.claim() in sw.js's activate handler
-        // hands control to the new worker. The SW also separately posts an
-        // SW_UPDATED message around the same moment (see below); that used
-        // to ALSO trigger its own reload, which raced with this one and
-        // caused the page to visibly reload twice on every deploy. Now the
-        // message is purely informational — logging only, no reload here.
+        // when clients.claim() in sw.js's activate handler hands control to
+        // the new worker. The SW also separately posts an SW_UPDATED message
+        // around the same moment (see below); that used to ALSO trigger its
+        // own reload, which raced with this one and caused the page to
+        // visibly reload twice on every deploy. Now the message is purely
+        // informational — logging only, no reload here.
         navigator.serviceWorker.addEventListener('message', event => {
             if (event.data && event.data.type === 'SW_UPDATED') {
                 console.log('[PWA] New version activated (reload is handled by controllerchange)');
@@ -127,6 +143,12 @@ if ('serviceWorker' in navigator && !_isLocalDev) {
         navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (refreshing) return;
             refreshing = true;
+            if (!_hadControllerBeforeRegister) {
+                // First-ever install on this device/browser — this load
+                // already has the latest files, nothing to reload for.
+                console.log('[PWA] First install claimed this page — no reload needed.');
+                return;
+            }
             console.log('[PWA] New version detected — reloading for fresh files');
             window.location.reload();
         });
