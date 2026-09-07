@@ -1049,3 +1049,193 @@
 .oh-sheet__empty-icon { font-size: 2.5rem; }
 .oh-sheet__empty p { font-size: 0.88rem; font-weight: 700; }
 .oh-sheet__empty small { font-size: 0.75rem; }
+/* ============================================================
+   "Squares" developer-credit advertisement (#modal-squares-ad)
+   Deliberately styled apart from the rest of the app's light,
+   orange-branded modals — this is Squares' own identity, not
+   Delivo's, so it gets a dark, premium "software house" look.
+   ============================================================ */
+.squares-ad-box {
+    padding: 0 !important;
+    max-width: 400px;
+    /* Explicit flex layout: header stays fixed size, everything else
+       lives in .squares-ad-scroll below which does the actual scrolling.
+       This is the belt to .modal-box's own max-height:92vh/overflow-y:auto
+       (the suspenders) — relying on the outer box alone assumes 92vh
+       always resolves against the truly visible viewport, which some
+       short screens / embedded webviews get wrong, leaving the bottom
+       (checkbox + footer) unreachable with no working scrollbar. An
+       internal scroll region can't have that problem: its available
+       height is whatever's left after the fixed header, full stop. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* NOTE: no "overflow: hidden" here — that clipped the header's
+       corners but also killed .modal-box's own overflow-y:auto scrollbar.
+       The header's own corners are rounded below instead. */
+}
+.squares-ad-box .modal-close {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 2;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    backdrop-filter: blur(4px);
+}
+
+.squares-ad-header {
+    background: linear-gradient(145deg, #0f172a 0%, #1e293b 55%, #111827 100%);
+    padding: 34px 24px 26px;
+    text-align: center;
+    position: relative;
+    flex-shrink: 0; /* never compressed — the scroll region below absorbs any shortage of space */
+    /* Matches .modal-box's own border-radius (var(--radius-xl)) so the
+       header's top corners still look seamlessly rounded now that the
+       parent no longer clips via overflow:hidden. */
+    border-radius: var(--radius-xl, 20px) var(--radius-xl, 20px) 0 0;
+}
+.squares-ad-header::after {
+    /* subtle accent line tying back to Delivo's orange, without
+       making this look like a Delivo-branded screen */
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--clr-orange, #ff5c00), transparent);
+}
+/* The actual scrollable region — body text, points, CTA, WhatsApp
+   button, "don't show again" checkbox, and footer all live in here.
+   flex:1 + min-height:0 is the standard fix for "flex child won't
+   shrink/scroll" — without min-height:0 a flex item defaults to never
+   shrinking below its content's natural height, which would silently
+   defeat overflow-y:auto here exactly the way the outer box alone did. */
+.squares-ad-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.squares-ad-logo {
+    display: block;
+    width: 92px;
+    height: auto;
+    margin: 0 auto 10px;
+    filter: drop-shadow(0 6px 16px rgba(0,0,0,0.35));
+}
+.squares-ad-brand {
+    color: #fff;
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+}
+.squares-ad-tag {
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-top: 4px;
+    text-transform: uppercase;
+}
+
+.squares-ad-body {
+    padding: 22px 22px 4px;
+}
+.squares-ad-lead {
+    font-size: 0.86rem;
+    line-height: 1.85;
+    color: var(--clr-gray-600, #4b5563);
+    margin: 0 0 16px;
+}
+.squares-ad-lead strong { color: var(--clr-gray-900, #111827); }
+.squares-ad-points {
+    list-style: none;
+    margin: 0 0 18px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+.squares-ad-points li {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--clr-gray-700, #374151);
+    background: var(--clr-gray-50, #f9fafb);
+    border-radius: 10px;
+    padding: 9px 12px;
+}
+.squares-ad-cta-text {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--clr-gray-800, #1f2937);
+    margin: 0 0 14px;
+    text-align: center;
+}
+
+.squares-ad-whatsapp {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 22px 20px;
+    padding: 13px;
+    background: #25d366;
+    color: #fff;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 0.86rem;
+    text-decoration: none;
+    box-shadow: 0 6px 18px rgba(37,211,102,0.35);
+}
+.squares-ad-whatsapp:active { transform: scale(0.98); }
+
+.squares-ad-dismiss-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 22px 12px;
+    cursor: pointer;
+    user-select: none;
+}
+.squares-ad-dismiss-row input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--clr-orange, #ff5c00);
+    cursor: pointer;
+    margin: 0;
+}
+.squares-ad-dismiss-row span {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--clr-gray-400, #9ca3af);
+}
+
+.squares-ad-footer {
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--clr-gray-400, #9ca3af);
+    padding: 0 22px 20px;
+    letter-spacing: 0.3px;
+}
+
+/* Short screens (small phones, or a browser window resized short) —
+   trims the header so more of the ad fits without scrolling at all.
+   The internal .squares-ad-scroll region above still covers anything
+   this doesn't fully solve, so the footer/checkbox are reachable
+   either way — this just reduces how often scrolling is needed. */
+@media (max-height: 700px) {
+    .squares-ad-header { padding: 20px 24px 16px; }
+    .squares-ad-logo { width: 64px; margin-bottom: 6px; }
+    .squares-ad-brand { font-size: 1.1rem; }
+    .squares-ad-tag { font-size: 0.64rem; margin-top: 2px; }
+    .squares-ad-body { padding: 14px 22px 4px; }
+    .squares-ad-lead { font-size: 0.8rem; line-height: 1.6; margin-bottom: 10px; }
+    .squares-ad-points { gap: 6px; margin-bottom: 12px; }
+    .squares-ad-points li { padding: 6px 10px; font-size: 0.76rem; }
+    .squares-ad-cta-text { margin-bottom: 10px; }
+    .squares-ad-whatsapp { margin: 0 22px 12px; padding: 10px; }
+    .squares-ad-dismiss-row { padding: 0 22px 8px; }
+    .squares-ad-footer { padding: 0 22px 12px; }
+}

@@ -1142,6 +1142,12 @@
     box-shadow: 0 2px 6px rgba(255,92,0,0.45);
     pointer-events: none;
 }
+/* Once an admin-set store URL activates a button (loader.js removes
+   .store-btn--soon), the "قريباً" badge on that button is no longer
+   relevant — hide it instead of leaving a stale "soon" tag on a live link. */
+.store-btn:not(.store-btn--soon) .store-btn__soon-badge {
+    display: none;
+}
 
 /* ── QR row ─────────────────────────────────────────────── */
 .app-download__qr-row {

@@ -1271,6 +1271,42 @@ async function setCategoryIconShape(checked) {
     } catch(e) { toast('فشل تحديث شكل الأيقونات', true); }
 }
 
+async function setSquaresAdEnabled(checked) {
+    try {
+        await fbSet('settings/squaresAdEnabled', checked);
+        toast(checked ? '✅ تم تفعيل إعلان Squares — يمكنك الآن إرساله' : '🚫 تم تعطيل إعلان Squares — لن يظهر حتى لو أُرسل سابقاً');
+    } catch(e) { toast('فشل تحديث الإعداد', true); }
+}
+
+async function triggerSquaresAd() {
+    const enabledNow = document.getElementById('toggle-squares-ad-enabled')?.checked;
+    if (!enabledNow) {
+        toast('⚠️ فعّل الإعلان أولاً من المفتاح أعلاه قبل الإرسال', true);
+        return;
+    }
+    const btn = document.getElementById('squares-ad-trigger-btn');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = 'جاري الإرسال...'; }
+    try {
+        const ts = Date.now();
+        await fbSet('settings/squaresAdTriggerAt', ts);
+        toast('📢 تم إرسال الإعلان — سيظهر الآن لكل عميل مفتوح لديه الصفحة');
+        _renderSquaresAdLastSent(ts);
+    } catch(e) {
+        toast('فشل إرسال الإعلان', true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '📢 إرسال الإعلان الآن للعملاء'; }
+    }
+}
+
+function _renderSquaresAdLastSent(ts) {
+    const el = document.getElementById('squares-ad-last-sent');
+    if (!el) return;
+    const n = parseInt(ts);
+    if (!n) { el.textContent = 'لم يتم إرساله بعد'; return; }
+    const d = new Date(n);
+    el.textContent = `آخر إرسال: ${d.toLocaleDateString('ar-LB')} — ${d.toLocaleTimeString('ar-LB', { hour:'2-digit', minute:'2-digit' })}`;
+}
+
 async function setIntroEnabled(checked) {
     try {
         await fbSet('settings/introEnabled', checked);
@@ -1837,6 +1873,52 @@ function _ofiBindToggle() {
         body.style.display = expanded ? 'none' : 'block';
         if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
     });
+}
+
+function _sacBindToggle() {
+    if (window._sacToggleBound) return;
+    window._sacToggleBound = true;
+    document.getElementById('sac-toggle-header')?.addEventListener('click', () => {
+        const body    = document.getElementById('sac-admin-body');
+        const chevron = document.getElementById('sac-toggle-chevron');
+        if (!body) return;
+        const expanded = body.style.display !== 'none';
+        body.style.display = expanded ? 'none' : 'block';
+        if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
+    });
+}
+
+async function saveSquaresAdContent() {
+    const status = document.getElementById('sac-status');
+    const val = id => document.getElementById(id)?.value.trim() || '';
+
+    const phoneDigits = val('sac-phone').replace(/\D/g, '');
+    const pointsArr = val('sac-points').split('\n').map(l => l.trim()).filter(Boolean);
+
+    const content = {
+        title:    val('sac-title'),
+        tagline:  val('sac-tagline'),
+        logoUrl:  val('sac-logo-url'),
+        body:     val('sac-body'),
+        points:   pointsArr,
+        ctaText:  val('sac-cta-text'),
+        phone:    phoneDigits,
+        footer:   val('sac-footer'),
+    };
+    // Drop empty fields entirely rather than saving blanks — an empty
+    // string would override the built-in fallback text on the customer
+    // page with nothing instead of leaving the default in place.
+    Object.keys(content).forEach(k => {
+        if (!content[k] || (Array.isArray(content[k]) && !content[k].length)) delete content[k];
+    });
+
+    try {
+        await fbSet('settings/squaresAdContent', content);
+        if (status) { status.textContent = '✅ تم حفظ محتوى الإعلان — سيظهر فوراً لكل عميل يفتح الإعلان بعد الآن'; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+        setTimeout(() => { if (status) status.style.display = 'none'; }, 5000);
+    } catch (e) {
+        if (status) { status.textContent = '❌ فشل حفظ محتوى الإعلان'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════

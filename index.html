@@ -7,7 +7,7 @@
          newer version has shipped, even if this page itself is being
          served from a stale cache. Bump alongside BUILD_TS in sw.js and
          the "version" field in version.json on every deploy. -->
-    <script>window.APP_VERSION = '20260820140000';</script>
+    <script>window.APP_VERSION = '20260907120000';</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delivo - كل شي بيوصلك لباب البيت</title>
     <link rel="manifest" href="manifest.json">
@@ -39,8 +39,8 @@
     <link rel="stylesheet" href="styles/base.css?v=28">
     <link rel="stylesheet" href="styles/navbar.css?v=13">
     <link rel="stylesheet" href="styles/hero.css?v=8">
-    <link rel="stylesheet" href="styles/cards.css?v=9">
-    <link rel="stylesheet" href="styles/modals.css?v=24">
+    <link rel="stylesheet" href="styles/cards.css?v=11">
+    <link rel="stylesheet" href="styles/modals.css?v=26">
     <link rel="stylesheet" href="styles/store-panel.css?v=4">
     <link rel="stylesheet" href="styles/cart.css?v=10">
     <link rel="stylesheet" href="styles/footer.css?v=7">
@@ -446,9 +446,15 @@
                             حمل التطبيق الآن واستمتع بتجربة طلب مميزة
                         </p>
 
-                        <!-- Store buttons row -->
+                        <!-- Store buttons row — hrefs are wired live from
+                             settings/playStoreUrl + settings/appStoreUrl
+                             (loader.js: _applyStoreLinks). Each button starts
+                             in the disabled "قريباً" state (matches today's
+                             look) and only becomes a real clickable link once
+                             the admin fills in that store's URL — no code
+                             deploy needed once the app goes live. -->
                         <div class="app-download__btns">
-                            <span class="store-btn store-btn--soon" aria-disabled="true">
+                            <a class="store-btn store-btn--soon" id="store-btn-googleplay" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">
                                 <span class="store-btn__icon">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                                         <path d="M3.18 23.76c.3.17.64.24.98.24.4 0 .8-.11 1.15-.32L18.4 16.4l-3.26-3.26-11.96 10.62zM.5 1.4C.19 1.83 0 2.4 0 3.1v17.8c0 .7.19 1.27.5 1.7l.09.08 9.97-9.97v-.24L.59 1.32.5 1.4zM22.55 10.4l-3.01-1.71-3.38 3.38 3.38 3.38 3.03-1.72c.87-.49.87-1.3 0-1.79l-.02-.54zM4.11.32L18.18 8.6l-3.26 3.26L3.09.56C3.4.35 3.8.13 4.11.32z"/>
@@ -459,8 +465,8 @@
                                     <span class="store-btn__name">Google Play</span>
                                 </span>
                                 <span class="store-btn__soon-badge">قريباً</span>
-                            </span>
-                            <span class="store-btn store-btn--soon" aria-disabled="true">
+                            </a>
+                            <a class="store-btn store-btn--soon" id="store-btn-appstore" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">
                                 <span class="store-btn__icon">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                                         <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.15-2.18 1.27-2.16 3.8.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.37 2.78M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
@@ -471,7 +477,7 @@
                                     <span class="store-btn__name">App Store</span>
                                 </span>
                                 <span class="store-btn__soon-badge">قريباً</span>
-                            </span>
+                            </a>
                         </div>
 
                         <!-- QR row -->
@@ -1079,6 +1085,73 @@
         </div>
     </div>
 
+    <!-- ══ "Squares" developer-credit advertisement ═══════════════════
+         Hidden by default — only shown when the admin flips
+         settings/squaresAdEnabled AND presses "Send now", which bumps
+         settings/squaresAdTriggerAt. Wiring lives in scripts/loader.js
+         (_applySettings → _maybeShowSquaresAd). Not opened via the
+         generic [data-modal] click pattern since nothing on the page
+         should be able to trigger it locally — it only ever opens
+         programmatically from that settings check.
+
+         CONTENT below (logo, title, body, points, phone…) is only a
+         fallback shown before settings/squaresAdContent loads (or if it
+         was never set). Once the app is on the Play/App Store, editing
+         this HTML would need a full store release — so every visible
+         piece here also has an id that scripts/loader.js
+         (_applySquaresAdContent) overwrites from that Firebase path,
+         letting the admin panel change the whole ad's wording, bullet
+         points, logo, and phone number with no app update needed. ══ -->
+    <div class="modal-overlay" id="modal-squares-ad">
+        <div class="modal-box squares-ad-box">
+            <button class="modal-close" data-close aria-label="إغلاق">✕</button>
+
+            <div class="squares-ad-header">
+                <img class="squares-ad-logo" id="squares-ad-logo" src="./assets/branding/squares-logo.png" alt="Squares" width="240" height="201" loading="lazy">
+                <div class="squares-ad-brand" id="squares-ad-brand">Squares</div>
+                <div class="squares-ad-tag" id="squares-ad-tag">Software &amp; Digital Systems</div>
+            </div>
+
+            <!-- Everything below the header sits in its own explicitly
+                 scrollable region (see .squares-ad-scroll in modals.css)
+                 instead of relying only on .modal-box's own overflow.
+                 That outer overflow depends on max-height:92vh resolving
+                 correctly against the real visible viewport — on some
+                 short screens/embedded webviews the box was rendering
+                 taller than what's actually visible with no way to reach
+                 the rest, since the header wasn't fixed-size and the box
+                 wasn't explicitly laid out as header+scrollable-body. This
+                 guarantees the footer/checkbox stay reachable regardless. -->
+            <div class="squares-ad-scroll">
+                <div class="squares-ad-body">
+                    <p class="squares-ad-lead" id="squares-ad-lead">
+                        تطبيق <strong>Delivo</strong> الذي تستخدمه الآن، بكل ما فيه من تصميم وتقنيات،
+                        هو من تطوير <strong>Squares</strong> — مؤسسة متخصصة في بناء الأنظمة والتطبيقات
+                        الرقمية المتكاملة للشركات والمشاريع، من الفكرة حتى الإطلاق الفعلي.
+                    </p>
+                    <ul class="squares-ad-points" id="squares-ad-points">
+                        <li>💻 تطبيقات ويب وأنظمة توصيل متكاملة</li>
+                        <li>🖥️ أنظمة إدارة ونقاط بيع (POS) مخصصة</li>
+                        <li>📱 تطبيقات PWA تعمل كتطبيق حقيقي بدون متاجر تطبيقات</li>
+                    </ul>
+                    <p class="squares-ad-cta-text" id="squares-ad-cta-text">لديك فكرة مشروع أو تحتاج نظاماً مشابهاً؟ تواصل معنا مباشرة:</p>
+                </div>
+
+                <a class="squares-ad-whatsapp" id="squares-ad-whatsapp" href="https://wa.me/96176884643" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm0 18.15h-.01c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.19 8.19 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.26-8.24 2.2 0 4.27.86 5.83 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.55-3.7 8.23-8.24 8.23zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.53.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.13-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.48-.41-.42-.56-.43-.14-.01-.31-.01-.48-.01-.17 0-.43.06-.66.31-.23.25-.86.85-.86 2.06 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.19.21-.58.21-1.08.15-1.19-.06-.1-.23-.17-.48-.29z"/></svg>
+                    <span><bdi dir="ltr" id="squares-ad-phone-display">+961 76 884 643</bdi> — <span id="squares-ad-whatsapp-label">تواصل عبر واتساب</span></span>
+                </a>
+
+                <label class="squares-ad-dismiss-row">
+                    <input type="checkbox" id="squares-ad-dont-show-again">
+                    <span>عدم إظهار هذا الإعلان مرة أخرى</span>
+                </label>
+
+                <div class="squares-ad-footer" id="squares-ad-footer">Delivo — Powered by Squares</div>
+            </div>
+        </div>
+    </div>
+
     <!-- ═══════════════════════════════════════════════════════
          STORE PANEL — full-screen slide-up menu
     ═══════════════════════════════════════════════════════ -->
@@ -1442,22 +1515,22 @@
     </div>
 
     <script src="scripts/navbar.js?v=14"></script>
-    <script src="scripts/firebase-init.js?v=13"></script>
+    <script src="scripts/firebase-init.js?v=14"></script>
     <script src="scripts/platform-status.js?v=1" defer></script>
-    <script src="scripts/modal-auth.js?v=32" defer></script>
+    <script src="scripts/modal-auth.js?v=33" defer></script>
     <script src="scripts/onboarding.js?v=1" defer></script>
 
-    <script src="scripts/loader.js?v=17"></script>
+    <script src="scripts/loader.js?v=19"></script>
     <script src="scripts/modals.js?v=7"></script>
     <script src="scripts/stores.js?v=16"></script>
     <script src="scripts/categories.js?v=11"></script>
     <script src="scripts/cart.js?v=30"></script>
     <script src="scripts/store-panel.js?v=18"></script>
     <script src="scripts/quick-menu.js?v=9" defer></script>
-    <script src="scripts/mealtime.js?v=6" defer></script>
+    <script src="scripts/mealtime.js?v=7" defer></script>
     <script src="scripts/promo-flip.js?v=6" defer></script>
     <script src="scripts/hero-bg.js?v=3"></script>
-    <script src="scripts/pwa.js?v=11" defer></script>
+    <script src="scripts/pwa.js?v=12" defer></script>
     <script src="scripts/presence.js?v=4" defer></script>
     <script src="scripts/back-handler.js?v=3" defer></script>
     <script>

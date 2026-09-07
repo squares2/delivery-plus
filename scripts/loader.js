@@ -93,6 +93,37 @@ const _hardRevealTimer = setTimeout(() => {
     hideSplash();
 }, 8000);
 
+/* ── App-store / Play-store buttons (settings/playStoreUrl,
+   settings/appStoreUrl) ───────────────────────────────────────
+   Both buttons render in the disabled "قريباً" state by default
+   (see index.html markup). Once the admin fills in a store's URL
+   from the settings panel, that button's .store-btn--soon class is
+   dropped and its href is wired live — no code deploy needed when
+   the app actually goes live on either store. A blank/whitespace
+   value puts the button straight back into the "soon" state.
+   Called both on initial boot (loadAll, below) and on every live
+   settings update (_applySettings further down). */
+function _applyStoreLinks(settings) {
+    const map = [
+        { id: 'store-btn-googleplay', url: settings?.playStoreUrl },
+        { id: 'store-btn-appstore',   url: settings?.appStoreUrl  },
+    ];
+    map.forEach(({ id, url }) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const clean = String(url || '').trim();
+        if (clean) {
+            el.classList.remove('store-btn--soon');
+            el.removeAttribute('aria-disabled');
+            el.href = clean;
+        } else {
+            el.classList.add('store-btn--soon');
+            el.setAttribute('aria-disabled', 'true');
+            el.href = '#';
+        }
+    });
+}
+
 /* ── Main boot sequence ──────────────────────────────────────*/
 async function loadAll() {
 
@@ -146,6 +177,9 @@ async function loadAll() {
        flash from one shape to the other; also kept live via the SSE
        settings stream below (_applySettings → _applyCategoryIconShape). */
     document.body.classList.toggle('icon-shape-square', settings?.categoryIconShape === 'square');
+
+    /* Play Store / App Store buttons — see _applyStoreLinks above */
+    _applyStoreLinks(settings);
 
     /* Item 4: init scripts wrapped so one feature throwing doesn't
        stop the rest from running or block the page reveal right
@@ -337,6 +371,134 @@ document.addEventListener('DOMContentLoaded', loadAll);
            "تصفح الأقسام" bar. Toggled live so an admin change is reflected
            immediately without the customer needing to refresh. */
         document.body.classList.toggle('icon-shape-square', settings.categoryIconShape === 'square');
+
+        /* Play Store / App Store buttons — see _applyStoreLinks above */
+        _applyStoreLinks(settings);
+
+        /* squaresAdEnabled / squaresAdTriggerAt — the "Squares" developer-
+           credit ad. Hidden by default; only appears when BOTH the admin
+           master switch is on AND a fresh trigger timestamp comes through.
+           See _maybeShowSquaresAd for the per-device dedupe + validity
+           window logic. */
+        _applySquaresAdContent(settings.squaresAdContent);
+        _maybeShowSquaresAd(settings);
+    }
+
+    /* ── "Squares" ad CONTENT (editable from admin, no app-store release
+       needed) ─────────────────────────────────────────────────────────
+       Every field falls back to the original hardcoded copy already
+       sitting in the HTML, so an admin who never touches these settings
+       sees exactly the same ad as before. c is settings/squaresAdContent,
+       shaped like:
+         { title, tagline, body, points: [line1, line2, ...],
+           ctaText, phone (digits only, e.g. "96176884643"), footer,
+           logoUrl }
+       phone drives both the visible number and the wa.me link; logoUrl
+       lets the admin swap the image itself (hosted elsewhere) without
+       touching the bundled asset. */
+    function _applySquaresAdContent(c) {
+        c = c && typeof c === 'object' ? c : {};
+
+        const setText = (id, val, fallback) => {
+            const el = document.getElementById(id);
+            if (el && (val || fallback)) el.textContent = val || fallback;
+        };
+
+        setText('squares-ad-brand',      c.title,   'Squares');
+        setText('squares-ad-tag',        c.tagline, 'Software & Digital Systems');
+        setText('squares-ad-cta-text',   c.ctaText, 'لديك فكرة مشروع أو تحتاج نظاماً مشابهاً؟ تواصل معنا مباشرة:');
+        setText('squares-ad-footer',     c.footer,  'Delivo — Powered by Squares');
+
+        const leadEl = document.getElementById('squares-ad-lead');
+        if (leadEl && c.body) leadEl.textContent = c.body; // plain text only — admin content, no HTML/markup risk
+
+        const pointsList = Array.isArray(c.points) ? c.points.filter(p => p && String(p).trim()) : null;
+        if (pointsList && pointsList.length) {
+            const ul = document.getElementById('squares-ad-points');
+            if (ul) ul.innerHTML = pointsList.map(p => `<li>${_escapeHtml(String(p))}</li>`).join('');
+        }
+
+        const logoEl = document.getElementById('squares-ad-logo');
+        if (logoEl && c.logoUrl) logoEl.src = c.logoUrl;
+
+        const digits = String(c.phone || '').replace(/\D/g, '');
+        if (digits) {
+            const phoneEl = document.getElementById('squares-ad-phone-display');
+            const linkEl  = document.getElementById('squares-ad-whatsapp');
+            if (phoneEl) phoneEl.textContent = _formatFooterPhone(digits);
+            if (linkEl)  linkEl.href = `https://wa.me/${digits}`;
+        }
+    }
+
+    function _escapeHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* ── "Squares" ad trigger check ──────────────────────────
+       - settings.squaresAdEnabled must be true (admin master switch).
+       - settings.squaresAdTriggerAt must be a timestamp newer than the
+         last one this device has already seen (localStorage), so the
+         same broadcast never pops twice on one device — including on
+         a plain page refresh, since _applySettings also runs on the
+         very first settings fetch at load.
+       - Limited to a 24h window from the trigger so a device that opens
+         the page long after a trigger (e.g. next week) doesn't suddenly
+         get shown an old announcement.
+       - If the admin disables the ad afterward, nothing shows even if a
+         past trigger is technically still within its window.
+       - If the customer ever closed it with "don't show again" checked,
+         it's suppressed permanently — for every future trigger, not just
+         the current one — until the device UUID / local storage is lost
+         (app data cleared, reinstall, account reset), since that's the
+         only thing tracking this preference. */
+    const SQUARES_AD_SEEN_KEY      = 'delivo_squares_ad_seen_ts';
+    const SQUARES_AD_DISMISSED_KEY = 'delivo_squares_ad_dismissed';
+    function _maybeShowSquaresAd(settings) {
+        try { if (localStorage.getItem(SQUARES_AD_DISMISSED_KEY) === '1') return; } catch (_) {}
+
+        const enabled = settings.squaresAdEnabled === true || settings.squaresAdEnabled === 'true';
+        if (!enabled) return;
+        const triggerAt = parseInt(settings.squaresAdTriggerAt);
+        if (!triggerAt) return;
+        const windowHours = parseInt(settings.squaresAdWindowHours) || 24; // admin-configurable, settings/squaresAdWindowHours
+        if (Date.now() - triggerAt > windowHours * 60 * 60 * 1000) return; // trigger too old — expired
+
+        let seenTs = 0;
+        try { seenTs = parseInt(localStorage.getItem(SQUARES_AD_SEEN_KEY)) || 0; } catch (_) {}
+        if (triggerAt <= seenTs) return; // this device already saw this exact trigger
+
+        const modal = document.getElementById('modal-squares-ad');
+        if (!modal) return;
+        _bindSquaresAdDismiss(modal);
+        // Small delay so it never fights with the launch/onboarding modal
+        // for the very first paint of a session.
+        setTimeout(() => {
+            if (typeof openModal === 'function') openModal('modal-squares-ad');
+            else modal.classList.add('active');
+            try { localStorage.setItem(SQUARES_AD_SEEN_KEY, String(triggerAt)); } catch (_) {}
+        }, 300);
+    }
+
+    /* Captures the "don't show again" checkbox at the moment the ad is
+       closed — via the ✕ button, a backdrop click, or Escape (the three
+       ways modals.js already closes any modal) — and persists it so
+       _maybeShowSquaresAd skips every future trigger, not just this one. */
+    let _squaresAdDismissBound = false;
+    function _bindSquaresAdDismiss(modal) {
+        if (_squaresAdDismissBound) return;
+        _squaresAdDismissBound = true;
+        const persistIfChecked = () => {
+            const cb = document.getElementById('squares-ad-dont-show-again');
+            if (cb && cb.checked) {
+                try { localStorage.setItem(SQUARES_AD_DISMISSED_KEY, '1'); } catch (_) {}
+            }
+        };
+        modal.addEventListener('click', (e) => {
+            if (e.target.closest('[data-close]') || e.target === modal) persistIfChecked();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('active')) persistIfChecked();
+        });
     }
 
     function _applyRegType(type) {
@@ -438,7 +600,7 @@ document.addEventListener('DOMContentLoaded', loadAll);
             .then(r => r.ok ? r.json() : null)
             .then(data => { if (data) _applySettings(data); })
             .catch(() => {})
-            .finally(() => setTimeout(_pollFallback, 30000));
+            .finally(() => setTimeout(_pollFallback, 8000));
     }
 
     /* ── Build partial object from SSE path ─────────────────── */

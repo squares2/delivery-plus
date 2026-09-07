@@ -24,6 +24,38 @@ function renderSettings() {
         </div>
 
         <div class="settings-section">
+            <div class="settings-section-title">📲 روابط متاجر التطبيقات (Google Play / App Store)</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">أزرار "حمّل التطبيق" في الصفحة الرئيسية</div>
+                    <div class="setting-sub">اترك الحقل فارغاً ليبقى الزر بحالة "قريباً" كما هو الآن — عند إدخال الرابط بعد نشر التطبيق على المتجر يصبح الزر قابلاً للنقر فوراً بدون تحديث نسخة الموقع</div>
+                </div>
+            </div>
+            <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:10px;">
+                <div>
+                    <label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:4px;">🤖 رابط Google Play</label>
+                    <input type="url" id="play-store-url-input" placeholder="https://play.google.com/store/apps/details?id=..." dir="ltr"
+                           style="width:100%;background:var(--surface2);border:1px solid var(--border);
+                                  border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                                  font-family:var(--mono);font-size:0.82rem;direction:ltr;">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;font-weight:800;color:var(--gray);display:block;margin-bottom:4px;">🍎 رابط App Store</label>
+                    <input type="url" id="app-store-url-input" placeholder="https://apps.apple.com/app/id..." dir="ltr"
+                           style="width:100%;background:var(--surface2);border:1px solid var(--border);
+                                  border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                                  font-family:var(--mono);font-size:0.82rem;direction:ltr;">
+                </div>
+                <button id="store-links-save"
+                        style="align-self:flex-end;background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ الروابط
+                </button>
+            </div>
+            <div id="store-links-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+        </div>
+
+        <div class="settings-section">
             <div class="settings-section-title">🧑‍🤝‍🧑 عداد الزوار المباشر (Live Visitors)</div>
             <div class="setting-row">
                 <div>
@@ -357,6 +389,98 @@ function renderSettings() {
                     <input type="checkbox" id="toggle-category-square" onchange="setCategoryIconShape(this.checked)">
                     <span class="toggle-slider"></span>
                 </label>
+            </div>
+        </div>
+        <div class="settings-section">
+            <div class="settings-section-title">🏢 إعلان Squares (الجهة المطوّرة لـ Delivo)</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">تفعيل الإعلان</div>
+                    <div class="setting-sub">مفتاح رئيسي — يجب تفعيله أولاً حتى يعمل زر "إرسال الآن" أدناه. عند التعطيل لا يظهر الإعلان لأي عميل مهما كانت آخر عملية إرسال</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-squares-ad-enabled" onchange="setSquaresAdEnabled(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div style="padding:0 16px 16px;">
+                <div class="setting-sub" style="margin-bottom:10px;">
+                    الزر أدناه لا يبدّل أي شيء بشكل دائم — كل ضغطة تُطلق ظهور الإعلان فوراً لكل عميل مفتوح لديه الصفحة حالياً، ولأي عميل يفتحها خلال المدة المحددة أدناه، مرة واحدة لكل جهاز.
+                </div>
+                <button id="squares-ad-trigger-btn" onclick="triggerSquaresAd()"
+                        style="width:100%;padding:12px;background:linear-gradient(90deg,#111827,#1f2937);border:1px solid rgba(255,92,0,0.35);border-radius:10px;color:#fff;font-family:var(--font);font-weight:800;font-size:0.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                    📢 إرسال الإعلان الآن للعملاء
+                </button>
+                <div id="squares-ad-last-sent" style="margin-top:8px;font-size:0.72rem;color:#9ca3af;text-align:center;"></div>
+            </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">⏱️ مدة صلاحية الإعلان بعد الإرسال (ساعات)</div>
+                    <div class="setting-sub">أي عميل يفتح الصفحة خلال هذه المدة من وقت آخر إرسال سيشاهد الإعلان مرة واحدة. بعد انتهاء المدة يتوقف ظهوره تلقائياً حتى لو أُرسل مجدداً لاحقاً (الافتراضي: 24)</div>
+                </div>
+            </div>
+            <div class="setting-row" style="gap:10px;">
+                <input type="number" id="squares-ad-window-input" placeholder="24" min="1" max="168" step="1"
+                       style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);
+                              font-family:var(--mono);font-size:0.85rem;direction:ltr;">
+                <button id="squares-ad-window-save"
+                        style="background:var(--orange);color:#fff;border:none;border-radius:var(--radius-sm);
+                               padding:8px 18px;font-weight:800;cursor:pointer;white-space:nowrap;">
+                    💾 حفظ
+                </button>
+            </div>
+            <div id="squares-ad-window-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:4px;"></div>
+        </div>
+        <div class="settings-section" id="squares-ad-content-section">
+            <div class="settings-section-title" id="sac-toggle-header"
+                 style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;">
+                <span>✏️ محتوى الإعلان (قابل للتعديل بدون تحديث التطبيق)</span>
+                <span id="sac-toggle-chevron" style="transition:transform 0.2s;font-size:0.9rem;">▸</span>
+            </div>
+            <div id="sac-admin-body" style="display:none;padding:16px;">
+                <div style="font-size:0.72rem;color:var(--gray);margin-bottom:14px;line-height:1.6;">
+                    بما أن تعديل الصفحة مباشرة يصبح صعباً بعد النشر على Play Store وApp Store، كل النصوص هنا تُقرأ من الإعدادات مباشرة — يمكنك تغيير أي منها في أي وقت دون الحاجة لتحديث التطبيق من المتاجر.
+                </div>
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">اسم الجهة (العنوان الكبير)</label>
+                <input type="text" id="sac-title" placeholder="Squares"
+                       style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:0.85rem;margin-bottom:12px;">
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">الشعار الفرعي (تحت الاسم)</label>
+                <input type="text" id="sac-tagline" placeholder="Software & Digital Systems"
+                       style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:0.85rem;margin-bottom:12px;">
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">رابط صورة الشعار (اختياري)</label>
+                <input type="text" id="sac-logo-url" placeholder="اتركه فارغاً لاستخدام الشعار الافتراضي المرفق مع التطبيق" dir="ltr"
+                       style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--mono);font-size:0.8rem;margin-bottom:12px;">
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">الفقرة التعريفية</label>
+                <textarea id="sac-body" rows="3" placeholder="تطبيق Delivo الذي تستخدمه الآن..."
+                          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:0.85rem;margin-bottom:12px;resize:vertical;"></textarea>
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">نقاط الخدمات (سطر لكل نقطة)</label>
+                <textarea id="sac-points" rows="3" placeholder="💻 تطبيقات ويب وأنظمة توصيل متكاملة
+🖥️ أنظمة إدارة ونقاط بيع (POS) مخصصة
+📱 تطبيقات PWA تعمل كتطبيق حقيقي بدون متاجر تطبيقات"
+                          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:0.85rem;margin-bottom:12px;resize:vertical;"></textarea>
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">نص الدعوة للتواصل</label>
+                <input type="text" id="sac-cta-text" placeholder="لديك فكرة مشروع أو تحتاج نظاماً مشابهاً؟ تواصل معنا مباشرة:"
+                       style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:0.85rem;margin-bottom:12px;">
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">رقم واتساب للتواصل</label>
+                <input type="tel" id="sac-phone" placeholder="96176884643" dir="ltr" inputmode="numeric"
+                       style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--mono);font-size:0.85rem;margin-bottom:12px;">
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">سطر التذييل (أسفل البطاقة)</label>
+                <input type="text" id="sac-footer" placeholder="Delivo — Powered by Squares"
+                       style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:0.85rem;margin-bottom:14px;">
+
+                <button onclick="saveSquaresAdContent()" style="width:100%;padding:11px;background:var(--green);color:#fff;border:none;border-radius:10px;font-family:var(--font);font-weight:800;cursor:pointer;font-size:0.88rem;">
+                    💾 حفظ محتوى الإعلان
+                </button>
+                <div id="sac-status" style="font-size:0.72rem;color:var(--green);display:none;margin-top:8px;text-align:center;"></div>
             </div>
         </div>
         <div class="settings-section">
@@ -908,6 +1032,47 @@ function renderSettings() {
         const toggle = document.getElementById('toggle-category-square');
         if (toggle) toggle.checked = (val === 'square');
     });
+    // Load Squares-ad enabled state + last-sent timestamp
+    fbGet('settings/squaresAdEnabled').then(val => {
+        const toggle = document.getElementById('toggle-squares-ad-enabled');
+        if (toggle) toggle.checked = (val === true || val === 'true');
+    });
+    fbGet('settings/squaresAdTriggerAt').then(val => _renderSquaresAdLastSent(val));
+    fbGet('settings/squaresAdWindowHours').then(val => {
+        const inp = document.getElementById('squares-ad-window-input');
+        if (inp) inp.value = (val !== null && val !== undefined) ? parseInt(val) || 24 : 24;
+    }).catch(() => {});
+    // Load Squares-ad editable content
+    fbGet('settings/squaresAdContent').then(c => {
+        c = c && typeof c === 'object' ? c : {};
+        const set = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+        set('sac-title',    c.title);
+        set('sac-tagline',  c.tagline);
+        set('sac-logo-url', c.logoUrl);
+        set('sac-body',     c.body);
+        set('sac-points',   Array.isArray(c.points) ? c.points.join('\n') : c.points);
+        set('sac-cta-text', c.ctaText);
+        set('sac-phone',    c.phone);
+        set('sac-footer',   c.footer);
+    }).catch(() => {});
+    if (typeof _sacBindToggle === 'function') _sacBindToggle();
+
+    document.getElementById('squares-ad-window-save')?.addEventListener('click', async () => {
+        const inp    = document.getElementById('squares-ad-window-input');
+        const status = document.getElementById('squares-ad-window-status');
+        const val    = parseInt(inp?.value || '');
+        if (!val || val < 1 || val > 168) {
+            if (status) { status.textContent = '⚠️ أدخل رقماً بين 1 و 168 (أسبوع)'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+            return;
+        }
+        try {
+            await fbSet('settings/squaresAdWindowHours', val);
+            if (status) { status.textContent = `✅ تم الحفظ — مدة الصلاحية: ${val} ساعة`; status.style.color = 'var(--green)'; status.style.display = 'block'; }
+            setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
+        }
+    });
     // Load current onboarding-intro enabled state
     fbGet('settings/introEnabled').then(val => {
         const toggle = document.getElementById('toggle-intro');
@@ -945,6 +1110,82 @@ function renderSettings() {
             if (status) { status.textContent = '❌ فشل الحفظ'; status.style.color = 'var(--red)'; status.style.display = 'block'; }
         }
     });
+
+    // Load Play Store / App Store links — index.html's two "حمّل التطبيق"
+    // buttons stay disabled ("قريباً") on whichever store is still blank;
+    // see loader.js's _applyStoreLinks for how these two keys get applied.
+    // No artificial timeout here or on the save below — a slow connection
+    // should still end in a real save, not a false "failed" just because
+    // it took a while. We only ever report failure when the request
+    // itself actually errors out, never because of elapsed time.
+    fbGet('settings/playStoreUrl').then(val => {
+        const inp = document.getElementById('play-store-url-input');
+        if (inp && val) inp.value = val;
+    }).catch(() => {});
+    fbGet('settings/appStoreUrl').then(val => {
+        const inp = document.getElementById('app-store-url-input');
+        if (inp && val) inp.value = val;
+    }).catch(() => {});
+
+    let _storeLinksHideTimer  = null;
+    let _storeLinksWaitTimer  = null;
+    document.getElementById('store-links-save')?.addEventListener('click', async () => {
+        const btn     = document.getElementById('store-links-save');
+        const playInp = document.getElementById('play-store-url-input');
+        const appInp  = document.getElementById('app-store-url-input');
+        const status  = document.getElementById('store-links-status');
+        const playUrl = (playInp?.value || '').trim();
+        const appUrl  = (appInp?.value || '').trim();
+        const isValidOrBlank = (u) => !u || /^https?:\/\/.+/i.test(u);
+
+        clearTimeout(_storeLinksHideTimer);
+        clearTimeout(_storeLinksWaitTimer);
+        const setStatus = (text, color) => {
+            if (!status) return;
+            status.textContent = text; status.style.color = color; status.style.display = 'block';
+        };
+
+        if (!isValidOrBlank(playUrl) || !isValidOrBlank(appUrl)) {
+            setStatus('⚠️ الرابط يجب أن يبدأ بـ http:// أو https:// (أو اتركه فارغاً)', 'var(--red)');
+            return;
+        }
+
+        // Immediate feedback the moment the button is clicked, BEFORE the
+        // network round trip — on a slow/flaky connection the request can
+        // take a while, and with no "in progress" state the button looked
+        // like it did nothing at all.
+        setStatus('⏳ جارٍ الحفظ...', 'var(--gray)');
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.style.cursor = 'wait'; }
+
+        // Reassurance only, never a failure: on a slow connection this just
+        // confirms the request is still in flight and waiting, not stuck.
+        // The save itself has no time limit — it keeps waiting for a real
+        // response no matter how long the network takes.
+        _storeLinksWaitTimer = setTimeout(() => {
+            setStatus('⏳ الاتصال بطيء، ما زلنا ننتظر تأكيد الحفظ... الرجاء عدم إغلاق الصفحة', 'var(--gray)');
+        }, 6000);
+
+        try {
+            // Single combined write (PATCH on settings/) instead of two
+            // separate PUT requests — halves the round trips this button
+            // makes, so it also completes faster on a slow connection.
+            await fbUpdate('settings', { playStoreUrl: playUrl, appStoreUrl: appUrl });
+            clearTimeout(_storeLinksWaitTimer);
+            setStatus(
+                (!playUrl && !appUrl)
+                    ? '✅ تم الحفظ — الزرّان سيبقيان بحالة "قريباً"'
+                    : '✅ تم الحفظ — الأزرار المُفعَّلة أصبحت قابلة للنقر فوراً',
+                'var(--green)'
+            );
+            _storeLinksHideTimer = setTimeout(() => { if (status) status.style.display = 'none'; }, 4000);
+        } catch(e) {
+            clearTimeout(_storeLinksWaitTimer);
+            setStatus('❌ فشل الحفظ' + (e?.message ? ` — ${e.message}` : '') + ' — حاول مجدداً', 'var(--red)');
+        } finally {
+            if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = 'pointer'; }
+        }
+    });
+
 
     // Load orderAssignmentMode (default 'both' preserves existing behaviour)
     fbGet('settings/orderAssignmentMode').then(val => {
@@ -1692,6 +1933,13 @@ async function loadSettings() {
         if (topStoresTog) topStoresTog.checked = (s.topStoresVisible === null || s.topStoresVisible === undefined || s.topStoresVisible === true || s.topStoresVisible === 'true');
         const catShapeTog = document.getElementById('toggle-category-square');
         if (catShapeTog) catShapeTog.checked = (s.categoryIconShape === 'square');
+        const squaresAdTog = document.getElementById('toggle-squares-ad-enabled');
+        if (squaresAdTog) squaresAdTog.checked = (s.squaresAdEnabled === true || s.squaresAdEnabled === 'true');
+        _renderSquaresAdLastSent(s.squaresAdTriggerAt);
+        const squaresAdWindowInp = document.getElementById('squares-ad-window-input');
+        if (squaresAdWindowInp && document.activeElement !== squaresAdWindowInp) {
+            squaresAdWindowInp.value = (s.squaresAdWindowHours !== null && s.squaresAdWindowHours !== undefined) ? parseInt(s.squaresAdWindowHours) || 24 : 24;
+        }
         const introTog = document.getElementById('toggle-intro');
         if (introTog) introTog.checked = (s.introEnabled === null || s.introEnabled === undefined || s.introEnabled === true || s.introEnabled === 'true');
         const reqLocTog = document.getElementById('toggle-require-location');
