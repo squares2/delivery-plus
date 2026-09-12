@@ -1,3 +1,18 @@
+// Escapes text so it can be safely placed inside an HTML attribute value
+// (single/double quotes, angle brackets) when building card markup via
+// template literals + innerHTML. Any admin-editable free-text field
+// (nameAr, imgSlug, whatsapp, etc.) MUST go through this before being
+// inserted into an attribute — an unescaped `"` breaks out of the
+// attribute and corrupts the rest of the card's HTML.
+function _escAttr(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function openDriverEditModal(driver) {
     const isNew = !driver;
     document.getElementById('driver-modal-title').innerHTML = isNew
@@ -1469,7 +1484,7 @@ function renderStores() {
         const emoji     = TYPE_EMOJI[s.type] || '🏪';
         const typeLabel = TYPE_LABELS[s.type] || s.type;
         const imgSlug    = (s.imgSlug && s.imgSlug.trim()) ? s.imgSlug.trim().toLowerCase() : _scSafeSlug(name);
-        const imgPicture = `<picture style="width:100%;height:100%;display:block;"><source srcset="assets/${imgSlug}.webp" type="image/webp"><img src="assets/${imgSlug}.png" alt="${name}" style="width:100%;height:100%;object-fit:cover;" onerror="this.closest('picture').style.display='none';this.closest('picture').nextElementSibling.style.display='flex'"></picture>`;
+        const imgPicture = `<picture style="width:100%;height:100%;display:block;"><source srcset="assets/${imgSlug}.webp" type="image/webp"><img src="assets/${imgSlug}.png" alt="${_escAttr(name)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.closest('picture').style.display='none';this.closest('picture').nextElementSibling.style.display='flex'"></picture>`;
         const ordCount  = Object.values(allOrders).filter(o => o.store === name).length;
         const newOrders = Object.values(allOrders).filter(o => o.store === name && (o.state||'0') === '0').length;
 
@@ -1494,12 +1509,12 @@ function renderStores() {
                 ${isDisabled && !isClosed ? `<div class="sc-closed-overlay" style="background:rgba(30,30,30,0.72);"><span>🚫</span><span class="sc-closed-lbl" style="background:rgba(120,120,120,0.8);">معطّل</span></div>` : ''}
             </div>
             <div class="sc-body">
-                <div class="sc-name">${name}</div>
+                <div class="sc-name">${_escAttr(name)}</div>
                 <!-- Arabic name row -->
                 <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
                     <span style="font-size:0.6rem;color:var(--gray);flex-shrink:0;">🈶 عربي</span>
                     <input type="text" class="sc-namear-input" dir="rtl"
-                           value="${s.nameAr || ''}"
+                           value="${_escAttr(s.nameAr || '')}"
                            placeholder="الاسم بالعربية"
                            style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--white);font-family:var(--font);font-size:0.75rem;outline:none;">
                     <button class="sc-namear-save" title="حفظ الاسم العربي"
@@ -1511,8 +1526,8 @@ function renderStores() {
                 <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
                     <span style="font-size:0.6rem;color:var(--gray);flex-shrink:0;" title="اسم ملف الصورة: assets/{القيمة}.webp">🖼 صورة</span>
                     <input type="text" class="sc-imgslug-input" dir="ltr"
-                           value="${s.imgSlug || ''}"
-                           placeholder="${_scSafeSlug(name)}"
+                           value="${_escAttr(s.imgSlug || '')}"
+                           placeholder="${_escAttr(_scSafeSlug(name))}"
                            style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--white);font-family:var(--mono);font-size:0.72rem;outline:none;">
                     <button class="sc-imgslug-save" title="حفظ رمز الصورة"
                             style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:6px;color:var(--green);padding:4px 8px;cursor:pointer;font-size:0.72rem;">✓</button>
@@ -1523,7 +1538,7 @@ function renderStores() {
                 <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
                     <span style="font-size:0.6rem;color:var(--gray);flex-shrink:0;" title="رقم واتساب لإشعارات الطلبات">📱 واتساب</span>
                     <input type="tel" class="sc-whatsapp-input" dir="ltr"
-                           value="${s.whatsapp || ''}"
+                           value="${_escAttr(s.whatsapp || '')}"
                            placeholder="961XXXXXXXX"
                            style="flex:1;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--white);font-family:var(--mono);font-size:0.72rem;outline:none;">
                     <label class="toggle" style="transform:scale(0.72);flex-shrink:0;" title="${s.whatsappActive ? 'إشعارات واتساب مفعّلة' : 'إشعارات واتساب متوقفة'}">

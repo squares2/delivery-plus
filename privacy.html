@@ -39,6 +39,14 @@
         border-bottom: 1px solid var(--clr-gray-200);
         position: sticky; top: 0; z-index: 10;
     }
+    .pp-topbar__start { display: flex; align-items: center; gap: 10px; }
+    .pp-back {
+        display: flex; align-items: center; justify-content: center;
+        width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+        color: var(--clr-black); background: var(--clr-gray-100);
+        transition: background 0.15s;
+    }
+    .pp-back:hover { background: var(--clr-gray-200); }
     .pp-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.05rem; color: var(--clr-black); text-decoration: none; }
     .pp-brand img { width: 30px; height: 30px; border-radius: 8px; }
     .pp-lang-toggle {
@@ -93,7 +101,12 @@
 <body>
 
 <div class="pp-topbar">
-    <a href="index.html" class="pp-brand"><img src="assets/logo.png" alt="Delivo"><span>Delivo</span></a>
+    <div class="pp-topbar__start">
+        <a href="index.html" class="pp-back" aria-label="الرجوع للصفحة الرئيسية">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <a href="index.html" class="pp-brand"><img src="assets/logo.png" alt="Delivo"><span>Delivo</span></a>
+    </div>
     <div class="pp-lang-toggle">
         <button id="btn-ar" class="active" onclick="setLang('ar')">العربية</button>
         <button id="btn-en" onclick="setLang('en')">English</button>

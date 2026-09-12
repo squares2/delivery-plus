@@ -317,7 +317,7 @@
    ══════════════════════════════════════════════════════════ */
 .qm-hotline-fab {
     position: fixed;
-    left: 14px;
+    right: 14px;
     bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 14px);
     z-index: 390;
     display: flex;

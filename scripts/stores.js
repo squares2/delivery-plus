@@ -8,6 +8,27 @@
 
 const STORES_RTDB_URL = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 
+// Escapes text so it can be safely placed inside an HTML attribute value
+// or as element content — see the same helper in categories.js.
+function _escAttr(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+// Splits a store name like "شمس بعليك (أكلات أيام زمان)" into a main
+// line and a smaller parenthetical subtitle line — mirrors categories.js.
+function _formatStoreNameHtml(rawName) {
+    const name  = String(rawName ?? '');
+    const match = name.match(/^(.+?)\s*\(([^()]+)\)\s*$/);
+    if (!match) return _escAttr(name);
+    const [, main, sub] = match;
+    return `${_escAttr(main.trim())}<br><span class="store-card__name-sub">${_escAttr(sub.trim())}</span>`;
+}
+window._formatStoreNameHtml = _formatStoreNameHtml;
+
 /* ── Arabic type tags per Firebase store type ────────────── */
 const TYPE_TAGS_AR = {
     Restaurants  : 'مطعم',
@@ -293,7 +314,7 @@ async function renderTopStores() {
             </div>
 
             <div class="store-card__body">
-                <p class="store-card__name">${store.name}</p>
+                <p class="store-card__name" data-raw-name="${_escAttr(store.name)}">${_formatStoreNameHtml(store.name)}</p>
                 <p class="store-card__tags">${store.tags}</p>
                 ${store._closed && store._closedReason ? `<p class="store-card__closed-reason">${store._closedReason}</p>` : ''}
                 ${store._closed ? opensChip : ''}
@@ -415,8 +436,9 @@ function _startStoreNameSSE() {
         if (section) {
             section.querySelectorAll(`.store-card[data-store-rtdbkey="${companyname}"]`).forEach(card => {
                 const nameEl = card.querySelector('.store-card__name');
-                if (nameEl && nameEl.textContent !== display) {
-                    nameEl.textContent = display;
+                if (nameEl && nameEl.dataset.rawName !== display) {
+                    nameEl.dataset.rawName = display;
+                    nameEl.innerHTML = _formatStoreNameHtml(display);
                     nameEl.style.transition = 'color 0.4s';
                     nameEl.style.color = 'var(--clr-orange, #FF5C00)';
                     setTimeout(() => { nameEl.style.color = ''; }, 1200);

@@ -8,6 +8,14 @@
 
 const RTDB_URL  = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
 
+// Reuses the same "main name (parenthetical subtitle)" splitter defined in
+// stores.js (loaded before this file on index.html). Falls back to plain
+// escaped text if that global isn't available for any reason.
+function _spFormatStoreName(rawName) {
+    if (typeof window._formatStoreNameHtml === 'function') return window._formatStoreNameHtml(rawName);
+    return String(rawName ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 // Guards against a stale _loadStorePanel() call still running (and still
 // writing to the DOM / eating main-thread time) after the panel has been
 // closed and reopened again — e.g. quickly tapping a store, going back,
@@ -104,9 +112,9 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     if (_introMainTimer)  clearTimeout(_introMainTimer);
     if (_introExitTimer)  clearTimeout(_introExitTimer);
 
-    nameEl.textContent = (storeMeta && storeMeta.nameAr && storeMeta.nameAr.trim())
+    nameEl.innerHTML = _spFormatStoreName((storeMeta && storeMeta.nameAr && storeMeta.nameAr.trim())
         ? storeMeta.nameAr.trim()
-        : storeName;
+        : storeName);
     catEl.textContent  = (_typeEmoji(storeType) || '') + '  ' + (_typeLabel(storeType) || storeType);
     const rank = storeMeta && storeMeta.rank ? parseFloat(storeMeta.rank) : null;
     if (rank) { ratingVal.textContent = rank.toFixed(1); ratingEl.style.display = 'flex'; }
@@ -239,7 +247,7 @@ function _openStorePanelNow(storeId, storeName, storeType, rtdbKey) {
     const panel   = document.getElementById('store-panel');
     if (!overlay || !panel) return;
 
-    document.getElementById('sp-hero-name').textContent = storeName;
+    document.getElementById('sp-hero-name').innerHTML = _spFormatStoreName(storeName);
     document.getElementById('sp-hero-meta').innerHTML   = '';
     document.getElementById('sp-tabs-inner').innerHTML  = '';
     document.getElementById('sp-body').innerHTML        = renderSkeleton();
@@ -430,7 +438,7 @@ async function _loadStorePanel(storeName, storeType) {
         // Update hero name to Arabic if nameAr is set
         if (storeMeta && storeMeta.nameAr && storeMeta.nameAr.trim()) {
             const heroNameEl = document.getElementById('sp-hero-name');
-            if (heroNameEl) heroNameEl.textContent = storeMeta.nameAr.trim();
+            if (heroNameEl) heroNameEl.innerHTML = _spFormatStoreName(storeMeta.nameAr.trim());
         }
 
         // Re-load hero logo with correct imgSlug now that storeMeta is available
