@@ -175,6 +175,39 @@ function _confirmSendWithoutLocation() {
     });
 }
 
+// Generic styled replacement for the native confirm() dialog — same
+// modal-overlay/modal-box visual language as _confirmSendWithoutLocation
+// above, but for a plain yes/no question (used by the clear-cart button
+// so customers never see the ugly native browser "site says" popup).
+function _styledConfirm({ icon = '❓', title, msg, okLabel = 'تأكيد', cancelLabel = 'إلغاء', danger = false } = {}) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay active';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div class="modal-box" style="max-width:340px;text-align:center;">
+                <div style="font-size:2.6rem;line-height:1;margin-bottom:6px;">${icon}</div>
+                ${title ? `<h2 class="modal-title" style="margin-bottom:8px;">${title}</h2>` : ''}
+                ${msg ? `<p class="modal-subtitle" style="margin-bottom:22px;">${msg}</p>` : ''}
+                <button type="button" id="sc-ok"
+                        style="width:100%;padding:13px;margin-bottom:10px;border:none;border-radius:var(--radius-pill);
+                               font-family:inherit;font-size:0.95rem;font-weight:900;cursor:pointer;color:#fff;
+                               background:${danger ? '#dc2626' : 'var(--clr-orange)'};">
+                    ${okLabel}
+                </button>
+                <button type="button" id="sc-cancel"
+                        style="width:100%;padding:10px;background:none;border:none;color:var(--clr-gray-500);font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;">
+                    ${cancelLabel}
+                </button>
+            </div>`;
+        document.body.appendChild(overlay);
+        const close = (result) => { overlay.remove(); resolve(result); };
+        overlay.querySelector('#sc-ok').addEventListener('click', () => close(true));
+        overlay.querySelector('#sc-cancel').addEventListener('click', () => close(false));
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+    });
+}
+
 /* ══════════════════════════════════════════════════════════════
    NIGHT DELIVERY SURGE
    Reads settings/nightDelivery = { enabled, startHour, endHour, flatFee, perKm }.
@@ -1650,9 +1683,17 @@ function initCart() {
     if (closeBtn)  closeBtn.addEventListener('click', closeCartSidebar);
 
     const clearBtn = document.getElementById('cart-clear-btn');
-    if (clearBtn)  clearBtn.addEventListener('click', () => {
+    if (clearBtn)  clearBtn.addEventListener('click', async () => {
         if (window.DelivoCart.getCount() === 0) return;
-        if (confirm('هل تريد مسح السلة كاملاً؟')) {
+        const ok = await _styledConfirm({
+            icon: '🗑️',
+            title: 'مسح السلة',
+            msg: 'هل تريد مسح السلة كاملاً؟',
+            okLabel: 'مسح السلة',
+            cancelLabel: 'إلغاء',
+            danger: true
+        });
+        if (ok) {
             window.DelivoCart.clear();
             renderCartSidebar();
             if (window.updateSpCartBar) window.updateSpCartBar();
