@@ -7,7 +7,7 @@
          newer version has shipped, even if this page itself is being
          served from a stale cache. Bump alongside BUILD_TS in sw.js and
          the "version" field in version.json on every deploy. -->
-    <script>window.APP_VERSION = '20260912165000';</script>
+    <script>window.APP_VERSION = '20260912181500';</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delivo - كل شي بيوصلك لباب البيت</title>
     <link rel="manifest" href="manifest.json">
@@ -42,7 +42,7 @@
     <link rel="stylesheet" href="styles/cards.css?v=11">
     <link rel="stylesheet" href="styles/modals.css?v=26">
     <link rel="stylesheet" href="styles/store-panel.css?v=4">
-    <link rel="stylesheet" href="styles/cart.css?v=10">
+    <link rel="stylesheet" href="styles/cart.css?v=12">
     <link rel="stylesheet" href="styles/footer.css?v=7">
     <link rel="stylesheet" href="styles/promo-flip.css?v=7">
     <link rel="stylesheet" href="styles/hero-bg.css?v=2">
@@ -1300,14 +1300,6 @@
             </div>
 
             <div class="cart-totals">
-                <div class="cart-total-row">
-                    <span class="cart-total-label">المجموع الفرعي</span>
-                    <span class="cart-total-val" id="cart-subtotal"></span>
-                </div>
-                <div class="cart-total-row">
-                    <span class="cart-total-label">🛵 رسوم التوصيل</span>
-                    <span class="cart-total-val cart-total-val--remark" id="cart-delivery">يُحدَّد لاحقاً حسب المسافة</span>
-                </div>
                 <div class="cart-total-row" id="cart-discount-row" style="display:none;">
                     <span class="cart-total-label">خصم المكافأة</span>
                     <span class="cart-total-val" id="cart-discount" style="color:#ea580c;">−$0.00</span>
@@ -1318,87 +1310,68 @@
                 </div>
             </div>
 
-            <!-- Location label (always visible, no longer collapsible) -->
-            <div class="cart-extras-toggle cart-extras-toggle--static" id="cart-extras-toggle">
-                <span class="cart-extras-toggle__icons">
-                    <span id="cart-extras-loc-dot" class="cart-extras-dot" style="display:none">📍</span>
-                </span>
-                <span class="cart-extras-toggle__label">موقع التوصيل</span>
-            </div>
-
-            <!-- Always-visible extras panel -->
-            <div class="cart-extras-panel open" id="cart-extras-panel">
-
-                <div class="cart-location">
-                    <div class="cart-location__header">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="2.2"
-                             stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                            <circle cx="12" cy="10" r="3"/>
-                        </svg>
-                        <span>موقع التوصيل</span>
-                        <span class="cart-location__optional" id="cart-location__optional-tag">*</span>
-                    </div>
-                    <div class="cart-location__status" id="cart-loc-status">
-                        <span class="cart-location__status-text" id="cart-loc-status-text">لم يتم تحديد الموقع</span>
-                        <button class="cart-location__clear" id="cart-loc-clear" style="display:none" aria-label="مسح الموقع">✕</button>
-                    </div>
-                    <div class="cart-location__btns">
-                        <button type="button" class="cart-loc-btn" id="cart-loc-gps">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                                 stroke="currentColor" stroke-width="2"
-                                 stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="3"/>
-                                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-                            </svg>
-                            موقعي الحالي
-                        </button>
-                        <button type="button" class="cart-loc-btn" id="cart-loc-map">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                                 stroke="currentColor" stroke-width="2"
-                                 stroke-linecap="round" stroke-linejoin="round">
-                                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
-                                <line x1="8" y1="2" x2="8" y2="18"/>
-                                <line x1="16" y1="6" x2="16" y2="22"/>
-                            </svg>
-                            اختر على الخريطة
-                        </button>
-                    </div>
-                    <input type="hidden" id="cart-loc-lat">
-                    <input type="hidden" id="cart-loc-lng">
+            <div class="cart-location">
+                <div class="cart-location__header">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2.2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    <span>موقع التوصيل</span>
+                    <span class="cart-location__optional" id="cart-location__optional-tag">*</span>
                 </div>
+                <div class="cart-location__status" id="cart-loc-status">
+                    <span class="cart-location__status-text" id="cart-loc-status-text">لم يتم تحديد الموقع</span>
+                    <button class="cart-location__clear" id="cart-loc-clear" style="display:none" aria-label="مسح الموقع">✕</button>
+                </div>
+                <div class="cart-location__btns">
+                    <button type="button" class="cart-loc-btn" id="cart-loc-gps">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                        </svg>
+                        موقعي الحالي
+                    </button>
+                    <button type="button" class="cart-loc-btn" id="cart-loc-map">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                            <line x1="8" y1="2" x2="8" y2="18"/>
+                            <line x1="16" y1="6" x2="16" y2="22"/>
+                        </svg>
+                        اختر على الخريطة
+                    </button>
+                </div>
+                <input type="hidden" id="cart-loc-lat">
+                <input type="hidden" id="cart-loc-lng">
             </div>
 
-            <div class="cart-checkout-warning">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5"
-                     stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <span>
-                    بعد الإرسال <strong>لا يمكن تعديل الطلب</strong> — تأكد من سلّتك جيداً.
-                    إذا ارتكبت خطأً بعد الإرسال، تواصل مع الإدارة فوراً عبر
-                    <a id="cart-warning-admin-link" href="#"
-                       style="color:#d97706;font-weight:800;text-decoration:underline;white-space:nowrap;">
-                        واتساب / اتصال
-                    </a>
-                </span>
-            </div>
-            <button class="cart-checkout-btn" id="cart-checkout-btn">
-                <span class="cart-checkout-btn__icon">
+            <div class="cart-checkout-row">
+                <div class="cart-checkout-row">
+                <button class="cart-checkout-btn" id="cart-checkout-btn">
+                    <span class="cart-checkout-btn__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="9" cy="20" r="1.4"/>
+                            <circle cx="18" cy="20" r="1.4"/>
+                            <path d="M2.5 3h2l2.2 11.3a2 2 0 0 0 2 1.7h8.6a2 2 0 0 0 2-1.6L21 8H6"/>
+                        </svg>
+                    </span>
+                    <span>إرسال الطلب</span>
+                </button>
+                <button class="cart-clear-btn" id="cart-clear-btn" aria-label="مسح السلة" title="مسح السلة">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="9" cy="20" r="1.4"/>
-                        <circle cx="18" cy="20" r="1.4"/>
-                        <path d="M2.5 3h2l2.2 11.3a2 2 0 0 0 2 1.7h8.6a2 2 0 0 0 2-1.6L21 8H6"/>
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                     </svg>
-                </span>
-                <span>إرسال الطلب</span>
-            </button>
-            <button class="cart-clear-btn" id="cart-clear-btn">مسح السلة</button>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1536,7 +1509,7 @@
     <script src="scripts/modals.js?v=7"></script>
     <script src="scripts/stores.js?v=17"></script>
     <script src="scripts/categories.js?v=11"></script>
-    <script src="scripts/cart.js?v=30"></script>
+    <script src="scripts/cart.js?v=32"></script>
     <script src="scripts/store-panel.js?v=19"></script>
     <script src="scripts/quick-menu.js?v=9" defer></script>
     <script src="scripts/mealtime.js?v=7" defer></script>

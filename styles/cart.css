@@ -303,8 +303,8 @@
 }
 
 .cart-checkout-btn {
-    width: 100%;
-    padding: 18px;
+    flex: 1;
+    padding: 13px;
     background: var(--clr-orange);
     border: none;
     border-radius: var(--radius-pill);
@@ -319,7 +319,7 @@
     gap: 12px;
     transition: background 0.18s, transform 0.15s;
     box-shadow: var(--shadow-orange);
-    min-height: 64px;
+    min-height: 48px;
 }
 .cart-checkout-btn:hover  { background: var(--clr-orange-dim); }
 .cart-checkout-btn:active { transform: scale(0.98); }
@@ -404,21 +404,33 @@
     }
 }
 
-/* ── Clear cart link ──────────────────────────────────────── */
-.cart-clear-btn {
-    background: none;
-    border: none;
-    color: var(--clr-gray-400);
-    font-family: inherit;
-    font-size: clamp(0.68rem, 1.7vw, 0.76rem);
-    font-weight: 600;
-    cursor: pointer;
-    text-align: center;
-    padding: 4px;
-    transition: color 0.15s;
-    width: 100%;
+/* ── Checkout row: send + clear side by side ──────────────── */
+.cart-checkout-row {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
 }
-.cart-clear-btn:hover { color: #dc2626; }
+
+/* ── Clear cart button (icon, beside send) ────────────────── */
+.cart-clear-btn {
+    flex-shrink: 0;
+    width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--clr-gray-50, #f9f9f9);
+    border: 1.5px solid var(--clr-gray-200, #e8e8e8);
+    border-radius: var(--radius-pill);
+    color: var(--clr-gray-400);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.cart-clear-btn svg { width: 18px; height: 18px; }
+.cart-clear-btn:hover {
+    color: #dc2626;
+    border-color: #fca5a5;
+    background: rgba(220,38,38,0.06);
+}
 
 /* ── Checkout success toast ───────────────────────────────── */
 .cart-toast {
@@ -671,29 +683,6 @@
     background: var(--clr-white, #fff);
     border-top: 1px solid var(--clr-gray-100, #f0f0f0);
 }
-/* ══════════════════════════════════════════════════════════
-   Cart — Extras toggle (note + location collapsible)
-══════════════════════════════════════════════════════════ */
-.cart-extras-toggle {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    width: 100%;
-    background: var(--clr-gray-50, #f9f9f9);
-    border: 1.5px solid var(--clr-gray-200, #e8e8e8);
-    border-radius: var(--radius-md, 10px);
-    padding: 9px 12px;
-    font-family: inherit;
-    font-size: clamp(0.76rem, 2vw, 0.83rem);
-    font-weight: 700;
-    color: var(--clr-orange, #FF5C00);
-    background: #fff4ef;
-    border-color: var(--clr-orange, #FF5C00);
-    text-align: right;
-}
-.cart-extras-toggle__icons { display: flex; gap: 3px; flex-shrink: 0; }
-.cart-extras-dot { font-size: 0.85rem; }
-.cart-extras-toggle__label { flex: 1; }
 
 /* Panel — always fully visible, no collapse/animation */
 .cart-extras-panel {

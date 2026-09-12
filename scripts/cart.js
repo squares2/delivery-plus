@@ -990,14 +990,24 @@ function initCart() {
         const sidebar = document.getElementById('cart-sidebar');
         if (!overlay || !sidebar) return;
         window.DelivoAttn?.event('cartOpen');
-        // Load Arabic store names in background before rendering
-        _loadNameArCache().then(() => {
-            renderCartSidebar();
-            _loadAdminPhoneLink();
-        });
+        // Show the sidebar itself first — this must never be blocked by
+        // anything else in this function.
         overlay.classList.add('active');
         sidebar.classList.add('active');
         document.body.classList.add('modal-open');
+
+        // Render immediately with whatever store-name data we already have —
+        // the cart must never sit blank waiting on a network call. Arabic
+        // store names (if not yet cached) are patched in via a second
+        // render once _loadNameArCache resolves in the background. Guarded
+        // with try/catch so a render failure can never prevent the sidebar
+        // itself from opening.
+        try { renderCartSidebar(); } catch (e) { console.error('[Cart] initial render failed', e); }
+        _loadNameArCache().then(() => {
+            renderCartSidebar();
+            _loadAdminPhoneLink();
+        }).catch(e => console.error('[Cart] name-cache render failed', e));
+
         if (typeof window._cartLocationRefresh === 'function') window._cartLocationRefresh();
 
         // Kick off active reward check in background so it's ready by checkout time
