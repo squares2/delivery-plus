@@ -717,6 +717,24 @@ input, select, textarea { font-family: var(--font); }
 .oc-item-row .name { flex: 1; }
 .oc-item-row .qty  { color: var(--gray); margin: 0 10px; }
 .oc-item-row .price { font-family: var(--mono); color: var(--white); }
+/* Category + notes tags on each order item — same pill treatment as
+   .coc-item-notes in the company-portal order card (admin-10), kept as
+   its own rule here since this card (admin-05, the main "الطلبات" list)
+   was referencing "oc-item-notes" with no matching style at all, so the
+   📝 note previously rendered as bare unstyled text with no spacing
+   from the item name. Category gets a distinct color from notes so the
+   two tags stay visually separate at a glance. */
+.oc-item-cat, .oc-item-notes {
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-top: 4px;
+    margin-inline-start: 6px;
+    display: inline-block;
+}
+.oc-item-cat   { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+.oc-item-notes { color: var(--orange, #FF5C00); background: rgba(255, 92, 0, 0.08); }
 .oc-meta-row { display: flex; gap: var(--gap-sm); flex-wrap: wrap; margin-top: var(--pad-sm); }
 .oc-meta-chip {
     display: flex; align-items: center; gap: 4px;

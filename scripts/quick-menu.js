@@ -18,6 +18,18 @@ function _qmTypeEmoji(t) {
     return map[t] || '🏪';
 }
 
+// Same composition rule as store-panel.js's _composeItemCategory —
+// kept as its own small copy here rather than a cross-file call, since
+// quick-menu.js has no guaranteed load-order dependency on store-panel.js.
+function _qmComposeCategory(item) {
+    if (!item) return '';
+    const main = (item.catmain || '').trim();
+    const sub  = (item.cat     || '').trim();
+    if (!main && !sub) return '';
+    if (!sub || sub === main) return main;
+    return `${main} › ${sub}`;
+}
+
 function _qmRenderRow(item, storeName) {
     const id       = item.ID || item.id || '';
     const name     = item.name || '';
@@ -30,6 +42,7 @@ function _qmRenderRow(item, storeName) {
     const uniqueId = `${storeName}__${id}`;
     const sType    = window._currentStore ? window._currentStore.type : '';
     const emoji    = _qmTypeEmoji(item.companytype);
+    const itemCat  = _qmComposeCategory(item).replace(/'/g, "\\'");
 
     return `
     <div class="qm-row">
@@ -50,7 +63,7 @@ function _qmRenderRow(item, storeName) {
             ${hasSale ? `<span class="qm-row__price-old">${typeof formatPrice === 'function' ? formatPrice(price) : price}</span>` : ''}
         </div>
         <button class="qm-row__add" aria-label="أضف للسلة"
-                onclick="_qmQuickAdd(this,'${uniqueId}','${name.replace(/'/g,"\\'")}',${dispPrice},'${storeName.replace(/'/g,"\\'")}','${sType}','${imgUrl}')">
+                onclick="_qmQuickAdd(this,'${uniqueId}','${name.replace(/'/g,"\\'")}',${dispPrice},'${storeName.replace(/'/g,"\\'")}','${sType}','${imgUrl}','${itemCat}')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
@@ -58,11 +71,11 @@ function _qmRenderRow(item, storeName) {
     </div>`;
 }
 
-function _qmQuickAdd(btn, uniqueId, name, price, storeName, storeType, imgUrl) {
+function _qmQuickAdd(btn, uniqueId, name, price, storeName, storeType, imgUrl, category) {
     if (window.spAddItem) {
-        window.spAddItem(uniqueId, name, price, storeName, storeType, null, imgUrl);
+        window.spAddItem(uniqueId, name, price, storeName, storeType, null, imgUrl, category);
     } else if (window.DelivoCart) {
-        window.DelivoCart.addItem(uniqueId, name, price, storeName, storeType, '', imgUrl);
+        window.DelivoCart.addItem(uniqueId, name, price, storeName, storeType, '', imgUrl, category);
         if (window.renderCartSidebar) window.renderCartSidebar();
     }
     if (!btn) return;

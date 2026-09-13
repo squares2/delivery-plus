@@ -2461,14 +2461,16 @@ function buildOrderCard(key, order) {
     if (_cartStr.includes(':')) {
         // Standard colon format — split carefully: only first 4 colons matter
         _cartStr.split(',').filter(Boolean).forEach(seg => {
-            const colonIdx = [0,0,0,0].reduce((acc,_,i) => { const n = seg.indexOf(':', acc+1); return n === -1 ? acc : n; }, -1);
-            // Split into max 5 parts on ':'
+            // Split into parts on ':' — index 4 is notes, index 5 (if
+            // present) is category; both are pre-escaped by the writer
+            // (commas/colons swapped for ،/؛) so a plain index read is
+            // safe and correctly leaves any newer trailing segment out
+            // of notes instead of merging it in.
             const parts = seg.split(':');
             const qty   = parts[0];
             const price = parts[2] || '0';
             const store = parts[3] || '';
-            const notes = parts.slice(4).join(':') || ''; // in case notes contain colon
-            // Name may contain colons — re-join middle parts is not needed since name should be parts[1]
+            const notes = parts[4] || '';
             const name  = parts[1] || '';
             if (qty && name) items.push({ qty, name, price, store, notes });
         });

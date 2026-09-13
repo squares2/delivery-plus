@@ -446,16 +446,12 @@ document.addEventListener('DOMContentLoaded', loadAll);
          get shown an old announcement.
        - If the admin disables the ad afterward, nothing shows even if a
          past trigger is technically still within its window.
-       - If the customer ever closed it with "don't show again" checked,
-         it's suppressed permanently — for every future trigger, not just
-         the current one — until the device UUID / local storage is lost
-         (app data cleared, reinstall, account reset), since that's the
-         only thing tracking this preference. */
-    const SQUARES_AD_SEEN_KEY      = 'delivo_squares_ad_seen_ts';
-    const SQUARES_AD_DISMISSED_KEY = 'delivo_squares_ad_dismissed';
+       - There's no permanent "don't show again" opt-out — every fresh
+         trigger is shown to every customer regardless of what they did
+         with a previous one; only the exact-same trigger is deduped per
+         device (see seenTs below). */
+    const SQUARES_AD_SEEN_KEY = 'delivo_squares_ad_seen_ts';
     function _maybeShowSquaresAd(settings) {
-        try { if (localStorage.getItem(SQUARES_AD_DISMISSED_KEY) === '1') return; } catch (_) {}
-
         const enabled = settings.squaresAdEnabled === true || settings.squaresAdEnabled === 'true';
         if (!enabled) return;
         const triggerAt = parseInt(settings.squaresAdTriggerAt);
@@ -469,7 +465,6 @@ document.addEventListener('DOMContentLoaded', loadAll);
 
         const modal = document.getElementById('modal-squares-ad');
         if (!modal) return;
-        _bindSquaresAdDismiss(modal);
         // Small delay so it never fights with the launch/onboarding modal
         // for the very first paint of a session.
         setTimeout(() => {
@@ -477,28 +472,6 @@ document.addEventListener('DOMContentLoaded', loadAll);
             else modal.classList.add('active');
             try { localStorage.setItem(SQUARES_AD_SEEN_KEY, String(triggerAt)); } catch (_) {}
         }, 300);
-    }
-
-    /* Captures the "don't show again" checkbox at the moment the ad is
-       closed — via the ✕ button, a backdrop click, or Escape (the three
-       ways modals.js already closes any modal) — and persists it so
-       _maybeShowSquaresAd skips every future trigger, not just this one. */
-    let _squaresAdDismissBound = false;
-    function _bindSquaresAdDismiss(modal) {
-        if (_squaresAdDismissBound) return;
-        _squaresAdDismissBound = true;
-        const persistIfChecked = () => {
-            const cb = document.getElementById('squares-ad-dont-show-again');
-            if (cb && cb.checked) {
-                try { localStorage.setItem(SQUARES_AD_DISMISSED_KEY, '1'); } catch (_) {}
-            }
-        };
-        modal.addEventListener('click', (e) => {
-            if (e.target.closest('[data-close]') || e.target === modal) persistIfChecked();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.classList.contains('active')) persistIfChecked();
-        });
     }
 
     function _applyRegType(type) {

@@ -600,6 +600,21 @@ async function _loadStorePanel(storeName, storeType) {
 }
 
 /* ── Render item card ─────────────────────────────────────── */
+// Combines an item's two category levels into one label the way the
+// admin panel already displays it elsewhere (catmain, plus " › cat"
+// only when the sub-category adds information beyond the main one).
+// Carried onto the cart item so similarly-named items across
+// different menu sections stay distinguishable all the way through
+// to the order the admin sees.
+function _composeItemCategory(item) {
+    if (!item) return '';
+    const main = (item.catmain || '').trim();
+    const sub  = (item.cat     || '').trim();
+    if (!main && !sub) return '';
+    if (!sub || sub === main) return main;
+    return `${main} › ${sub}`;
+}
+
 function renderItem(item, storeName) {
     const id        = item.ID || item.id || '';
     const name      = item.name || '';
@@ -612,6 +627,7 @@ function renderItem(item, storeName) {
     const cartQty   = _getBaseItemQty(`${storeName}__${id}`, storeName);
     const uniqueId  = `${storeName}__${id}`;
     const sType     = _currentStore ? _currentStore.type : '';
+    const itemCat   = _composeItemCategory(item).replace(/'/g, "\\'");
 
     return `
     <div class="sp-item" id="sp-item-${_slugify(uniqueId)}">
@@ -644,10 +660,10 @@ function renderItem(item, storeName) {
                         onclick="spRemoveLastInstance('${uniqueId}','${storeName}')">−</button>
                 <span class="sp-item__qty-num" id="sp-qty-${_slugify(uniqueId)}">${cartQty}</span>
                 <button class="sp-item__qty-btn sp-item__qty-btn--add"
-                        onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${imgUrl}')">+</button>
+                        onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${imgUrl}','${itemCat}')">+</button>
             </div>` : `
             <button class="sp-item__add-btn" id="sp-add-btn-${_slugify(uniqueId)}"
-                    onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${imgUrl}')">
+                    onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${imgUrl}','${itemCat}')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2.5"
                      stroke-linecap="round" stroke-linejoin="round">
@@ -664,11 +680,11 @@ function renderItem(item, storeName) {
  * spAddItem — always adds instantly (no modal, no keyword popup).
  * Description notes are only set via the item detail popup.
  */
-function spAddItem(uniqueId, name, price, storeName, storeType, event, imgUrl) {
+function spAddItem(uniqueId, name, price, storeName, storeType, event, imgUrl, category) {
     if (!window.DelivoCart) return;
     if (event) event.stopPropagation();
     // Direct add — no notes, no modal
-    _doAddItem(uniqueId, name, price, storeName, storeType, '', uniqueId, imgUrl);
+    _doAddItem(uniqueId, name, price, storeName, storeType, '', uniqueId, imgUrl, category);
 }
 
 /* Remove the most-recently-added instance of an item */
@@ -685,9 +701,9 @@ function spRemoveLastInstance(baseId, storeName) {
     _updateSpCartBar();
 }
 
-function _doAddItem(instanceId, name, price, storeName, storeType, notes, baseId, imgUrl) {
+function _doAddItem(instanceId, name, price, storeName, storeType, notes, baseId, imgUrl, category) {
     const bId = baseId || instanceId;
-    window.DelivoCart.addItem(instanceId, name, price, storeName, storeType, notes, imgUrl);
+    window.DelivoCart.addItem(instanceId, name, price, storeName, storeType, notes, imgUrl, category);
     _updatePanelQtyDisplay(bId, storeName);
     _updateSpCartBar();
     if (window.renderCartSidebar) window.renderCartSidebar();
@@ -1274,6 +1290,7 @@ function _ipIncrement() { _ipQty++; document.getElementById('ip-qty').textConten
 function _ipAddToCart() {
     if (!_ipItem || !window.DelivoCart) return;
     const { uniqueId, item, storeName, price, storeType } = _ipItem;
+    const itemCat = _composeItemCategory(item);
 
     /* Collect notes from the description textarea */
     const notesInput    = document.getElementById('ip-notes-input');
@@ -1286,7 +1303,7 @@ function _ipAddToCart() {
             const instanceId = uniqueId + '__i' + (Date.now() + i);
             const _pngUrl = (item.pngExist === '1' || item.pngExist === 1)
                 ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
-            window.DelivoCart.addItem(instanceId, item.name, price, storeName, storeType, notes, _pngUrl);
+            window.DelivoCart.addItem(instanceId, item.name, price, storeName, storeType, notes, _pngUrl, itemCat);
         }
         _updatePanelQtyDisplay(uniqueId, storeName);
     } else {
@@ -1297,14 +1314,14 @@ function _ipAddToCart() {
             for (let i = 0; i < diff; i++) {
                 const _qi = (item.pngExist === '1' || item.pngExist === 1)
                 ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
-            window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '', _qi);
+            window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '', _qi, itemCat);
             }
         } else if (diff < 0) {
             for (let i = 0; i < Math.abs(diff); i++) window.DelivoCart.decrementItem(uniqueId, storeName);
         } else {
             const _qi = (item.pngExist === '1' || item.pngExist === 1)
                 ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
-            window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '', _qi);
+            window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '', _qi, itemCat);
         }
     }
 

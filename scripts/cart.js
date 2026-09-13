@@ -937,7 +937,7 @@ function initCart() {
             return this.items.reduce((s, i) => s + i.price * i.qty, 0);
         },
 
-        addItem(id, name, price, storeName, storeType, notes, imgUrl) {
+        addItem(id, name, price, storeName, storeType, notes, imgUrl, category) {
             const isInstance = id.includes('__i');
             const existing   = !isInstance
                 ? this.items.find(i => i.id === id && i.storeName === storeName)
@@ -955,6 +955,7 @@ function initCart() {
                     storeType: storeType || '',
                     notes    : notes || '',
                     imgUrl   : imgUrl  || '',   // pre-resolved image URL from store panel
+                    category : category || '', // menu category label, e.g. "مطاعم › برجر" — see _composeItemCategory
                 });
             }
             this.save();
@@ -1504,7 +1505,12 @@ function initCart() {
                     storeTotalNum = Math.max(0, storeTotalNum * (1 - (parseFloat(activeRewardNow.value) || 0) / 100));
                 }
 
-                const cartStr        = storeItems.map(i => `${i.qty}:${i.name}:${i.price}:${storeName}:${(i.notes||'').replace(/,/g,'،').replace(/:/g,'؛')}`).join(',');
+                // Cart string format: "qty:name:price:store:notes:category,...".
+                // category is a new 6th segment (see admin-05's parseCart and
+                // driver.html's parser, both updated to read it) — commas/colons
+                // inside it get the same escaping as notes so it can never be
+                // mistaken for a delimiter.
+                const cartStr        = storeItems.map(i => `${i.qty}:${i.name}:${i.price}:${storeName}:${(i.notes||'').replace(/,/g,'،').replace(/:/g,'؛')}:${(i.category||'').replace(/,/g,'،').replace(/:/g,'؛')}`).join(',');
                 const storeTotal     = storeTotalNum.toFixed(2);
                 const deliveryFeeLBP = 0;
                 const requestKey = `id_${nextId}`;

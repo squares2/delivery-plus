@@ -1515,6 +1515,7 @@ function buildOrderCard(key, order) {
                             ${i.editable
                                 ? `<input type="text" class="oc-item-name-input" data-oid="${key}" data-item-idx="${idx}" value="${(i.name || '').replace(/"/g, '&quot;')}" placeholder="وصف الطلب">`
                                 : (i.name || '')}
+                            ${i.category ? `<span class="oc-item-cat">🏷️ ${i.category}</span>` : ''}
                             ${i.notes ? `<span class="oc-item-notes">📝 ${i.notes}</span>` : ''}
                         </span>
                         <span class="qty">×${i.qty}</span>
@@ -1931,11 +1932,13 @@ function parseCart(cartStr) {
     const items = [];
     const str = cartStr || '';
 
-    // Standard format: qty:name:price:store:notes,qty:name:price...
+    // Standard format: qty:name:price:store:notes:category,qty:name:price...
+    // (category is a newer 6th segment — older saved orders simply won't
+    // have it, and p[5] naturally comes back undefined/'' for those)
     if (str.includes(':')) {
         str.split(',').filter(Boolean).forEach(seg => {
             const p = seg.split(':');
-            if (p.length >= 3) items.push({ qty: p[0], name: p[1], price: parseFloat(p[2]) || 0, notes: p[4] || '', editable: true });
+            if (p.length >= 3) items.push({ qty: p[0], name: p[1], price: parseFloat(p[2]) || 0, notes: p[4] || '', category: p[5] || '', editable: true });
         });
         return items;
     }
