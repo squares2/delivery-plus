@@ -1,29 +1,23 @@
 /* ============================================================
    scripts/pwa.js
-   PWA: service worker registration + install banner
+   PWA: service worker registration + update banner
    ============================================================ */
 
-// ── 0. Keep .bottom-bar above whichever banner is showing ──────
-// Both #install-banner and #update-banner are position:fixed; bottom:0
-// (see styles/base.css) — same edge as .bottom-bar (styles/navbar.css),
-// just a higher z-index, so without this they'd simply paint over the
-// tab bar instead of pushing it up. Called whenever either banner's
-// visibility changes; reverts the bar back to bottom:0 the moment
-// neither banner is visible anymore.
+// ── 0. Keep .bottom-bar above the update banner when it's showing ──
+// #update-banner is position:fixed; bottom:0 (see styles/base.css) —
+// same edge as .bottom-bar (styles/navbar.css), just a higher
+// z-index, so without this it'd simply paint over the tab bar
+// instead of pushing it up. Called whenever the banner's visibility
+// changes; reverts the bar back to bottom:0 once it's hidden again.
 function _syncBottomBarOffset() {
     const bar = document.querySelector('.bottom-bar');
     if (!bar) return;
-    const visible = ['install-banner', 'update-banner']
-        .map(id => document.getElementById(id))
-        .filter(b => b && b.classList.contains('install-banner--visible'));
-    if (!visible.length) {
+    const banner = document.getElementById('update-banner');
+    if (!banner || !banner.classList.contains('install-banner--visible')) {
         bar.style.bottom = '';
         return;
     }
-    // If both were ever visible at once, the taller one wins — in
-    // practice only one shows at a time (update takes priority).
-    const height = Math.max.apply(null, visible.map(b => b.offsetHeight));
-    bar.style.bottom = height + 'px';
+    bar.style.bottom = banner.offsetHeight + 'px';
 }
 
 // ── 0.5 Bake this device's UUID into the install manifest ──────
@@ -172,57 +166,15 @@ if ('serviceWorker' in navigator && !_isLocalDev) {
     });
 }
 
-// ── 2. Install banner ─────────────────────────────────────────
+// ── 2. Install signal (nagging popup banner removed — the bottom-nav
+//      center logo is the persistent, non-nagging install CTA now;
+//      see navbar.js _applyLogoState/_handleLogoClick) ─────────────
 let _deferredPrompt = null;
-const SNOOZE_KEY = 'delivo_install_snooze';
 
 // Read by navbar.js so the center logo can double as a persistent
-// install/update CTA — set true the moment each becomes actionable, and
-// left true even if the corresponding banner gets snoozed/dismissed
-// (unlike the nagging banner, this is a quiet, always-there affordance).
+// install/update CTA — set true the moment each becomes actionable.
 window._pwaInstallAvailable = false;
 window._pwaUpdateAvailable  = false;
-
-// Snooze: hide for 1 day if user taps ✕ (don't block for 7 days)
-function isSnoozed() {
-    const t = localStorage.getItem(SNOOZE_KEY);
-    if (!t) return false;
-    return Date.now() - parseInt(t) < 24 * 60 * 60 * 1000; // 1 day
-}
-
-// Update banner takes priority over the install prompt — if it's up when
-// showBanner() is called, the install prompt just waits its turn instead
-// of stacking underneath it (see _hideUpdateBanner below, which re-runs
-// showBanner() once the update banner clears).
-let _installPendingShow = false;
-function _isUpdateBannerVisible() {
-    const b = document.getElementById('update-banner');
-    return !!(b && b.classList.contains('install-banner--visible'));
-}
-
-function showBanner() {
-    if (isSnoozed()) return;
-    if (_isUpdateBannerVisible()) { _installPendingShow = true; return; }
-    const banner = document.getElementById('install-banner');
-    if (!banner) return;
-    banner.style.display = 'flex';
-    setTimeout(() => { banner.classList.add('install-banner--visible'); _syncBottomBarOffset(); }, 50);
-}
-
-function hideBanner(snooze = false) {
-    const banner = document.getElementById('install-banner');
-    if (!banner) return;
-    if (snooze) localStorage.setItem(SNOOZE_KEY, Date.now().toString());
-    banner.classList.remove('install-banner--visible');
-    _syncBottomBarOffset();
-    setTimeout(() => { banner.style.display = 'none'; }, 320);
-}
-
-// ── Dev helper: force show banner (call in console: showInstallBanner()) ──
-window.showInstallBanner = function() {
-    localStorage.removeItem(SNOOZE_KEY);
-    showBanner();
-};
 
 // Capture the install prompt — keep it alive, don't consume it on dismiss
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -230,10 +182,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
     _deferredPrompt = e;
     window._pwaInstallAvailable = true;
     window.dispatchEvent(new Event('delivo:pwa-install-available'));
-    setTimeout(showBanner, 2500);
 });
 
-// Expose triggerInstall so it can be called from anywhere (e.g. app-download section)
+// Expose triggerInstall so it can be called from anywhere (e.g. the
+// bottom-nav center logo, or the account page's install row)
 window.triggerInstall = async function() {
     if (!_deferredPrompt) return;
     _deferredPrompt.prompt();
@@ -241,33 +193,18 @@ window.triggerInstall = async function() {
     console.log('[PWA] Install outcome:', outcome);
     if (outcome === 'accepted') {
         _deferredPrompt = null;
-        hideBanner();
     }
     // If dismissed — keep _deferredPrompt alive so user can try again
 };
-
-document.addEventListener('click', async (e) => {
-    // Install button
-    if (e.target.closest('#install-btn')) {
-        await window.triggerInstall();
-        return;
-    }
-    // Dismiss — just snooze 1 day, don't consume the prompt
-    if (e.target.closest('#install-dismiss')) {
-        hideBanner(true); // snooze = true
-        return;
-    }
-});
 
 // Hide when installed
 window.addEventListener('appinstalled', () => {
     console.log('[PWA] App installed ✓');
     _deferredPrompt = null;
     window._pwaInstallAvailable = false;
-    hideBanner();
-    localStorage.removeItem(SNOOZE_KEY);
     window.dispatchEvent(new Event('delivo:pwa-installed'));
 });
+
 
 // ── 3. iOS "Add to Home Screen" — bottom sheet ───────────────
 const IOS_HINT_KEY = 'delivo_ios_hint_dismissed';
@@ -315,10 +252,6 @@ document.addEventListener('click', (e) => {
 });
 
 if (isIosSafari()) {
-    // Hide the Android install banner — it does nothing on iOS
-    const androidBanner = document.getElementById('install-banner');
-    if (androidBanner) androidBanner.style.display = 'none';
-
     if (!isAlreadyInstalled()) {
         // No beforeinstallprompt on iOS — this is the only install signal
         // the center logo gets, so it stays on regardless of whether the
@@ -396,7 +329,6 @@ document.addEventListener('click', async (e) => {
         const { outcome } = await _deferredPrompt.userChoice;
         if (outcome === 'accepted') {
             _deferredPrompt = null;
-            hideBanner();
             _updatePwaRow();
         }
     } else {
@@ -476,9 +408,7 @@ if (isIosSafari() && !isAlreadyInstalled() &&
 (function () {
     let _updateBannerShown = false;
 
-    // Snooze: once dismissed or acted on, don't show again for 1 day —
-    // same pattern as the install banner's SNOOZE_KEY above, just its
-    // own key since these are independent prompts.
+    // Snooze: once dismissed or acted on, don't show again for 1 day.
     const UPDATE_SNOOZE_KEY = 'delivo_update_snooze';
     function isUpdateSnoozed() {
         const t = localStorage.getItem(UPDATE_SNOOZE_KEY);
@@ -513,14 +443,6 @@ if (isIosSafari() && !isAlreadyInstalled() &&
         _updateBannerShown = true;
         window._pwaUpdateAvailable = true;
         window.dispatchEvent(new Event('delivo:pwa-update-available'));
-        // Update takes priority over the install prompt — if that one's
-        // already up when this becomes ready, step in front of it. It'll
-        // resume automatically once this banner clears (see below).
-        const installEl = document.getElementById('install-banner');
-        if (installEl && installEl.classList.contains('install-banner--visible')) {
-            _installPendingShow = true;
-            hideBanner(false);
-        }
         const banner = document.getElementById('update-banner');
         if (!banner) return;
         banner.style.display = 'flex';
@@ -535,13 +457,6 @@ if (isIosSafari() && !isAlreadyInstalled() &&
         banner.classList.remove('install-banner--visible');
         _syncBottomBarOffset();
         setTimeout(() => { banner.style.display = 'none'; }, 320);
-
-        // The update banner was the one holding the floor — if the install
-        // prompt was waiting behind it, let it show now.
-        if (_installPendingShow) {
-            _installPendingShow = false;
-            setTimeout(() => showBanner(), 400);
-        }
     }
 
     async function _forceUpdate() {

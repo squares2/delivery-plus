@@ -38,6 +38,55 @@
     transform: translateX(0);
 }
 
+/* ── Scrollable body wrapper + "more items below" hint ──────
+   On mobile the native scrollbar for #cart-body isn't visible, so
+   when the item list overflows there's no visual cue that more
+   items sit below the fold. This floating chevron fades in over the
+   bottom edge of the scroll area (positioned against this wrapper,
+   not against #cart-body itself, so it doesn't scroll away with the
+   content) and is toggled by _updateCartScrollHint() in cart.js. */
+.cart-body-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.cart-body-wrap #cart-body {
+    flex: 1;
+    min-height: 0;
+}
+.cart-scroll-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--clr-white, #fff);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--clr-orange, #FF5C00);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 5;
+}
+.cart-scroll-hint.visible {
+    opacity: 1;
+    animation: cart-scroll-hint-bounce 1.4s ease-in-out infinite;
+}
+@keyframes cart-scroll-hint-bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%      { transform: translateX(-50%) translateY(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cart-scroll-hint.visible { animation: none; }
+}
+
 /* ── Header ───────────────────────────────────────────────── */
 .cart-header {
     display: flex;
@@ -303,8 +352,8 @@
 }
 
 .cart-checkout-btn {
-    flex: 1;
-    padding: 13px;
+    width: 100%;
+    padding: 18px;
     background: var(--clr-orange);
     border: none;
     border-radius: var(--radius-pill);
@@ -319,7 +368,33 @@
     gap: 12px;
     transition: background 0.18s, transform 0.15s;
     box-shadow: var(--shadow-orange);
-    min-height: 48px;
+    min-height: 64px;
+}
+/* ── Actions row — checkout + clear side by side to save height ── */
+.cart-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.cart-actions-row .cart-checkout-btn {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    padding: 10px 18px;
+    min-height: 52px;
+    gap: 10px;
+}
+.cart-actions-row .cart-checkout-btn__icon {
+    width: 28px;
+    height: 28px;
+}
+.cart-actions-row .cart-checkout-btn__icon svg { width: 16px; height: 16px; }
+.cart-actions-row .cart-clear-btn {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 auto;
+    border-radius: var(--radius-pill, 999px);
+    white-space: nowrap;
 }
 .cart-checkout-btn:hover  { background: var(--clr-orange-dim); }
 .cart-checkout-btn:active { transform: scale(0.98); }
@@ -404,32 +479,25 @@
     }
 }
 
-/* ── Checkout row: send + clear side by side ──────────────── */
-.cart-checkout-row {
-    display: flex;
-    align-items: stretch;
-    gap: 10px;
-}
-
-/* ── Clear cart button (icon, beside send) ────────────────── */
+/* ── Clear cart link ──────────────────────────────────────── */
 .cart-clear-btn {
-    flex-shrink: 0;
-    width: 48px;
+    background: var(--clr-gray-50, #f9f9f9);
+    border: 1.5px solid var(--clr-gray-200, #e8e8e8);
+    color: var(--clr-gray-400);
+    font-family: inherit;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--clr-gray-50, #f9f9f9);
-    border: 1.5px solid var(--clr-gray-200, #e8e8e8);
-    border-radius: var(--radius-pill);
-    color: var(--clr-gray-400);
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    padding: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.cart-clear-btn svg { width: 18px; height: 18px; }
 .cart-clear-btn:hover {
+    background: #fff1f1;
     color: #dc2626;
-    border-color: #fca5a5;
-    background: rgba(220,38,38,0.06);
+    border-color: #fecaca;
 }
 
 /* ── Checkout success toast ───────────────────────────────── */
@@ -591,6 +659,10 @@
     font-weight: 700;
     color: var(--clr-black, #111);
 }
+.cart-location__header > svg,
+.cart-location__header > span:not(.cart-location__status) {
+    flex-shrink: 0;
+}
 .cart-location__optional {
     font-size: 0.72rem;
     font-weight: 500;
@@ -600,15 +672,18 @@
 .cart-location__status {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 6px;
-    min-height: 22px;
+    margin-inline-start: auto;
+    min-width: 0;
 }
 .cart-location__status-text {
     font-size: clamp(0.72rem, 1.8vw, 0.78rem);
     color: var(--clr-gray-400, #aaa);
     font-weight: 500;
     transition: color 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .cart-location__status-text.set {
     color: #22a35a;
@@ -683,6 +758,29 @@
     background: var(--clr-white, #fff);
     border-top: 1px solid var(--clr-gray-100, #f0f0f0);
 }
+/* ══════════════════════════════════════════════════════════
+   Cart — Extras toggle (note + location collapsible)
+══════════════════════════════════════════════════════════ */
+.cart-extras-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    background: var(--clr-gray-50, #f9f9f9);
+    border: 1.5px solid var(--clr-gray-200, #e8e8e8);
+    border-radius: var(--radius-md, 10px);
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: clamp(0.76rem, 2vw, 0.83rem);
+    font-weight: 700;
+    color: var(--clr-orange, #FF5C00);
+    background: #fff4ef;
+    border-color: var(--clr-orange, #FF5C00);
+    text-align: right;
+}
+.cart-extras-toggle__icons { display: flex; gap: 3px; flex-shrink: 0; }
+.cart-extras-dot { font-size: 0.85rem; }
+.cart-extras-toggle__label { flex: 1; }
 
 /* Panel — always fully visible, no collapse/animation */
 .cart-extras-panel {

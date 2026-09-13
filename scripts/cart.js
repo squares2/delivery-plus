@@ -175,35 +175,36 @@ function _confirmSendWithoutLocation() {
     });
 }
 
-// Generic styled replacement for the native confirm() dialog — same
-// modal-overlay/modal-box visual language as _confirmSendWithoutLocation
-// above, but for a plain yes/no question (used by the clear-cart button
-// so customers never see the ugly native browser "site says" popup).
-function _styledConfirm({ icon = '❓', title, msg, okLabel = 'تأكيد', cancelLabel = 'إلغاء', danger = false } = {}) {
+// Styled replacement for the native confirm() dialog on "مسح السلة" —
+// same overlay/modal-box pattern as _confirmSendWithoutLocation above,
+// just with a destructive (red) confirm action instead of the orange
+// checkout-style one. Resolves true if the customer confirms the clear,
+// false if they cancel/dismiss it.
+function _confirmClearCart() {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay active';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;';
         overlay.innerHTML = `
-            <div class="modal-box" style="max-width:340px;text-align:center;">
-                <div style="font-size:2.6rem;line-height:1;margin-bottom:6px;">${icon}</div>
-                ${title ? `<h2 class="modal-title" style="margin-bottom:8px;">${title}</h2>` : ''}
-                ${msg ? `<p class="modal-subtitle" style="margin-bottom:22px;">${msg}</p>` : ''}
-                <button type="button" id="sc-ok"
-                        style="width:100%;padding:13px;margin-bottom:10px;border:none;border-radius:var(--radius-pill);
-                               font-family:inherit;font-size:0.95rem;font-weight:900;cursor:pointer;color:#fff;
-                               background:${danger ? '#dc2626' : 'var(--clr-orange)'};">
-                    ${okLabel}
+            <div class="modal-box" style="max-width:360px;text-align:center;">
+                <div style="font-size:2.6rem;line-height:1;margin-bottom:6px;">🗑️</div>
+                <h2 class="modal-title" style="margin-bottom:8px;">مسح السلة بالكامل؟</h2>
+                <p class="modal-subtitle" style="margin-bottom:22px;">
+                    سيتم حذف جميع المنتجات من سلتك ولا يمكن التراجع عن هذا الإجراء.
+                </p>
+                <button type="button" id="cc-confirm-yes"
+                        style="width:100%;padding:14px;background:#dc2626;border:none;border-radius:var(--radius-pill,999px);color:#fff;font-family:inherit;font-size:0.95rem;font-weight:800;cursor:pointer;margin-bottom:10px;">
+                    نعم، امسح السلة
                 </button>
-                <button type="button" id="sc-cancel"
+                <button type="button" id="cc-confirm-cancel"
                         style="width:100%;padding:10px;background:none;border:none;color:var(--clr-gray-500);font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;">
-                    ${cancelLabel}
+                    إلغاء
                 </button>
             </div>`;
         document.body.appendChild(overlay);
         const close = (result) => { overlay.remove(); resolve(result); };
-        overlay.querySelector('#sc-ok').addEventListener('click', () => close(true));
-        overlay.querySelector('#sc-cancel').addEventListener('click', () => close(false));
+        overlay.querySelector('#cc-confirm-yes').addEventListener('click', () => close(true));
+        overlay.querySelector('#cc-confirm-cancel').addEventListener('click', () => close(false));
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
     });
 }
@@ -1023,24 +1024,14 @@ function initCart() {
         const sidebar = document.getElementById('cart-sidebar');
         if (!overlay || !sidebar) return;
         window.DelivoAttn?.event('cartOpen');
-        // Show the sidebar itself first — this must never be blocked by
-        // anything else in this function.
-        overlay.classList.add('active');
-        sidebar.classList.add('active');
-        document.body.classList.add('modal-open');
-
-        // Render immediately with whatever store-name data we already have —
-        // the cart must never sit blank waiting on a network call. Arabic
-        // store names (if not yet cached) are patched in via a second
-        // render once _loadNameArCache resolves in the background. Guarded
-        // with try/catch so a render failure can never prevent the sidebar
-        // itself from opening.
-        try { renderCartSidebar(); } catch (e) { console.error('[Cart] initial render failed', e); }
+        // Load Arabic store names in background before rendering
         _loadNameArCache().then(() => {
             renderCartSidebar();
             _loadAdminPhoneLink();
-        }).catch(e => console.error('[Cart] name-cache render failed', e));
-
+        });
+        overlay.classList.add('active');
+        sidebar.classList.add('active');
+        document.body.classList.add('modal-open');
         if (typeof window._cartLocationRefresh === 'function') window._cartLocationRefresh();
 
         // Kick off active reward check in background so it's ready by checkout time
@@ -1086,6 +1077,7 @@ function initCart() {
                     <div class="cart-empty__sub">أضف منتجات من أي متجر لتبدأ طلبك</div>
                 </div>`;
             if (footerEl) footerEl.style.display = 'none';
+            _updateCartScrollHint();
             return;
         }
 
@@ -1101,6 +1093,7 @@ function initCart() {
         }
 
         setTimeout(_initMouseDragScroll, 0);
+        setTimeout(_updateCartScrollHint, 0);
     };
 
     /* ── Store group section HTML ───────────────────────────── */
@@ -1208,6 +1201,7 @@ function initCart() {
         _checkEmptyCart();
         if (window.updateSpCartBar) window.updateSpCartBar();
         _syncStorePanelQty(id, qty);
+        setTimeout(_updateCartScrollHint, 0);
     };
 
     window.cartRemoveItem = function(id, storeName) {
@@ -1218,6 +1212,7 @@ function initCart() {
         _checkEmptyCart();
         if (window.updateSpCartBar) window.updateSpCartBar();
         _syncStorePanelQty(id, 0);
+        setTimeout(_updateCartScrollHint, 0);
     };
 
     window.cartClearStore = function(storeName) {
@@ -1226,6 +1221,7 @@ function initCart() {
         if (group) group.remove();
         _checkEmptyCart();
         if (window.updateSpCartBar) window.updateSpCartBar();
+        setTimeout(_updateCartScrollHint, 0);
     };
 
     function _checkEmptyStore(storeName) {
@@ -1685,14 +1681,7 @@ function initCart() {
     const clearBtn = document.getElementById('cart-clear-btn');
     if (clearBtn)  clearBtn.addEventListener('click', async () => {
         if (window.DelivoCart.getCount() === 0) return;
-        const ok = await _styledConfirm({
-            icon: '🗑️',
-            title: 'مسح السلة',
-            msg: 'هل تريد مسح السلة كاملاً؟',
-            okLabel: 'مسح السلة',
-            cancelLabel: 'إلغاء',
-            danger: true
-        });
+        const ok = await _confirmClearCart();
         if (ok) {
             window.DelivoCart.clear();
             renderCartSidebar();
@@ -1712,6 +1701,11 @@ function initCart() {
 
     /* ── Mouse drag scroll ──────────────────────────────────── */
     _initMouseDragScroll();
+
+    /* ── "More items below" scroll hint ───────────────────────── */
+    const cartBodyEl = document.getElementById('cart-body');
+    if (cartBodyEl) cartBodyEl.addEventListener('scroll', _updateCartScrollHint, { passive: true });
+    window.addEventListener('resize', _updateCartScrollHint);
 
     /* ── Swipe-to-close (mobile touch) ─────────────────────── */
     _initCartSwipe();
@@ -1931,6 +1925,19 @@ function _initCartLocation() {
         const lng = p.location?.lng || p.lng || '';
         if (lat && lng) setLocation(lat, lng, '📍 موقعك المحفوظ');
     };
+}
+
+// "More items below" scroll hint — see .cart-scroll-hint in cart.css.
+// Toggled whenever the item list's height could have changed: after a
+// full re-render, after single-item add/remove/clear DOM patches, on
+// scroll (to hide once the user reaches the true bottom), and on
+// window resize (orientation change, keyboard opening, etc).
+function _updateCartScrollHint() {
+    const body = document.getElementById('cart-body');
+    const hint = document.getElementById('cart-scroll-hint');
+    if (!body || !hint) return;
+    const hasMoreBelow = (body.scrollHeight - body.scrollTop - body.clientHeight) > 12;
+    hint.classList.toggle('visible', hasMoreBelow);
 }
 
 function _initMouseDragScroll() {

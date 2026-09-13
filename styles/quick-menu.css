@@ -324,7 +324,7 @@
     align-items: center;
     gap: 7px;
     height: 46px;
-    padding: 0 16px 0 14px;
+    padding: 0 14px 0 16px;
     border: none;
     border-radius: var(--radius-pill);
     background: var(--clr-orange);
@@ -359,7 +359,7 @@
 .qm-hotline-fab__badge {
     position: absolute;
     top: -4px;
-    right: -4px;
+    left: -4px;
     background: var(--clr-green, #16a34a);
     color: #fff;
     font-size: 0.56rem;
