@@ -1094,6 +1094,7 @@ function initCart() {
 
         setTimeout(_initMouseDragScroll, 0);
         setTimeout(_updateCartScrollHint, 0);
+        setTimeout(_setupCartNameMarquees, 0);
     };
 
     /* ── Store group section HTML ───────────────────────────── */
@@ -1153,7 +1154,7 @@ function initCart() {
         <div class="cart-item${item.notes ? ' cart-item--noted' : ''}" id="ci-${_cslug(uniqueKey)}">
             ${imgHtml}
             <div class="cart-item__info">
-                <div class="cart-item__name">${item.name}</div>
+                <div class="cart-item__name" title="${item.name}">${item.name}</div>
                 ${item.notes
                     ? `<div class="cart-item__notes">
                            ${item.notes.split('، ').map(kw =>
@@ -1938,6 +1939,72 @@ function _updateCartScrollHint() {
     if (!body || !hint) return;
     const hasMoreBelow = (body.scrollHeight - body.scrollTop - body.clientHeight) > 12;
     hint.classList.toggle('visible', hasMoreBelow);
+}
+
+// ── Cart item name marquee ──────────────────────────────────────
+// Item names that don't fit get clipped with an ellipsis by default
+// (see .cart-item__name in cart.css). For names that actually
+// overflow, this instead sweeps the name back and forth via
+// scrollLeft so the full name is readable without needing extra row
+// height or a wider layout — a small, self-contained rAF loop, no
+// extra markup needed since overflow:hidden elements stay
+// programmatically scrollable even though user-driven scroll is
+// blocked. Skipped entirely under prefers-reduced-motion, where the
+// plain ellipsis truncation stands as-is.
+const _prefersReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+function _stopNameMarquee(el) {
+    if (el._marqueeRaf) { cancelAnimationFrame(el._marqueeRaf); el._marqueeRaf = null; }
+    el.classList.remove('marquee');
+    el.scrollLeft = 0;
+}
+
+function _startNameMarquee(el) {
+    const overflow = el.scrollWidth - el.clientWidth;
+    if (overflow <= 2 || _prefersReducedMotion) return; // fits, or motion disabled — plain ellipsis stands
+
+    el.classList.add('marquee');
+    // This page is dir="rtl": an overflowing nowrap box starts fully
+    // scrolled to 0 (showing the trailing/right-anchored end) and the
+    // hidden rest sits toward negative scrollLeft — sweeping 0 → −overflow
+    // and back passes every part of the name through the visible window.
+    const distance = -overflow;
+    const speed    = 34;   // px/second — comfortable reading pace
+    const holdMs   = 900;  // pause at each end so it's readable, not just a blur
+    const sweepMs  = Math.max(700, Math.abs(distance) / speed * 1000);
+    const ease     = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+    let phase      = 'hold-start';
+    let phaseStart = performance.now();
+
+    function frame(now) {
+        if (!el.isConnected) return; // row was removed from the cart — stop quietly
+        const elapsed = now - phaseStart;
+        if (phase === 'hold-start') {
+            el.scrollLeft = 0;
+            if (elapsed >= holdMs) { phase = 'sweep-out'; phaseStart = now; }
+        } else if (phase === 'sweep-out') {
+            const t = Math.min(1, elapsed / sweepMs);
+            el.scrollLeft = distance * ease(t);
+            if (t >= 1) { phase = 'hold-end'; phaseStart = now; }
+        } else if (phase === 'hold-end') {
+            el.scrollLeft = distance;
+            if (elapsed >= holdMs) { phase = 'sweep-back'; phaseStart = now; }
+        } else {
+            const t = Math.min(1, elapsed / sweepMs);
+            el.scrollLeft = distance * (1 - ease(t));
+            if (t >= 1) { phase = 'hold-start'; phaseStart = now; }
+        }
+        el._marqueeRaf = requestAnimationFrame(frame);
+    }
+    el._marqueeRaf = requestAnimationFrame(frame);
+}
+
+function _setupCartNameMarquees() {
+    document.querySelectorAll('#cart-body .cart-item__name').forEach(el => {
+        _stopNameMarquee(el);
+        _startNameMarquee(el);
+    });
 }
 
 function _initMouseDragScroll() {

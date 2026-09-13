@@ -207,6 +207,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* Active sweep for names too long to fit — JS drives .scrollLeft on
+   this same element (still possible with overflow:hidden; only
+   user-driven scrolling is blocked, not programmatic), so no extra
+   wrapper markup is needed. Ellipsis is turned off while sweeping —
+   dots don't make sense once the motion is already showing the rest
+   of the name. See _startNameMarquee in cart.js. */
+.cart-item__name.marquee {
+    text-overflow: clip;
+}
 .cart-item__unit-price {
     font-size: clamp(0.68rem, 1.7vw, 0.76rem);
     color: var(--clr-gray-400);
