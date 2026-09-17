@@ -19,11 +19,13 @@
 }
 
 .categories__scroll {
-    display: flex;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, clamp(86px, 24vw, 112px));
+    grid-auto-columns: clamp(152px, 42vw, 194px);
+    gap: clamp(10px, 2.5vw, 14px) clamp(10px, 2.5vw, 16px);
     overflow-x: auto;
-    gap: clamp(8px, 2vw, 16px);
-    padding: clamp(6px, 1.5vw, 10px) var(--container-pad) clamp(4px, 1vw, 8px);
+    padding: clamp(6px, 1.5vw, 10px) var(--container-pad) clamp(10px, 2vw, 14px);
     cursor: grab;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -37,78 +39,102 @@
     user-select: none;
 }
 
+/* ── Category card ─────────────────────────────────────────
+   A white rounded-rect card; the icon/photo "sticker" overlaps
+   its top edge (negative margin-top) so it pops off the card
+   instead of sitting flush inside it, label anchored bottom. ── */
 .category-item {
-    flex-shrink: 0;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: clamp(4px, 1vw, 6px);
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: clamp(6px, 2vw, 10px);
+    background: #fff;
+    border: 2px solid transparent;
+    border-radius: 18px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05);
+    padding: clamp(12px, 3vw, 16px) clamp(10px, 2.5vw, 14px) clamp(9px, 2vw, 12px);
     cursor: pointer;
-    min-width: clamp(54px, 14vw, 80px);
+    overflow: visible;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     -webkit-tap-highlight-color: transparent;
 }
 
 .category-item__circle {
-    width: clamp(52px, 13vw, 72px);
-    height: clamp(52px, 13vw, 72px);
-    border-radius: 50%;
+    width: clamp(56px, 15vw, 80px);
+    height: clamp(56px, 15vw, 80px);
+    flex-shrink: 0;
+    margin-top: clamp(-26px, -7vw, -20px);
+    border-radius: 16px;
     background: var(--clr-gray-100);
-    border: 2px solid transparent;
+    border: none;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 6px;
     overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-    box-shadow: var(--shadow-xs);
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.16);
 }
 /* Hover-only on devices that actually have a mouse. Without this guard,
    touchscreens fire (and often "stick") this :hover state mid-swipe as a
-   finger passes over each circle — the translateY jump plus its 0.2s
+   finger passes over each card — the translateY jump plus its 0.2s
    transition firing per-item is exactly what makes the category row feel
    janky/twitchy while sliding on mobile. Tap/active feedback below covers
    touch devices instead. */
 @media (hover: hover) and (pointer: fine) {
-    .category-item:hover .category-item__circle {
+    .category-item:hover {
         border-color: var(--clr-orange);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-orange);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 22px rgba(0,0,0,0.12);
+    }
+    .category-item:hover .category-item__circle {
+        transform: scale(1.05);
     }
 }
-.category-item.active .category-item__circle {
+.category-item.active {
     border-color: var(--clr-orange);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-orange);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 22px rgba(255,92,0,0.18);
+}
+.category-item.active .category-item__circle {
+    transform: scale(1.05);
 }
 .category-item__circle img {
-    width: 72%;
-    height: 72%;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
     border-radius: 0;
     transform: translateZ(0);
     -webkit-backface-visibility: hidden;
 }
 
-/* Photo-based categories (JPEGs): fill the circle like a cropped portrait */
+/* Photo-based categories (JPEGs): fill the sticker edge-to-edge like a
+   cropped photo rather than a padded icon */
 .category-item--photo .category-item__circle {
     background: var(--clr-gray-200, #e5e5e5);
     position: relative;
+    padding: 0;
     overflow: hidden;
 }
 .category-item--photo .category-item__circle img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 50%;
-    /* Subtle warm vignette so the circle edge looks intentional */
+    border-radius: 16px;
+    /* Subtle warm vignette so the sticker edge looks intentional */
     box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06);
 }
-/* Soft orange tint on hover/active for photo circles */
+/* Soft orange tint on hover/active for photo stickers */
 @media (hover: hover) and (pointer: fine) {
     .category-item--photo:hover .category-item__circle::after {
         content: '';
         position: absolute;
         inset: 0;
-        border-radius: 50%;
+        border-radius: 16px;
         background: rgba(255, 92, 0, 0.12);
         pointer-events: none;
     }
@@ -117,17 +143,18 @@
     content: '';
     position: absolute;
     inset: 0;
-    border-radius: 50%;
+    border-radius: 16px;
     background: rgba(255, 92, 0, 0.12);
     pointer-events: none;
 }
 
 .category-item__label {
-    font-size: clamp(0.68rem, 1.8vw, 0.88rem);
+    font-size: clamp(0.82rem, 2.3vw, 1rem);
     font-weight: 800;
     color: var(--clr-black);
-    text-align: center;
+    text-align: right;
     white-space: nowrap;
+    align-self: flex-end;
 }
 .category-item.active .category-item__label {
     color: var(--clr-orange);
@@ -143,7 +170,7 @@
     position: relative;
 }
 
-/* ── "قريباً" badge overlaid on empty category circle ─────── */
+/* ── "قريباً" badge overlaid on empty category sticker ─────── */
 .category-item--empty .category-item__circle {
     position: relative;
 }
@@ -161,7 +188,7 @@
     text-align: center !important;
     padding: 3px 0 4px !important;
     letter-spacing: 0.02em !important;
-    border-radius: 0 0 50px 50px !important;
+    border-radius: 0 0 16px 16px !important;
     line-height: 1 !important;
     pointer-events: none !important;
 }
@@ -169,20 +196,24 @@
 /* ── Square icon variant — admin setting: settings/categoryIconShape ──
    Applied as a class on <body> (set in scripts/loader.js from the
    settings fetch + live SSE stream) so the whole "تصفح الأقسام" bar
-   switches shape together. Overrides every border-radius:50% used by
-   the circle variant above, including its photo-fill and hover/active
-   tint overlays, plus the "قريباً" badge's rounded bottom corners. */
+   switches shape together. The card/sticker are already a rounded
+   square by default now, so this variant just sharpens the corners
+   for a crisper, less-rounded look — including the photo-fill and
+   hover/active tint overlays, plus the "قريباً" badge's corners. */
+.icon-shape-square .category-item {
+    border-radius: 10px;
+}
 .icon-shape-square .category-item__circle {
-    border-radius: 16px;
+    border-radius: 8px;
 }
 .icon-shape-square .category-item--photo .category-item__circle img {
-    border-radius: 16px;
+    border-radius: 8px;
 }
 .icon-shape-square .category-item--photo .category-item__circle::after {
-    border-radius: 16px;
+    border-radius: 8px;
 }
 .icon-shape-square .category-item--empty .category-item__circle::after {
-    border-radius: 0 0 16px 16px !important;
+    border-radius: 0 0 8px 8px !important;
 }
 
 /* ══════════════════════════════════════════════════════════

@@ -8,7 +8,7 @@
     width: 100%;
     overflow: hidden;
     background: #1a0800;
-    height: clamp(380px, 92vw, 580px);
+    height: clamp(200px, 58vw, 340px);
 }
 
 /* ── Background ────────────────────────────────────────────── */
@@ -28,9 +28,9 @@
     position: absolute;
     inset: 0;
     background: linear-gradient(to bottom,
-        rgba(0,0,0,0.10) 0%,
-        rgba(0,0,0,0.05) 40%,
-        rgba(0,0,0,0.55) 100%);
+        rgba(0,0,0,0.06) 0%,
+        rgba(0,0,0,0.02) 40%,
+        rgba(0,0,0,0.35) 100%);
     z-index: 1;
     pointer-events: none;
 }
@@ -119,7 +119,7 @@
 
 /* ── Phone image ───────────────────────────────────────────── */
 .hero__phone {
-    height: clamp(170px, 48vw, 300px);
+    height: clamp(110px, 30vw, 190px);
     width: auto;
     object-fit: contain;
     filter: drop-shadow(0 8px 28px rgba(0,0,0,0.5));
@@ -210,7 +210,7 @@
 @media (min-width: 900px) {
 
     .hero {
-        height: clamp(460px, 52vw, 780px);
+        height: clamp(320px, 36vw, 500px);
     }
 
     /* hide mobile-only chrome */
@@ -252,10 +252,10 @@
     .hero__slide:nth-child(4) { animation-delay: 0.3s;  animation-duration: 3.8s; }
 
     /* stagger heights for depth */
-    .hero__slide:nth-child(1) .hero__phone { height: clamp(160px, 17vw, 270px); }
-    .hero__slide:nth-child(2) .hero__phone { height: clamp(200px, 23vw, 370px); }
-    .hero__slide:nth-child(3) .hero__phone { height: clamp(180px, 20vw, 320px); }
-    .hero__slide:nth-child(4) .hero__phone { height: clamp(168px, 18vw, 290px); }
+    .hero__slide:nth-child(1) .hero__phone { height: clamp(110px, 12vw, 180px); }
+    .hero__slide:nth-child(2) .hero__phone { height: clamp(130px, 15vw, 230px); }
+    .hero__slide:nth-child(3) .hero__phone { height: clamp(120px, 13vw, 205px); }
+    .hero__slide:nth-child(4) .hero__phone { height: clamp(112px, 12vw, 185px); }
 
     /* glow on the tallest phone */
     .hero__slide:nth-child(2) .hero__phone {
@@ -275,10 +275,11 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(20, 20, 22, 0.32);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
     border-radius: 999px;
     padding: 5px 11px 5px 8px;
     cursor: default;
@@ -287,7 +288,7 @@
 }
 
 .hero__online:hover {
-    background: rgba(0, 0, 0, 0.62);
+    background: rgba(20, 20, 22, 0.48);
 }
 
 /* ── Social links — vertical stack, top-left of hero ────────
@@ -378,7 +379,7 @@
     justify-content: space-between;
     align-items: center;
     padding: clamp(10px, 2.5vw, 16px) clamp(20px, 6vw, 48px);
-    background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%);
+    background: linear-gradient(to top, rgba(0,0,0,0.38) 0%, transparent 100%);
     direction: rtl;
 }
 

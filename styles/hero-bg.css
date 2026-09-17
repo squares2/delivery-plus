@@ -55,7 +55,7 @@
     height: 100%;
     object-fit: cover;
     object-position: center;
-    filter: blur(26px) brightness(0.55) saturate(1.15);
+    filter: blur(26px) brightness(0.85) saturate(1.2);
     transform: scale(1.15);
     will-change: transform;
 }
@@ -101,7 +101,7 @@
     width: auto;
     height: auto;
     object-fit: contain;
-    filter: saturate(1.08) contrast(1.04) brightness(1.03);
+    filter: saturate(1.1) contrast(1.03) brightness(1.12);
 }
 
 /* ── Fallback modifier — used only on the single static default image
@@ -362,6 +362,6 @@
    strength. */
 @media (max-width: 640px) {
     .hero__bg-backdrop {
-        filter: blur(14px) brightness(0.55) saturate(1.15);
+        filter: blur(14px) brightness(0.85) saturate(1.2);
     }
 }
