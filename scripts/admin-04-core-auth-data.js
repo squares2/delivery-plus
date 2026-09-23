@@ -1364,9 +1364,9 @@ async function renderCatalog() {
                  onmouseover="this.style.borderColor='var(--orange)'"
                  onmouseout="this.style.borderColor='var(--surface3)'">
                 <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;background:var(--surface3);flex-shrink:0;position:relative;">
-                    <img src="assets/${imgSlug}.webp" alt="${s.name}"
+                    <img src="${imgUrl(`assets/${imgSlug}.webp`)}" alt="${s.name}"
                          style="width:100%;height:100%;object-fit:cover;"
-                         onerror="if(this.src.endsWith('.webp')){this.src='assets/${imgSlug}.png';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"
+                         onerror="if(this.src.endsWith('.webp')){this.src='${imgUrl(`assets/${imgSlug}.png`)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"
                     ><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:1.4rem;">🏪</div>
                 </div>
                 <div style="font-size:0.78rem;font-weight:700;color:var(--white);text-align:center;line-height:1.3;">${s.name}</div>
@@ -1481,7 +1481,7 @@ function _renderCatalogItems() {
         const hasSale = sale > 0 && sale < price;
         const png     = item.pngExist === '1' || item.pngExist === 1;
         const imgSrc  = png
-            ? (_cpiLocalImagePreview[id] || `items2/${String(id).toLowerCase()}.webp${item.imgUpdatedAt ? '?v=' + item.imgUpdatedAt : ''}`)
+            ? (_cpiLocalImagePreview[id] || imgUrl(`items2/${String(id).toLowerCase()}.webp${item.imgUpdatedAt ? '?v=' + item.imgUpdatedAt : ''}`))
             : '';
         return `
         <div style="background:var(--surface);border-radius:12px;overflow:hidden;border:1.5px solid var(--surface3);display:flex;flex-direction:column;min-height:220px;">
@@ -1607,7 +1607,7 @@ function openCatalogItemModal(item) {
                      onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'"
                      id="cat-modal-img-wrap">
                     ${(!isNew && (item.pngExist==='1'||item.pngExist===1))
-                        ? `<img src="items2/${String(id).toLowerCase()}.webp?_t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" id="cim-img-preview"
+                        ? `<img src="${imgUrl(`items2/${String(id).toLowerCase()}.webp`)}?_t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" id="cim-img-preview"
                                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                            <div style="display:none;font-size:2rem;width:100%;height:100%;align-items:center;justify-content:center;" id="cim-img-placeholder">📷</div>`
                         : `<span style="font-size:2rem;" id="cim-img-placeholder">📷</span>

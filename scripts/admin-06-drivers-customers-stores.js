@@ -1484,7 +1484,7 @@ function renderStores() {
         const emoji     = TYPE_EMOJI[s.type] || '🏪';
         const typeLabel = TYPE_LABELS[s.type] || s.type;
         const imgSlug    = (s.imgSlug && s.imgSlug.trim()) ? s.imgSlug.trim().toLowerCase() : _scSafeSlug(name);
-        const imgPicture = `<picture style="width:100%;height:100%;display:block;"><source srcset="assets/${imgSlug}.webp" type="image/webp"><img src="assets/${imgSlug}.png" alt="${_escAttr(name)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.closest('picture').style.display='none';this.closest('picture').nextElementSibling.style.display='flex'"></picture>`;
+        const imgPicture = `<picture style="width:100%;height:100%;display:block;"><source srcset="${imgUrl(`assets/${imgSlug}.webp`)}" type="image/webp"><img src="${imgUrl(`assets/${imgSlug}.png`)}" alt="${_escAttr(name)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.closest('picture').style.display='none';this.closest('picture').nextElementSibling.style.display='flex'"></picture>`;
         const ordCount  = Object.values(allOrders).filter(o => o.store === name).length;
         const newOrders = Object.values(allOrders).filter(o => o.store === name && (o.state||'0') === '0').length;
 

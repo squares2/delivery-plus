@@ -165,7 +165,7 @@
                       .replace(/\s+/g, '-')
                       .replace(/-+/g, '-')
                       .replace(/^-|-$/g, '') || 'store');
-        const imgBase = `assets/${slug || 'store'}`;
+        const imgBase = imgUrl(`assets/${slug || 'store'}`);
         const img     = `${imgBase}.webp`;
         const tags  = store.tags || store.storeType || '';
         const typeMap = {

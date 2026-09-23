@@ -21,7 +21,7 @@ function _spFormatStoreName(rawName) {
 // closed and reopened again — e.g. quickly tapping a store, going back,
 // and tapping it again before the first load finished.
 let _spLoadGen = 0;
-const GH_IMAGES = './items2';
+const GH_IMAGES = imgUrl('items2');
 
 /* Store types that show description input inside item popup */
 const CUSTOMIZABLE_TYPES = ['Restaurants', 'BakeryShops'];
@@ -121,8 +121,8 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     else       { ratingEl.style.display = 'none'; }
 
     const _introImgSl = _getImgSlug(storeId, storeMeta);
-    const logoPath    = `assets/${_introImgSl}.webp`;
-    const logoPngPath = `assets/${_introImgSl}.png`;
+    const logoPath    = imgUrl(`assets/${_introImgSl}.webp`);
+    const logoPngPath = imgUrl(`assets/${_introImgSl}.png`);
     logoImg.style.display  = 'none';
     logoEmoji.style.display = 'none';
     logoImg.onload  = () => { logoImg.style.display = 'block'; logoEmoji.style.display = 'none'; };
@@ -260,8 +260,8 @@ function _openStorePanelNow(storeId, storeName, storeType, rtdbKey) {
     const fallbackEl = document.getElementById('sp-hero-fallback');
     // storeId may be Arabic if companyname was renamed — strip non-ASCII for file paths
     const _heroImgSl  = _getImgSlug(storeId, null);
-    const logoPath    = `assets/${_heroImgSl}.webp`;
-    const logoPngPath = `assets/${_heroImgSl}.png`;
+    const logoPath    = imgUrl(`assets/${_heroImgSl}.webp`);
+    const logoPngPath = imgUrl(`assets/${_heroImgSl}.png`);
     const emojiDef    = _typeEmoji(storeType) || '🏪';
 
     if (logoImg)   { logoImg.style.display = 'none'; logoImg.src = ''; }
@@ -284,7 +284,7 @@ function _openStorePanelNow(storeId, storeName, storeType, rtdbKey) {
         });
 
         (async () => {
-            const webm = await tryVideo(`assets/videos/${_heroImgSl}.webm`);
+            const webm = await tryVideo(imgUrl(`assets/videos/${_heroImgSl}.webm`));
             if (webm) {
                 videoEl.style.display = 'block';
                 videoEl.play().catch(() => {});
@@ -292,7 +292,7 @@ function _openStorePanelNow(storeId, storeName, storeType, rtdbKey) {
                 if (fallbackEl){ fallbackEl.style.display = 'none'; }
                 return;
             }
-            const mp4 = await tryVideo(`assets/videos/${_heroImgSl}.mp4`);
+            const mp4 = await tryVideo(imgUrl(`assets/videos/${_heroImgSl}.mp4`));
             if (mp4) {
                 videoEl.style.display = 'block';
                 videoEl.play().catch(() => {});
@@ -447,8 +447,8 @@ async function _loadStorePanel(storeName, storeType) {
             const heroLogo = document.getElementById('sp-hero-logo');
             const heroBg   = document.getElementById('sp-hero-bg');
             if (heroLogo && !heroLogo.src.includes(`/${correctSlug}.`)) {
-                const correctPath = `assets/${correctSlug}.webp`;
-                const correctPng  = `assets/${correctSlug}.png`;
+                const correctPath = imgUrl(`assets/${correctSlug}.webp`);
+                const correctPng  = imgUrl(`assets/${correctSlug}.png`);
                 heroLogo.onerror = function() {
                     if (this.src.includes('.webp')) { this.src = correctPng; return; }
                     heroLogo.style.display = 'none';
@@ -1302,7 +1302,7 @@ function _ipAddToCart() {
         for (let i = 0; i < _ipQty; i++) {
             const instanceId = uniqueId + '__i' + (Date.now() + i);
             const _pngUrl = (item.pngExist === '1' || item.pngExist === 1)
-                ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
+                ? `${GH_IMAGES}/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
             window.DelivoCart.addItem(instanceId, item.name, price, storeName, storeType, notes, _pngUrl, itemCat);
         }
         _updatePanelQtyDisplay(uniqueId, storeName);
@@ -1313,14 +1313,14 @@ function _ipAddToCart() {
         if (diff > 0) {
             for (let i = 0; i < diff; i++) {
                 const _qi = (item.pngExist === '1' || item.pngExist === 1)
-                ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
+                ? `${GH_IMAGES}/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
             window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '', _qi, itemCat);
             }
         } else if (diff < 0) {
             for (let i = 0; i < Math.abs(diff); i++) window.DelivoCart.decrementItem(uniqueId, storeName);
         } else {
             const _qi = (item.pngExist === '1' || item.pngExist === 1)
-                ? `./items2/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
+                ? `${GH_IMAGES}/${String(item.ID || item.id || '').toLowerCase()}.webp` : '';
             window.DelivoCart.addItem(uniqueId, item.name, price, storeName, storeType, '', _qi, itemCat);
         }
     }

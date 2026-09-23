@@ -14,7 +14,7 @@
    ============================================================ */
 
 const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-const STORE_IMG = './assets';
+const STORE_IMG = imgUrl('assets');
 
 /* ── Daily auto open/close hours (same logic as stores.js) ───
    Store record may carry autoHours: { enabled, open:"HH:MM", close:"HH:MM" }

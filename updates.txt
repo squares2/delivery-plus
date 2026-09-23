@@ -1,0 +1,1 @@
+1-update customer otlob to also lock or hide all closed shops

@@ -132,7 +132,7 @@ async function initHeroBg() {
     // index (`current`) — only the physical DOM position differs, via
     // _physPos() below.
     stack.innerHTML = list.slice().reverse().map(function (bg, i) {
-        const src  = _heroEscapeHtml(bg.image);
+        const src  = _heroEscapeHtml(imgUrl(bg.image));
         const lazy = i === list.length - 1 ? '' : 'loading="lazy"'; // logical slide 0 is last in this reversed array
 
         // Any slide without ANY linkType saved at all (legacy data, from

@@ -38,7 +38,7 @@ function _qmRenderRow(item, storeName) {
     const hasSale  = sale > 0 && sale < price;
     const dispPrice= hasSale ? sale : price;
     const pngExist = item.pngExist === '1' || item.pngExist === 1;
-    const imgUrl   = pngExist ? `${typeof GH_IMAGES !== 'undefined' ? GH_IMAGES : './items2'}/${String(id).toLowerCase()}.webp` : '';
+    const imgUrl   = pngExist ? `${typeof GH_IMAGES !== 'undefined' ? GH_IMAGES : imgUrl('items2')}/${String(id).toLowerCase()}.webp` : '';
     const uniqueId = `${storeName}__${id}`;
     const sType    = window._currentStore ? window._currentStore.type : '';
     const emoji    = _qmTypeEmoji(item.companytype);
@@ -286,7 +286,7 @@ function _qmPickerRow(store) {
     <button class="qm-pick-row${isClosed ? ' qm-pick-row--closed' : ''}"
             ${isClosed ? 'disabled' : `onclick='_qmPickStore(${JSON.stringify(store).replace(/'/g,"&apos;")})'`}>
         <div class="qm-pick-row__img">
-            <img src="assets/${slug}.webp" alt="" loading="lazy"
+            <img src="${imgUrl(`assets/${slug}.webp`)}" alt="" loading="lazy"
                  onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
             <div class="qm-pick-row__fallback" style="display:none">${emoji}</div>
         </div>
@@ -353,7 +353,7 @@ async function _qmPickStore(store) {
     if (slug) {
         const testImg = new Image();
         testImg.onload = () => { qmLogoImg.src = testImg.src; qmLogoImg.style.display = 'block'; qmLogoEmoji.style.display = 'none'; };
-        testImg.src = `assets/${slug}.webp`;
+        testImg.src = imgUrl(`assets/${slug}.webp`);
     }
 
     const track = document.getElementById('qm-track');

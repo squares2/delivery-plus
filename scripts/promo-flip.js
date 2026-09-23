@@ -103,7 +103,7 @@ function _renderCard(card, idx) {
              'aria-label="' + label + '، إضغط لتشوف التفاصيل">' +
             '<div class="promo-flip-card__inner">' +
                 '<div class="promo-flip-card__face promo-flip-card__face--front">' +
-                    '<img src="' + _escapeHtml(card.image) + '" alt="' + _escapeHtml(card.storeName || card.title || 'عرض') + '" loading="lazy">' +
+                    '<img src="' + _escapeHtml(imgUrl(card.image)) + '" alt="' + _escapeHtml(card.storeName || card.title || 'عرض') + '" loading="lazy">' +
                     '<div class="promo-flip-card__scrim"></div>' +
                     badgeHtml +
                     '<span class="promo-flip-card__flip-icon" aria-hidden="true">↻</span>' +
