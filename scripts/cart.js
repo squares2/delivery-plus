@@ -937,7 +937,7 @@ function initCart() {
             return this.items.reduce((s, i) => s + i.price * i.qty, 0);
         },
 
-        addItem(id, name, price, storeName, storeType, notes, imgUrl, category) {
+        addItem(id, name, price, storeName, storeType, notes, itemImgSrc, category) {
             const isInstance = id.includes('__i');
             const existing   = !isInstance
                 ? this.items.find(i => i.id === id && i.storeName === storeName)
@@ -954,7 +954,7 @@ function initCart() {
                     storeName: storeName || '',
                     storeType: storeType || '',
                     notes    : notes || '',
-                    imgUrl   : imgUrl  || '',   // pre-resolved image URL from store panel
+                    imgUrl   : itemImgSrc  || '',   // pre-resolved image URL from store panel
                     category : category || '', // menu category label, e.g. "مطاعم › برجر" — see _composeItemCategory
                 });
             }

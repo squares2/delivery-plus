@@ -38,7 +38,7 @@ function _qmRenderRow(item, storeName) {
     const hasSale  = sale > 0 && sale < price;
     const dispPrice= hasSale ? sale : price;
     const pngExist = item.pngExist === '1' || item.pngExist === 1;
-    const imgUrl   = pngExist ? `${typeof GH_IMAGES !== 'undefined' ? GH_IMAGES : imgUrl('items2')}/${String(id).toLowerCase()}.webp` : '';
+    const itemImgSrc   = pngExist ? `${typeof GH_IMAGES !== 'undefined' ? GH_IMAGES : delivoImg('items2')}/${String(id).toLowerCase()}.webp` : '';
     const uniqueId = `${storeName}__${id}`;
     const sType    = window._currentStore ? window._currentStore.type : '';
     const emoji    = _qmTypeEmoji(item.companytype);
@@ -48,7 +48,7 @@ function _qmRenderRow(item, storeName) {
     <div class="qm-row">
         <div class="qm-row__img">
             ${pngExist
-                ? `<img src="${imgUrl}" alt="${name}" loading="lazy"
+                ? `<img src="${itemImgSrc}" alt="${name}" loading="lazy"
                        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                    <div class="qm-row__img-fallback" style="display:none">${emoji}</div>`
                 : `<div class="qm-row__img-fallback">${emoji}</div>`
@@ -63,7 +63,7 @@ function _qmRenderRow(item, storeName) {
             ${hasSale ? `<span class="qm-row__price-old">${typeof formatPrice === 'function' ? formatPrice(price) : price}</span>` : ''}
         </div>
         <button class="qm-row__add" aria-label="أضف للسلة"
-                onclick="_qmQuickAdd(this,'${uniqueId}','${name.replace(/'/g,"\\'")}',${dispPrice},'${storeName.replace(/'/g,"\\'")}','${sType}','${imgUrl}','${itemCat}')">
+                onclick="_qmQuickAdd(this,'${uniqueId}','${name.replace(/'/g,"\\'")}',${dispPrice},'${storeName.replace(/'/g,"\\'")}','${sType}','${itemImgSrc}','${itemCat}')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
@@ -71,11 +71,11 @@ function _qmRenderRow(item, storeName) {
     </div>`;
 }
 
-function _qmQuickAdd(btn, uniqueId, name, price, storeName, storeType, imgUrl, category) {
+function _qmQuickAdd(btn, uniqueId, name, price, storeName, storeType, itemImgSrc, category) {
     if (window.spAddItem) {
-        window.spAddItem(uniqueId, name, price, storeName, storeType, null, imgUrl, category);
+        window.spAddItem(uniqueId, name, price, storeName, storeType, null, itemImgSrc, category);
     } else if (window.DelivoCart) {
-        window.DelivoCart.addItem(uniqueId, name, price, storeName, storeType, '', imgUrl, category);
+        window.DelivoCart.addItem(uniqueId, name, price, storeName, storeType, '', itemImgSrc, category);
         if (window.renderCartSidebar) window.renderCartSidebar();
     }
     if (!btn) return;
@@ -286,7 +286,7 @@ function _qmPickerRow(store) {
     <button class="qm-pick-row${isClosed ? ' qm-pick-row--closed' : ''}"
             ${isClosed ? 'disabled' : `onclick='_qmPickStore(${JSON.stringify(store).replace(/'/g,"&apos;")})'`}>
         <div class="qm-pick-row__img">
-            <img src="${imgUrl(`assets/${slug}.webp`)}" alt="" loading="lazy"
+            <img src="${delivoImg(`assets/${slug}.webp`)}" alt="" loading="lazy"
                  onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
             <div class="qm-pick-row__fallback" style="display:none">${emoji}</div>
         </div>
@@ -353,7 +353,7 @@ async function _qmPickStore(store) {
     if (slug) {
         const testImg = new Image();
         testImg.onload = () => { qmLogoImg.src = testImg.src; qmLogoImg.style.display = 'block'; qmLogoEmoji.style.display = 'none'; };
-        testImg.src = imgUrl(`assets/${slug}.webp`);
+        testImg.src = delivoImg(`assets/${slug}.webp`);
     }
 
     const track = document.getElementById('qm-track');

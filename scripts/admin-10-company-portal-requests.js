@@ -813,7 +813,7 @@ function cpiRender() {
         const hasSale = sale > 0 && sale < price;
         const hasPng  = item.pngExist === '1' || item.pngExist === 1;
         const imgSrc  = _cpiLocalImagePreview[id]
-            || imgUrl(`items2/${String(id).toLowerCase()}.webp${item.imgUpdatedAt ? '?v=' + item.imgUpdatedAt : ''}`);
+            || delivoImg(`items2/${String(id).toLowerCase()}.webp${item.imgUpdatedAt ? '?v=' + item.imgUpdatedAt : ''}`);
         const emoji   = _catTypeEmoji(_cpiStoreType);
         const safeItem = JSON.stringify(item).replace(/"/g,'&quot;');
         return `
@@ -928,7 +928,7 @@ async function cpOpenItemModal(item) {
                      onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'"
                      id="cat-modal-img-wrap">
                     ${(!isNew && (item.pngExist==='1'||item.pngExist===1))
-                        ? `<img src="${imgUrl(`items2/${String(id).toLowerCase()}.webp`)}?_t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" id="cim-img-preview"
+                        ? `<img src="${delivoImg(`items2/${String(id).toLowerCase()}.webp`)}?_t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" id="cim-img-preview"
                                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                            <div style="display:none;font-size:2rem;width:100%;height:100%;align-items:center;justify-content:center;" id="cim-img-placeholder">📷</div>`
                         : `<span style="font-size:2rem;" id="cim-img-placeholder">📷</span>

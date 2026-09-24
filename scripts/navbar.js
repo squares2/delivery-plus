@@ -1155,7 +1155,7 @@ function _bbs_showResults(results, sectionLabel, storeMatches) {
                  data-store-type="${s.type}"
                  data-store-rtdb="${s.companyname}">
                 <div class="bbs__store-img">
-                    <img src="${imgUrl(`assets/${slug}.webp`)}" alt="${display}"
+                    <img src="${delivoImg(`assets/${slug}.webp`)}" alt="${display}"
                          onerror="if(this.src.includes('.webp')){this.src=this.src.replace('.webp','.png');return;}this.style.display='none';this.nextElementSibling.style.display='flex'">
                     <div class="bbs__store-img-fb" style="display:none">${emoji}</div>
                 </div>
@@ -1198,7 +1198,7 @@ function _bbs_showResults(results, sectionLabel, storeMatches) {
         const rowsHtml = entries.map((r, idx) => {
             const imgId = r.item.ID || r.item.id || '';
             const hasPng = r.item.pngExist === '1' || r.item.pngExist === 1;
-            const imgSrc = hasPng ? imgUrl(`items2/${String(imgId).toLowerCase()}.webp`) : '';
+            const imgSrc = hasPng ? delivoImg(`items2/${String(imgId).toLowerCase()}.webp`) : '';
             const storeDisplay = r.storeNameAr && r.storeNameAr !== r.storeName
                 ? r.storeNameAr
                 : r.storeName.replace(/[-_]/g,' ').replace(/\b\w/g, c=>c.toUpperCase());

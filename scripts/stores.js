@@ -61,7 +61,7 @@ const TYPE_EMOJI_STORE = {
 };
 
 /* ── Helpers ─────────────────────────────────────────────── */
-const STORE_IMG_PATH = imgUrl('assets');
+const STORE_IMG_PATH = delivoImg('assets');
 function _slugHash(str) {
     let h = 0;
     for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
@@ -202,8 +202,8 @@ function buildStoreData(s, counts, storeStatus) {
     const type   = s.type;
     const tagAr  = TYPE_TAGS_AR[type] || type;
     const emoji  = TYPE_EMOJI_STORE[type] || '🏪';
-    const img         = imgUrl(`assets/${slug}.webp`);
-    const imgFallback = imgUrl(`assets/${slug}.png`);
+    const img         = delivoImg(`assets/${slug}.webp`);
+    const imgFallback = delivoImg(`assets/${slug}.png`);
     const requests    = counts[_countKey(name)] || counts[_countKey(slug)] || 0;
     const st            = storeStatus[name] || null;
     const manualClosed  = st && (st.closed === true || st.closed === '1' || st.closed === 1);
@@ -611,7 +611,7 @@ async function _fetchAndInjectSaleCards() {
             }));
 
             // Pick symbol based on gradient index
-            const SALE_SYMBOLS = ['assets/cat_sweets.png','assets/cat_meat.png','assets/cat_burger.png','assets/cat_bread.png','assets/cat_chicken.png','assets/cat_grocery.png'].map(imgUrl);
+            const SALE_SYMBOLS = ['assets/cat_sweets.png','assets/cat_meat.png','assets/cat_burger.png','assets/cat_bread.png','assets/cat_chicken.png','assets/cat_grocery.png'].map(delivoImg);
             const symbolSrc = SALE_SYMBOLS[gradIdx % SALE_SYMBOLS.length];
 
             const logoSlug = storeLogoMap[sale.storeName] || toSlug(sale.storeName);
@@ -625,7 +625,7 @@ async function _fetchAndInjectSaleCards() {
             card.innerHTML = `
                 <!-- Symbol image — right side like old cards -->
                 <div class="offer-card__img-wrap">
-                    <img src="${symbolSrc}" alt="" class="offer-card__img" onerror="this.onerror=null;this.src='${imgUrl('assets/cat_burger.png')}'">
+                    <img src="${symbolSrc}" alt="" class="offer-card__img" onerror="this.onerror=null;this.src='${delivoImg('assets/cat_burger.png')}'">
                 </div>
 
                 <!-- Text content — left side -->

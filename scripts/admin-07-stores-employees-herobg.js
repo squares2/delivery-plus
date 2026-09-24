@@ -1525,7 +1525,7 @@ function _pfCardHtml(key, card, idx, total) {
     return `
     <div class="pf-card${isActive ? '' : ' inactive'}">
         <div class="pf-card__img-wrap">
-            <img src="${imgUrl(card.image || '')}" alt="" onerror="this.style.opacity=0.15">
+            <img src="${delivoImg(card.image || '')}" alt="" onerror="this.style.opacity=0.15">
             <span class="pf-card__order-badge">#${card.order ?? (idx + 1)}</span>
         </div>
         <div class="pf-card__body">
@@ -1625,7 +1625,7 @@ function openPromoFlipModal(card) {
                      style="width:100%;height:130px;border-radius:12px;overflow:hidden;background:var(--surface3);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px dashed var(--border);position:relative;"
                      onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
                     ${card?.image
-                        ? `<img src="${imgUrl(card.image)}" style="width:100%;height:100%;object-fit:cover;" id="pf-img-preview">`
+                        ? `<img src="${delivoImg(card.image)}" style="width:100%;height:100%;object-fit:cover;" id="pf-img-preview">`
                         : `<span style="font-size:2rem;" id="pf-img-placeholder">📷</span>
                            <img src="" style="width:100%;height:100%;object-fit:cover;display:none;" id="pf-img-preview">`
                     }
@@ -1908,7 +1908,7 @@ function _hbCardHtml(key, bg, idx, total) {
     // _hbLocalPreviewOverrides above) — falls back to the remote GitHub
     // Pages URL, cache-busted with its own update time so at least the
     // browser's own cache doesn't also hold onto a stale copy.
-    const imgSrc = _hbLocalPreviewOverrides[key] || (bg.image ? `${imgUrl(bg.image)}?v=${bg.updatedAt || 0}` : '');
+    const imgSrc = _hbLocalPreviewOverrides[key] || (bg.image ? `${delivoImg(bg.image)}?v=${bg.updatedAt || 0}` : '');
     const durSec = parseFloat(bg.durationSec) || 5;
     return `
     <div class="hb-card${isActive ? '' : ' inactive'}" draggable="true" data-hb-key="${key}">
@@ -2082,7 +2082,7 @@ function openHeroBgModal(bg) {
                      style="width:100%;height:150px;border-radius:12px;overflow:hidden;background:var(--surface3);margin:0 auto 8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px dashed var(--border);position:relative;"
                      onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
                     ${bg?.image
-                        ? `<img src="${imgUrl(bg.image)}" style="width:100%;height:100%;object-fit:cover;" id="hb-img-preview">`
+                        ? `<img src="${delivoImg(bg.image)}" style="width:100%;height:100%;object-fit:cover;" id="hb-img-preview">`
                         : `<span style="font-size:2rem;" id="hb-img-placeholder">🖼️</span>
                            <img src="" style="width:100%;height:100%;object-fit:cover;display:none;" id="hb-img-preview">`
                     }

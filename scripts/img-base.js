@@ -4,23 +4,25 @@
    "items2/123.webp" resolve to the copy frozen inside the APK, so any
    image uploaded later (items, hero backgrounds, promo cards, store
    logos) would never show. Building every content-image link from
-   IMG_BASE makes the app and the website load the SAME live files.
+   DELIVO_IMG_BASE makes the app and the website load the SAME live files.
    Logo, icons, favicon and splash images deliberately stay local so
    they still show offline.
+   Named delivoImg / DELIVO_IMG_BASE so it can't clash with any other
+   global name used by the Android app build.
    Must load BEFORE every other script (it's placed in <head>).
-   To move images to another domain later, change IMG_BASE only.
+   To move images to another domain later, change DELIVO_IMG_BASE only.
 ═══════════════════════════════════════════════════════════════ */
 (function () {
-    var IMG_BASE = 'https://delivolb.com/';
+    var DELIVO_IMG_BASE = 'https://delivolb.com/';
 
-    function imgUrl(path) {
+    function delivoImg(path) {
         if (!path) return '';
         path = String(path);
         // Already a full link (or a local upload preview) — leave it alone
         if (/^(https?:|data:|blob:|\/\/)/i.test(path)) return path;
-        return IMG_BASE + path.replace(/^\.?\/+/, '');
+        return DELIVO_IMG_BASE + path.replace(/^\.?\/+/, '');
     }
 
-    window.IMG_BASE = IMG_BASE;
-    window.imgUrl   = imgUrl;
+    window.DELIVO_IMG_BASE = DELIVO_IMG_BASE;
+    window.delivoImg       = delivoImg;
 })();

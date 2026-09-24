@@ -14,7 +14,7 @@
    ============================================================ */
 
 const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-const STORE_IMG = imgUrl('assets');
+const STORE_IMG = delivoImg('assets');
 
 /* ── Daily auto open/close hours (same logic as stores.js) ───
    Store record may carry autoHours: { enabled, open:"HH:MM", close:"HH:MM" }
@@ -382,7 +382,7 @@ function _storeCardHTML(store, catKey, fbType) {
     const rank     = store.rank ? parseFloat(store.rank).toFixed(1) : null;
     const isSoon   = store.soon == '1' || store.soon === 1;
     const isClosed = !!store._closed;
-    const imgUrl   = `${STORE_IMG}/${_imgSlug(store)}.webp`;
+    const storeImgSrc   = `${STORE_IMG}/${_imgSlug(store)}.webp`;
     const id       = _imgSlug(store);  // always English — used for store panel lookup
 
     let opensChip = '';
@@ -419,7 +419,7 @@ function _storeCardHTML(store, catKey, fbType) {
          data-store-name="${rawName}" data-store-id="${id}" data-fb-type="${fbType}" data-store-rtdbkey="${rawName}" data-name-ar="${store.nameAr ? store.nameAr.trim() : ""}"
          style="${stateStyle}flex-shrink:0;">
         <div class="store-card__thumb" style="position:relative;">
-            <img src="${imgUrl}" alt="${name}"
+            <img src="${storeImgSrc}" alt="${name}"
                  style="width:100%;height:100%;object-fit:contain;display:block;background:var(--clr-gray-100);"
                  onerror="if(this.src.includes('.webp')){this.src=this.src.replace('.webp','.png');return;}this.style.display='none';this.nextElementSibling.style.display='flex'">
             <div style="display:none;width:100%;height:100%;align-items:center;

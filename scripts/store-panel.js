@@ -21,7 +21,7 @@ function _spFormatStoreName(rawName) {
 // closed and reopened again — e.g. quickly tapping a store, going back,
 // and tapping it again before the first load finished.
 let _spLoadGen = 0;
-const GH_IMAGES = imgUrl('items2');
+const GH_IMAGES = delivoImg('items2');
 
 /* Store types that show description input inside item popup */
 const CUSTOMIZABLE_TYPES = ['Restaurants', 'BakeryShops'];
@@ -121,8 +121,8 @@ function showStoreIntro(storeId, storeName, storeType, storeMeta, onDone) {
     else       { ratingEl.style.display = 'none'; }
 
     const _introImgSl = _getImgSlug(storeId, storeMeta);
-    const logoPath    = imgUrl(`assets/${_introImgSl}.webp`);
-    const logoPngPath = imgUrl(`assets/${_introImgSl}.png`);
+    const logoPath    = delivoImg(`assets/${_introImgSl}.webp`);
+    const logoPngPath = delivoImg(`assets/${_introImgSl}.png`);
     logoImg.style.display  = 'none';
     logoEmoji.style.display = 'none';
     logoImg.onload  = () => { logoImg.style.display = 'block'; logoEmoji.style.display = 'none'; };
@@ -260,8 +260,8 @@ function _openStorePanelNow(storeId, storeName, storeType, rtdbKey) {
     const fallbackEl = document.getElementById('sp-hero-fallback');
     // storeId may be Arabic if companyname was renamed — strip non-ASCII for file paths
     const _heroImgSl  = _getImgSlug(storeId, null);
-    const logoPath    = imgUrl(`assets/${_heroImgSl}.webp`);
-    const logoPngPath = imgUrl(`assets/${_heroImgSl}.png`);
+    const logoPath    = delivoImg(`assets/${_heroImgSl}.webp`);
+    const logoPngPath = delivoImg(`assets/${_heroImgSl}.png`);
     const emojiDef    = _typeEmoji(storeType) || '🏪';
 
     if (logoImg)   { logoImg.style.display = 'none'; logoImg.src = ''; }
@@ -284,7 +284,7 @@ function _openStorePanelNow(storeId, storeName, storeType, rtdbKey) {
         });
 
         (async () => {
-            const webm = await tryVideo(imgUrl(`assets/videos/${_heroImgSl}.webm`));
+            const webm = await tryVideo(delivoImg(`assets/videos/${_heroImgSl}.webm`));
             if (webm) {
                 videoEl.style.display = 'block';
                 videoEl.play().catch(() => {});
@@ -292,7 +292,7 @@ function _openStorePanelNow(storeId, storeName, storeType, rtdbKey) {
                 if (fallbackEl){ fallbackEl.style.display = 'none'; }
                 return;
             }
-            const mp4 = await tryVideo(imgUrl(`assets/videos/${_heroImgSl}.mp4`));
+            const mp4 = await tryVideo(delivoImg(`assets/videos/${_heroImgSl}.mp4`));
             if (mp4) {
                 videoEl.style.display = 'block';
                 videoEl.play().catch(() => {});
@@ -447,8 +447,8 @@ async function _loadStorePanel(storeName, storeType) {
             const heroLogo = document.getElementById('sp-hero-logo');
             const heroBg   = document.getElementById('sp-hero-bg');
             if (heroLogo && !heroLogo.src.includes(`/${correctSlug}.`)) {
-                const correctPath = imgUrl(`assets/${correctSlug}.webp`);
-                const correctPng  = imgUrl(`assets/${correctSlug}.png`);
+                const correctPath = delivoImg(`assets/${correctSlug}.webp`);
+                const correctPng  = delivoImg(`assets/${correctSlug}.png`);
                 heroLogo.onerror = function() {
                     if (this.src.includes('.webp')) { this.src = correctPng; return; }
                     heroLogo.style.display = 'none';
@@ -623,7 +623,7 @@ function renderItem(item, storeName) {
     const hasSale   = sale > 0 && sale < price;
     const dispPrice = hasSale ? sale : price;
     const pngExist  = item.pngExist === '1' || item.pngExist === 1;
-    const imgUrl    = pngExist ? `${GH_IMAGES}/${String(id).toLowerCase()}.webp` : '';
+    const itemImgSrc    = pngExist ? `${GH_IMAGES}/${String(id).toLowerCase()}.webp` : '';
     const cartQty   = _getBaseItemQty(`${storeName}__${id}`, storeName);
     const uniqueId  = `${storeName}__${id}`;
     const sType     = _currentStore ? _currentStore.type : '';
@@ -634,7 +634,7 @@ function renderItem(item, storeName) {
         <div class="sp-item__img-wrap" style="cursor:pointer"
              onclick="openItemPopup(${JSON.stringify(item).replace(/"/g,'&quot;')},'${storeName.replace(/'/g,"\\'")}')">
             ${pngExist
-                ? `<img class="sp-item__img" src="${imgUrl}" alt="${name}"
+                ? `<img class="sp-item__img" src="${itemImgSrc}" alt="${name}"
                        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
                        loading="lazy">
                    <div class="sp-item__img-fallback" style="display:none">${_typeEmoji(item.companytype)}</div>`
@@ -660,10 +660,10 @@ function renderItem(item, storeName) {
                         onclick="spRemoveLastInstance('${uniqueId}','${storeName}')">−</button>
                 <span class="sp-item__qty-num" id="sp-qty-${_slugify(uniqueId)}">${cartQty}</span>
                 <button class="sp-item__qty-btn sp-item__qty-btn--add"
-                        onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${imgUrl}','${itemCat}')">+</button>
+                        onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${itemImgSrc}','${itemCat}')">+</button>
             </div>` : `
             <button class="sp-item__add-btn" id="sp-add-btn-${_slugify(uniqueId)}"
-                    onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${imgUrl}','${itemCat}')">
+                    onclick="spAddItem('${uniqueId}','${name}',${dispPrice},'${storeName}','${sType}',event,'${itemImgSrc}','${itemCat}')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2.5"
                      stroke-linecap="round" stroke-linejoin="round">
@@ -680,11 +680,11 @@ function renderItem(item, storeName) {
  * spAddItem — always adds instantly (no modal, no keyword popup).
  * Description notes are only set via the item detail popup.
  */
-function spAddItem(uniqueId, name, price, storeName, storeType, event, imgUrl, category) {
+function spAddItem(uniqueId, name, price, storeName, storeType, event, itemImgSrc, category) {
     if (!window.DelivoCart) return;
     if (event) event.stopPropagation();
     // Direct add — no notes, no modal
-    _doAddItem(uniqueId, name, price, storeName, storeType, '', uniqueId, imgUrl, category);
+    _doAddItem(uniqueId, name, price, storeName, storeType, '', uniqueId, itemImgSrc, category);
 }
 
 /* Remove the most-recently-added instance of an item */
@@ -701,9 +701,9 @@ function spRemoveLastInstance(baseId, storeName) {
     _updateSpCartBar();
 }
 
-function _doAddItem(instanceId, name, price, storeName, storeType, notes, baseId, imgUrl, category) {
+function _doAddItem(instanceId, name, price, storeName, storeType, notes, baseId, itemImgSrc, category) {
     const bId = baseId || instanceId;
-    window.DelivoCart.addItem(instanceId, name, price, storeName, storeType, notes, imgUrl, category);
+    window.DelivoCart.addItem(instanceId, name, price, storeName, storeType, notes, itemImgSrc, category);
     _updatePanelQtyDisplay(bId, storeName);
     _updateSpCartBar();
     if (window.renderCartSidebar) window.renderCartSidebar();
@@ -1180,7 +1180,7 @@ async function openItemPopup(item, storeName) {
     const disp     = hasSale ? sale : price;
     const id       = item.ID || item.id || '';
     const pngExist = item.pngExist === '1' || item.pngExist === 1;
-    const imgUrl   = pngExist ? `${GH_IMAGES}/${String(id).toLowerCase()}.webp` : '';
+    const itemImgSrc   = pngExist ? `${GH_IMAGES}/${String(id).toLowerCase()}.webp` : '';
     const desc     = (item.unitdesc || '').trim();
     const sType    = _currentStore ? _currentStore.type : '';
 
@@ -1190,13 +1190,13 @@ async function openItemPopup(item, storeName) {
     /* Image */
     const imgEl      = document.getElementById('ip-img');
     const fallbackEl = document.getElementById('ip-img-fallback');
-    if (pngExist && imgUrl) {
+    if (pngExist && itemImgSrc) {
         imgEl.onerror = function () {
             this.style.display = 'none';
             fallbackEl.textContent = _typeEmoji(item.companytype);
             fallbackEl.style.display = 'flex';
         };
-        imgEl.src = imgUrl; imgEl.alt = item.name || '';
+        imgEl.src = itemImgSrc; imgEl.alt = item.name || '';
         imgEl.style.display = 'block'; fallbackEl.style.display = 'none';
     } else {
         imgEl.src = '';
