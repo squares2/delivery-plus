@@ -615,7 +615,9 @@
                     : baseFee;
             } else {
                 if (!_data.storeLat) { _data.smartFee = null; return; }
-                const km = _haversineKm(_data.storeLat, _data.storeLng, _data.destLat, _data.destLng);
+                const km = typeof _roadKm === 'function'
+                    ? await _roadKm(_data.storeLat, _data.storeLng, _data.destLat, _data.destLng)   // real road distance (cart.js)
+                    : _haversineKm(_data.storeLat, _data.storeLng, _data.destLat, _data.destLng);
                 distanceKmForNight = km;
                 const distFee = baseFee + km * ratePerKm;
                 rawFee = Math.min(maxFee, Math.max(minFee, distFee));

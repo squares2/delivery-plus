@@ -330,6 +330,38 @@ function _haversineKm(lat1, lng1, lat2, lng2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+/* ── Real driving distance (km) via OSRM ───────────────────────
+   Delivery fees used to be priced on the straight-line (Haversine)
+   distance, which is always SHORTER than the road the driver really
+   takes — every formula-priced order was under-charged. This returns
+   OSRM's fastest driving route distance instead (same routing service
+   the admin live map already uses). Results are cached per point pair
+   for the session so re-renders of the cart don't re-query. Falls back
+   to the straight line if routing is unreachable, so checkout never
+   breaks — worst case it behaves exactly like before. */
+const _roadKmCache = {};
+async function _roadKm(lat1, lng1, lat2, lng2) {
+    const key = `${(+lat1).toFixed(5)},${(+lng1).toFixed(5)}|${(+lat2).toFixed(5)},${(+lng2).toFixed(5)}`;
+    if (_roadKmCache[key] !== undefined) return _roadKmCache[key];
+    try {
+        const ctrl  = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 7000);
+        const url = `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false&alternatives=false`;
+        const res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error('routing failed');
+        const data  = await res.json();
+        const route = data && data.routes && data.routes[0];
+        if (!route || !(route.distance > 0)) throw new Error('no route');
+        _roadKmCache[key] = route.distance / 1000;
+        return _roadKmCache[key];
+    } catch (_) {
+        // Not cached — a later render gets another chance at the real route
+        return _haversineKm(lat1, lng1, lat2, lng2);
+    }
+}
+window._roadKm = _roadKm;
+
 /* ── "Distance-from-center" pricing table ────────────────────
    Alternative to the baseFee+ratePerKm formula above: instead of
    computing a formula per store, the admin defines boundary rows
@@ -700,7 +732,7 @@ async function _calcSmartFee(storeName, custLat, custLng, cartSubtotalUSD) {
         if (custLat && custLng) {
             const storeLoc = await _loadStoreLoc(storeName);
             if (storeLoc) {
-                const km = _haversineKm(custLat, custLng, storeLoc.lat, storeLoc.lng);
+                const km = await _roadKm(storeLoc.lat, storeLoc.lng, custLat, custLng);
                 distFee = baseFee + km * ratePerKm;
                 distanceKmForNight = km;
             }
