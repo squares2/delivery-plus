@@ -1471,6 +1471,31 @@ function _aoHaversineKm(lat1, lng1, lat2, lng2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Real driving distance (km) between two points via OSRM — the same routing
+// service the live map's distance-measure tool already uses. The fee used to
+// be priced on the straight-line (Haversine) distance only, which is always
+// SHORTER than the road a driver actually takes (mountain/winding roads,
+// one-ways, detours around blocks), so every formula-priced order was
+// under-charged. OSRM returns its fastest driving route (the one a driver
+// would really follow). Falls back to straight-line if routing is
+// unreachable, and reports which one was used so the admin can see it.
+async function _aoRoadKm(lat1, lng1, lat2, lng2) {
+    try {
+        const ctrl  = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 7000);
+        const url = `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false&alternatives=false`;
+        const res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error('routing failed');
+        const data  = await res.json();
+        const route = data && data.routes && data.routes[0];
+        if (!route || !(route.distance > 0)) throw new Error('no route');
+        return { km: route.distance / 1000, road: true };
+    } catch (_) {
+        return { km: _aoHaversineKm(lat1, lng1, lat2, lng2), road: false };
+    }
+}
+
 // Same boundary-lookup as scripts/cart.js's _calcCenterTierFee — duplicated
 // here since admin.html doesn't load cart.js as a script.
 function _aoCalcCenterTierFee(distanceKm, centerTiers) {
@@ -1512,56 +1537,65 @@ function _aoNormalizeFeeLBP(fee) {
     return Math.round(n / 10000) * 10000;
 }
 
+// Always re-read the fee settings on every calculation instead of caching
+// them for the whole admin session — otherwise a change saved in the
+// settings tab (toggling smart delivery off, new base/rate/tiers, night
+// window…) was silently ignored by otlob until the page was reloaded.
+async function _aoLoadFeeCfgs() {
+    _aoSmartCfgCache = await fbGet('settings/smartDelivery').catch(() => null);
+    _aoNightCfgCache = await fbGet('settings/nightDelivery').catch(() => null);
+    return _aoSmartCfgCache;
+}
+
 async function _aoAutoCalcFee() {
     if (!_aoDestLat) { toast('حدّد موقع التوصيل أولاً', true); return; }
     try {
-        if (_aoSmartCfgCache === undefined) _aoSmartCfgCache = await fbGet('settings/smartDelivery').catch(() => null);
-        const cfg  = _aoSmartCfgCache;
-        const mode = cfg?.mode || 'formula';
-        const input = document.getElementById('ao-delivery-fee');
-
-        if (mode === 'centerTiers') {
-            const center = await fbGet('settings/deliveryCenter').catch(() => null);
-            if (!center || typeof center.lat !== 'number') { toast('⚠️ لم يُحدَّد موقع المركز بعد (الخريطة المباشرة)', true); return; }
-            const km  = _aoHaversineKm(_aoDestLat, _aoDestLng, center.lat, center.lng);
-            const tierFee = _aoCalcCenterTierFee(km, cfg.centerTiers);
-            const baseFeeRaw = tierFee !== null ? tierFee : parseFloat(cfg?.baseFee ?? 1.5);
-            const nightUSD = await _aoCalcNightSurchargeUSD(km);
-            // Combine in USD regardless of which scale the base fee started in
-            // (tier fees are ل.ل-scale, the baseFee fallback is USD-scale), then
-            // always express the total in ل.ل, rounded to the nearest 10,000 —
-            // same convention regular checkout uses everywhere.
-            const fee = _aoNormalizeFeeLBP(_toUSD(baseFeeRaw) + nightUSD);
-            if (input) input.value = String(fee);
-            toast(`📍 المسافة من المركز ${km.toFixed(1)} كم — رسم الشريحة ${fee.toLocaleString('en-US')} ل.ل${nightUSD > 0 ? ' 🌙' : ''}`);
+        const input  = document.getElementById('ao-delivery-fee');
+        const result = await _calcAutoDeliveryFee(_aoDestLat, _aoDestLng, _aoStoreLat, _aoStoreLng);
+        if (!result) {
+            const mode = _aoSmartCfgCache?.mode || 'formula';
+            toast(mode === 'centerTiers'
+                ? '⚠️ لم يُحدَّد موقع المركز بعد (الخريطة المباشرة)'
+                : 'حدّد موقع المتجر وموقع التوصيل أولاً', true);
             return;
         }
-
-        if (!_aoStoreLat) { toast('حدّد موقع المتجر وموقع التوصيل أولاً', true); return; }
-        const baseFee   = parseFloat(cfg?.baseFee   ?? 1.5);
-        const ratePerKm = parseFloat(cfg?.ratePerKm ?? 0.3);
-        const minFee    = parseFloat(cfg?.minFee    ?? 0.5);
-        const maxFee    = parseFloat(cfg?.maxFee    ?? 5.0);
-        const km  = _aoHaversineKm(_aoStoreLat, _aoStoreLng, _aoDestLat, _aoDestLng);
-        const baseFeeUSD = Math.min(maxFee, Math.max(minFee, baseFee + km * ratePerKm));
-        const nightUSD = await _aoCalcNightSurchargeUSD(km);
-        const fee = _aoNormalizeFeeLBP(baseFeeUSD + nightUSD);
-        if (input) input.value = String(fee);
-        toast(`🧮 المسافة ${km.toFixed(1)} كم — رسم مقترح ${fee.toLocaleString('en-US')} ل.ل${nightUSD > 0 ? ' 🌙' : ''}`);
+        if (input) input.value = String(result.fee);
+        const moon = result.night ? ' 🌙' : '';
+        if (result.mode === 'fixed') {
+            toast(`💲 رسوم ثابتة (التوصيل الذكي غير مفعّل) — ${result.fee.toLocaleString('en-US')} ل.ل${moon}`);
+        } else if (result.mode === 'centerTiers') {
+            toast(`📍 المسافة من المركز ${result.distanceKm.toFixed(1)} كم — رسم الشريحة ${result.fee.toLocaleString('en-US')} ل.ل${moon}`);
+        } else {
+            const how = result.road ? '🛣️ مسافة الطريق' : '📏 خط مستقيم (تعذّر جلب الطريق)';
+            toast(`${how} ${result.distanceKm.toFixed(1)} كم — رسم مقترح ${result.fee.toLocaleString('en-US')} ل.ل${moon}`, !result.road);
+        }
     } catch (e) { toast('تعذّر الحساب التلقائي', true); }
 }
 
-// Shared core of the otlob auto-calc button above, factored out so an
-// existing order card's own "🧮 تلقائي" button (_ocAutoCalcFee below) can
-// reuse the exact same smart-delivery + night-surcharge math instead of a
-// third copy of it. Returns { fee, distanceKm } (fee in ل.ل) or null when
-// it can't be computed (missing destination, or missing store location
-// in formula mode).
+// Shared core of the otlob auto-calc button above AND every existing order
+// card's "🧮 تلقائي" button / auto-recalc after a location edit
+// (_ocAutoCalcFee). Mirrors cart.js's _calcSmartFee + _getStoreFee exactly:
+//   • smart delivery DISABLED (or no config) → the flat per-store fee from
+//     settings/deliveryFee, same as regular checkout. Previously this was
+//     skipped entirely and the formula was always applied, so with smart
+//     delivery off (fixed $2) a short trip came out as base+km×rate
+//     (e.g. $1.5–$1.9) — under-charging every phone/manual order.
+//   • centerTiers / formula modes — unchanged.
+// Returns { fee (ل.ل), distanceKm, mode, night } or null when it can't be
+// computed (missing destination, or missing store/center location).
 async function _calcAutoDeliveryFee(destLat, destLng, storeLat, storeLng) {
     if (destLat == null || destLng == null || isNaN(destLat) || isNaN(destLng)) return null;
-    if (_aoSmartCfgCache === undefined) _aoSmartCfgCache = await fbGet('settings/smartDelivery').catch(() => null);
-    const cfg  = _aoSmartCfgCache;
-    const mode = cfg?.mode || 'formula';
+    const cfg  = await _aoLoadFeeCfgs();
+
+    if (!cfg || !cfg.enabled) {
+        const flatRaw = await fbGet('settings/deliveryFee').catch(() => null);
+        const flat    = (flatRaw !== null && !isNaN(parseFloat(flatRaw))) ? parseFloat(flatRaw) : 2;
+        // cart.js passes distanceKm = null here, so only the night flat part applies
+        const nightUSD = await _aoCalcNightSurchargeUSD(null);
+        return { fee: _aoNormalizeFeeLBP(_toUSD(flat) + nightUSD), distanceKm: null, mode: 'fixed', night: nightUSD > 0 };
+    }
+
+    const mode = cfg.mode || 'formula';
 
     if (mode === 'centerTiers') {
         const center = await fbGet('settings/deliveryCenter').catch(() => null);
@@ -1570,7 +1604,10 @@ async function _calcAutoDeliveryFee(destLat, destLng, storeLat, storeLng) {
         const tierFee = _aoCalcCenterTierFee(km, cfg.centerTiers);
         const baseFeeRaw = tierFee !== null ? tierFee : parseFloat(cfg?.baseFee ?? 1.5);
         const nightUSD = await _aoCalcNightSurchargeUSD(km);
-        return { fee: _aoNormalizeFeeLBP(_toUSD(baseFeeRaw) + nightUSD), distanceKm: km };
+        // Combine in USD regardless of which scale the base fee started in
+        // (tier fees are ل.ل-scale, the baseFee fallback is USD-scale), then
+        // always express the total in ل.ل, rounded to the nearest 10,000.
+        return { fee: _aoNormalizeFeeLBP(_toUSD(baseFeeRaw) + nightUSD), distanceKm: km, mode, night: nightUSD > 0 };
     }
 
     if (storeLat == null || storeLng == null || isNaN(storeLat) || isNaN(storeLng)) return null;
@@ -1578,10 +1615,10 @@ async function _calcAutoDeliveryFee(destLat, destLng, storeLat, storeLng) {
     const ratePerKm = parseFloat(cfg?.ratePerKm ?? 0.3);
     const minFee    = parseFloat(cfg?.minFee    ?? 0.5);
     const maxFee    = parseFloat(cfg?.maxFee    ?? 5.0);
-    const km = _aoHaversineKm(storeLat, storeLng, destLat, destLng);
+    const { km, road } = await _aoRoadKm(storeLat, storeLng, destLat, destLng);
     const baseFeeUSD = Math.min(maxFee, Math.max(minFee, baseFee + km * ratePerKm));
     const nightUSD = await _aoCalcNightSurchargeUSD(km);
-    return { fee: _aoNormalizeFeeLBP(baseFeeUSD + nightUSD), distanceKm: km };
+    return { fee: _aoNormalizeFeeLBP(baseFeeUSD + nightUSD), distanceKm: km, mode, night: nightUSD > 0, road };
 }
 
 // ── Submit ───────────────────────────────────────────────────
