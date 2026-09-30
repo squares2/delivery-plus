@@ -1386,6 +1386,7 @@ async function catalogOpenStore(storeName, storeType) {
     const itemsView = document.getElementById('catalog-items-view');
     itemsView.style.display = 'flex';
     document.getElementById('cat-add-item-btn').style.display = '';
+    document.getElementById('cat-bulk-import-btn') && (document.getElementById('cat-bulk-import-btn').style.display = '');
     document.getElementById('cat-extra-price-btn').style.display = '';
     document.getElementById('cat-reset-price-btn').style.display = '';
     document.getElementById('cat-back-btn').style.display = '';
@@ -1411,6 +1412,7 @@ function catalogBackToStores() {
     document.getElementById('catalog-stores-view').style.display = '';
     document.getElementById('catalog-items-view').style.display = 'none';
     document.getElementById('cat-add-item-btn').style.display = 'none';
+    document.getElementById('cat-bulk-import-btn') && (document.getElementById('cat-bulk-import-btn').style.display = 'none');
     document.getElementById('cat-extra-price-btn').style.display = 'none';
     document.getElementById('cat-reset-price-btn').style.display = 'none';
     document.getElementById('cat-back-btn').style.display = 'none';
@@ -1543,6 +1545,16 @@ function _cimCatOptions(catmain, selectedCat) {
     const opts = cats.map(c=>`<option value="${c}" ${selectedCat===c?'selected':''}>${c}</option>`).join('');
     return opts + `<option value="__new__">➕ إضافة جديد…</option>`;
 }
+// When "➕ إضافة جديد…" is the selected option (e.g. a store with no
+// categories yet, where it's the ONLY option), picking it again never
+// fires onchange — so the text box must be shown up-front whenever the
+// select already sits on __new__, not only from the change handler.
+function _cimSyncNewInput(selId, inputId) {
+    const sel   = document.getElementById(selId);
+    const input = document.getElementById(inputId);
+    if (!sel || !input) return;
+    if (sel.value === '__new__') input.style.display = 'block';
+}
 function cimCatmainChanged() {
     const sel   = document.getElementById('cim-catmain-sel');
     const input = document.getElementById('cim-catmain');
@@ -1551,14 +1563,25 @@ function cimCatmainChanged() {
         input.style.display = 'block';
         input.value = '';
         input.focus();
+        // A brand-new main category has no sub-categories yet — reset the
+        // sub-category select to just "إضافة جديد" and open its text box.
+        if (catSel) {
+            catSel.innerHTML = _cimCatOptions('__new__', '');
+            const catIn = document.getElementById('cim-cat');
+            if (catIn) catIn.value = '';
+            _cimSyncNewInput('cim-cat-sel', 'cim-cat');
+        }
     } else {
         input.style.display = 'none';
         input.value = sel.value;
         // Refresh cat options for the chosen catmain
         if (catSel) {
             catSel.innerHTML = _cimCatOptions(sel.value, '');
-            document.getElementById('cim-cat').style.display = 'none';
-            document.getElementById('cim-cat').value = '';
+            const catIn = document.getElementById('cim-cat');
+            catIn.style.display = 'none';
+            // Keep the hidden value in sync with whatever the select now shows
+            catIn.value = catSel.value !== '__new__' ? catSel.value : '';
+            _cimSyncNewInput('cim-cat-sel', 'cim-cat');
         }
     }
 }
@@ -1705,6 +1728,25 @@ function openCatalogItemModal(item) {
     const cIn   = document.getElementById('cim-cat');
     if (cmSel && cmSel.value !== '__new__' && cmIn) cmIn.value = cmSel.value;
     if (cSel  && cSel.value  !== '__new__' && cIn)  cIn.value  = cSel.value;
+    // "إضافة جديد" already selected (no categories yet) → show the text boxes now
+    _cimSyncNewInput('cim-catmain-sel', 'cim-catmain');
+    _cimSyncNewInput('cim-cat-sel', 'cim-cat');
+
+    // New product → auto-fill the ID with the next number after the highest
+    // numeric ID already in Firebase across ALL stores (e.g. 3076 → 3077).
+    // Reuses cpiGenerateNextId() from admin-10. Only fills if the admin
+    // hasn't already typed an ID of their own while it was loading.
+    if (isNew && typeof cpiGenerateNextId === 'function') {
+        const idIn = document.getElementById('cim-id');
+        const oldPh = idIn.placeholder;
+        idIn.placeholder = '⏳ جاري توليد الرقم…';
+        cpiGenerateNextId().then(nextId => {
+            idIn.placeholder = oldPh;
+            if (!document.body.contains(idIn) || idIn.value.trim()) return;
+            idIn.value = nextId;
+            document.getElementById('cat-modal-img-name').textContent = nextId.toLowerCase() + '.webp';
+        });
+    }
 }
 
 async function saveCatalogItem(isNew) {

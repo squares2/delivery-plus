@@ -1811,7 +1811,7 @@ async function _aoSubmit() {
 
 function _aoResetForm() {
     ['ao-cust-phone','ao-cust-name','ao-ext-store-name','ao-ext-store-phone','ao-ext-store-addr',
-     'ao-order-desc','ao-order-price','ao-delivery-fee'].forEach(id => {
+     'ao-dest-street','ao-order-desc','ao-order-price','ao-delivery-fee'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });

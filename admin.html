@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="styles/admin.css?v=5">
+<link rel="stylesheet" href="styles/admin.css?v=7">
     <script src="scripts/img-base.js?v=3"></script>
 </head>
 <body>
@@ -898,6 +898,9 @@
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         إضافة منتج
                     </button>
+                    <button class="action-btn" id="cat-bulk-import-btn" onclick="openBulkImport()" style="display:none;background:var(--surface3);color:var(--gray-light);" title="استيراد منتجات من Excel ورفع صور المنتجات دفعة واحدة">
+                        📥 استيراد جماعي
+                    </button>
                     <button class="action-btn" id="cat-extra-price-btn" onclick="catOpenExtraPriceModal()" style="display:none;background:var(--surface3);color:var(--gray-light);" title="إضافة مبلغ إلى سعر كل منتجات هذا المتجر دفعة واحدة">
                         💲 سعر إضافي للكل
                     </button>
@@ -1698,7 +1701,7 @@
 <script src="scripts/admin-03-firebase-config.js?v=2"></script>
 
     <!-- Presence UI injected dynamically by admin-presence.js -->
-<script src="scripts/admin-04-core-auth-data.js?v=21"></script>
+<script src="scripts/admin-04-core-auth-data.js?v=25"></script>
 <script src="scripts/admin-05-map-tracking-orders.js?v=19"></script>
 <script src="scripts/admin-06-drivers-customers-stores.js?v=4"></script>
 <script src="scripts/admin-07-stores-employees-herobg.js?v=7"></script>
@@ -1708,6 +1711,7 @@
 <script src="scripts/admin-12-expenses.js?v=6"></script>
 <script src="scripts/admin-13-cashbox.js?v=10"></script>
 <script src="scripts/admin-14-profit-analytics.js?v=7"></script>
+<script src="scripts/admin-15-bulk-import.js?v=4"></script>
 </body>
 </html>
     <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->
@@ -1727,4 +1731,4 @@
         <div id="wa-notif-list" style="padding:4px 0;min-height:60px;"></div>
     </div>
 
-<script src="scripts/admin-11-whatsapp-notif-otlob.js?v=6"></script>
+<script src="scripts/admin-11-whatsapp-notif-otlob.js?v=7"></script>
