@@ -655,6 +655,9 @@ function _setLogoState(state) {
 window.addEventListener('delivo:pwa-install-available', () => { if (document.getElementById('bb-logo-btn')) _applyLogoState(); });
 window.addEventListener('delivo:pwa-update-available',  () => { if (document.getElementById('bb-logo-btn')) _applyLogoState(); });
 window.addEventListener('delivo:pwa-installed',         () => { if (document.getElementById('bb-logo-btn')) _applyLogoState(); });
+// Admin turned the install feature off (settings/pwaInstallEnabled) —
+// drop the "ثبّت تطبيقك" state back to the plain logo.
+window.addEventListener('delivo:pwa-install-changed',    () => { if (document.getElementById('bb-logo-btn')) _applyLogoState(); });
 
 function _handleLogoClick() {
     if (_activeOrders.length === 0 && window._pwaUpdateAvailable) {

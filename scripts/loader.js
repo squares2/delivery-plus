@@ -347,6 +347,15 @@ document.addEventListener('DOMContentLoaded', loadAll);
             }
         }
 
+        /* pwaInstallEnabled — admin master switch for every "install the
+           app" prompt on this page (account row, bottom-nav CTA, iOS
+           hints, browser install icon). DISABLED BY DEFAULT: only an
+           explicit true turns it on. See scripts/pwa.js § 2.0. */
+        const pwaInstallOn = settings.pwaInstallEnabled === true
+                          || settings.pwaInstallEnabled === 'true';
+        window._pwaInstallEnabledSetting = pwaInstallOn;
+        if (typeof window._setPwaInstallEnabled === 'function') window._setPwaInstallEnabled(pwaInstallOn);
+
         /* regType — switch register modal between direct and OTP */
         window._regType          = settings.regType          || 'direct';
         _applyRegType(window._regType);

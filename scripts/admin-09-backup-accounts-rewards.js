@@ -1314,6 +1314,17 @@ async function setIntroEnabled(checked) {
     } catch(e) { toast('فشل تحديث إعداد شاشة التعريف', true); }
 }
 
+async function setPwaInstallEnabled(checked) {
+    try {
+        await fbSet('settings/pwaInstallEnabled', checked === true);
+        toast(checked ? '📲 تثبيت التطبيق ظاهر الآن للعملاء' : '🙈 تم إخفاء كل ميزات تثبيت التطبيق من الصفحة الرئيسية');
+    } catch(e) {
+        toast('فشل تحديث إعداد تثبيت التطبيق', true);
+        const t = document.getElementById('toggle-pwa-install');
+        if (t) t.checked = !checked;
+    }
+}
+
 async function setTestMode(val) {
     try {
         await fbSet('settings/testMode', val);

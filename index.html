@@ -900,8 +900,10 @@
             <!-- Settings — visible whether logged in or not. Installing the
                  app is a browser/device thing, not an account thing, so a
                  guest shouldn't need to register just to see this row. -->
-            <p class="acct-sec-label">الإعدادات</p>
-            <div class="acct-menu">
+            <!-- Hidden by default — shown only when the admin enables
+                 settings/pwaInstallEnabled (see scripts/pwa.js § 2.0). -->
+            <p class="acct-sec-label" id="acct-pwa-label" style="display:none;">الإعدادات</p>
+            <div class="acct-menu" id="acct-pwa-menu" style="display:none;">
                 <button class="acct-row" id="acct-pwa-btn">
                     <div class="acct-row__icon acct-row__icon--green">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1468,13 +1470,13 @@
         </div>
     </div>
 
-    <script src="scripts/navbar.js?v=16"></script>
+    <script src="scripts/navbar.js?v=17"></script>
     <script src="scripts/firebase-init.js?v=14"></script>
     <script src="scripts/platform-status.js?v=1" defer></script>
     <script src="scripts/modal-auth.js?v=33" defer></script>
     <script src="scripts/onboarding.js?v=3" defer></script>
 
-    <script src="scripts/loader.js?v=20"></script>
+    <script src="scripts/loader.js?v=21"></script>
     <script src="scripts/modals.js?v=7"></script>
     <script src="scripts/stores.js?v=19"></script>
     <script src="scripts/categories.js?v=14"></script>
@@ -1484,7 +1486,7 @@
     <script src="scripts/mealtime.js?v=9" defer></script>
     <script src="scripts/promo-flip.js?v=8" defer></script>
     <script src="scripts/hero-bg.js?v=5"></script>
-    <script src="scripts/pwa.js?v=13" defer></script>
+    <script src="scripts/pwa.js?v=14" defer></script>
     <script src="scripts/presence.js?v=4" defer></script>
     <script src="scripts/back-handler.js?v=3" defer></script>
     <script>

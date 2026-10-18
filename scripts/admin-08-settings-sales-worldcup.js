@@ -382,6 +382,16 @@ function renderSettings() {
             </div>
             <div class="setting-row">
                 <div>
+                    <div class="setting-label">📲 إظهار تثبيت التطبيق (PWA) للعملاء</div>
+                    <div class="setting-sub">عند التفعيل: يظهر زر "تثبيت التطبيق" في صفحة حسابي، وزر "ثبّت تطبيقك" في الشريط السفلي، وتلميحات التثبيت على iPhone. عند الإيقاف (الافتراضي): تُخفى كل ميزات التثبيت من الصفحة الرئيسية</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="toggle-pwa-install" onchange="setPwaInstallEnabled(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <div>
                     <div class="setting-label">🔲 شكل أيقونات الأقسام (دائري / مربع)</div>
                     <div class="setting-sub">يُحدد شكل أيقونات "تصفح الأقسام" في الصفحة الرئيسية للعملاء. عند التفعيل: مربع — عند إيقاف التفعيل (الافتراضي): دائري</div>
                 </div>
@@ -1078,6 +1088,11 @@ function renderSettings() {
         const toggle = document.getElementById('toggle-intro');
         if (toggle) toggle.checked = (val === null || val === undefined || val === true || val === 'true');
     });
+    // Load current PWA-install visibility — disabled unless explicitly true
+    fbGet('settings/pwaInstallEnabled').then(val => {
+        const toggle = document.getElementById('toggle-pwa-install');
+        if (toggle) toggle.checked = (val === true || val === 'true');
+    }).catch(() => {});
     // Load current maintenance state — reads from settings/maintenance (same path setMaintenance writes to)
     fbGet('settings/maintenance').then(val => {
         const isOn = val === true || val === 'true';
@@ -1942,6 +1957,8 @@ async function loadSettings() {
         }
         const introTog = document.getElementById('toggle-intro');
         if (introTog) introTog.checked = (s.introEnabled === null || s.introEnabled === undefined || s.introEnabled === true || s.introEnabled === 'true');
+        const pwaInstTog = document.getElementById('toggle-pwa-install');
+        if (pwaInstTog) pwaInstTog.checked = (s.pwaInstallEnabled === true || s.pwaInstallEnabled === 'true');
         const reqLocTog = document.getElementById('toggle-require-location');
         if (reqLocTog) reqLocTog.checked = (s.requireLocation === null || s.requireLocation === undefined || s.requireLocation === true || s.requireLocation === 'true');
         // Test mode

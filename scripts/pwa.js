@@ -176,18 +176,77 @@ let _deferredPrompt = null;
 window._pwaInstallAvailable = false;
 window._pwaUpdateAvailable  = false;
 
-// Capture the install prompt — keep it alive, don't consume it on dismiss
+// ── 2.0 Admin master switch: settings/pwaInstallEnabled ──────────
+// DISABLED BY DEFAULT. Only an explicit true (set from admin → الإعدادات
+// → "إظهار تثبيت التطبيق") turns the install features on. While off:
+//   • the account-modal "تثبيت التطبيق" row (and its section) is hidden
+//   • the bottom-nav center logo never switches to "ثبّت تطبيقك"
+//   • the iOS bottom sheet + iOS top tip banner never auto-show
+//   • triggerInstall()/showIosInstallHint() do nothing
+//   • the <link rel="manifest"> is detached so Chrome/Edge don't offer
+//     their own address-bar / menu install prompt either
+// The UPDATE CTA is not affected — it's not an install prompt.
+// loader.js calls window._setPwaInstallEnabled() from the live settings
+// stream, so an admin change is reflected instantly without a refresh.
+let   _pwaInstallEnabled   = (window._pwaInstallEnabledSetting === true);
+let   _pwaInstallSupported = false;   // raw signal: browser says install is possible
+const _manifestLink        = document.querySelector('link[rel="manifest"]');
+const _isStandaloneNow     = window.matchMedia('(display-mode: standalone)').matches ||
+                             window.navigator.standalone === true;
+
+function _syncManifestLink() {
+    // Never touch it inside an already-installed app.
+    if (!_manifestLink || _isStandaloneNow) return;
+    if (_pwaInstallEnabled) {
+        if (!_manifestLink.isConnected) document.head.appendChild(_manifestLink);
+    } else if (_manifestLink.isConnected) {
+        _manifestLink.remove();
+    }
+}
+
+function _publishInstallAvailability() {
+    const avail = _pwaInstallEnabled && _pwaInstallSupported;
+    if (avail === window._pwaInstallAvailable) return;
+    window._pwaInstallAvailable = avail;
+    window.dispatchEvent(new Event(avail ? 'delivo:pwa-install-available'
+                                         : 'delivo:pwa-install-changed'));
+}
+
+window._isPwaInstallEnabled = () => _pwaInstallEnabled;
+
+window._setPwaInstallEnabled = function(on) {
+    on = (on === true);
+    window._pwaInstallEnabledSetting = on;
+    if (on === _pwaInstallEnabled) return;
+    _pwaInstallEnabled = on;
+    _syncManifestLink();
+    _publishInstallAvailability();
+    if (typeof _updatePwaRow === 'function') _updatePwaRow();
+    if (on) {
+        if (typeof _maybeAutoShowIosPrompts === 'function') _maybeAutoShowIosPrompts();
+    } else {
+        // Close anything install-related that's currently on screen
+        if (typeof hideIosHint === 'function') hideIosHint(false);
+        if (typeof _hideIosTopBanner === 'function') _hideIosTopBanner(false);
+    }
+};
+
+_syncManifestLink();
+
+// Capture the install prompt — keep it alive, don't consume it on dismiss.
+// preventDefault() always runs, so the browser's own mini-infobar never
+// appears while the feature is switched off.
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     _deferredPrompt = e;
-    window._pwaInstallAvailable = true;
-    window.dispatchEvent(new Event('delivo:pwa-install-available'));
+    _pwaInstallSupported = true;
+    _publishInstallAvailability();
 });
 
 // Expose triggerInstall so it can be called from anywhere (e.g. the
 // bottom-nav center logo, or the account page's install row)
 window.triggerInstall = async function() {
-    if (!_deferredPrompt) return;
+    if (!_pwaInstallEnabled || !_deferredPrompt) return;
     _deferredPrompt.prompt();
     const { outcome } = await _deferredPrompt.userChoice;
     console.log('[PWA] Install outcome:', outcome);
@@ -201,6 +260,7 @@ window.triggerInstall = async function() {
 window.addEventListener('appinstalled', () => {
     console.log('[PWA] App installed ✓');
     _deferredPrompt = null;
+    _pwaInstallSupported = false;
     window._pwaInstallAvailable = false;
     window.dispatchEvent(new Event('delivo:pwa-installed'));
 });
@@ -228,6 +288,7 @@ function iosHintSnoozed() {
 }
 
 function showIosHint() {
+    if (!_pwaInstallEnabled) return;
     const hint = document.getElementById('ios-hint');
     if (!hint) return;
     hint.style.display = 'block';
@@ -251,20 +312,31 @@ document.addEventListener('click', (e) => {
     if (e.target.id === 'ios-hint-backdrop')  { hideIosHint(false); return; }
 });
 
-if (isIosSafari()) {
-    if (!isAlreadyInstalled()) {
-        // No beforeinstallprompt on iOS — this is the only install signal
-        // the center logo gets, so it stays on regardless of whether the
-        // auto-shown bottom sheet below is snoozed.
-        window._pwaInstallAvailable = true;
-        window.dispatchEvent(new Event('delivo:pwa-install-available'));
-        // Show the iOS bottom sheet (still subject to its own snooze)
-        if (!iosHintSnoozed()) setTimeout(showIosHint, 2500);
-    }
+if (isIosSafari() && !isAlreadyInstalled()) {
+    // No beforeinstallprompt on iOS — this is the only install signal
+    // the center logo gets, so it stays on regardless of whether the
+    // auto-shown bottom sheet is snoozed (still gated by the admin switch).
+    _pwaInstallSupported = true;
+    _publishInstallAvailability();
+}
+
+// Auto-show the iOS prompts (bottom sheet + slim top banner) at most once
+// per page load, and only once the admin switch is ON. Called on load and
+// again by _setPwaInstallEnabled(true) since settings arrive async.
+let _iosAutoPromptsDone = false;
+function _maybeAutoShowIosPrompts() {
+    if (_iosAutoPromptsDone || !_pwaInstallEnabled) return;
+    if (!isIosSafari() || isAlreadyInstalled()) return;
+    _iosAutoPromptsDone = true;
+    // Show the iOS bottom sheet (still subject to its own snooze)
+    if (!iosHintSnoozed()) setTimeout(showIosHint, 2500);
+    // Slim top banner — only once ever
+    if (!localStorage.getItem(IOS_TOP_KEY)) setTimeout(_showIosTopBanner, 1800);
 }
 
 // Dev helper — run in Safari console to re-test: showIosInstallHint()
 window.showIosInstallHint = function() {
+    if (!_pwaInstallEnabled) return;
     localStorage.removeItem(IOS_HINT_KEY);
     showIosHint();
 };
@@ -282,6 +354,14 @@ function _updatePwaRow() {
     const badge    = document.getElementById('acct-pwa-badge');
     const chevron  = document.getElementById('acct-pwa-chevron');
     if (!btn) return;
+
+    // Admin switch off → hide the whole "الإعدادات" install block
+    const label = document.getElementById('acct-pwa-label');
+    const menu  = document.getElementById('acct-pwa-menu');
+    if (label) label.style.display = _pwaInstallEnabled ? '' : 'none';
+    if (menu)  menu.style.display  = _pwaInstallEnabled ? '' : 'none';
+    btn.style.display = _pwaInstallEnabled ? '' : 'none';
+    if (!_pwaInstallEnabled) return;
 
     const installed = _isPwaInstalled();
 
@@ -310,6 +390,7 @@ function _updatePwaRow() {
 // Wire click on the PWA row
 document.addEventListener('click', async (e) => {
     if (!e.target.closest('#acct-pwa-btn')) return;
+    if (!_pwaInstallEnabled) return; // admin switched install off
     if (_isPwaInstalled()) return; // already installed, row is disabled
 
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) &&
@@ -362,6 +443,7 @@ if (document.readyState === 'loading') {
 const IOS_TOP_KEY = 'delivo_ios_top_seen';
 
 function _showIosTopBanner() {
+    if (!_pwaInstallEnabled) return;
     const el = document.getElementById('ios-top-banner');
     if (!el) return;
     el.style.display = 'flex';
@@ -384,12 +466,10 @@ document.addEventListener('click', (e) => {
     if (e.target.closest('#ios-top-banner-close')) _hideIosTopBanner(true);
 });
 
-// Show only on iOS Safari, not installed, and only once ever
-if (isIosSafari() && !isAlreadyInstalled() &&
-    !localStorage.getItem(IOS_TOP_KEY)) {
-    // Wait for splash to clear before sliding in
-    setTimeout(_showIosTopBanner, 1800);
-}
+// iOS bottom sheet + top banner auto-show — only when the admin switch
+// is already on at this point; otherwise _setPwaInstallEnabled(true)
+// triggers it later when the setting arrives.
+_maybeAutoShowIosPrompts();
 // ── 6. Force-update banner — independent of the service worker ──
 // Everything above (SW update detection, visibility/pageshow re-checks)
 // depends on the browser's own service worker lifecycle, which — even
