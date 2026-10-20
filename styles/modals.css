@@ -1137,6 +1137,36 @@
     margin-top: 4px;
     text-transform: uppercase;
 }
+/* Website link in the title panel (settings/squaresAdContent.siteUrl) */
+.squares-ad-site {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 7px 16px;
+    border-radius: 999px;
+    background: var(--clr-orange, #ff5c00);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(255,92,0,0.35);
+    position: relative;
+    z-index: 1;
+}
+.squares-ad-site:active { transform: scale(0.97); }
+.squares-ad-site[hidden] { display: none; }
+/* Addresses typed inside the ad text are auto-linked (loader.js _linkifyAdText) */
+.squares-ad-link {
+    color: var(--clr-orange, #ff5c00);
+    font-weight: 800;
+    text-decoration: underline;
+    direction: ltr;
+    unicode-bidi: isolate;
+    white-space: nowrap;
+    text-transform: none;
+    letter-spacing: normal;
+}
 
 .squares-ad-body {
     padding: 22px 22px 4px;
@@ -1230,6 +1260,7 @@
     .squares-ad-logo { width: 64px; margin-bottom: 6px; }
     .squares-ad-brand { font-size: 1.1rem; }
     .squares-ad-tag { font-size: 0.64rem; margin-top: 2px; }
+    .squares-ad-site { margin-top: 8px; padding: 5px 13px; font-size: 0.72rem; }
     .squares-ad-body { padding: 14px 22px 4px; }
     .squares-ad-lead { font-size: 0.8rem; line-height: 1.6; margin-bottom: 10px; }
     .squares-ad-points { gap: 6px; margin-bottom: 12px; }
