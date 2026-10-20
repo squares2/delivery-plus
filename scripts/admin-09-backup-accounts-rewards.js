@@ -1873,31 +1873,26 @@ function _ofiBindEnableToggle() {
 }
 
 // Collapsed by default — expands on click, chevron rotates to indicate state.
-function _ofiBindToggle() {
-    if (window._ofiToggleBound) return;
-    window._ofiToggleBound = true;
-    document.getElementById('ofi-toggle-header')?.addEventListener('click', () => {
-        const body    = document.getElementById('ofi-admin-body');
-        const chevron = document.getElementById('ofi-toggle-chevron');
+// The settings page re-renders its whole HTML every time it's opened, so a
+// listener attached to the header element itself only worked on the FIRST
+// render (the "bound" flag then blocked re-attaching to the new elements).
+// One delegated listener on document survives every re-render.
+function _bindCollapsible(headerId, bodyId, chevronId) {
+    window._collapsibleBound = window._collapsibleBound || {};
+    if (window._collapsibleBound[headerId]) return;
+    window._collapsibleBound[headerId] = true;
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest || !e.target.closest('#' + headerId)) return;
+        const body    = document.getElementById(bodyId);
+        const chevron = document.getElementById(chevronId);
         if (!body) return;
         const expanded = body.style.display !== 'none';
         body.style.display = expanded ? 'none' : 'block';
         if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
     });
 }
-
-function _sacBindToggle() {
-    if (window._sacToggleBound) return;
-    window._sacToggleBound = true;
-    document.getElementById('sac-toggle-header')?.addEventListener('click', () => {
-        const body    = document.getElementById('sac-admin-body');
-        const chevron = document.getElementById('sac-toggle-chevron');
-        if (!body) return;
-        const expanded = body.style.display !== 'none';
-        body.style.display = expanded ? 'none' : 'block';
-        if (chevron) chevron.style.transform = expanded ? 'rotate(0deg)' : 'rotate(90deg)';
-    });
-}
+function _ofiBindToggle() { _bindCollapsible('ofi-toggle-header', 'ofi-admin-body', 'ofi-toggle-chevron'); }
+function _sacBindToggle() { _bindCollapsible('sac-toggle-header', 'sac-admin-body', 'sac-toggle-chevron'); }
 
 async function saveSquaresAdContent() {
     const status = document.getElementById('sac-status');
@@ -1909,6 +1904,8 @@ async function saveSquaresAdContent() {
     const content = {
         title:    val('sac-title'),
         tagline:  val('sac-tagline'),
+        siteUrl:   val('sac-site-url'),
+        siteLabel: val('sac-site-label'),
         logoUrl:  val('sac-logo-url'),
         body:     val('sac-body'),
         points:   pointsArr,

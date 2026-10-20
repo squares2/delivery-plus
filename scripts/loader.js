@@ -413,18 +413,47 @@ document.addEventListener('DOMContentLoaded', loadAll);
             if (el && (val || fallback)) el.textContent = val || fallback;
         };
 
+        // Same as setText, but any web address in the text becomes a
+        // clickable link. Text is HTML-escaped first, so it stays safe.
+        const setLinked = (id, val, fallback) => {
+            const el = document.getElementById(id);
+            if (el && (val || fallback)) el.innerHTML = _linkifyAdText(val || fallback);
+        };
+
         setText('squares-ad-brand',      c.title,   'Squares');
-        setText('squares-ad-tag',        c.tagline, 'Software & Digital Systems');
-        setText('squares-ad-cta-text',   c.ctaText, 'لديك فكرة مشروع أو تحتاج نظاماً مشابهاً؟ تواصل معنا مباشرة:');
+        setLinked('squares-ad-tag',      c.tagline, 'Software & Digital Systems');
+        setLinked('squares-ad-cta-text', c.ctaText, 'لديك فكرة مشروع أو تحتاج نظاماً مشابهاً؟ تواصل معنا مباشرة:');
         setText('squares-ad-footer',     c.footer,  'Delivo — Powered by Squares');
 
         const leadEl = document.getElementById('squares-ad-lead');
-        if (leadEl && c.body) leadEl.textContent = c.body; // plain text only — admin content, no HTML/markup risk
+        if (leadEl && c.body) leadEl.innerHTML = _linkifyAdText(c.body); // escaped, then addresses linked
 
         const pointsList = Array.isArray(c.points) ? c.points.filter(p => p && String(p).trim()) : null;
         if (pointsList && pointsList.length) {
             const ul = document.getElementById('squares-ad-points');
-            if (ul) ul.innerHTML = pointsList.map(p => `<li>${_escapeHtml(String(p))}</li>`).join('');
+            if (ul) ul.innerHTML = pointsList.map(p => `<li>${_linkifyAdText(String(p))}</li>`).join('');
+        }
+
+        // Website button in the title panel. siteUrl "-" hides it.
+        // Built here (not in index.html) so the ad's markup never needs
+        // editing again — everything comes from settings/squaresAdContent.
+        const siteEl = _ensureSquaresAdSiteButton();
+        if (siteEl) {
+            const raw = String(c.siteUrl || '').trim();
+            if (raw === '-') {
+                siteEl.hidden = true;
+            } else {
+                const href = _normalizeAdUrl(raw || 'https://getapp-store.com');
+                if (href) {
+                    siteEl.hidden = false;
+                    siteEl.href = href;
+                    const labelEl = document.getElementById('squares-ad-site-label');
+                    if (labelEl) labelEl.textContent = (c.siteLabel && String(c.siteLabel).trim())
+                        || href.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+                } else {
+                    siteEl.hidden = true;
+                }
+            }
         }
 
         const logoEl = document.getElementById('squares-ad-logo');
@@ -441,6 +470,67 @@ document.addEventListener('DOMContentLoaded', loadAll);
 
     function _escapeHtml(s) {
         return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* Creates the website button under the tagline once, if the page
+       doesn't already have it. Returns the <a> (or null if the ad
+       header isn't on this page). */
+    function _ensureSquaresAdSiteButton() {
+        let a = document.getElementById('squares-ad-site');
+        if (a) return a;
+        const tag = document.getElementById('squares-ad-tag');
+        if (!tag || !tag.parentNode) return null;
+        a = document.createElement('a');
+        a.id = 'squares-ad-site';
+        a.className = 'squares-ad-site';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.href = 'https://getapp-store.com/';
+        const icon = document.createElement('span');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '🌐';
+        const label = document.createElement('bdi');
+        label.id = 'squares-ad-site-label';
+        label.dir = 'ltr';
+        label.textContent = 'getapp-store.com';
+        a.append(icon, label);
+        tag.insertAdjacentElement('afterend', a);
+        return a;
+    }
+
+    /* Accepts "getapp-store.com", "www.x.com/page", "https://x.com".
+       Returns a full https URL, or '' if it's not a plain web address
+       (blocks javascript:, data:, etc.). */
+    function _normalizeAdUrl(u) {
+        u = String(u || '').trim();
+        if (!u) return '';
+        if (!/^https?:\/\//i.test(u)) {
+            if (/^[a-z][a-z0-9+.-]*:/i.test(u)) return '';   // other scheme → reject
+            u = 'https://' + u;
+        }
+        try {
+            // globalThis.URL — a local `const URL` (the settings endpoint)
+            // in this same scope shadows the browser's URL constructor.
+            const url = new globalThis.URL(u);
+            return (url.protocol === 'https:' || url.protocol === 'http:') ? url.href : '';
+        } catch (e) { return ''; }
+    }
+
+    /* Escapes plain admin text, then wraps any web address in it in a
+       clickable link that opens in a new tab. */
+    function _linkifyAdText(text) {
+        const escaped = String(text || '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const re = /\b(?:https?:\/\/)?(?:www\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9-]+)*\.(?:com|net|org|lb|app|store|io|co|info|online|site|shop)\b(?:\/[^\s<&]*)?/gi;
+        return escaped.replace(re, (match) => {
+            // keep trailing punctuation outside the link
+            const trail = (match.match(/[.,!?:;)\]]+$/) || [''])[0];
+            const core  = trail ? match.slice(0, -trail.length) : match;
+            const href  = _normalizeAdUrl(core);
+            if (!href) return match;
+            return `<a href="${href.replace(/"/g, '%22')}" target="_blank" rel="noopener" class="squares-ad-link">${core}</a>${trail}`;
+        });
     }
 
     /* ── "Squares" ad trigger check ──────────────────────────

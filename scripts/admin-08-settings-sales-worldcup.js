@@ -461,6 +461,15 @@ function renderSettings() {
                 <input type="text" id="sac-tagline" placeholder="Software & Digital Systems"
                        style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:0.85rem;margin-bottom:12px;">
 
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">🌐 رابط الموقع (زر قابل للنقر تحت العنوان)</label>
+                <input type="text" id="sac-site-url" placeholder="getapp-store.com" dir="ltr"
+                       style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--mono);font-size:0.8rem;margin-bottom:4px;">
+                <div style="font-size:0.68rem;color:var(--gray);margin-bottom:12px;">اتركه فارغاً لاستخدام getapp-store.com — اكتب <b dir="ltr">-</b> لإخفاء الزر. أي عنوان موقع تكتبه داخل النصوص يصبح رابطاً قابلاً للنقر تلقائياً.</div>
+
+                <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">نص زر الموقع (اختياري)</label>
+                <input type="text" id="sac-site-label" placeholder="اتركه فارغاً لعرض عنوان الموقع نفسه — مثال: زور متجر تطبيقاتنا"
+                       style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:0.85rem;margin-bottom:12px;">
+
                 <label style="font-size:0.76rem;font-weight:800;color:var(--text);display:block;margin-bottom:4px;">رابط صورة الشعار (اختياري)</label>
                 <input type="text" id="sac-logo-url" placeholder="اتركه فارغاً لاستخدام الشعار الافتراضي المرفق مع التطبيق" dir="ltr"
                        style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:var(--mono);font-size:0.8rem;margin-bottom:12px;">
@@ -1058,6 +1067,8 @@ function renderSettings() {
         const set = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
         set('sac-title',    c.title);
         set('sac-tagline',  c.tagline);
+        set('sac-site-url',   c.siteUrl);
+        set('sac-site-label', c.siteLabel);
         set('sac-logo-url', c.logoUrl);
         set('sac-body',     c.body);
         set('sac-points',   Array.isArray(c.points) ? c.points.join('\n') : c.points);
