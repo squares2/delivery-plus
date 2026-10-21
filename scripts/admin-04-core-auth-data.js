@@ -114,7 +114,7 @@ async function _adminUploadImage(file, folder, filename, quality = 0.92) {
     /* Load admin presence monitor after DOM ready */
     window.addEventListener('load', () => {
         const s = document.createElement('script');
-        s.src = 'scripts/admin-presence.js?v=5';
+        s.src = 'scripts/admin-presence.js?v=6';
         document.body.appendChild(s);
     });
     /* Load attendance dashboard alongside it — separate file, read-only
@@ -130,7 +130,7 @@ async function _adminUploadImage(file, folder, filename, quality = 0.92) {
         if (_attScriptPromise) return _attScriptPromise;
         _attScriptPromise = new Promise((resolve, reject) => {
             const s2 = document.createElement('script');
-            s2.src = 'scripts/attendance-admin.js?v=15';
+            s2.src = 'scripts/attendance-admin.js?v=16';
             s2.onload  = () => resolve();
             s2.onerror = () => { _attScriptPromise = null; reject(new Error('attendance-admin.js failed to load')); };
             document.body.appendChild(s2);

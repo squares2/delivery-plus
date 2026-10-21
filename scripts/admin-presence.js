@@ -145,6 +145,29 @@
         return (s.device === 'mobile') ? '📱' : '💻';
     }
 
+    /* ── Where the visitor is running Delivo from (presence.js `source`) ── */
+    const SOURCE_LABELS = {
+        playstore: '🟢 تطبيق Google Play',
+        appstore:  '🍎 تطبيق App Store',
+        pwa:       '📌 مثبّت على الشاشة',
+        web:       '🌐 المتصفح',
+    };
+    function sourceBadge(s) {
+        const lbl = SOURCE_LABELS[s.source];
+        if (!lbl) return ''; // visitor still on an older presence.js — no source sent
+        return `<span class="pm-src pm-src--${s.source}">${lbl}</span>`;
+    }
+    function renderSourceStats(entries) {
+        const box = document.getElementById('pm-source-stats');
+        if (!box) return;
+        const c = { playstore: 0, appstore: 0, pwa: 0, web: 0 }; let unknown = 0;
+        entries.forEach(s => { if (c[s.source] !== undefined) c[s.source]++; else unknown++; });
+        if (!entries.length) { box.innerHTML = ''; return; }
+        box.innerHTML = Object.keys(c).map(k =>
+            `<span class="pm-src pm-src--${k}">${SOURCE_LABELS[k]} <b>${c[k]}</b></span>`).join('')
+            + (unknown ? `<span class="pm-src">❔ غير معروف <b>${unknown}</b></span>` : '');
+    }
+
     /* ── Match a session's device UUID against registered accounts ──
        Covers the case where a visitor is browsing logged-out (or was
        never logged in this session) but their device fingerprint
@@ -265,6 +288,7 @@
 
         const entries = Object.values(sessions).sort((a, b) => (b.connectedAt || 0) - (a.connectedAt || 0));
         if (counter) counter.textContent = entries.length;
+        renderSourceStats(entries);
 
         if (entries.length === 0) {
             list.innerHTML = `<div class="pm-empty">
@@ -320,6 +344,7 @@
                     </div>` : ''}
                     <div class="pm-meta">
                         <span class="pm-timer" data-ts="${s.connectedAt || Date.now()}">⏱ ${ago}</span>
+                        ${sourceBadge(s)}
                         ${rowPhoneHtml}
                         ${s.username && s.uid ? `<span class="pm-uid-badge">uid·${s.uid.slice(0,12)}</span>` : ''}
                     </div>
@@ -390,6 +415,7 @@
                     <button class="pm-sound-toggle" id="pm-sound-toggle" onclick="togglePresenceSound()" title="تشغيل/كتم صوت التنبيه">🔊</button>
                     <button class="pm-close" onclick="togglePresencePanel()">✕</button>
                 </div>
+                <div id="pm-source-stats" class="pm-source-stats"></div>
                 <div id="pm-list" class="pm-list">
                     <div class="pm-empty"><div style="font-size:3rem">👥</div><div>لا يوجد زوار متصلون حالياً</div></div>
                 </div>
@@ -528,6 +554,15 @@
         .pt-uuid { font-family:monospace;font-size:.58rem;color:var(--gray,#6b7280);margin-top:1px;letter-spacing:.02em; }
         .pm-timer { font-variant-numeric:tabular-nums; }
         .pm-phone { font-family:var(--mono,monospace); color:#22c55e; font-weight:700; }
+        .pm-source-stats { display:flex;flex-wrap:wrap;gap:8px;padding:12px 28px 0;flex-shrink:0; }
+        .pm-source-stats:empty { display:none; }
+        .pm-src { font-size:.72rem;font-weight:800;border-radius:99px;padding:3px 10px;
+                  background:rgba(255,255,255,.06);color:var(--gray-light,#e2e8f0);border:1px solid rgba(255,255,255,.1); }
+        .pm-src b { font-family:var(--mono,monospace);margin-inline-start:4px; }
+        .pm-src--playstore { color:#22c55e;border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.1); }
+        .pm-src--appstore  { color:#e2e8f0;border-color:rgba(226,232,240,.3);background:rgba(226,232,240,.08); }
+        .pm-src--pwa       { color:#f97316;border-color:rgba(249,115,22,.35);background:rgba(249,115,22,.1); }
+        .pm-src--web       { color:#3b82f6;border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.1); }
         `;
         document.head.appendChild(style);
     }

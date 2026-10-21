@@ -179,6 +179,9 @@
             let browsed = 0, addedToCart = 0, cartOpened = 0, checkoutStarted = 0, ordered = 0, bounces = 0;
             let trackedCount = 0; // sessions on this day that actually have a `funnel` node (tracking was live)
             const deviceKinds = { mobile: 0, desktop: 0, ios: 0, android: 0, other: 0 };
+            // Where the visit ran from — only sessions logged after presence.js
+            // started sending `source` are counted (older ones have no field).
+            const sourceKinds = { playstore: 0, appstore: 0, pwa: 0, web: 0 };
 
             list.forEach(s => {
                 if (s.isNew) newDev++;
@@ -187,6 +190,7 @@
                 if (dur > 0 && dur < 6 * 3600 * 1000) { durSum += dur; durCount++; } // cap crashed/zombie outliers
                 if (s.device === 'mobile') deviceKinds.mobile++; else deviceKinds.desktop++;
                 if (s.os === 'ios') deviceKinds.ios++; else if (s.os === 'android') deviceKinds.android++; else deviceKinds.other++;
+                if (s.source && sourceKinds[s.source] !== undefined) sourceKinds[s.source]++;
 
                 // ── Funnel (sessions recorded before this feature shipped
                 // simply have no `funnel` node at all — distinct from a
@@ -218,6 +222,7 @@
                 guest: list.length - registered,
                 avgDurationMs: durCount ? durSum / durCount : 0,
                 deviceKinds,
+                sourceKinds,
                 browsed, addedToCart, cartOpened, checkoutStarted, ordered, bounces,
                 trackedCount,
             };
@@ -995,7 +1000,43 @@
             </div>`
         );
 
-        root.innerHTML = kpiRow + rangePills + funnelChart + abandonedSection + momentumChart + hourlyChart + newVsReturning + regVsGuest + durationChart + deviceMix;
+        // Store app vs website — across the selected range, plus today
+        const srcSum = rows => rows.reduce((acc, r) => {
+            const k = r.sourceKinds || {};
+            Object.keys(k).forEach(x => acc[x] = (acc[x] || 0) + k[x]);
+            return acc;
+        }, { playstore: 0, appstore: 0, pwa: 0, web: 0 });
+        const srcRange = srcSum(data.perDay);
+        const srcToday = srcSum(data.perDay.slice(-1));
+        const srcTracked = srcRange.playstore + srcRange.appstore + srcRange.pwa + srcRange.web;
+        const srcStoreTotal = srcRange.playstore + srcRange.appstore;
+        const srcPct = n => srcTracked ? Math.round((n / srcTracked) * 100) + '%' : '—';
+        const srcTile = (icon, label, n, today, color) => `
+            <div style="flex:1;min-width:130px;background:var(--surface3,#1e1e28);border-radius:12px;padding:12px 14px;">
+                <div style="font-size:.74rem;color:var(--gray,#6b6b82);font-weight:700;">${icon} ${label}</div>
+                <div style="font-size:1.4rem;font-weight:900;color:${color};font-family:var(--mono,monospace);margin-top:4px;">${fmtNum(n)}</div>
+                <div style="font-size:.7rem;color:var(--gray,#6b6b82);margin-top:2px;">${srcPct(n)} من الزيارات · اليوم ${fmtNum(today)}</div>
+            </div>`;
+        const appSourceMix = sectionCard(
+            '📲 مصدر التشغيل — تطبيق المتجر أم الموقع',
+            srcTracked
+                ? `زيارات الفترة المختارة حسب المكان الذي فُتح منه Delivo · تطبيقات المتاجر معاً: ${fmtNum(srcStoreTotal)} (${srcPct(srcStoreTotal)})`
+                : 'لا توجد بيانات بعد — يبدأ التسجيل من أول زيارة بعد نشر هذا التحديث (وتطبيقات المتجر بعد إصدار نسخة جديدة منها)',
+            `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+                ${srcTile('🟢', 'تطبيق Google Play', srcRange.playstore, srcToday.playstore, COLOR.green)}
+                ${srcTile('🍎', 'تطبيق App Store', srcRange.appstore, srcToday.appstore, '#e2e8f0')}
+                ${srcTile('📌', 'مثبّت على الشاشة', srcRange.pwa, srcToday.pwa, COLOR.orange)}
+                ${srcTile('🌐', 'المتصفح', srcRange.web, srcToday.web, COLOR.blue)}
+            </div>
+            ${proportionBar([
+                { label: 'Google Play 🟢', value: srcRange.playstore, color: COLOR.green },
+                { label: 'App Store 🍎', value: srcRange.appstore, color: '#e2e8f0' },
+                { label: 'مثبّت 📌', value: srcRange.pwa, color: COLOR.orange },
+                { label: 'متصفح 🌐', value: srcRange.web, color: COLOR.blue },
+            ])}`
+        );
+
+        root.innerHTML = kpiRow + rangePills + funnelChart + abandonedSection + momentumChart + hourlyChart + newVsReturning + regVsGuest + durationChart + deviceMix + appSourceMix;
         _hasRenderedOnce = true;
         requestAnimationFrame(() => { root.scrollTop = savedScrollTop; });
 

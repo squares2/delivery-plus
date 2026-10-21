@@ -202,6 +202,7 @@
 
             const key = await rtdbPush(`attendance/sessions/${dateKey}`, {
                 uuid, device, os,
+                source: APP_SOURCE,
                 isNew,
                 isRegistered: !!(auth && auth.uid),
                 startedAt,
@@ -376,6 +377,36 @@
         }).catch(() => {});
     }
 
+    /* ── Where this visit is running from ──────────────────────
+       'playstore' — the Android app installed from Google Play (Capacitor build)
+       'appstore'  — the iPhone app installed from the App Store (Capacitor build)
+       'pwa'       — the website added to the home screen
+       'web'       — a normal browser tab
+       The store apps are Capacitor builds: the native shell injects
+       window.Capacitor, and isNativePlatform() is only true inside it
+       (never in a normal browser). The protocol / TWA-referrer checks
+       are a fallback in case the bridge isn't ready yet. */
+    function _appSource() {
+        try {
+            const cap = window.Capacitor;
+            if (cap) {
+                const isNative = typeof cap.isNativePlatform === 'function' ? cap.isNativePlatform() : !!cap.isNative;
+                if (isNative) {
+                    const p = typeof cap.getPlatform === 'function' ? cap.getPlatform() : '';
+                    if (p === 'android') return 'playstore';
+                    if (p === 'ios')     return 'appstore';
+                }
+            }
+        } catch (_) { /* fall through */ }
+        try {
+            if (location.protocol === 'capacitor:' || location.protocol === 'ionic:') return 'appstore'; // Capacitor iOS default scheme
+            if (/^android-app:\/\//.test(document.referrer || '')) return 'playstore';               // Trusted Web Activity
+            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) return 'pwa';
+        } catch (_) { /* fall through */ }
+        return 'web';
+    }
+    const APP_SOURCE = _appSource();
+
     function buildPayload(uuid, connectedAt) {
         const auth = window._delivoAuthUser || null;
         const ua   = navigator.userAgent;
@@ -388,6 +419,7 @@
             username:    auth?.username || null,
             device:      /Mobi/i.test(ua) ? 'mobile' : 'desktop',
             os,          // 'ios' | 'android' | 'other' — lets the admin panel show 🍎/🤖 instead of a generic 📱
+            source:      APP_SOURCE, // 'playstore' | 'appstore' | 'pwa' | 'web' — store-app vs website statistic
             connectedAt: connectedAt || _correctedNow(),
             lastSeen:    _correctedNow(),
         };

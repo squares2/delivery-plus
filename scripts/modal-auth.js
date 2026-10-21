@@ -156,6 +156,7 @@ function initModalAuth() {
 
     let _otpResendTimer = null;
     let _otpExpireTimer = null;
+    let _otpHardCancelTimer = null;     // the single "hard cancel at expiry" timer — must be tracked so a resend/restart can cancel the OLD one
     let _otpSendInFlight = false;      // guards against double-fire while a send request is still in the air
     const OTP_RETRY_COOLDOWN = 30;     // seconds — forced wait after ANY send attempt (success OR failure) so a
                                         // flaky connection can't be used to spam repeated real WhatsApp sends
@@ -201,12 +202,15 @@ function initModalAuth() {
             _otpExpireTimer = setTimeout(_tick, 1000);
         };
         _otpExpireTimer = setTimeout(_tick, 1000);
-        // Hard cancel when expired
-        setTimeout(_cancelOtpStep, Math.max(0, expiresAt - Date.now()));
+        // Hard cancel when expired. Kept in a variable and cleared first: previously each send/resend
+        // added a NEW untracked timer while the old one kept running, so the FIRST code's 5-minute deadline
+        // still killed the step — a code resent at 4:30 only lived 30 seconds.
+        clearTimeout(_otpHardCancelTimer);
+        _otpHardCancelTimer = setTimeout(_cancelOtpStep, Math.max(0, expiresAt - Date.now()));
     }
 
     function _cancelOtpStep() {
-        clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer); _clearOtpState();
+        clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer); clearTimeout(_otpHardCancelTimer); _clearOtpState();
         const otpStep   = document.getElementById('otp-step');
         const regBtn    = document.getElementById('reg-submit');
         const cancelBtn = document.getElementById('otp-cancel-btn');
@@ -631,7 +635,7 @@ function initModalAuth() {
                     showError(errorEl, result.message + ' — الكود ما زال صالحاً، اضغط "تأكيد" مجدداً بدون طلب كود جديد.');
                 }
                 else {
-                    _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
+                    _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer); clearTimeout(_otpHardCancelTimer);
                     closeModal('modal-subscribe');
                     clearFields(['reg-username','reg-displayname','reg-password','reg-phone','reg-otp']);
                     resetLocationBtn();
@@ -882,7 +886,7 @@ function initModalAuth() {
                 // (the generic retry hint below) would trap them retrying a
                 // request that can never succeed. Stop the OTP flow here and
                 // route them straight to login instead.
-                _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
+                _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer); clearTimeout(_otpHardCancelTimer);
                 closeModal('modal-subscribe');
                 openModal('modal-login');
                 return;
@@ -891,7 +895,7 @@ function initModalAuth() {
             return;
         }
 
-        _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer);
+        _clearOtpState(); clearInterval(_otpResendTimer); clearTimeout(_otpExpireTimer); clearTimeout(_otpHardCancelTimer);
         closeModal('modal-subscribe');
         const onSuccess = window._phoneFirstOnSuccess;
         _resetPhoneFirstMode();
