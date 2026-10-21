@@ -122,7 +122,56 @@ function _applyStoreLinks(settings) {
             el.href = '#';
         }
     });
+    _applyShareLink(settings);
 }
+
+/* ── Share-with-friends (WhatsApp) ────────────────────────────
+   Builds the invite message from the SAME store links as the buttons
+   above, so it's always current — no deploy needed when a store link
+   is added or changed in admin. Only the links that are actually set
+   go into the message; while neither is set yet, the website link is
+   shared instead so the button is never dead. Uses wa.me (works in a
+   browser, the installed PWA and the Capacitor store apps — there the
+   link leaves the app's webview and opens WhatsApp itself). */
+const DELIVO_SITE_URL = 'https://delivolb.com';
+
+function _buildShareMessage(playUrl, appUrl) {
+    const lines = [
+        '🛵 جرّب تطبيق *Delivo* — كل شي بيوصلك لباب البيت!',
+        'مطاعم، سوبرماركت، حلويات وأكتر… اطلب بكبسة زر وتابع طلبك لحظة بلحظة 🧡',
+        '',
+    ];
+    if (playUrl) lines.push('🤖 *أندرويد — Google Play:*', playUrl, '');
+    if (appUrl)  lines.push('🍎 *آيفون — App Store:*', appUrl, '');
+    if (!playUrl && !appUrl) lines.push('🌐 *اطلب من هون:*', DELIVO_SITE_URL, '');
+    lines.push('نزّله وجرّبه، رح يعجبك 😉');
+    return lines.join('\n');
+}
+
+function _applyShareLink(settings) {
+    const btn = document.getElementById('app-share-wa');
+    if (!btn) return;
+    const playUrl = String(settings?.playStoreUrl || '').trim();
+    const appUrl  = String(settings?.appStoreUrl  || '').trim();
+    btn.href = 'https://wa.me/?text=' + encodeURIComponent(_buildShareMessage(playUrl, appUrl));
+}
+
+// Tap feedback: a quick "sent" swoosh + thank-you line, then back to normal.
+document.addEventListener('click', e => {
+    const btn = e.target.closest && e.target.closest('#app-share-wa');
+    if (!btn) return;
+    if (btn.getAttribute('href') === 'https://wa.me/') _applyShareLink(null); // settings not loaded yet — share the website
+    const sub = document.getElementById('app-share-sub');
+    btn.classList.remove('is-sent'); void btn.offsetWidth; btn.classList.add('is-sent');
+    if (sub) {
+        clearTimeout(btn._shareTimer);
+        sub.textContent = '✓ فتحنا واتساب — شكراً إنك شاركتنا 🧡';
+        btn._shareTimer = setTimeout(() => {
+            btn.classList.remove('is-sent');
+            sub.textContent = 'ابعتلهم الرابط على واتساب بكبسة';
+        }, 4500);
+    }
+});
 
 /* ── Main boot sequence ──────────────────────────────────────*/
 async function loadAll() {
