@@ -582,6 +582,40 @@
         white-space:nowrap; font-family: inherit;
     }
 
+    /* WhatsApp OTP step (registration) */
+    .drv-otp {
+        border: 1px solid rgba(37,211,102,0.35);
+        background: rgba(37,211,102,0.07);
+        border-radius: 14px;
+        padding: 14px;
+        display: flex; flex-direction: column; gap: 10px;
+    }
+    .drv-otp__head { display: flex; align-items: flex-start; gap: 10px; }
+    .drv-otp__icon { font-size: 1.3rem; line-height: 1; }
+    .drv-otp__title { font-size: 0.86rem; font-weight: 800; color: var(--clr-white); }
+    .drv-otp__sub { font-size: 0.72rem; color: var(--clr-gray-light); margin-top: 3px; line-height: 1.5; }
+    .drv-otp__sub b { color: #25D366; font-family: monospace; }
+    .drv-otp__input {
+        width: 100%; text-align: center;
+        font-size: 1.5rem; font-weight: 900; letter-spacing: 0.6em;
+        padding: 10px; border-radius: 12px;
+        background: rgba(0,0,0,0.25); color: var(--clr-white);
+        border: 1.5px solid rgba(255,255,255,0.12); outline: none;
+        font-family: monospace;
+    }
+    .drv-otp__input:focus { border-color: #25D366; }
+    .drv-otp__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .drv-otp__timer { font-size: 0.72rem; font-weight: 700; color: var(--clr-gray-light); font-variant-numeric: tabular-nums; }
+    .drv-otp__actions { display: flex; gap: 6px; }
+    .drv-otp__link {
+        font-family: inherit; font-size: 0.72rem; font-weight: 800;
+        background: rgba(255,255,255,0.06); color: var(--clr-white);
+        border: 1px solid rgba(255,255,255,0.12); border-radius: 99px;
+        padding: 4px 12px; cursor: pointer;
+    }
+    .drv-otp__link:disabled { opacity: 0.45; cursor: not-allowed; }
+    #drv-reg-phone[readonly] { opacity: 0.7; }
+
     /* Document upload boxes */
     .drv-upload-box {
         display: flex; align-items: center; gap: 10px;
@@ -917,9 +951,9 @@
             <input type="password" id="drv-reg-password" placeholder="8 أحرف على الأقل" dir="ltr" autocomplete="new-password">
         </div>
 
-        <!-- Documents (optional) -->
+        <!-- Documents (required) -->
         <div class="drv-field">
-            <label>📄 الوثائق <span style="color:var(--clr-gray); font-weight:600;">(اختياري — يمكن إضافتها بعد تسجيل الدخول)</span></label>
+            <label>📄 الوثائق <span class="drv-field-required">*</span> <span style="color:var(--clr-gray); font-weight:600;">(إلزامي — صورة واضحة لكل وثيقة)</span></label>
 
             <label class="drv-upload-box" id="drv-id-box" for="drv-reg-id-file">
                 <div class="drv-upload-box__icon" id="drv-id-icon">🪪</div>
@@ -940,8 +974,27 @@
             <input type="file" id="drv-reg-license-file" accept="image/*" style="display:none;">
         </div>
 
+        <!-- WhatsApp verification step (shown after the code is sent) -->
+        <div class="drv-otp" id="drv-otp-step" style="display:none;">
+            <div class="drv-otp__head">
+                <span class="drv-otp__icon">💬</span>
+                <div>
+                    <div class="drv-otp__title">تأكيد رقم الهاتف</div>
+                    <div class="drv-otp__sub">أرسلنا كود من 4 أرقام إلى واتساب رقم <b dir="ltr" id="drv-otp-phone"></b></div>
+                </div>
+            </div>
+            <input type="text" id="drv-reg-otp" class="drv-otp__input" placeholder="• • • •" dir="ltr" maxlength="4" inputmode="numeric" autocomplete="one-time-code">
+            <div class="drv-otp__row">
+                <span class="drv-otp__timer" id="drv-otp-timer"></span>
+                <span class="drv-otp__actions">
+                    <button type="button" class="drv-otp__link" id="drv-otp-resend" disabled>إعادة الإرسال</button>
+                    <button type="button" class="drv-otp__link" id="drv-otp-change">تغيير الرقم</button>
+                </span>
+            </div>
+        </div>
+
         <button class="drv-btn drv-btn--orange" id="drv-reg-submit" style="width:100%;justify-content:center;padding:12px">
-            ➕ إنشاء حساب السائق
+            💬 إرسال كود التحقق على واتساب
         </button>
         <p class="drv-modal__switch">لديك حساب؟ <a id="drv-show-login">سجّل الدخول</a></p>
     </div>
@@ -1688,19 +1741,170 @@ function setupRegisterForm() {
 
     const submitBtn = document.getElementById('drv-reg-submit');
     const errorEl   = document.getElementById('drv-reg-error');
+    const phoneEl   = document.getElementById('drv-reg-phone');
+    const otpStep   = document.getElementById('drv-otp-step');
+    const otpInput  = document.getElementById('drv-reg-otp');
+    const otpTimer  = document.getElementById('drv-otp-timer');
+    const resendBtn = document.getElementById('drv-otp-resend');
+    const changeBtn = document.getElementById('drv-otp-change');
+
+    /* ── WhatsApp phone verification — same flow as the customer
+       registration on index (modal-auth.js): a 4-digit code is
+       generated here, sent through the sendOtpCode Cloud Function
+       (which hides the GREEN-API token and applies the daily per-device
+       / per-phone send limit), valid 5 minutes, resend after 60s.
+       The account is only created after the code is confirmed. ── */
+    const DRV_OTP_TIMEOUT        = 5 * 60 * 1000; // code valid 5 minutes
+    const DRV_OTP_RESEND_WAIT    = 60;            // seconds before "resend" unlocks
+    const DRV_OTP_RETRY_COOLDOWN = 30;            // seconds after a FAILED send
+    const DRV_OTP_SEND_TIMEOUT   = 20000;         // ms — don't hang forever on a bad connection
+
+    let _otp       = null;   // { code, phone, uuid, expiresAt, resendAt }
+    let _otpTick   = null;   // 1s display ticker
+    let _otpKill   = null;   // the ONE hard-expiry timer (always cleared before a new one)
+    let _busy      = false;
+    let _cooldownUntil = 0;
+
+    const btnLabel = () => _otp ? '✅ تأكيد الكود وإنشاء الحساب' : '💬 إرسال كود التحقق على واتساب';
+    function resetBtn() {
+        submitBtn.disabled = Date.now() < _cooldownUntil;
+        if (!submitBtn.disabled) submitBtn.textContent = btnLabel();
+    }
+    function showRegError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.add('visible');
+        _busy = false;
+        resetBtn();
+        errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    function lockWithCooldown(btn, seconds, label) {
+        let rem = seconds;
+        btn.disabled = true;
+        if (btn === submitBtn) _cooldownUntil = Date.now() + seconds * 1000;
+        const t = () => {
+            if (rem <= 0) { btn.disabled = false; btn.textContent = label(); return; }
+            btn.textContent = `⏳ انتظر ${rem} ثانية...`;
+            rem--; setTimeout(t, 1000);
+        };
+        t();
+    }
+
+    async function sendOtp(phoneRaw, uuid) {
+        const code = String(Math.floor(1000 + Math.random() * 9000));
+        const controller = new AbortController();
+        const timeoutId  = setTimeout(() => controller.abort(), DRV_OTP_SEND_TIMEOUT);
+        let resp;
+        try {
+            resp = await fetch('https://us-central1-deliveryonline-300f7.cloudfunctions.net/sendOtpCode', {
+                method : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body   : JSON.stringify({ phone: phoneRaw.replace(/^0/, ''), deviceUUID: uuid, code }),
+                signal : controller.signal,
+            });
+        } catch (err) {
+            if (err.name === 'AbortError') throw new Error('⏳ الاتصال بطيء جداً. قد يكون الكود قد أُرسل — تحقق من واتساب قبل طلب كود جديد.');
+            throw new Error('تعذر الاتصال بالخادم. تحقق من شبكتك — قد يكون الكود قد وصل، تحقق من واتساب أولاً.');
+        } finally {
+            clearTimeout(timeoutId);
+        }
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || data.error) throw new Error(data.error || `فشل إرسال الكود (${resp.status})`);
+        return code;
+    }
+
+    function stopOtpTimers() { clearInterval(_otpTick); clearTimeout(_otpKill); _otpTick = _otpKill = null; }
+
+    function startOtpTimers() {
+        stopOtpTimers();
+        const render = () => {
+            if (!_otp) return;
+            const now = Date.now();
+            const resendLeft = Math.ceil((_otp.resendAt - now) / 1000);
+            resendBtn.disabled = resendLeft > 0 || _busy;
+            if (resendLeft > 0) {
+                otpTimer.textContent = `إعادة الإرسال متاحة بعد ${resendLeft} ثانية`;
+            } else {
+                const left = Math.max(0, _otp.expiresAt - now);
+                const m = Math.floor(left / 60000), sec = Math.floor((left % 60000) / 1000);
+                otpTimer.textContent = `⏰ ينتهي الكود بعد ${m}:${String(sec).padStart(2, '0')}`;
+            }
+        };
+        render();
+        _otpTick = setInterval(render, 1000);
+        _otpKill = setTimeout(() => cancelOtp('⌛ انتهت صلاحية كود التحقق. اضغط لإرسال كود جديد.'), Math.max(0, _otp.expiresAt - Date.now()));
+    }
+
+    function showOtpStep() {
+        document.getElementById('drv-otp-phone').textContent = '+961 ' + _otp.phone.replace(/^0/, '');
+        otpStep.style.display = 'flex';
+        phoneEl.readOnly = true;            // the verified number can't be swapped after the code is sent
+        otpInput.value = '';
+        startOtpTimers();
+        resetBtn();
+        otpStep.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => otpInput.focus(), 350);
+    }
+
+    function cancelOtp(msg) {
+        stopOtpTimers();
+        _otp = null;
+        otpStep.style.display = 'none';
+        phoneEl.readOnly = false;
+        otpInput.value = '';
+        if (msg) { errorEl.textContent = msg; errorEl.classList.add('visible'); }
+        if (!_busy) resetBtn();
+    }
+
+    // Only digits in the code box; auto-confirm once 4 digits are in.
+    otpInput.addEventListener('input', () => {
+        otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 4);
+        if (otpInput.value.length === 4 && !_busy) submitBtn.click();
+    });
+
+    changeBtn.addEventListener('click', () => {
+        if (_busy) return;
+        cancelOtp(null);
+        errorEl.classList.remove('visible');
+        phoneEl.focus();
+    });
+
+    resendBtn.addEventListener('click', async () => {
+        if (!_otp || _busy || resendBtn.disabled) return;
+        _busy = true;
+        resendBtn.disabled = true;
+        resendBtn.textContent = '⏳';
+        errorEl.classList.remove('visible');
+        try {
+            const code = await sendOtp(_otp.phone, _otp.uuid);
+            _otp.code      = code;
+            _otp.expiresAt = Date.now() + DRV_OTP_TIMEOUT;
+            _otp.resendAt  = Date.now() + DRV_OTP_RESEND_WAIT * 1000;
+            otpInput.value = '';
+            startOtpTimers();
+            showToast('✅ أُعيد إرسال الكود على واتساب');
+        } catch (e) {
+            errorEl.textContent = e.message; errorEl.classList.add('visible');
+            // A failed send still waits — a flaky connection must not fire repeated real sends.
+            _otp.resendAt = Date.now() + DRV_OTP_RETRY_COOLDOWN * 1000;
+        } finally {
+            _busy = false;
+            resendBtn.textContent = 'إعادة الإرسال';
+        }
+    });
 
     submitBtn.addEventListener('click', async () => {
+        if (_busy) return;
         errorEl.classList.remove('visible');
 
         const fullname = document.getElementById('drv-reg-name').value.trim();
-        const phoneRaw = document.getElementById('drv-reg-phone').value.trim().replace(/[\s\-]/g, '');
+        const phoneRaw = phoneEl.value.trim().replace(/[\s\-]/g, '');
         const lat      = document.getElementById('drv-reg-lat').value;
         const lng      = document.getElementById('drv-reg-lng').value;
         const vehicle  = document.getElementById('drv-reg-vehicle').value;
         const username = document.getElementById('drv-reg-username').value.trim().toLowerCase();
         const password = document.getElementById('drv-reg-password').value;
 
-        // ── Validation ──────────────────────────────────────────
+        // ── Validation (every time — fields can still change while the code is pending) ──
         if (!fullname || fullname.length < 2) {
             return showRegError('أدخل اسمك الكامل (حرفان على الأقل).');
         }
@@ -1719,75 +1923,123 @@ function setupRegisterForm() {
         if (!password || password.length < 8) {
             return showRegError('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
         }
+        if (!_regIdFile) {
+            return showRegError('📄 صورة الهوية إلزامية — اضغط على "صورة الهوية" وارفع صورة واضحة.');
+        }
+        if (!_regLicenseFile) {
+            return showRegError('📄 صورة رخصة القيادة إلزامية — اضغط على "رخصة القيادة" وارفع صورة واضحة.');
+        }
 
-        submitBtn.disabled = true;
-        submitBtn.textContent = '…';
+        const phoneFormatted = '+961' + phoneRaw.replace(/^0/, '');
 
-        try {
-            // 0. Device UUID limit check (max 3 driver accounts per device)
-            //    Runs first so we don't waste Firebase reads on a capped device.
-            submitBtn.textContent = 'جاري التحقق…';
-            const _uuidResult = await _drvCheckUUIDLimit();
-            if (!_uuidResult.allowed) {
-                return showRegError(_uuidResult.message);
-            }
-            const _deviceUUID = _uuidResult.uuid;
-
-            // Final username uniqueness re-check (race-condition guard)
+        // Username + phone must both be free (re-checked again right before creating the account)
+        async function checkTaken() {
             const drvSnap = await db.ref('drivers').get();
-            let taken = false;
+            let userTaken = false, phoneTaken = false;
             if (drvSnap.exists()) {
                 drvSnap.forEach(child => {
                     const d = child.val();
-                    if (d && d.username === username) taken = true;
+                    if (!d) return;
+                    if (d.username === username) userTaken = true;
+                    if (d.phone === phoneFormatted) phoneTaken = true;
                 });
             }
-            if (!taken) {
+            if (!userTaken) {
                 try {
                     const custDoc = await fsdb.collection('usernames').doc(username).get();
-                    if (custDoc.exists) taken = true;
+                    if (custDoc.exists) userTaken = true;
                 } catch (_) {}
             }
-            if (taken) {
-                return showRegError('اسم المستخدم محجوز. اختر اسماً آخر.');
+            if (userTaken)  return 'اسم المستخدم محجوز. اختر اسماً آخر.';
+            if (phoneTaken) return 'رقم الهاتف هذا مسجّل مسبقاً لسائق آخر. سجّل دخولك أو استخدم رقماً آخر.';
+            return null;
+        }
+
+        _busy = true;
+        submitBtn.disabled = true;
+
+        /* ════ Step 1 — send the WhatsApp code ════ */
+        if (!_otp) {
+            try {
+                submitBtn.textContent = 'جاري التحقق…';
+                const _uuidResult = await _drvCheckUUIDLimit();
+                if (!_uuidResult.allowed) return showRegError(_uuidResult.message);
+
+                const takenMsg = await checkTaken();
+                if (takenMsg) return showRegError(takenMsg);
+
+                submitBtn.textContent = '⏳ جاري إرسال الكود…';
+                const code = await sendOtp(phoneRaw, _uuidResult.uuid);
+                _otp = {
+                    code, phone: phoneRaw, uuid: _uuidResult.uuid,
+                    expiresAt: Date.now() + DRV_OTP_TIMEOUT,
+                    resendAt : Date.now() + DRV_OTP_RESEND_WAIT * 1000,
+                };
+                _busy = false;
+                showOtpStep();
+                showToast('💬 تم إرسال كود التحقق على واتساب');
+            } catch (e) {
+                console.error('[Delivo] driver OTP send:', e);
+                _busy = false;
+                errorEl.textContent = e.message || 'تعذّر إرسال كود التحقق. حاول مجدداً.';
+                errorEl.classList.add('visible');
+                lockWithCooldown(submitBtn, DRV_OTP_RETRY_COOLDOWN, btnLabel);
             }
+            return;
+        }
 
-            const phoneFormatted = '+961' + phoneRaw.replace(/^0/, '');
+        /* ════ Step 2 — confirm the code, then create the account ════ */
+        const entered = otpInput.value.trim();
+        if (phoneRaw !== _otp.phone) { cancelOtp(null); return showRegError('تم تغيير رقم الهاتف — أرسل كوداً جديداً للرقم الجديد.'); }
+        if (Date.now() > _otp.expiresAt) { _busy = false; return cancelOtp('⌛ انتهت صلاحية كود التحقق. اضغط لإرسال كود جديد.'); }
+        if (!/^\d{4}$/.test(entered)) { otpInput.focus(); return showRegError('أدخل كود التحقق المكوّن من 4 أرقام المُرسل على واتساب.'); }
+        if (entered !== _otp.code) { otpInput.select(); return showRegError('❌ الكود غير صحيح. تحقق من واتساب وحاول مجدداً.'); }
 
-            // Create the driver record first (without doc images) to get an ID
-            const newRef = db.ref('drivers').push();
+        try {
+            submitBtn.textContent = 'جاري التحقق…';
+            const takenMsg = await checkTaken();   // race guard
+            if (takenMsg) return showRegError(takenMsg);
+
+            const newRef   = db.ref('drivers').push();   // key only — nothing written yet
             const driverId = newRef.key;
 
+            // Documents are REQUIRED — upload them first; if either fails the
+            // account is NOT created and the same (still valid) code can be retried.
+            submitBtn.textContent = '⏳ جاري رفع الوثائق…';
+            let idImage, licenseImage;
+            try {
+                [idImage, licenseImage] = await Promise.all([
+                    uploadDriverDoc(_regIdFile,      driverId, 'id'),
+                    uploadDriverDoc(_regLicenseFile, driverId, 'license'),
+                ]);
+            } catch (e) {
+                console.error('[Delivo] driver docs upload failed:', e);
+                return showRegError('تعذّر رفع صور الوثائق. تحقق من الإنترنت ثم اضغط "تأكيد" مجدداً — الكود ما زال صالحاً.');
+            }
+
+            submitBtn.textContent = '⏳ جاري إنشاء الحساب…';
             const driverRecord = {
                 owner          : fullname,
                 fullname       : fullname,
                 username       : username,
                 password       : password,
                 phone          : phoneFormatted,
+                phoneVerified  : true,           // confirmed by WhatsApp code
+                phoneVerifiedAt: Date.now(),
                 vehicleType    : vehicle,
                 address        : { lat: parseFloat(lat), lng: parseFloat(lng) },
+                idImage        : idImage,
+                licenseImage   : licenseImage,
                 status         : 'offline',
                 active         : false,          // ← admin must activate before receiving orders
                 pendingApproval: true,
-                deviceUUID     : _deviceUUID,
+                deviceUUID     : _otp.uuid,
                 createdAt      : Date.now(),
             };
             await newRef.set(driverRecord);
-            await _drvIncrementUUIDCount(_deviceUUID);
+            await _drvIncrementUUIDCount(_otp.uuid);
 
-            // Upload optional documents (non-blocking for registration success)
-            const docUpdates = {};
-            if (_regIdFile) {
-                try { docUpdates.idImage = await uploadDriverDoc(_regIdFile, driverId, 'id'); }
-                catch (e) { console.error('[Delivo] ID upload failed:', e); }
-            }
-            if (_regLicenseFile) {
-                try { docUpdates.licenseImage = await uploadDriverDoc(_regLicenseFile, driverId, 'license'); }
-                catch (e) { console.error('[Delivo] License upload failed:', e); }
-            }
-            if (Object.keys(docUpdates).length) {
-                await newRef.update(docUpdates);
-            }
+            cancelOtp(null);
 
             // Log the driver in immediately
             driverData = {
@@ -1795,30 +2047,22 @@ function setupRegisterForm() {
                 username: username,
                 owner:    fullname,
                 active:   false,
-                idImage:      docUpdates.idImage      || null,
-                licenseImage: docUpdates.licenseImage || null,
+                idImage:      idImage,
+                licenseImage: licenseImage,
             };
             localStorage.setItem('delivoDriver', JSON.stringify(driverData));
 
             document.getElementById('drv-register-modal').style.display = 'none';
             showToast('🎉 تم إنشاء حسابك بنجاح!');
+            _busy = false;
+            resetBtn();
             startDriverSession();
 
         } catch (e) {
             console.error('[Delivo] registration error:', e);
-            showRegError('حدث خطأ أثناء إنشاء الحساب. حاول مجدداً.');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = '➕ إنشاء حساب السائق';
+            showRegError('حدث خطأ أثناء إنشاء الحساب. اضغط "تأكيد" مجدداً — الكود ما زال صالحاً.');
         }
     });
-
-    function showRegError(msg) {
-        errorEl.textContent = msg;
-        errorEl.classList.add('visible');
-        submitBtn.disabled = false;
-        submitBtn.textContent = '➕ إنشاء حساب السائق';
-    }
 }
 
 /* ── "Add documents later" modal ─────────────────────────────── */
