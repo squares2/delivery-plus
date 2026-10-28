@@ -103,8 +103,7 @@ const RANK_META = [
 /* ── Fetch all stores from Firebase pattern/ ─────────────── */
 async function fetchAllStores() {
     try {
-        const res  = await fetch(`${STORES_RTDB_URL}/pattern.json`);
-        const data = await res.json();
+        const data = await window.DelivoPattern.get(); // shared cached catalog — see img-base.js
         if (!data) return [];
 
         const seen   = new Set();
@@ -479,6 +478,7 @@ function _startStoreNameSSE() {
             _sse.addEventListener('put', e => {
                 try {
                     const msg = JSON.parse(e.data);
+                    if (msg.path === '/' && window.DelivoPattern) window.DelivoPattern.prime(msg.data);
                     _processPattern(msg.data);
                 } catch (_) {}
                 _retryMs = 3000;
@@ -565,8 +565,7 @@ async function _fetchAndInjectSaleCards() {
         let storeTypeMap = {};
         let storeLogoMap = {};
         try {
-            const pr = await fetch(`${RTDB_SALES_URL}/pattern.json`);
-            const pd = await pr.json();
+            const pd = await window.DelivoPattern.get(); // shared cached catalog — see img-base.js
             if (pd && typeof pd === 'object') {
                 for (const [type, entries] of Object.entries(pd)) {
                     const arr = Array.isArray(entries) ? entries : Object.values(entries || {});

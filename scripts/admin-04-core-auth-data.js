@@ -114,7 +114,7 @@ async function _adminUploadImage(file, folder, filename, quality = 0.92) {
     /* Load admin presence monitor after DOM ready */
     window.addEventListener('load', () => {
         const s = document.createElement('script');
-        s.src = 'scripts/admin-presence.js?v=6';
+        s.src = 'scripts/admin-presence.js?v=7';
         document.body.appendChild(s);
     });
     /* Load attendance dashboard alongside it — separate file, read-only
@@ -243,27 +243,79 @@ const REFRESH_INTERVAL   = 12_000;   // 12 seconds
 // immediately the moment the tab becomes visible again so data is
 // never stale on return.
 let _tabHidden = document.hidden;
+// BANDWIDTH FIX: streams used to be closed the instant the tab was hidden
+// and reopened on return — and every reopen re-downloads the ENTIRE
+// orders history + drivers node. An admin flipping between WhatsApp and
+// this tab a few hundred times a day was re-downloading all orders each
+// time. Now streams only close after the tab has stayed hidden for
+// STREAM_PAUSE_DELAY_MS; a quick switch-away/back costs nothing (an
+// open stream only receives the small changes).
+const STREAM_PAUSE_DELAY_MS = 5 * 60 * 1000;
+let _streamPauseTimer = null;
 document.addEventListener('visibilitychange', () => {
     _tabHidden = document.hidden;
-    // The orders/drivers SSE streams carry their own bandwidth cost while
-    // connected (small, but not zero) — fully close them in the background
-    // and reconnect (with a fresh baseline fetch) when the tab comes back,
-    // same "don't spend bandwidth on a tab nobody's looking at" policy as
-    // the rest of this file.
     if (_tabHidden) {
-        _ordersStream?.pause();
-        _driversStream?.pause();
+        clearTimeout(_streamPauseTimer);
+        _streamPauseTimer = setTimeout(() => {
+            if (!document.hidden) return;
+            _ordersStream?.pause();
+            _driversStream?.pause();
+        }, STREAM_PAUSE_DELAY_MS);
     } else {
-        _ordersStream?.resume();
+        clearTimeout(_streamPauseTimer);
+        _streamPauseTimer = null;
+        _ordersStream?.resume(); // no-op if the stream was never paused
         _driversStream?.resume();
     }
     if (!_tabHidden && typeof currentAdmin !== 'undefined' && currentAdmin) {
-        loadAllData().then(() => {
+        // Full reload only if the last one is old; otherwise the cheap refresh.
+        const stale = (Date.now() - _lastFullLoadAt) > FULL_REFRESH_RETURN_MS;
+        (stale ? loadAllData() : _loadLightData()).then(() => {
             updateTopbarStats();
             updateNavBadge();
         }).catch(() => {});
     }
 });
+
+// ── Refresh cadence (BANDWIDTH FIX) ─────────────────────────────
+// loadAllData() downloads almost the whole database (catalog, all
+// customers from RTDB + Firestore, visitors, expenses, cashbox, …) and
+// used to run every 12s in every open admin tab — the largest single
+// cost on the bill. Now the 12s tick only does a tiny "light" refresh
+// (store open/closed + assignment mode); the full reload runs every
+// FULL_REFRESH_MS, plus immediately after any admin action (all the
+// existing `await loadAllData()` calls after saves are unchanged) and
+// on the manual refresh buttons. Orders and drivers stay real-time via
+// their live streams, exactly as before.
+const FULL_REFRESH_MS        = 3 * 60 * 1000;
+const FULL_REFRESH_RETURN_MS = 60 * 1000;
+let _lastFullLoadAt = 0;
+
+async function _autoRefreshData() {
+    if (Date.now() - _lastFullLoadAt >= FULL_REFRESH_MS) await loadAllData();
+    else await _loadLightData();
+}
+
+// Cheap per-tick refresh: only the small nodes that the dashboard shows as
+// "live" status (store open/closed badges, order-assignment mode).
+async function _loadLightData() {
+    try {
+        const [storeStatusAll, assignMode] = await Promise.all([
+            fbGet('storeStatus').catch(() => undefined),
+            fbGet('settings/orderAssignmentMode').catch(() => undefined),
+        ]);
+        if (assignMode !== undefined) _assignmentMode = assignMode || 'both';
+        if (storeStatusAll !== undefined && typeof allStores === 'object' && allStores) {
+            Object.values(allStores).forEach(s => {
+                const st = storeStatusAll && storeStatusAll[s.companyname];
+                const cl = !!(st && (st.closed === true || st.closed === '1' || st.closed === 1));
+                s._closed       = cl;
+                s._closedReason = cl ? (st.reason  || '') : '';
+                s._opensAt      = cl ? (st.opensAt || '') : '';
+            });
+        }
+    } catch (_) { /* keep last known values */ }
+}
 
 function _pauseAutoRefresh() {
     if (_refreshPaused) return;
@@ -282,7 +334,7 @@ function _resumeAutoRefresh() {
     if (!refreshTimer) {
         refreshTimer = setInterval(async () => {
             if (_refreshPaused || _tabHidden) return;
-            await loadAllData();
+            await _autoRefreshData();
             updateTopbarStats(); updateNavBadge();
         }, REFRESH_INTERVAL);
     }
@@ -873,13 +925,18 @@ function _rtdbLiveStream(path, { getRoot, setRoot, onUpdate }) {
         }
         let authQS = '';
         try { authQS = await _rtdbAuthQuery(); } catch (_) {}
-        try {
-            const r = await fetch(`${RTDB}/${path}.json${authQS}`);
-            if (r.ok) { setRoot(await r.json() || {}); onUpdate && onUpdate('init'); }
-        } catch (_) { /* SSE below still tries; next poll-free retry on error */ }
-        _markReady(); // resolve once we've made a real attempt, success or not
 
-        if (paused) return; // visibility could've changed during the await above
+        // BANDWIDTH FIX: there used to be a separate full fetch() of the
+        // whole node here BEFORE opening the stream — but an RTDB SSE
+        // stream ALWAYS starts with its own full snapshot (a root 'put'),
+        // so every connect (login, tab return, 45-min token refresh,
+        // network blip) downloaded the entire node TWICE. Now the stream's
+        // first root 'put' is the baseline. A safety timer still resolves
+        // `ready` so the first render is never blocked forever.
+        let firstSnapshot = true;
+        const readyFallback = setTimeout(_markReady, 10000);
+
+        if (paused) { clearTimeout(readyFallback); return; } // visibility could've changed during the await above
         if (sse) { try { sse.close(); } catch (_) {} }
         const sep = authQS ? '&' : '?';
         sse = new EventSource(`${RTDB}/${path}.json${authQS}${sep}accept=text/event-stream`);
@@ -888,10 +945,17 @@ function _rtdbLiveStream(path, { getRoot, setRoot, onUpdate }) {
             try {
                 const msg = JSON.parse(e.data);
                 setRoot(_rtdbApplyPathOp(getRoot(), msg.path, msg.data, false));
-                onUpdate && onUpdate('put');
+                const kind = firstSnapshot ? 'init' : 'put';
+                firstSnapshot = false;
+                onUpdate && onUpdate(kind);
                 retryMs = 2000;
             } catch (_) {}
+            clearTimeout(readyFallback);
+            _markReady();
         });
+        // Permission denied / auth revoked — don't leave the first render waiting.
+        sse.addEventListener('cancel', () => { clearTimeout(readyFallback); _markReady(); });
+        sse.addEventListener('auth_revoked', () => { clearTimeout(readyFallback); _markReady(); });
         sse.addEventListener('patch', e => {
             try {
                 const msg = JSON.parse(e.data);
@@ -901,6 +965,7 @@ function _rtdbLiveStream(path, { getRoot, setRoot, onUpdate }) {
         });
         sse.onerror = () => {
             if (sse) { try { sse.close(); } catch (_) {} }
+            _markReady(); // a failed first attempt must not block the first render
             if (paused) return;
             clearTimeout(retryTimer);
             retryTimer = setTimeout(connect, retryMs);
@@ -2038,6 +2103,7 @@ function doLogout() {
 
 // ── Load all data ─────────────────────────────────────────────
 async function loadAllData() {
+    _lastFullLoadAt = Date.now(); // see FULL_REFRESH_MS — set up-front so a slow/failed run isn't retried every 12s
     try {
         // Each fetch below now falls back to its OWN last-known-good value on
         // failure (instead of having none of them, since the previous version
@@ -2546,7 +2612,7 @@ function startAutoRefresh() {
     // ── Polling interval — full data refresh every 12s ────────
     refreshTimer = setInterval(async () => {
         if (_refreshPaused || _tabHidden || _fsSignInFails >= _FS_MAX_FAILS) return;
-        await loadAllData();
+        await _autoRefreshData();
         updateTopbarStats();
         updateNavBadge();
 

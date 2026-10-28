@@ -2284,6 +2284,27 @@ function setupLogout() {
 
 // ── GPS Tracking ──────────────────────────────────────────────
 let _lastFixAt = 0;          // when the last successful fix arrived
+
+// Location-write throttle (see watchPosition below)
+const GPS_MIN_GAP_MS     = 5000;   // never write more than once per 5s
+const GPS_MIN_MOVE_M     = 15;     // write as soon as the driver moved 15 m…
+const GPS_MAX_SILENCE_MS = 30000;  // …or 30s passed, even when standing still
+let _lastLocWrite = { at: 0, lat: null, lng: null };
+function _distM(lat1, lng1, lat2, lng2) {
+    const R = 6371000, toR = Math.PI / 180;
+    const dLat = (lat2 - lat1) * toR, dLng = (lng2 - lng1) * toR;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+}
+function _shouldWriteLocation(lat, lng) {
+    const now = Date.now();
+    const since = now - _lastLocWrite.at;
+    if (_lastLocWrite.lat !== null && since < GPS_MIN_GAP_MS) return false;
+    const moved = _lastLocWrite.lat === null ? Infinity : _distM(_lastLocWrite.lat, _lastLocWrite.lng, lat, lng);
+    if (moved < GPS_MIN_MOVE_M && since < GPS_MAX_SILENCE_MS) return false;
+    _lastLocWrite = { at: now, lat, lng };
+    return true;
+}
 let _gpsWatchdogTimer = null;
 
 function startTracking() {
@@ -2300,6 +2321,13 @@ function startTracking() {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
             _lastFixAt = Date.now();
+
+            // BANDWIDTH FIX: GPS fires up to once a second; every write was
+            // pushed live to every open admin/dispatcher tab. Only write when
+            // the driver actually moved (≥ GPS_MIN_MOVE_M) or the last write
+            // is getting old (GPS_MAX_SILENCE_MS) — never more often than
+            // GPS_MIN_GAP_MS. Map/tracking still update every few seconds.
+            if (!_shouldWriteLocation(lat, lng)) return;
 
             // Update driver location in RTDB
             db.ref(`drivers/${driverData.id}/location`).update({
@@ -2343,6 +2371,7 @@ function startTracking() {
 // Android Bridge — called by WebView when it gets a background location update
 window.appUpdateLocation = function(lat, lng) {
     if (!driverData) return;
+    if (!_shouldWriteLocation(parseFloat(lat), parseFloat(lng))) return; // same throttle as the in-page GPS
     db.ref(`drivers/${driverData.id}/location`).update({
         lat: parseFloat(lat), lng: parseFloat(lng), timestamp: Date.now()
     });

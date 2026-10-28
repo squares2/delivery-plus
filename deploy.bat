@@ -36,6 +36,19 @@ if %errorlevel%==0 (
     echo [Delivo Deploy] Check sw.js manually before uploading.
 )
 
+REM Stamp the SAME timestamp into index.html (window.APP_VERSION) and
+REM version.json. pwa.js compares these two to detect a new deploy and
+REM auto-refresh customers onto it, so they must always match sw.js.
+REM Written as UTF-8 without BOM via .NET so the Arabic text stays intact.
+powershell -NoProfile -Command "$p=(Resolve-Path 'index.html').Path; $t=[IO.File]::ReadAllText($p,[Text.Encoding]::UTF8); $t=[regex]::Replace($t,'window\.APP_VERSION\s*=\s*''[^'']*''','window.APP_VERSION = ''%BUILD_TS%'''); [IO.File]::WriteAllText($p,$t,(New-Object Text.UTF8Encoding $false))"
+powershell -NoProfile -Command "$q=[char]34; $j='{ '+$q+'version'+$q+': '+$q+'%BUILD_TS%'+$q+' }'; [IO.File]::WriteAllText((Join-Path (Get-Location) 'version.json'),$j,(New-Object Text.UTF8Encoding $false))"
+findstr /C:"%BUILD_TS%" index.html >nul && findstr /C:"%BUILD_TS%" version.json >nul
+if %errorlevel%==0 (
+    echo [Delivo Deploy] Verified: index.html and version.json stamped with %BUILD_TS%.
+) else (
+    echo [Delivo Deploy] WARNING: index.html / version.json not stamped - check them manually!
+)
+
 echo [Delivo Deploy] Now upload all files to GitHub Pages / your server.
 echo [Delivo Deploy] Done!
 pause

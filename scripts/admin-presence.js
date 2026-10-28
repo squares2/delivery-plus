@@ -11,7 +11,7 @@
     'use strict';
 
     const RTDB_BASE = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-    const STALE_MS  = 45_000;   // MUST be > client HEARTBEAT (8s) with large margin
+    const STALE_MS  = 70_000;   // MUST be > client HEARTBEAT (20s) with large margin — matches presence.js
     const TOAST_DUR = 6_000;
 
     // Ignore join/leave events within this window of page load
@@ -655,7 +655,21 @@
 
         if (!trySDK()) {
             setTimeout(() => {
-                if (!trySDK()) { pollREST(); setInterval(pollREST, 8_000); }
+                // BANDWIDTH FIX: was every 8s even with the tab in the background.
+                // Visible: every 10s. Hidden: at most once a minute (still enough
+                // for join notifications to keep working in the background).
+                if (!trySDK()) {
+                    let _lastPoll = 0;
+                    const _tick = () => {
+                        const gap = document.hidden ? 60_000 : 10_000;
+                        if (Date.now() - _lastPoll < gap - 500) return;
+                        _lastPoll = Date.now();
+                        pollREST();
+                    };
+                    _tick();
+                    setInterval(_tick, 10_000);
+                    document.addEventListener('visibilitychange', () => { if (!document.hidden) _tick(); });
+                }
             }, 1500);
         }
     }

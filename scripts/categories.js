@@ -108,8 +108,7 @@ async function _renderCategoryBar() {
    Runs async after bar renders so there is zero layout delay.               */
 async function _markEmptyCategories(container, fbKeyToLocal) {
     try {
-        const res     = await fetch(`${RTDB_BASE}/pattern.json`);
-        const pattern = await res.json();   // { Restaurants: { 0: {...}, 1: {...} }, … }
+        const pattern = await window.DelivoPattern.get();   // { Restaurants: { 0: {...}, 1: {...} }, … } — shared cached catalog, see img-base.js
 
         // Build a set of fbKeys that have at least one genuinely active store.
         // A store is disabled when its disabled field is truthy in the Firebase sense:

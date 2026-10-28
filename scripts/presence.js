@@ -8,8 +8,15 @@
     'use strict';
 
     const RTDB_BASE  = 'https://deliveryonline-300f7-default-rtdb.firebaseio.com';
-    const HEARTBEAT  = 8 * 1000;   // must be well under admin STALE_MS (45s)
-    const STALE_MS   = 45 * 1000;  // MUST match admin-presence.js STALE_MS
+    // BANDWIDTH FIX: heartbeat was every 8s and (on the REST path every
+    // customer uses) each heartbeat also re-downloaded the WHOLE presence
+    // list — so traffic grew with visitors × visitors. Now: heartbeat every
+    // 20s, the online-count poll every 60s (only while the page is visible),
+    // and all fire-and-forget writes use ?print=silent so the server doesn't
+    // echo the written data back.
+    const HEARTBEAT  = 20 * 1000;  // must be well under admin STALE_MS (70s)
+    const STALE_MS   = 70 * 1000;  // MUST match admin-presence.js STALE_MS
+    const COUNT_POLL = 60 * 1000;  // REST path: how often the online counter re-reads presence
     const SWEEP_MS   = 30 * 1000;  // how often this tab may prune dead entries
 
     let lastSweep = 0;
@@ -142,8 +149,10 @@
         } catch (_) { /* keep offset at 0 — best-effort only */ }
     }
 
+    // ?print=silent → server replies 204 with no body (the written data is
+    // NOT sent back), so fire-and-forget writes cost almost no download.
     function rtdbPut(path, data, keepalive = false) {
-        return fetch(`${RTDB_BASE}/${path}.json`, {
+        return fetch(`${RTDB_BASE}/${path}.json?print=silent`, {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify(data),
@@ -152,7 +161,7 @@
     }
 
     function rtdbDelete(path, keepalive = false) {
-        return fetch(`${RTDB_BASE}/${path}.json`, { method: 'DELETE', keepalive }).catch(() => {});
+        return fetch(`${RTDB_BASE}/${path}.json?print=silent`, { method: 'DELETE', keepalive }).catch(() => {});
     }
 
     async function rtdbGet(path) {
@@ -230,14 +239,14 @@
 
     function _attnTouch() {
         if (!_attnPath) return;
-        fetch(`${RTDB_BASE}/${_attnPath}/lastSeen.json`, {
+        fetch(`${RTDB_BASE}/${_attnPath}/lastSeen.json?print=silent`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(_correctedNow()),
         }).catch(() => {});
     }
 
     function _attnMarkRegistered() {
         if (!_attnPath) return;
-        fetch(`${RTDB_BASE}/${_attnPath}/isRegistered.json`, {
+        fetch(`${RTDB_BASE}/${_attnPath}/isRegistered.json?print=silent`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(true),
         }).catch(() => {});
     }
@@ -263,7 +272,7 @@
 
     function _funnelFlush(immediate = false, keepalive = false) {
         if (!_attnPath) return; // will retry on next event/heartbeat once session exists
-        const write = () => fetch(`${RTDB_BASE}/${_attnPath}/funnel.json`, {
+        const write = () => fetch(`${RTDB_BASE}/${_attnPath}/funnel.json?print=silent`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(_funnel), keepalive,
         }).catch(() => {});
@@ -293,7 +302,7 @@
         const snap = _cartSnapshot();
         if (!snap) return;
         const auth = window._delivoAuthUser || null;
-        fetch(`${RTDB_BASE}/${_attnPath}/abandonedCart.json`, {
+        fetch(`${RTDB_BASE}/${_attnPath}/abandonedCart.json?print=silent`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 ...snap,
@@ -353,7 +362,7 @@
         // Server-side timestamp, same convention as createdAt in
         // firebase-init.js's saveDeviceLead — a client clock can't be
         // trusted for chronological sorting in the admin panel.
-        fetch(`${RTDB_BASE}/deviceLeads/${uuid}/lastVisit.json`, {
+        fetch(`${RTDB_BASE}/deviceLeads/${uuid}/lastVisit.json?print=silent`, {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ '.sv': 'timestamp' }),
@@ -370,7 +379,7 @@
     function _touchCustomerActivity() {
         const uid = window._delivoAuthUser?.uid;
         if (!uid) return;
-        fetch(`${RTDB_BASE}/customerActivity/${uid}/lastActive.json`, {
+        fetch(`${RTDB_BASE}/customerActivity/${uid}/lastActive.json?print=silent`, {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ '.sv': 'timestamp' }),
@@ -542,13 +551,14 @@
         });
 
         async function pollCount() {
+            if (document.visibilityState === 'hidden') return; // nobody is looking at the counter
             const d   = await rtdbGet('presence');
             const raw = d || {};
             updateWidget(d ? countActive(raw) : 1);
             sweepStale(raw, k => rtdbDelete(`presence/${k}`));
         }
         pollCount();
-        setInterval(pollCount, HEARTBEAT);
+        setInterval(pollCount, COUNT_POLL);
 
         window._delivoPresence = {
             linkUser(uid, username) {

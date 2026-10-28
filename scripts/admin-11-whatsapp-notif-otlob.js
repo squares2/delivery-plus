@@ -10,7 +10,14 @@ var _waNotifCache={}, _waNotifWired=false;
             _refreshWaBell();
         }
         _pollWa();
-        setInterval(_pollWa, 8000);
+        // BANDWIDTH FIX: every 8s while visible, once a minute in the background.
+        var _waLastPoll = Date.now();
+        setInterval(function(){
+            var gap = document.hidden ? 60000 : 8000;
+            if (Date.now() - _waLastPoll < gap - 500) return;
+            _waLastPoll = Date.now();
+            _pollWa();
+        }, 8000);
     }
     function _refreshWaBell(){
         var unread=Object.values(_waNotifCache).filter(function(n){return n&&!n.read;}).length;

@@ -901,6 +901,7 @@ function _getFilteredVisitorEntries() {
 // No-ops entirely (no network call at all) unless the panel is actually open.
 let _visitorsLiveTimer = null;
 async function _refreshVisitorsLive() {
+    if (document.hidden) return; // BANDWIDTH FIX: no re-download while the tab is in the background
     if (!document.getElementById('panel-visitors')?.classList.contains('active')) return;
     try {
         const deviceLeads = await fbGet('deviceLeads').catch(() => null);
@@ -911,7 +912,10 @@ async function _refreshVisitorsLive() {
 }
 function _startVisitorsLiveRefresh() {
     if (_visitorsLiveTimer) return;
-    _visitorsLiveTimer = setInterval(_refreshVisitorsLive, 5000);
+    // BANDWIDTH FIX: was every 5s — deviceLeads holds every visitor ever
+    // captured, so it's not small. Online/offline dots still update live
+    // from presence; this only refreshes the leads list itself.
+    _visitorsLiveTimer = setInterval(_refreshVisitorsLive, 20000);
 }
 
 function renderVisitors() {

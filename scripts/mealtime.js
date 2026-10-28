@@ -103,9 +103,9 @@
     /* ── Fetch all stores from Firebase pattern ────────────── */
     async function _fetchTaggedStores(mealKey) {
         try {
-            const r = await fetch(`${RTDB}/pattern.json`);
-            if (!r.ok) return { stores: [], isFallback: true };
-            const pattern = await r.json();
+            let pattern;
+            try { pattern = await window.DelivoPattern.get(); } // shared cached catalog — see img-base.js
+            catch (_) { return { stores: [], isFallback: true }; }
             if (!pattern) return { stores: [], isFallback: true };
 
             // Also fetch storeStatus to filter closed/disabled

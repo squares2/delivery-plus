@@ -276,9 +276,38 @@ async function cpUpdateStoreToggleBtn() {
     label.textContent = isClosed ? 'فتح المتجر' : 'إغلاق المتجر';
 }
 
+// BANDWIDTH FIX: every open store tablet used to download the ENTIRE
+// `requests` node (every store's orders, the full history) every 20s —
+// even with the tab in the background. Now it asks the database for this
+// store's orders only (requests where store == linkedStore), which is
+// exactly the set cpRender() shows anyway. Needs the rule
+//   "requests": { ".indexOn": ["store"] }
+// in the Realtime Database rules; until that index exists the server
+// answers 400 and this falls back to the old full download, so nothing
+// breaks either way.
+let _cpStoreQuerySupported = true;
+async function _cpFetchStoreOrders(store) {
+    if (store && _cpStoreQuerySupported) {
+        const authQS = await _rtdbAuthQuery().catch(() => '');
+        const sep = authQS ? '&' : '?';
+        const url = `${RTDB}/requests.json${authQS}${sep}orderBy=${encodeURIComponent('"store"')}&equalTo=${encodeURIComponent(JSON.stringify(store))}`;
+        const r = await fetch(url);
+        if (r.ok) return (await r.json()) || {};
+        // 400 = index missing, 401/403 = rules don't allow the query —
+        // either way stop trying and keep the old (working) behaviour.
+        if (r.status === 400 || r.status === 401 || r.status === 403) {
+            _cpStoreQuerySupported = false;
+            console.warn(`[Store portal] store-filtered orders query failed (${r.status}) — add "requests": { ".indexOn": ["store"] } to the RTDB rules. Falling back to full download.`);
+        } else {
+            throw new Error(`RTDB ${r.status}: requests (store query)`);
+        }
+    }
+    return fbGet('requests');
+}
+
 async function cpLoadOrders() {
     try {
-        const raw = await fbGet('requests');
+        const raw = await _cpFetchStoreOrders(currentAdmin?.linkedStore || '');
         cpOrdersCache = raw || {};
         const store = currentAdmin?.linkedStore || '';
         if (store) _detectAndAlertNewOrders(cpOrdersCache, store);

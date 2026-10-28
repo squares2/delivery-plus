@@ -302,13 +302,12 @@ async function _loadStoreLoc(storeName) {
     if (_storeLocs[storeName]) return _storeLocs[storeName];
     try {
         // Search all pattern types for this store
-        const r = await fetch(`${RTDB_CART_URL}/pattern.json?shallow=true`);
-        if (!r.ok) return null;
-        const types = Object.keys(await r.json() || {});
-        for (const type of types) {
-            const r2 = await fetch(`${RTDB_CART_URL}/pattern/${type}.json`);
-            if (!r2.ok) continue;
-            const list = await r2.json();
+        // One shared cached catalog instead of a request per category
+        // (see img-base.js DelivoPattern).
+        const all = await window.DelivoPattern.get();
+        if (!all || typeof all !== 'object') return null;
+        for (const type of Object.keys(all)) {
+            const list = all[type];
             if (!list) continue;
             const match = Object.values(list).find(s => s && s.companyname === storeName);
             if (match && match.lat && match.lng) {
@@ -1136,8 +1135,7 @@ function initCart() {
     async function _loadNameArCache() {
         if (Object.keys(_nameArCache).length) return;
         try {
-            const r = await fetch(`${RTDB_CART_URL}/pattern.json`);
-            const data = await r.json();
+            const data = await window.DelivoPattern.get(); // shared cached catalog — see img-base.js
             if (!data || typeof data !== 'object') return;
             for (const entries of Object.values(data)) {
                 if (!entries || typeof entries !== 'object') continue;
