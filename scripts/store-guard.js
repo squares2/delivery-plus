@@ -47,11 +47,46 @@ function _storeRejectToLogin(message) {
 // building the full admin sidebar/dashboard.
 window.startApp = function() {
     if (currentAdmin && STORE_PORTAL_ROLES.includes(currentAdmin.role)) {
-        startCompanyPortal();
+        _storeEnterPortal();
         return;
     }
     _storeRejectToLogin('هذه الصفحة مخصصة لحسابات المتاجر فقط — الرجاء الدخول من لوحة الإدارة');
 };
+
+// FIX — store accounts saw empty items / orders / sales.
+// Every store-portal loader (cpLoadItems, cpLoadOrders, cpLoadSales, the
+// open/close button) is keyed on currentAdmin.linkedStore. Since the move
+// to Firebase Auth, currentAdmin is rebuilt from token claims only (here
+// and in the session-restore code in admin-10), and linkedStore is NOT a
+// claim — it lives in RTDB at adminUsers/{uid}/linkedStore (written by the
+// employee modal in admin-07). So linkedStore was always '' and every tab
+// loaded nothing. This reads it from adminUsers/{uid} before the portal
+// starts, on both fresh login and session restore.
+async function _storeResolveLinkedStore() {
+    if (!currentAdmin?._key) return '';
+    const meta = await fbGet(`adminUsers/${currentAdmin._key}`);
+    if (meta) {
+        if (meta.notifyPhone     !== undefined) currentAdmin.notifyPhone     = meta.notifyPhone;
+        if (meta.notifyNewOrders !== undefined) currentAdmin.notifyNewOrders = meta.notifyNewOrders;
+    }
+    return (meta && meta.linkedStore) || '';
+}
+
+async function _storeEnterPortal() {
+    try {
+        currentAdmin.linkedStore = await _storeResolveLinkedStore();
+    } catch (e) {
+        console.error('[Store portal] could not read adminUsers/' + currentAdmin?._key + ':', e.message);
+        _storeRejectToLogin('تعذّر تحميل بيانات الحساب، تحقق من الاتصال وحاول مجدداً');
+        return;
+    }
+    if (!currentAdmin.linkedStore) {
+        console.warn('[Store portal] adminUsers/' + currentAdmin._key + ' has no linkedStore');
+        _storeRejectToLogin('هذا الحساب غير مرتبط بأي متجر — اطلب من الإدارة تحديد المتجر المرتبط من صفحة الموظفين');
+        return;
+    }
+    startCompanyPortal();
+}
 
 // Full replacement for doLogin — real Firebase Auth sign-in (same pattern as
 // admin.html's own doLogin in admin-04-core-auth-data.js), gated to
@@ -85,7 +120,7 @@ window.doLogin = async function() {
             role:        claims.role,
             permissions: claims.permissions || [],
         };
-        startCompanyPortal();
+        await _storeEnterPortal();
     } catch (e) {
         console.error('[Store login] failed:', e.code, e.message);
         errEl.textContent = e.code === 'auth/network-request-failed'
