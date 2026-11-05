@@ -19,6 +19,16 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="styles/admin.css?v=1">
     <script src="scripts/img-base.js?v=4"></script>
+<style>
+/* Store portal — show/hide item for customers */
+.cpi-card__vis { display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;
+    font-size:0.66rem;font-weight:700;color:#22c55e;user-select:none; }
+.cpi-card__vis input { width:15px;height:15px;margin:0;accent-color:#22c55e;cursor:pointer; }
+.cpi-card--hidden .cpi-card__vis { color:var(--gray); }
+.cpi-card--hidden .cpi-card__thumb { opacity:0.35;filter:grayscale(1); }
+.cpi-card--hidden .cpi-card__name,
+.cpi-card--hidden .cpi-card__price { opacity:0.5; }
+</style>
 </head>
 <body>
 
@@ -1300,7 +1310,7 @@
 <script src="scripts/admin-07-stores-employees-herobg.js?v=6"></script>
 <script src="scripts/admin-08-settings-sales-worldcup.js?v=2"></script>
 <script src="scripts/admin-09-backup-accounts-rewards.js?v=1"></script>
-<script src="scripts/admin-10-company-portal-requests.js?v=11"></script>
+<script src="scripts/admin-10-company-portal-requests.js?v=13"></script>
 </body>
 </html>
     <!-- WA Notification Panel - fires when new orders arrive without redirecting customer -->
