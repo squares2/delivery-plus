@@ -215,7 +215,9 @@ async function startCompanyPortal() {
 
     // Reset items state for fresh session
     _cpiAllItems  = {};
+    _cpiHiddenIds = new Set();
     _cpiFilter    = null;
+    _cpiSubFilter = null;
     _cpiSearchQ   = '';
     _cpiStoreType = '';
     cpSwitchTab('orders'); // always start on orders tab
@@ -750,8 +752,26 @@ document.getElementById('standby-cancel-btn')?.addEventListener('click', () => {
 
 let _cpiAllItems    = {};   // itemId → item object
 let _cpiFilter      = null; // active catmain filter
+let _cpiSubFilter   = null; // active sub-category (cat) filter within the main
 let _cpiSearchQ     = '';
 let _cpiStoreType   = '';
+
+/* ── Show/hide items for customers ───────────────────────────
+   Hidden items are MOVED from items/{store} into the sibling node
+   items/{store}__hidden, and moved back when shown again. Customer
+   pages (index.html, store-panel/quick-menu/search) only ever read
+   items/{store}, so hiding takes effect for customers instantly —
+   website and Play Store app alike — with zero customer-code changes.
+   Living under /items also keeps every global ID-uniqueness scan
+   (which iterates all of /items) aware of hidden items' IDs.        */
+const CPI_HIDDEN_SUFFIX = '__hidden';
+let _cpiHiddenIds = new Set();   // itemIds currently in the __hidden node
+function _cpiNodeFor(itemId) {
+    const store = currentAdmin?.linkedStore || '';
+    return _cpiHiddenIds.has(String(itemId))
+        ? `items/${store}${CPI_HIDDEN_SUFFIX}`
+        : `items/${store}`;
+}
 
 /* ── Tab switching ─────────────────────────────────────────── */
 function cpSwitchTab(tab) {
@@ -769,6 +789,7 @@ async function cpLoadItems() {
     const storeName = currentAdmin?.linkedStore || '';
     if (!storeName) return;
     _cpiFilter = null;
+    _cpiSubFilter = null;
     _cpiSearchQ = '';
     document.getElementById('cpi-search').value = '';
     document.getElementById('cpi-grid').innerHTML = _cpiSkeleton(8);
@@ -784,8 +805,14 @@ async function cpLoadItems() {
                 }
             }
         }
-        const raw = await fbGet(`items/${storeName}`);
-        _cpiAllItems = raw || {};
+        const [raw, rawHidden] = await Promise.all([
+            fbGet(`items/${storeName}`),
+            fbGet(`items/${storeName}${CPI_HIDDEN_SUFFIX}`).catch(() => null),
+        ]);
+        _cpiHiddenIds = new Set(Object.keys(rawHidden || {}));
+        _cpiAllItems  = { ...(rawHidden || {}), ...(raw || {}) };
+        // If an id somehow exists in both nodes, the visible copy wins.
+        Object.keys(raw || {}).forEach(k => _cpiHiddenIds.delete(k));
     } catch(e) {
         document.getElementById('cpi-grid').innerHTML =
             `<div class="cpi-empty"><div class="cpi-empty__icon">⚠️</div><div class="cpi-empty__title">خطأ في التحميل</div><div class="cpi-empty__sub">${e.message}</div></div>`;
@@ -802,7 +829,8 @@ function cpiRender() {
 
     // Category filter bar
     const mains = [...new Set(items.map(i => i.catmain || 'عام'))].sort();
-    bar.innerHTML = [null, ...mains].map(m => {
+    const _pillEsc = v => String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const mainPills = [null, ...mains].map(m => {
         const isActive = _cpiFilter === m;
         const label    = m === null ? `الكل (${items.length})` : m;
         return `<button onclick="cpiSetFilter(${m===null?'null':`'${m.replace(/'/g,"\\'")}' `})"
@@ -812,8 +840,34 @@ function cpiRender() {
                    color:${isActive?'#fff':'var(--gray-light)'};">${label}</button>`;
     }).join('');
 
+    // Sub-categories (item.cat) — shown for the selected main category,
+    // or for the only main category when the store has just one.
+    const subMain = _cpiFilter ?? (mains.length === 1 ? mains[0] : null);
+    const subs = subMain === null ? [] : [...new Set(
+        items.filter(i => (i.catmain || 'عام') === subMain)
+             .map(i => (i.cat || i.catmain || 'عام').trim())
+    )].sort();
+    if (_cpiSubFilter !== null && !subs.includes(_cpiSubFilter)) _cpiSubFilter = null;
+    const subPills = subs.length < 2 ? '' :
+        `<span style="flex-shrink:0;width:1px;align-self:stretch;margin:2px 4px;background:var(--border);"></span>` +
+        [null, ...subs].map(sb => {
+            const isActive = _cpiSubFilter === sb;
+            const label    = sb === null ? 'كل الأقسام' : sb;
+            return `<button onclick="cpiSetSubFilter(${sb===null?'null':`'${_pillEsc(sb)}'`})"
+                style="flex-shrink:0;padding:4px 12px;border-radius:20px;cursor:pointer;
+                       font-size:0.7rem;font-weight:700;font-family:var(--font);
+                       border:1px solid ${isActive?'var(--orange)':'var(--border)'};
+                       background:${isActive?'rgba(255,92,0,0.15)':'transparent'};
+                       color:${isActive?'var(--orange)':'var(--gray-light)'};">${label}</button>`;
+        }).join('');
+    bar.innerHTML = mainPills + subPills;
+
     // Filter + search
     let filtered = _cpiFilter ? items.filter(i => (i.catmain||'عام') === _cpiFilter) : items;
+    if (_cpiSubFilter !== null) {
+        filtered = filtered.filter(i => (i.catmain || 'عام') === subMain
+                                     && (i.cat || i.catmain || 'عام').trim() === _cpiSubFilter);
+    }
     if (_cpiSearchQ) {
         const q = _cpiSearchQ.toLowerCase();
         filtered = filtered.filter(i =>
@@ -845,8 +899,9 @@ function cpiRender() {
             || delivoImg(`items2/${String(id).toLowerCase()}.webp${item.imgUpdatedAt ? '?v=' + item.imgUpdatedAt : ''}`);
         const emoji   = _catTypeEmoji(_cpiStoreType);
         const safeItem = JSON.stringify(item).replace(/"/g,'&quot;');
+        const isHidden = _cpiHiddenIds.has(String(id));
         return `
-        <div class="cpi-card">
+        <div class="cpi-card${isHidden ? ' cpi-card--hidden' : ''}">
             <div class="cpi-card__thumb">
                 ${hasPng
                     ? `<img src="${imgSrc}" alt="${item.name||''}"
@@ -865,6 +920,11 @@ function cpiRender() {
                     ${hasSale?`<span class="cpi-card__price-orig">${_catFmtPrice(price)}</span>`:''}
                 </div>
                 <div class="cpi-card__id">ID: ${id}</div>
+                <label class="cpi-card__vis" title="إظهار / إخفاء هذا المنتج للزبائن">
+                    <input type="checkbox" ${isHidden ? '' : 'checked'}
+                           onchange="cpiToggleVisible('${String(id).replace(/'/g,"\\'")}', this)">
+                    <span>${isHidden ? 'مخفي عن الزبائن' : 'ظاهر للزبائن'}</span>
+                </label>
             </div>
             <div class="cpi-card__actions">
                 <button class="cpi-card__btn cpi-card__btn--edit" onclick="cpOpenItemModal(${safeItem})">✏️ تعديل</button>
@@ -874,7 +934,8 @@ function cpiRender() {
     }).join('');
 }
 
-function cpiSetFilter(main) { _cpiFilter = main; cpiRender(); }
+function cpiSetFilter(main) { _cpiFilter = main; _cpiSubFilter = null; cpiRender(); }
+function cpiSetSubFilter(sub) { _cpiSubFilter = sub; cpiRender(); }
 function cpiSearch(q)       { _cpiSearchQ = q.trim(); cpiRender(); }
 
 /* ── Auto-generate a globally-unique numeric item ID ─────────────
@@ -1181,7 +1242,7 @@ async function cpiSaveItem(isNew) {
     };
 
     try {
-        await fbSet(`items/${storeName}/${itemId}`, payload);
+        await fbSet(`${_cpiNodeFor(itemId)}/${itemId}`, payload);
         _cpiAllItems[itemId] = payload;
 
         // Upload staged image (if the user selected one) to items2/{id}.webp
@@ -1194,7 +1255,7 @@ async function cpiSaveItem(isNew) {
                 // stale browser cache keep showing the old file for that path.
                 if (_cpiPendingImageDataUrl) _cpiLocalImagePreview[itemId] = _cpiPendingImageDataUrl;
                 _cpiAllItems[itemId].imgUpdatedAt = Date.now();
-                await fbUpdate(`items/${storeName}/${itemId}`, { imgUpdatedAt: _cpiAllItems[itemId].imgUpdatedAt });
+                await fbUpdate(`${_cpiNodeFor(itemId)}/${itemId}`, { imgUpdatedAt: _cpiAllItems[itemId].imgUpdatedAt });
             } catch (imgErr) {
                 showNotif('تم حفظ المنتج، لكن فشل رفع الصورة', imgErr.message, 'error');
             }
@@ -1212,6 +1273,42 @@ async function cpiSaveItem(isNew) {
     }
 }
 
+/* ── Show / hide item for customers (moves between nodes) ──── */
+async function cpiToggleVisible(itemId, checkbox) {
+    const storeName = currentAdmin?.linkedStore || '';
+    const item = _cpiAllItems[itemId];
+    if (!storeName || !item) return;
+    const show    = checkbox.checked;
+    const visPath = `items/${storeName}/${itemId}`;
+    const hidPath = `items/${storeName}${CPI_HIDDEN_SUFFIX}/${itemId}`;
+    checkbox.disabled = true;
+    try {
+        // One multi-location write: the item is never in both or neither.
+        await fbUpdate('', show
+            ? { [visPath]: item, [hidPath]: null }
+            : { [hidPath]: item, [visPath]: null });
+        if (show) _cpiHiddenIds.delete(String(itemId));
+        else      _cpiHiddenIds.add(String(itemId));
+        showNotif(show ? '👁️ ظاهر للزبائن' : '🚫 مخفي عن الزبائن', item.name || itemId, 'success');
+    } catch (e) {
+        checkbox.checked = !show;
+        showNotif('خطأ', e.message, 'error');
+    }
+    cpiRender();
+}
+
+/* Bulk updates keyed "{itemId}/{field}" — send visible items' keys to
+   items/{store} and hidden items' keys to items/{store}__hidden. */
+async function _cpiUpdateSplit(storeName, updates) {
+    const vis = {}, hid = {};
+    for (const [k, v] of Object.entries(updates)) {
+        const id = k.split('/')[0];
+        (_cpiHiddenIds.has(id) ? hid : vis)[k] = v;
+    }
+    if (Object.keys(vis).length) await fbUpdate(`items/${storeName}`, vis);
+    if (Object.keys(hid).length) await fbUpdate(`items/${storeName}${CPI_HIDDEN_SUFFIX}`, hid);
+}
+
 /* ── Delete item ───────────────────────────────────────────── */
 async function cpiDeleteItem(itemId) {
     const storeName = currentAdmin?.linkedStore || '';
@@ -1224,8 +1321,9 @@ async function cpiDeleteItem(itemId) {
     });
     if (!confirmed) return;
     try {
-        await fbSet(`items/${storeName}/${itemId}`, null);
+        await fbSet(`${_cpiNodeFor(itemId)}/${itemId}`, null);
         delete _cpiAllItems[itemId];
+        _cpiHiddenIds.delete(String(itemId));
         showNotif('تم الحذف', name, 'success');
         cpiRender();
     } catch(e) { showNotif('خطأ', e.message, 'error'); }
@@ -1323,7 +1421,7 @@ async function cpiApplyExtraPrice() {
             item.extraPrice = amount;
             item.price      = newPrice;
         }
-        await fbUpdate(`items/${storeName}`, updates);
+        await _cpiUpdateSplit(storeName, updates);
         showNotif('✅ تم التطبيق', `تمت إضافة ${amount} إلى ${items.length} منتج`, 'success');
         document.getElementById('cpi-extra-modal')?.remove();
         cpiRender();
@@ -1367,7 +1465,7 @@ async function cpiResetDefaultPrices() {
             delete item.basePrice;
             delete item.extraPrice;
         }
-        await fbUpdate(`items/${storeName}`, updates);
+        await _cpiUpdateSplit(storeName, updates);
         showNotif('↺ تمت الاستعادة', `تمت استعادة السعر الأصلي لـ ${items.length} منتج`, 'success');
         cpiRender();
     } catch(e) {
