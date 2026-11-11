@@ -1130,6 +1130,12 @@
                         <button class="chart-range-pill" data-pa-gran="month">🈷️ شهر</button>
                         <button class="chart-range-pill" id="pa-showall-btn" title="عرض كل الفترات منذ أول طلب مُسلَّم، بدل آخر نافذة ثابتة">📜 الكل</button>
                     </div>
+                    <div style="display:flex;align-items:center;gap:6px;" title="عرض نفس الإحصاءات لطلبات متجر واحد فقط">
+                        <span style="font-size:0.68rem;color:var(--gray);font-weight:700;">🏪 المتجر:</span>
+                        <select id="pa-store-filter" style="max-width:200px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font);font-size:0.8rem;padding:5px 8px;cursor:pointer;">
+                            <option value="">كل المتاجر</option>
+                        </select>
+                    </div>
                     <div style="display:flex;align-items:center;gap:6px;" title="يُستخدم في حساب الربح الشهري المتوقع لكل عمود — تُحفظ لكل الأجهزة">
                         <span style="font-size:0.68rem;color:var(--gray);font-weight:700;">💸 المصاريف الشهرية المتوقعة:</span>
                         <input type="number" id="pa-expected-expenses" placeholder="0" step="1" style="width:90px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font);font-size:0.8rem;padding:5px 8px;">
@@ -1710,7 +1716,7 @@
 <script src="scripts/admin-10-company-portal-requests.js?v=19"></script>
 <script src="scripts/admin-12-expenses.js?v=6"></script>
 <script src="scripts/admin-13-cashbox.js?v=10"></script>
-<script src="scripts/admin-14-profit-analytics.js?v=7"></script>
+<script src="scripts/admin-14-profit-analytics.js?v=8"></script>
 <script src="scripts/admin-15-bulk-import.js?v=4"></script>
 </body>
 </html>
