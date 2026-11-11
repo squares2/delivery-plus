@@ -45,6 +45,57 @@ const PA_MONTH_MULTIPLIER = { day: 30, week: 4, month: 1 };
 
 let paExpectedMonthlyExpenses = 0; // loaded from settings/expectedMonthlyExpenses below
 
+// ── Store filter ("🏪 المتجر") ───────────────────────────────────
+// '' = all stores. Otherwise only delivered orders whose o.store equals
+// this name feed the candles, the summary, the "📜 الكل" range, and the
+// click-through modals — same stats, scoped to one store. Remembered
+// per-browser like the granularity pills.
+let paStoreFilter = localStorage.getItem('delivo_admin_pa_store') || '';
+
+function _paMatchesStore(o) {
+    return !paStoreFilter || (o.store || '') === paStoreFilter;
+}
+
+// Rebuilds the dropdown on every render: stores are the union of the
+// stores list and every store name seen on a delivered order (so
+// deleted/renamed stores with past orders still appear), each with its
+// all-time delivered-order count. Keeps the current selection even if
+// that store has since disappeared from both sources.
+function _paFillStoreSelect() {
+    const sel = document.getElementById('pa-store-filter');
+    if (!sel) return;
+    const counts = {};
+    Object.keys(allStores || {}).forEach(name => { if (name) counts[name] = 0; });
+    Object.values(allOrders || {}).forEach(o => {
+        if ((o.state || '0') !== '1' || !o.store) return;
+        counts[o.store] = (counts[o.store] || 0) + 1;
+    });
+    if (paStoreFilter && !(paStoreFilter in counts)) counts[paStoreFilter] = 0;
+
+    const names = Object.keys(counts).sort((a, b) => (counts[b] - counts[a]) || a.localeCompare(b, 'ar'));
+    sel.innerHTML = '';
+    const all = document.createElement('option');
+    all.value = '';
+    all.textContent = 'كل المتاجر';
+    sel.appendChild(all);
+    names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = `${name} (${counts[name]})`;
+        sel.appendChild(opt);
+    });
+    sel.value = paStoreFilter;
+    // Highlight the control while a store is selected, so a filtered view
+    // isn't mistaken for the whole-business totals.
+    sel.style.borderColor = paStoreFilter ? 'var(--orange)' : 'var(--border)';
+}
+
+document.getElementById('pa-store-filter')?.addEventListener('change', e => {
+    paStoreFilter = e.target.value || '';
+    localStorage.setItem('delivo_admin_pa_store', paStoreFilter);
+    renderProfitAnalytics();
+});
+
 fbGet('settings/expectedMonthlyExpenses').then(val => {
     const n = parseFloat(val);
     paExpectedMonthlyExpenses = (n && n > 0) ? n : 0;
@@ -172,6 +223,7 @@ function _paAllTimeCandleCount(gran) {
     let earliest = null;
     Object.values(allOrders).forEach(o => {
         if ((o.state || '0') !== '1') return; // only delivered orders
+        if (!_paMatchesStore(o)) return;
         const od = _parseOrderDate(o);
         if (!od) return;
         if (!earliest || od < earliest) earliest = od;
@@ -200,6 +252,7 @@ function _paBuildCandles() {
 
     Object.entries(allOrders).forEach(([key, o]) => {
         if ((o.state || '0') !== '1') return; // only delivered orders
+        if (!_paMatchesStore(o)) return;
         const od = _parseOrderDate(o);
         if (!od) return;
         const cKey = _paCandleKey(_paCandleStart(od, paGranularity), paGranularity);
@@ -302,6 +355,7 @@ function _paRenderChart(bodyId, candles, opts) {
 }
 
 function renderProfitAnalytics() {
+    _paFillStoreSelect();
     const candles = _paBuildCandles();
     _paCandleOrders = {};
     candles.forEach(c => { _paCandleOrders[c.key] = c; });
@@ -322,9 +376,10 @@ function renderProfitAnalytics() {
             <span>🎯 متوسط الربح لكل طلب: <b>$${avgPerOrder.toFixed(2)}</b></span>`;
     }
 
-    const rangeLabel = paShowAll
+    const rangeLabel = (paShowAll
         ? 'منذ بداية السجل'
-        : { day: 'آخر 30 يوم', week: 'آخر 12 أسبوع', month: 'آخر 12 شهر' }[paGranularity];
+        : { day: 'آخر 30 يوم', week: 'آخر 12 أسبوع', month: 'آخر 12 شهر' }[paGranularity])
+        + (paStoreFilter ? ` — 🏪 ${String(paStoreFilter).replace(/</g, '&lt;')}` : '');
     const countTotEl = document.getElementById('pa-count-total');
     if (countTotEl) countTotEl.innerHTML = `${rangeLabel} — <b>${totalCount}</b> طلب`;
     const profitTotEl = document.getElementById('pa-profit-total');
